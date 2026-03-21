@@ -1,0 +1,6 @@
+.env
+*.log
+*.key
+*.pem
+*.bak.*
+node_modules/

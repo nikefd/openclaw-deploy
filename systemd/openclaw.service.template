@@ -1,0 +1,17 @@
+[Unit]
+Description=OpenClaw AI Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node %h/.npm-global/lib/node_modules/openclaw/dist/index.js gateway --port ${OPENCLAW_PORT}
+Environment=OPENCLAW_GATEWAY_PORT=${OPENCLAW_PORT}
+WorkingDirectory=%h/.openclaw/workspace
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
