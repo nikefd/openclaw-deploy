@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClaw Chat</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root,[data-theme="dark"]{
+  --bg:#343541;--sidebar-bg:#202123;--hover:#2a2b32;--input-bg:#40414f;
+  --text:#ececf1;--text-sec:#8e8ea0;--user-bg:#343541;--asst-bg:#444654;
+  --accent:#10a37f;--border:#4e4f60;--danger:#ef4444;--code-bg:#1e1e1e;
+}
+[data-theme="light"]{
+  --bg:#fff;--sidebar-bg:#f7f7f8;--hover:#ececf1;--input-bg:#f4f4f4;
+  --text:#1a1a1a;--text-sec:#6b6c7b;--user-bg:#fff;--asst-bg:#f7f7f8;
+  --accent:#10a37f;--border:#e5e5e5;--danger:#ef4444;--code-bg:#f5f5f5;
+}
+body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;overflow:hidden;transition:background .3s,color .3s}
+
+.sidebar{width:260px;background:var(--sidebar-bg);display:flex;flex-direction:column;flex-shrink:0;transition:margin-left .3s,background .3s}
+.sidebar.hidden{margin-left:-260px}
+.sidebar-header{padding:12px;border-bottom:1px solid var(--border)}
+.new-chat-btn{width:100%;padding:10px 14px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .2s}
+.new-chat-btn:hover{background:var(--hover)}
+.agent-section{padding:8px 12px;border-bottom:1px solid var(--border)}
+.agent-section label{font-size:11px;color:var(--text-sec);font-weight:600;display:block;margin-bottom:6px}
+.agent-grid{display:flex;flex-direction:column;gap:3px}
+.agent-chip{padding:7px 10px;border-radius:6px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;transition:background .15s;border:1px solid transparent}
+.agent-chip:hover{background:var(--hover)}
+.agent-chip.active{background:var(--hover);border-color:var(--accent)}
+.agent-chip .emoji{font-size:15px;width:22px;text-align:center}
+.sidebar-footer{padding:8px 12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:3px}
+.sidebar-footer-btn{padding:7px 10px;border-radius:6px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;background:none;border:none;color:var(--text);width:100%;text-align:left;transition:background .15s}
+.sidebar-footer-btn:hover{background:var(--hover)}
+.chat-list{flex:1;overflow-y:auto;padding:8px}
+.chat-list::-webkit-scrollbar{width:4px}
+.chat-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.chat-item{padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;margin-bottom:2px;transition:background .15s}
+.chat-item:hover{background:var(--hover)}
+.chat-item.active{background:var(--hover)}
+.chat-item .agent-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.chat-item .info{flex:1;overflow:hidden;min-width:0}
+.chat-item .title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.chat-item .meta{font-size:10px;color:var(--text-sec);margin-top:1px}
+.chat-item .delete{opacity:0;background:none;border:none;color:var(--text-sec);cursor:pointer;font-size:14px;padding:0 4px;flex-shrink:0}
+.chat-item:hover .delete{opacity:1}
+.chat-item .delete:hover{color:var(--danger)}
+
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{background:var(--sidebar-bg);padding:8px 16px;display:flex;align-items:center;border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;transition:background .3s}
+.toggle-btn{background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px}
+.topbar-title{font-size:15px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topbar .agent-badge{font-size:12px;color:var(--accent);background:rgba(16,163,127,.15);padding:3px 8px;border-radius:6px}
+.topbar .dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Tabs */
+.tab-bar{display:flex;background:var(--sidebar-bg);border-bottom:1px solid var(--border);flex-shrink:0;transition:background .3s}
+.tab{padding:8px 20px;font-size:13px;cursor:pointer;color:var(--text-sec);border-bottom:2px solid transparent;transition:all .2s;display:flex;align-items:center;gap:6px}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* Panel container */
+.panels{flex:1;overflow:hidden;position:relative}
+.panel{position:absolute;inset:0;display:none;flex-direction:column}
+.panel.active{display:flex}
+
+/* Chat panel */
+.messages{flex:1;overflow-y:auto;scroll-behavior:smooth}
+.message{padding:20px 0;border-bottom:1px solid rgba(128,128,128,.1);transition:background .3s}
+.message:last-child{border-bottom:none}
+.message.user{background:var(--user-bg)}.message.assistant{background:var(--asst-bg)}
+.msg-inner{max-width:768px;margin:0 auto;padding:0 24px;display:flex;gap:14px;align-items:flex-start}
+.avatar{width:32px;height:32px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600}
+.user .avatar{background:#5436DA}.assistant .avatar{background:var(--accent)}
+.msg-text{flex:1;line-height:1.7;font-size:15px;word-break:break-word;white-space:pre-wrap}
+.msg-actions{margin-top:6px;display:flex;gap:6px}
+.tts-btn{background:none;border:1px solid var(--border);color:var(--text-sec);padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .2s}
+.tts-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tts-btn.speaking{border-color:var(--danger);color:var(--danger)}
+.typing-dots span{display:inline-block;width:7px;height:7px;background:var(--text-sec);border-radius:50%;margin-right:4px;animation:bounce 1.4s infinite ease-in-out}
+.typing-dots span:nth-child(1){animation-delay:0s}.typing-dots span:nth-child(2){animation-delay:.2s}.typing-dots span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;padding:40px}
+.welcome .logo{font-size:48px}.welcome h2{font-size:24px;font-weight:600}
+.welcome p{color:var(--text-sec);font-size:14px;text-align:center}
+.welcome .agents-hint{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;justify-content:center}
+.welcome .agents-hint span{background:var(--input-bg);padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer;transition:background .2s}
+.welcome .agents-hint span:hover{background:var(--hover)}
+
+.input-area{padding:12px 24px 16px;background:var(--bg);flex-shrink:0;transition:background .3s}
+.input-wrap{max-width:768px;margin:0 auto;position:relative}
+textarea{width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:12px;padding:12px 90px 12px 16px;color:var(--text);font-size:15px;font-family:inherit;line-height:1.5;resize:none;outline:none;max-height:200px;overflow-y:auto;transition:background .3s,border-color .3s}
+textarea:focus{border-color:var(--accent)}
+textarea::placeholder{color:var(--text-sec)}
+.input-btns{position:absolute;right:8px;bottom:8px;display:flex;gap:4px}
+.input-btns button{width:32px;height:32px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;border:none;font-size:15px}
+.send-btn{background:var(--accent)}
+.send-btn:disabled{opacity:.3;cursor:not-allowed}
+.send-btn svg{fill:#fff;width:16px;height:16px}
+.voice-btn{background:none;border:1px solid var(--border)!important;color:var(--text-sec)}
+.voice-btn:hover{border-color:var(--accent)!important;color:var(--accent)}
+.voice-btn.recording{border-color:var(--danger)!important;color:var(--danger);animation:pulse 1s infinite}
+.footer-text{text-align:center;font-size:11px;color:var(--text-sec);margin-top:5px}
+
+/* Terminal panel */
+.terminal-frame{width:100%;height:100%;border:none;background:#1e1e1e}
+
+/* Files panel */
+.files-panel{display:flex;height:100%}
+.file-tree{width:280px;background:var(--sidebar-bg);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;transition:background .3s}
+.file-tree::-webkit-scrollbar{width:4px}
+.file-tree::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.file-breadcrumb{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-sec);display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.file-breadcrumb span{cursor:pointer;color:var(--accent)}
+.file-breadcrumb span:hover{text-decoration:underline}
+.file-entry{padding:6px 12px 6px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;transition:background .15s}
+.file-entry:hover{background:var(--hover)}
+.file-entry.active{background:var(--hover)}
+.file-entry .icon{width:18px;text-align:center;font-size:14px;flex-shrink:0}
+.file-viewer{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.file-viewer-header{padding:10px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-sec);background:var(--sidebar-bg);display:flex;align-items:center;gap:8px;transition:background .3s}
+.file-viewer-content{flex:1;overflow:auto;padding:16px;font-family:'Fira Code','Cascadia Code','Consolas',monospace;font-size:13px;line-height:1.6;white-space:pre-wrap;background:var(--code-bg);color:var(--text);transition:background .3s}
+.file-viewer-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-sec);font-size:14px}
+
+.messages::-webkit-scrollbar{width:6px}
+.messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.streaming-badge{display:none;font-size:11px;color:var(--accent);padding:2px 8px;border:1px solid var(--accent);border-radius:12px;animation:pulse 1.5s infinite}
+.streaming-badge.show{display:inline-block}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+.overlay.show{display:block}
+@media(max-width:768px){
+  .sidebar{position:fixed;z-index:100;height:100%}
+  .sidebar.hidden{margin-left:-260px}
+  .file-tree{width:100%}
+  .files-panel{flex-direction:column}
+  .file-tree{width:100%;height:50%;border-right:none;border-bottom:1px solid var(--border)}
+}
+</style>
+</head>
+<body>
+<div class="overlay" id="overlay"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header"><button class="new-chat-btn" id="newChatBtn"><span>＋</span><span>新建对话</span></button></div>
+  <div class="agent-section"><label>Agent</label><div class="agent-grid" id="agentGrid"></div></div>
+  <div class="chat-list" id="chatList"></div>
+  <div class="sidebar-footer">
+    <button class="sidebar-footer-btn" id="themeBtn">🌙 深色模式</button>
+    <button class="sidebar-footer-btn" id="clearAllBtn">🗑 清空对话</button>
+  </div>
+</aside>
+<div class="main">
+  <div class="topbar">
+    <button class="toggle-btn" id="toggleBtn">☰</button>
+    <div class="dot"></div>
+    <div class="topbar-title" id="topTitle">OpenClaw</div>
+    <span class="agent-badge" id="agentBadge"></span>
+    <span class="streaming-badge" id="streamBadge">生成中...</span>
+  </div>
+  <div class="tab-bar">
+    <div class="tab active" data-tab="chat">💬 对话</div>
+    <div class="tab" data-tab="terminal">🖥 终端</div>
+    <div class="tab" data-tab="files">📁 文件</div>
+  </div>
+  <div class="panels">
+    <!-- Chat Panel -->
+    <div class="panel active" id="panel-chat">
+      <div class="messages" id="messages"></div>
+      <div class="input-area">
+        <div class="input-wrap">
+          <textarea id="input" rows="1" placeholder="发送消息..." autofocus></textarea>
+          <div class="input-btns">
+            <button class="send-btn" id="sendBtn" disabled><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+            <button class="voice-btn" id="voiceBtn" title="语音输入">🎤</button>
+          </div>
+        </div>
+        <div class="footer-text">Powered by OpenClaw</div>
+      </div>
+    </div>
+    <!-- Terminal Panel -->
+    <div class="panel" id="panel-terminal">
+      <iframe class="terminal-frame" id="terminalFrame"></iframe>
+    </div>
+    <!-- Files Panel -->
+    <div class="panel" id="panel-files">
+      <div class="files-panel">
+        <div class="file-tree" id="fileTree">
+          <div class="file-breadcrumb" id="fileBreadcrumb"></div>
+          <div id="fileEntries"></div>
+        </div>
+        <div class="file-viewer">
+          <div class="file-viewer-header" id="fileViewerHeader">选择一个文件查看</div>
+          <div class="file-viewer-empty" id="fileViewerEmpty">← 从左侧选择文件</div>
+          <div class="file-viewer-content" id="fileViewerContent" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API='/v1/chat/completions';
+const TOKEN=localStorage.getItem('oc_token')||prompt('请输入 Gateway Token\n运行: openclaw config get gateway.auth.token');
+if(TOKEN)localStorage.setItem('oc_token',TOKEN);
+const STORAGE_KEY='oc_chats_v2',AGENT_KEY='oc_selected_agent',THEME_KEY='oc_theme';
+const AGENTS=[
+  {id:'main',name:'通用助手',emoji:'🦞',color:'#10a37f',desc:'默认全能助手，可操作文件、终端、搜索'},
+  {id:'code',name:'代码助手',emoji:'💻',color:'#6366f1',desc:'专注编程、调试、代码审查'},
+  {id:'writer',name:'写作助手',emoji:'✍️',color:'#f59e0b',desc:'文案、邮件、文章撰写'},
+  {id:'search',name:'搜索助手',emoji:'🔍',color:'#06b6d4',desc:'网络搜索、信息汇总'},
+];
+
+let chats=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'),currentId=null;
+let selectedAgent=localStorage.getItem(AGENT_KEY)||'main',streamingChats=new Set();
+let currentTheme=localStorage.getItem(THEME_KEY)||'dark';
+
+const $=id=>document.getElementById(id);
+const sidebar=$('sidebar'),overlay=$('overlay'),chatList=$('chatList'),agentGrid=$('agentGrid');
+const messagesEl=$('messages'),input=$('input'),sendBtn=$('sendBtn'),topTitle=$('topTitle');
+const agentBadge=$('agentBadge'),streamBadge=$('streamBadge'),themeBtn=$('themeBtn'),voiceBtn=$('voiceBtn');
+
+// === THEME ===
+function applyTheme(t){currentTheme=t;document.documentElement.setAttribute('data-theme',t);localStorage.setItem(THEME_KEY,t);themeBtn.textContent=t==='dark'?'☀️ 浅色模式':'🌙 深色模式';}
+applyTheme(currentTheme);
+themeBtn.addEventListener('click',()=>applyTheme(currentTheme==='dark'?'light':'dark'));
+
+// === TABS ===
+let terminalLoaded=false;
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    $('panel-'+tab.dataset.tab).classList.add('active');
+    if(tab.dataset.tab==='terminal'&&!terminalLoaded){
+      $('terminalFrame').src='/terminal/';
+      terminalLoaded=true;
+    }
+    if(tab.dataset.tab==='files'&&!filesLoaded) loadFiles();
+  });
+});
+
+// === VOICE ===
+let recognition=null,isRecording=false;
+if('webkitSpeechRecognition' in window||'SpeechRecognition' in window){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR();recognition.lang='zh-CN';recognition.continuous=false;recognition.interimResults=true;
+  recognition.onresult=e=>{let t='';for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;input.value=t;input.dispatchEvent(new Event('input'));};
+  recognition.onend=()=>{isRecording=false;voiceBtn.classList.remove('recording');voiceBtn.textContent='🎤';};
+  recognition.onerror=recognition.onend;
+}
+voiceBtn.addEventListener('click',()=>{
+  if(!recognition){alert('浏览器不支持语音，请用Chrome');return;}
+  if(isRecording)recognition.stop();
+  else{isRecording=true;voiceBtn.classList.add('recording');voiceBtn.textContent='⏹';recognition.start();}
+});
+
+// === TTS ===
+let curUtter=null;
+function speakText(text,btn){
+  if(curUtter){speechSynthesis.cancel();if(btn.classList.contains('speaking')){btn.classList.remove('speaking');btn.textContent='🔊 朗读';curUtter=null;return;}}
+  const u=new SpeechSynthesisUtterance(text);u.lang='zh-CN';curUtter=u;
+  btn.classList.add('speaking');btn.textContent='⏹ 停止';
+  u.onend=u.onerror=()=>{btn.classList.remove('speaking');btn.textContent='🔊 朗读';curUtter=null;};
+  speechSynthesis.speak(u);
+}
+window.speakText=speakText;
+
+// === FILES ===
+let filesLoaded=false,currentDir='';
+async function loadFiles(dir){
+  filesLoaded=true;
+  const url=dir?`/api/files/list?path=${encodeURIComponent(dir)}`:'/api/files/list';
+  try{
+    const r=await fetch(url);const d=await r.json();
+    currentDir=d.path;
+    // Breadcrumb
+    const parts=d.path.split('/').filter(Boolean);
+    let bc='';let accum='';
+    parts.forEach((p,i)=>{accum+='/'+p;bc+=`<span onclick="loadFiles('${accum}')">${p}</span><span style="color:var(--text-sec)">/</span>`;});
+    $('fileBreadcrumb').innerHTML=bc;
+    // Entries
+    let html='';
+    if(d.parent&&d.parent!==d.path){
+      html+=`<div class="file-entry" onclick="loadFiles('${d.parent}')"><span class="icon">📁</span><span>..</span></div>`;
+    }
+    d.entries.forEach(e=>{
+      if(e.type==='dir')html+=`<div class="file-entry" onclick="loadFiles('${e.path}')"><span class="icon">📁</span><span>${e.name}</span></div>`;
+      else html+=`<div class="file-entry" onclick="viewFile('${e.path}')"><span class="icon">📄</span><span>${e.name}</span></div>`;
+    });
+    $('fileEntries').innerHTML=html||'<div style="padding:16px;color:var(--text-sec);font-size:13px">空目录</div>';
+  }catch(e){$('fileEntries').innerHTML=`<div style="padding:16px;color:var(--danger)">加载失败: ${e.message}</div>`;}
+}
+window.loadFiles=loadFiles;
+
+async function viewFile(fp){
+  $('fileViewerHeader').textContent=fp.split('/').pop();
+  $('fileViewerEmpty').style.display='none';
+  $('fileViewerContent').style.display='block';
+  $('fileViewerContent').textContent='加载中...';
+  try{
+    const r=await fetch(`/api/files/read?path=${encodeURIComponent(fp)}`);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    $('fileViewerContent').textContent=d.content;
+  }catch(e){$('fileViewerContent').textContent='❌ '+e.message;}
+  // Highlight active
+  document.querySelectorAll('.file-entry').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.file-entry').forEach(el=>{if(el.getAttribute('onclick')?.includes(fp))el.classList.add('active');});
+}
+window.viewFile=viewFile;
+
+// === STORAGE ===
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));}
+function getChat(id){return chats.find(c=>c.id===id);}
+function getAgent(id){return AGENTS.find(a=>a.id===id)||AGENTS[0];}
+
+// === AGENTS ===
+function renderAgents(){agentGrid.innerHTML=AGENTS.map(a=>`<div class="agent-chip ${a.id===selectedAgent?'active':''}" data-agent="${a.id}"><span class="emoji">${a.emoji}</span><span>${a.name}</span></div>`).join('');}
+agentGrid.addEventListener('click',e=>{const c=e.target.closest('.agent-chip');if(!c)return;selectedAgent=c.dataset.agent;localStorage.setItem(AGENT_KEY,selectedAgent);renderAgents();});
+
+// === SIDEBAR ===
+function renderSidebar(){
+  const today=new Date().toDateString(),yesterday=new Date(Date.now()-86400000).toDateString();
+  let html='',lastGroup='';
+  [...chats].sort((a,b)=>b.updatedAt-a.updatedAt).forEach(c=>{
+    const d=new Date(c.updatedAt).toDateString();
+    let g=d===today?'今天':d===yesterday?'昨天':new Date(c.updatedAt).toLocaleDateString('zh-CN',{month:'short',day:'numeric'});
+    if(g!==lastGroup){html+=`<div style="padding:6px 12px 3px;font-size:11px;color:var(--text-sec);font-weight:600">${g}</div>`;lastGroup=g;}
+    const a=getAgent(c.agentId),s=streamingChats.has(c.id);
+    html+=`<div class="chat-item ${c.id===currentId?'active':''}" data-id="${c.id}"><div class="agent-dot" style="background:${a.color}"></div><div class="info"><span class="title">${esc(c.title)}${s?' ⏳':''}</span><span class="meta">${a.emoji} ${a.name}</span></div><button class="delete" data-del="${c.id}">✕</button></div>`;
+  });
+  chatList.innerHTML=html||'<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px">暂无对话</div>';
+}
+chatList.addEventListener('click',e=>{
+  const del=e.target.closest('[data-del]');
+  if(del){e.stopPropagation();const id=del.dataset.del;chats=chats.filter(c=>c.id!==id);save();if(currentId===id){currentId=null;renderChat();}renderSidebar();return;}
+  const item=e.target.closest('.chat-item');if(item)switchChat(item.dataset.id);
+});
+$('clearAllBtn').addEventListener('click',()=>{if(confirm('确定清空所有对话？')){chats=[];save();currentId=null;renderChat();renderSidebar();}});
+
+// === CHAT ===
+function newChat(){const c={id:'chat_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),title:'新对话',agentId:selectedAgent,messages:[],createdAt:Date.now(),updatedAt:Date.now()};chats.unshift(c);save();switchChat(c.id);}
+function switchChat(id){currentId=id;closeSidebar();renderChat();renderSidebar();input.focus();}
+function renderChat(){
+  const c=getChat(currentId);
+  if(!c){topTitle.textContent='OpenClaw';agentBadge.textContent='';streamBadge.classList.remove('show');renderWelcome();return;}
+  const a=getAgent(c.agentId);topTitle.textContent=c.title;agentBadge.textContent=a.emoji+' '+a.name;
+  streamBadge.classList.toggle('show',streamingChats.has(c.id));
+  if(!c.messages.length)renderWelcome();else{messagesEl.innerHTML='';c.messages.forEach(m=>appendMsg(m.role,m.content,a,true));}
+  messagesEl.scrollTop=messagesEl.scrollHeight;
+}
+function renderWelcome(){
+  const a=currentId?getAgent(getChat(currentId)?.agentId):getAgent(selectedAgent);
+  messagesEl.innerHTML=`<div class="welcome"><div class="logo">${a.emoji}</div><h2>${a.name}</h2><p>${a.desc}</p><div class="agents-hint">${AGENTS.map(x=>`<span onclick="quickAgent('${x.id}')">${x.emoji} ${x.name}</span>`).join('')}</div></div>`;
+}
+function quickAgent(id){selectedAgent=id;localStorage.setItem(AGENT_KEY,selectedAgent);renderAgents();if(!currentId)renderWelcome();}
+window.quickAgent=quickAgent;
+
+function appendMsg(role,content,agent,withTTS){
+  const div=document.createElement('div');div.className=`message ${role}`;
+  const emoji=role==='user'?'你':(agent?.emoji||'🦞');
+  const bg=role==='user'?'':`style="background:${agent?.color||'var(--accent)'}"`;
+  let actions='';
+  if(role==='assistant'&&withTTS&&content)actions=`<div class="msg-actions"><button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button></div>`;
+  div.innerHTML=`<div class="msg-inner"><div class="avatar" ${bg}>${emoji}</div><div style="flex:1"><div class="msg-text">${esc(content)}</div>${actions}</div></div>`;
+  messagesEl.appendChild(div);messagesEl.scrollTop=messagesEl.scrollHeight;
+  return div.querySelector('.msg-text');
+}
+function appendTyping(a){const d=document.createElement('div');d.className='message assistant';d.id='typing-'+currentId;d.innerHTML=`<div class="msg-inner"><div class="avatar" style="background:${a?.color||'var(--accent)'}">${a?.emoji||'🦞'}</div><div class="msg-text"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>`;messagesEl.appendChild(d);messagesEl.scrollTop=messagesEl.scrollHeight;}
+function removeTyping(cid){const e=document.getElementById('typing-'+(cid||currentId));if(e)e.remove();}
+function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+
+// === SEND ===
+async function sendMessage(){
+  const text=input.value.trim();if(!text)return;
+  if(!currentId)newChat();
+  // Switch to chat tab
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector('[data-tab="chat"]').classList.add('active');
+  $('panel-chat').classList.add('active');
+  
+  const chat=getChat(currentId),chatId=currentId,agent=getAgent(chat.agentId);
+  sendBtn.disabled=true;input.value='';input.style.height='auto';
+  const wel=messagesEl.querySelector('.welcome');if(wel)wel.remove();
+  appendMsg('user',text,agent,false);chat.messages.push({role:'user',content:text});
+  if(chat.messages.length===1){chat.title=text.slice(0,30)+(text.length>30?'...':'');topTitle.textContent=chat.title;}
+  streamingChats.add(chatId);streamBadge.classList.add('show');renderSidebar();appendTyping(agent);
+  try{
+    const res=await fetch(API,{method:'POST',headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({model:`openclaw:${chat.agentId}`,stream:true,user:chatId,messages:[{role:'user',content:text}]})});
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    removeTyping(chatId);let el=null;if(currentId===chatId)el=appendMsg('assistant','',agent,false);
+    const reader=res.body.getReader(),decoder=new TextDecoder();let full='',buf='';
+    while(true){const{done,value}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();
+      for(const line of lines){if(!line.startsWith('data: '))continue;const data=line.slice(6);if(data==='[DONE]')break;
+        try{const delta=JSON.parse(data).choices?.[0]?.delta?.content;if(delta){full+=delta;if(el&&currentId===chatId){el.textContent=full;messagesEl.scrollTop=messagesEl.scrollHeight;}}}catch{}}}
+    if(full){chat.messages.push({role:'assistant',content:full});
+      if(el&&currentId===chatId){const ad=document.createElement('div');ad.className='msg-actions';ad.innerHTML=`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`;el.parentElement.appendChild(ad);}
+    }
+  }catch(err){removeTyping(chatId);if(currentId===chatId)appendMsg('assistant','❌ '+err.message,agent,false);chat.messages.push({role:'assistant',content:'❌ '+err.message});}
+  streamingChats.delete(chatId);chat.updatedAt=Date.now();save();renderSidebar();
+  if(currentId===chatId)streamBadge.classList.remove('show');
+  sendBtn.disabled=!input.value.trim();input.focus();
+}
+
+input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,200)+'px';sendBtn.disabled=!input.value.trim();});
+input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});
+sendBtn.addEventListener('click',sendMessage);
+$('toggleBtn').addEventListener('click',()=>{sidebar.classList.toggle('hidden');overlay.classList.toggle('show');});
+overlay.addEventListener('click',closeSidebar);
+function closeSidebar(){if(window.innerWidth<=768){sidebar.classList.add('hidden');overlay.classList.remove('show');}}
+$('newChatBtn').addEventListener('click',newChat);
+
+renderAgents();renderSidebar();renderWelcome();
+if(window.innerWidth<=768)sidebar.classList.add('hidden');
+</script>
+</body>
+</html>
