@@ -257,7 +257,7 @@ applyTheme(getTheme());
 
 // ─── Nav ───
 function showHub(){document.getElementById('hubView').style.display='';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));history.pushState({},'','/agents/')}
-function showPanel(n){document.getElementById('hubView').style.display='none';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+n).classList.add('active');history.pushState({},'','/agents/'+n);if(n==='ai-news'){loadTracks();loadNewsList()}if(n==='fitness'){loadProfile();loadLogs();loadChats()}}
+function showPanel(n){document.getElementById('hubView').style.display='none';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+n).classList.add('active');history.pushState({},'','/agents/'+n);if(n==='ai-news'){loadNewsList().then(()=>loadTracks())}if(n==='fitness'){loadProfile();loadLogs();loadChats()}}
 const ip=location.pathname.replace(/\/+$/,'');
 if(ip==='/agents/ai-news')showPanel('ai-news');else if(ip==='/agents/fitness')showPanel('fitness');
 
@@ -369,7 +369,7 @@ async function triggerNewsScan(){
   const btn=document.getElementById('refreshNewsBtn');
   btn.disabled=true;btn.innerHTML='<span class="loading-spinner"></span> 搜索中...';
   try{
-    const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getGwToken()},body:JSON.stringify({model:'openclaw:main',input:'请立即执行一次AI前沿新闻搜索。先读取学习路径 curl -s http://127.0.0.1:7685/api/agents/ai-news/tracks，然后搜索最新AI进展，每条要包含 actionable（动手试试）字段和 tracks（关联学习路径）字段。搜完后 POST 到 http://127.0.0.1:7685/api/agents/ai-news/articles，格式 {"articles":[...],"mode":"append"}。每条: {id,title,summary,url,tag,date,actionable,tracks}',stream:false})});
+    const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:'请立即执行一次AI前沿新闻搜索。先读取学习路径 curl -s http://127.0.0.1:7685/api/agents/ai-news/tracks，然后搜索最新AI进展，每条要包含 actionable（动手试试）字段和 tracks（关联学习路径）字段。搜完后 POST 到 http://127.0.0.1:7685/api/agents/ai-news/articles，格式 {"articles":[...],"mode":"append"}。每条: {id,title,summary,url,tag,date,actionable,tracks}',stream:false})});
     await new Promise(r=>setTimeout(r,5000));loadNewsList();
   }catch(e){alert('触发失败: '+e.message)}
   finally{btn.disabled=false;btn.innerHTML='🔍 搜索最新'}
@@ -395,7 +395,7 @@ async function askCoach(){
     const logs=await(await fetch(API+'/fitness/logs')).json();
     const rl=logs.slice(0,5).map(l=>`${l.createdAt?.slice(0,10)} ${l.type} ${l.grade||''} ${l.feeling||''}: ${l.content}`).join('\n');
     const sp=`你是一位专业的攀岩和健身教练。用户主要爬难度路线。\n用户档案: 当前难度=${profile.climbingGrade||'未填'}, 目标=${profile.goals||'未填'}, 备注=${profile.notes||'无'}\n最近训练:\n${rl||'暂无'}\n请用中文简洁回答，给出专业实用的建议。`;
-    const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getGwToken()},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:msg,stream:false})});
+    const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:msg,stream:false})});
     const data=await res.json();
     const reply=data.output?.find(o=>o.type==='message')?.content?.[0]?.text||data.output_text||'抱歉，暂时无法回答';
     document.getElementById('coachLoading')?.remove();
