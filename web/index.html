@@ -44,14 +44,20 @@ body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
 .chat-item .info{flex:1;overflow:hidden;min-width:0}
 .chat-item .title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
 .chat-item .meta{font-size:10px;color:var(--text-sec);margin-top:1px}
-.chat-item .delete{opacity:0;background:none;border:none;color:var(--text-sec);cursor:pointer;font-size:14px;padding:0 4px;flex-shrink:0}
-.chat-item:hover .delete{opacity:1}
+.chat-item .actions{opacity:0;display:flex;gap:2px;flex-shrink:0}
+.chat-item:hover .actions{opacity:1}
+.chat-item .edit-btn,.chat-item .delete{background:none;border:none;color:var(--text-sec);cursor:pointer;font-size:13px;padding:0 3px}
+.chat-item .edit-btn:hover{color:var(--accent)}
 .chat-item .delete:hover{color:var(--danger)}
+.chat-item .title-edit{background:var(--input-bg);border:1px solid var(--accent);border-radius:4px;color:var(--text);font-size:13px;padding:1px 4px;width:100%;outline:none;font-family:inherit}
+.topbar-title{font-size:15px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.topbar-title:hover{opacity:.8}
+.topbar-title-edit{font-size:15px;font-weight:600;flex:1;background:var(--input-bg);border:1px solid var(--accent);border-radius:6px;color:var(--text);padding:2px 8px;outline:none;font-family:inherit}
 
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
 .topbar{background:var(--sidebar-bg);padding:8px 16px;display:flex;align-items:center;border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;transition:background .3s}
 .toggle-btn{background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px}
-.topbar-title{font-size:15px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* topbar-title moved to chat-item block */
 .topbar .agent-badge{font-size:12px;color:var(--accent);background:rgba(16,163,127,.15);padding:3px 8px;border-radius:6px}
 .topbar .dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
@@ -326,7 +332,7 @@ let currentTheme=localStorage.getItem(THEME_KEY)||'dark';
 
 const $=id=>document.getElementById(id);
 const sidebar=$('sidebar'),overlay=$('overlay'),chatList=$('chatList'),agentGrid=$('agentGrid');
-const messagesEl=$('messages'),input=$('input'),sendBtn=$('sendBtn'),topTitle=$('topTitle');
+const messagesEl=$('messages'),input=$('input'),sendBtn=$('sendBtn');let topTitle=$('topTitle');
 const agentBadge=$('agentBadge'),streamBadge=$('streamBadge'),themeBtn=$('themeBtn'),voiceBtn=$('voiceBtn');
 
 // === THEME ===
@@ -540,19 +546,43 @@ function renderSidebar(){
     let g=d===today?'今天':d===yesterday?'昨天':new Date(c.updatedAt).toLocaleDateString('zh-CN',{month:'short',day:'numeric'});
     if(g!==lastGroup){html+=`<div style="padding:6px 12px 3px;font-size:11px;color:var(--text-sec);font-weight:600">${g}</div>`;lastGroup=g;}
     const a=getAgent(c.agentId),s=streamingChats.has(c.id);
-    html+=`<div class="chat-item ${c.id===currentId?'active':''}" data-id="${c.id}"><div class="agent-dot" style="background:${a.color}"></div><div class="info"><span class="title">${esc(c.title)}${s?' ⏳':''}</span><span class="meta">${a.emoji} ${a.name}</span></div><button class="delete" data-del="${c.id}">✕</button></div>`;
+    html+=`<div class="chat-item ${c.id===currentId?'active':''}" data-id="${c.id}"><div class="agent-dot" style="background:${a.color}"></div><div class="info"><span class="title">${esc(c.title)}${s?' ⏳':''}</span><span class="meta">${a.emoji} ${a.name}</span></div><div class="actions"><button class="edit-btn" data-edit="${c.id}" title="编辑标题">✏️</button><button class="delete" data-del="${c.id}">✕</button></div></div>`;
   });
   chatList.innerHTML=html||'<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px">暂无对话</div>';
 }
 chatList.addEventListener('click',e=>{
   const del=e.target.closest('[data-del]');
   if(del){e.stopPropagation();const id=del.dataset.del;chats=chats.filter(c=>c.id!==id);save();if(currentId===id){currentId=null;renderChat();}renderSidebar();return;}
+  const edit=e.target.closest('[data-edit]');
+  if(edit){e.stopPropagation();startEditSidebar(edit.dataset.edit);return;}
   const item=e.target.closest('.chat-item');if(item)switchChat(item.dataset.id);
 });
 $('clearAllBtn').addEventListener('click',()=>{if(confirm('确定清空所有对话？')){chats=[];save();currentId=null;renderChat();renderSidebar();}});
 $('logoutBtn').addEventListener('click',async()=>{await fetch('/auth/logout');window.location.href='/login';});
 
 // === CHAT ===
+// --- Title editing ---
+function startEditSidebar(id){
+  const item=chatList.querySelector(`[data-id="${id}"]`);if(!item)return;
+  const titleEl=item.querySelector('.title');const c=chats.find(x=>x.id===id);if(!c)return;
+  const inp=document.createElement('input');inp.className='title-edit';inp.value=c.title;
+  titleEl.replaceWith(inp);inp.focus();inp.select();
+  const finish=()=>{const v=inp.value.trim()||c.title;c.title=v;save();renderSidebar();if(currentId===id)topTitle.textContent=v;};
+  inp.addEventListener('blur',finish);
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}if(e.key==='Escape'){inp.value=c.title;inp.blur();}});
+}
+function startEditTopTitle(){
+  const c=getChat(currentId);if(!c)return;
+  const inp=document.createElement('input');inp.className='topbar-title-edit';inp.value=c.title;
+  topTitle.replaceWith(inp);inp.focus();inp.select();
+  const finish=()=>{const v=inp.value.trim()||c.title;c.title=v;save();
+    const el=document.createElement('div');el.className='topbar-title';el.id='topTitle';el.textContent=v;
+    inp.replaceWith(el);topTitle=el;el.addEventListener('dblclick',startEditTopTitle);renderSidebar();};
+  inp.addEventListener('blur',finish);
+  inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}if(e.key==='Escape'){inp.value=c.title;inp.blur();}});
+}
+topTitle.addEventListener('dblclick',startEditTopTitle);
+// --- end title editing ---
 function newChat(){const c={id:'chat_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),title:'新对话',agentId:selectedAgent,messages:[],createdAt:Date.now(),updatedAt:Date.now()};chats.unshift(c);save();switchChat(c.id);}
 function switchChat(id){currentId=id;closeSidebar();renderChat();renderSidebar();input.focus();}
 function renderChat(){
