@@ -107,6 +107,24 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .loading-spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* Reader Modal */
+.reader-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;backdrop-filter:blur(2px)}
+.reader-overlay.show{display:flex;align-items:center;justify-content:center}
+.reader-modal{background:var(--card);border-radius:16px;width:92%;max-width:720px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.reader-header{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.reader-header h3{flex:1;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.reader-close{background:none;border:none;font-size:1.3rem;cursor:pointer;padding:4px 8px;border-radius:6px}
+.reader-close:hover{background:var(--hover)}
+.reader-body{flex:1;overflow-y:auto;padding:20px;font-size:.88rem;line-height:1.8}
+.reader-body h4{margin:18px 0 8px;font-size:.95rem;color:var(--accent)}
+.reader-body ul,.reader-body ol{padding-left:20px;margin:8px 0}
+.reader-body li{margin:4px 0}
+.reader-body blockquote{border-left:3px solid var(--accent);padding:8px 14px;margin:10px 0;background:var(--accent-bg);border-radius:0 8px 8px 0;font-size:.84rem}
+.reader-body .reader-loading{text-align:center;padding:40px 20px;color:var(--text2)}
+.reader-body code{background:var(--bg);padding:2px 6px;border-radius:4px;font-size:.82rem}
+.reader-body pre{background:var(--bg);padding:12px;border-radius:8px;overflow-x:auto;margin:10px 0}
+.reader-body pre code{background:none;padding:0}
+
 @media(max-width:700px){
   .agents-grid{grid-template-columns:1fr}
   .fitness-layout{grid-template-columns:1fr}
@@ -245,6 +263,19 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   </div>
 </div>
 
+<!-- Reader Modal -->
+<div class="reader-overlay" id="readerOverlay" onclick="if(event.target===this)closeReader()">
+  <div class="reader-modal">
+    <div class="reader-header">
+      <h3 id="readerTitle">📖 文章解读</h3>
+      <button class="reader-close" onclick="closeReader()">✕</button>
+    </div>
+    <div class="reader-body" id="readerBody">
+      <div class="reader-loading"><span class="loading-spinner"></span> 正在解读...</div>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = '/api/agents';
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
@@ -338,6 +369,7 @@ function renderNews(){
       <div class="actions">
         <button onclick="togglePin('${a.id}')">${a.pinned?'📌':'📍'}</button>
         <button onclick="deleteNews('${a.id}')">🗑</button>
+        ${a.url?'<button onclick="readArticle(\\\''+a.id+'\\\')">📖 解读</button>':''}
         <div class="status-btns">
           <button class="${st==='tried'?'active-tried':''}" onclick="markStatus('${a.id}','tried')">✅ 已试</button>
           <button class="${st==='want'?'active-want':''}" onclick="markStatus('${a.id}','want')">🔥 想试</button>
@@ -402,6 +434,67 @@ async function askCoach(){
     el.innerHTML+=`<div class="coach-msg assistant">${esc(reply)}</div>`;el.scrollTop=el.scrollHeight;
     await fetch(API+'/fitness/chats/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:reply})});
   }catch(e){document.getElementById('coachLoading')?.remove();el.innerHTML+=`<div class="coach-msg assistant">❌ ${esc(e.message)}</div>`;el.scrollTop=el.scrollHeight}
+}
+
+// ─── Article Reader ───
+function closeReader(){document.getElementById('readerOverlay').classList.remove('show')}
+
+async function readArticle(articleId){
+  const article=allNews.find(a=>a.id===articleId);
+  if(!article||!article.url)return alert('没有原文链接');
+  
+  document.getElementById('readerTitle').textContent='📖 '+article.title;
+  document.getElementById('readerBody').innerHTML='<div class="reader-loading"><span class="loading-spinner"></span> 正在抓取并解读文章内容，请稍候...</div>';
+  document.getElementById('readerOverlay').classList.add('show');
+  
+  try{
+    const prompt=`请帮我深入解读以下文章。
+
+文章标题：${article.title}
+文章链接：${article.url}
+${article.summary?'摘要：'+article.summary:''}
+
+请按以下格式输出：
+
+## 📌 一句话总结
+用一句话概括文章核心观点
+
+## 🎯 关键要点
+列出 3-5 个核心要点
+
+## 📖 详细解读
+按文章逻辑逐段深入讲解，用通俗易懂的语言解释专业概念，补充必要背景知识
+
+## 💡 延伸思考
+这篇文章的意义、影响、值得进一步探索的方向
+
+请先用 web_fetch 工具抓取链接内容，然后进行解读。用中文回复，深入浅出，有自己的分析见解。`;
+    
+    const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:prompt,stream:false})});
+    const data=await res.json();
+    const reply=data.output?.find(o=>o.type==='message')?.content?.[0]?.text||data.output_text||'解读失败，请稍后重试';
+    
+    // Simple markdown to HTML
+    document.getElementById('readerBody').innerHTML=simpleMarkdown(reply);
+  }catch(e){
+    document.getElementById('readerBody').innerHTML='<div class="reader-loading">❌ 解读失败：'+esc(e.message)+'</div>';
+  }
+}
+
+function simpleMarkdown(text){
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/```(\w*)\n([\s\S]*?)```/g,'<pre><code>$2</code></pre>')
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/^## (.+)$/gm,'<h4>$1</h4>')
+    .replace(/^### (.+)$/gm,'<h4 style="font-size:.88rem">$1</h4>')
+    .replace(/^\*\*(.+?)\*\*/gm,'<strong>$1</strong>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^- (.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/gs,function(m){return'<ul>'+m+'</ul>'})
+    .replace(/<\/ul>\s*<ul>/g,'')
+    .replace(/\n\n/g,'<br><br>')
+    .replace(/\n/g,'<br>');
 }
 </script>
 </body>
