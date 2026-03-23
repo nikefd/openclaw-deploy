@@ -366,11 +366,22 @@ async function deleteNews(id){if(!confirm('删除？'))return;await fetch(API+'/
 async function triggerNewsScan(){
   const btn=document.getElementById('refreshNewsBtn');
   btn.disabled=true;btn.innerHTML='<span class="loading-spinner"></span> 搜索中...';
+  const oldCount=allNews.length;
   try{
-    const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:'请立即执行一次AI前沿新闻搜索。先读取学习路径 curl -s http://127.0.0.1:7685/api/agents/ai-news/tracks，然后搜索最新AI进展，每条要包含 actionable（动手试试）字段和 tracks（关联学习路径）字段。搜完后 POST 到 http://127.0.0.1:7685/api/agents/ai-news/articles，格式 {"articles":[...],"mode":"append"}。每条: {id,title,summary,url,tag,date,actionable,tracks}',stream:false})});
-    await new Promise(r=>setTimeout(r,5000));loadNewsList();
-  }catch(e){alert('触发失败: '+e.message)}
-  finally{btn.disabled=false;btn.innerHTML='🔍 搜索最新'}
+    // Fire-and-forget: don't await the full response
+    fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:'请立即执行一次AI前沿新闻搜索。先读取学习路径 curl -s http://127.0.0.1:7685/api/agents/ai-news/tracks，然后搜索最新AI进展，每条要包含 actionable（动手试试）字段和 tracks（关联学习路径）字段。搜完后 POST 到 http://127.0.0.1:7685/api/agents/ai-news/articles，格式 {"articles":[...],"mode":"append"}。每条: {id,title,summary,url,tag,date,actionable,tracks}',stream:false})}).catch(()=>{});
+    // Poll for new articles every 8s, up to 3 minutes
+    let elapsed=0;const interval=8000;const maxWait=180000;
+    const poll=setInterval(async()=>{
+      elapsed+=interval;
+      try{await loadNewsList()}catch{}
+      if(allNews.length>oldCount||elapsed>=maxWait){
+        clearInterval(poll);
+        btn.disabled=false;btn.innerHTML='🔍 搜索最新';
+        if(allNews.length>oldCount){loadTracks()}
+      }
+    },interval);
+  }catch(e){btn.disabled=false;btn.innerHTML='🔍 搜索最新';alert('触发失败: '+e.message)}
 }
 
 function getGwToken(){try{const s=sessionStorage.getItem('openclaw.control.settings.v1');if(s){const o=JSON.parse(s);if(o.token)return o.token}}catch{}return localStorage.getItem('gw-token')||''}
