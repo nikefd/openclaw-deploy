@@ -369,7 +369,7 @@ function renderNews(){
       <div class="actions">
         <button onclick="togglePin('${a.id}')">${a.pinned?'📌':'📍'}</button>
         <button onclick="deleteNews('${a.id}')">🗑</button>
-        ${a.url?'<button onclick="readArticle(\\\''+a.id+'\\\')">📖 解读</button>':''}
+        ${a.url?`<button onclick="readArticle('${a.id}')">📖 解读</button>`:''}
         <div class="status-btns">
           <button class="${st==='tried'?'active-tried':''}" onclick="markStatus('${a.id}','tried')">✅ 已试</button>
           <button class="${st==='want'?'active-want':''}" onclick="markStatus('${a.id}','want')">🔥 想试</button>
