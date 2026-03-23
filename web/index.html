@@ -32,6 +32,7 @@ body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
 .agent-chip .emoji{font-size:15px;width:22px;text-align:center}
 .sidebar-footer{padding:8px 12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:3px}
 .sidebar-footer-btn{padding:7px 10px;border-radius:6px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;background:none;border:none;color:var(--text);width:100%;text-align:left;transition:background .15s}
+.sidebar-footer-btn .emoji{font-size:15px;width:22px;text-align:center;flex-shrink:0}
 .sidebar-footer-btn:hover{background:var(--hover)}
 .chat-list{flex:1;overflow-y:auto;padding:8px}
 .chat-list::-webkit-scrollbar{width:4px}
@@ -191,9 +192,9 @@ textarea::placeholder{color:var(--text-sec)}
   <div class="agent-section"><label>Agent</label><div class="agent-grid" id="agentGrid"></div></div>
   <div class="chat-list" id="chatList"></div>
   <div class="sidebar-footer">
-    <button class="sidebar-footer-btn" id="themeBtn">🌙 深色模式</button>
-    <button class="sidebar-footer-btn" id="clearAllBtn">🗑 清空对话</button>
-    <button class="sidebar-footer-btn" id="logoutBtn">🚪 退出登录</button>
+    <button class="sidebar-footer-btn" id="themeBtn"><span class="emoji">🌙</span><span>深色模式</span></button>
+    <button class="sidebar-footer-btn" id="clearAllBtn"><span class="emoji">🗑</span><span>清空对话</span></button>
+    <button class="sidebar-footer-btn" id="logoutBtn"><span class="emoji">🚪</span><span>退出登录</span></button>
   </div>
 </aside>
 <div class="main">
@@ -328,7 +329,7 @@ const messagesEl=$('messages'),input=$('input'),sendBtn=$('sendBtn'),topTitle=$(
 const agentBadge=$('agentBadge'),streamBadge=$('streamBadge'),themeBtn=$('themeBtn'),voiceBtn=$('voiceBtn');
 
 // === THEME ===
-function applyTheme(t){currentTheme=t;document.documentElement.setAttribute('data-theme',t);localStorage.setItem(THEME_KEY,t);themeBtn.textContent=t==='dark'?'☀️ 浅色模式':'🌙 深色模式';}
+function applyTheme(t){currentTheme=t;document.documentElement.setAttribute('data-theme',t);localStorage.setItem(THEME_KEY,t);themeBtn.innerHTML=t==='dark'?'<span class="emoji">☀️</span><span>浅色模式</span>':'<span class="emoji">🌙</span><span>深色模式</span>';}
 applyTheme(currentTheme);
 themeBtn.addEventListener('click',()=>applyTheme(currentTheme==='dark'?'light':'dark'));
 
