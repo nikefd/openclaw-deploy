@@ -97,12 +97,15 @@ const server = http.createServer(async (req, res) => {
       // body: { articles: [...], mode: 'append' | 'replace' }
       let current = loadNews();
       if (body.mode === 'replace') {
-        current = body.articles || [];
+        current = (body.articles || []).map((a, i) => ({ ...a, id: a.id || ('art_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7) + '_' + i) }));
       } else {
         // append, dedupe by title
         const existing = new Set(current.map(a => a.title));
         for (const a of (body.articles || [])) {
-          if (!existing.has(a.title)) { current.unshift(a); existing.add(a.title); }
+          if (!existing.has(a.title)) {
+            a.id = a.id || ('art_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7));
+            current.unshift(a); existing.add(a.title);
+          }
         }
       }
       // Keep max 200 articles
