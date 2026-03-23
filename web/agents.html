@@ -74,12 +74,6 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .news-item .actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center}
 .news-item .actions button{background:none;border:none;cursor:pointer;font-size:.85rem;padding:2px 6px;border-radius:4px;transition:background .15s}
 .news-item .actions button:hover{background:var(--hover)}
-.news-item .status-btns{display:flex;gap:3px;margin-left:auto}
-.news-item .status-btns button{font-size:.7rem;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--card);cursor:pointer;transition:all .15s}
-.news-item .status-btns button:hover{background:var(--hover)}
-.news-item .status-btns button.active-tried{background:var(--green);color:#fff;border-color:var(--green)}
-.news-item .status-btns button.active-want{background:var(--orange);color:#fff;border-color:var(--orange)}
-.news-item .status-btns button.active-skip{background:var(--text2);color:#fff;border-color:var(--text2)}
 .news-empty{text-align:center;padding:60px 20px;color:var(--text2)}
 
 /* Fitness */
@@ -132,7 +126,6 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   .topnav{padding:10px 14px}
   .topnav h1{font-size:1rem}
   .coach-chat{height:350px}
-  .news-item .status-btns{margin-left:0;margin-top:6px}
 }
 </style>
 </head>
@@ -189,8 +182,6 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   <div class="news-controls" id="newsControls">
     <span class="chip active" data-filter="all">全部</span>
     <span class="chip" data-filter="pinned">📌 收藏</span>
-    <span class="chip" data-filter="tried">✅ 已试</span>
-    <span class="chip" data-filter="want">🔥 想试</span>
     <span class="chip" data-filter="read">📖 已解读</span>
     <span class="chip" data-filter="model">模型</span>
     <span class="chip" data-filter="product">产品</span>
@@ -337,24 +328,16 @@ async function loadNewsList(){
   catch(e){document.getElementById('newsList').innerHTML='<div class="news-empty">❌ 加载失败</div>'}
 }
 
-function getArticleStatus(articleId){
-  for(const t of allTracks){const item=t.items?.find(i=>i.articleId===articleId);if(item)return item.status}
-  return null;
-}
-
 function renderNews(){
   const list=document.getElementById('newsList');
   let items=allNews;
   if(newsFilter==='pinned')items=items.filter(a=>a.pinned);
   else if(newsFilter==='read')items=items.filter(a=>readArticleIds.has(articleCacheKey(a.id))||readerCache[a.id]?.status==='done');
-  else if(newsFilter==='tried')items=items.filter(a=>getArticleStatus(a.id)==='tried');
-  else if(newsFilter==='want')items=items.filter(a=>getArticleStatus(a.id)==='want');
   else if(newsFilter!=='all')items=items.filter(a=>a.tag===newsFilter);
   if(activeTrackFilter)items=items.filter(a=>(a.tracks||[]).includes(activeTrackFilter));
   if(!items.length){list.innerHTML='<div class="news-empty">暂无内容'+(newsFilter!=='all'||activeTrackFilter?'（当前筛选）':'，点击「搜索最新」获取')+'</div>';return}
 
   list.innerHTML=items.map(a=>{
-    const st=getArticleStatus(a.id);
     const hasReader=readArticleIds.has(articleCacheKey(a.id))||readerCache[a.id]?.status==='done';
     const isLoading=readerCache[a.id]?.status==='loading';
     return `<div class="news-item ${a.pinned?'pinned':''}">
@@ -364,43 +347,21 @@ function renderNews(){
         ${hasReader?'<span class="tag" style="background:rgba(46,196,182,.12);color:var(--green)">✅ 已解读</span>':''}
         <span class="date">${a.date||''}</span>
         ${a.pinned?'<span style="color:var(--orange);font-size:.7rem">📌</span>':''}
-        ${st==='tried'?'<span style="color:var(--green);font-size:.7rem">✅ 已试</span>':''}
-        ${st==='want'?'<span style="color:var(--orange);font-size:.7rem">🔥 想试</span>':''}
       </div>
       <h4>${esc(a.title)}</h4>
       <div class="summary">${esc(a.summary||'')}</div>
       ${a.actionable&&a.actionable!=='了解即可'?`<div class="actionable-box"><div class="ab-title">🚀 动手试试</div><div class="ab-content">${esc(a.actionable)}</div></div>`:''}
       ${a.url?'<div style="margin-top:6px"><a href="'+esc(a.url)+'" target="_blank" style="font-size:.75rem">🔗 原文链接</a></div>':''}
       <div class="actions">
-        <button onclick="togglePin('${a.id}')">${a.pinned?'📌':'📍'}</button>
-        <button onclick="deleteNews('${a.id}')">🗑</button>
+        <button onclick="togglePin('${a.id}')">${a.pinned?'📌 取消收藏':'📍 收藏'}</button>
         ${a.url?`<button data-reader="${a.id}" onclick="readArticle('${a.id}')" style="${hasReader?'color:var(--green)':isLoading?'color:var(--orange)':''}">${hasReader?'📖 查看解读':isLoading?'⏳ 解读中':'📖 解读'}</button>`:''}
-        <div class="status-btns">
-          <button class="${st==='tried'?'active-tried':''}" onclick="markStatus('${a.id}','tried')">✅ 已试</button>
-          <button class="${st==='want'?'active-want':''}" onclick="markStatus('${a.id}','want')">🔥 想试</button>
-          <button class="${st==='skip'?'active-skip':''}" onclick="markStatus('${a.id}','skip')">⏭ 跳过</button>
-        </div>
+        <button style="margin-left:auto" onclick="deleteNews('${a.id}')">🗑 删除</button>
       </div>
     </div>`}).join('');
 }
 
 async function togglePin(id){await fetch(API+'/ai-news/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});const a=allNews.find(x=>x.id===id);if(a)a.pinned=!a.pinned;renderNews()}
 async function deleteNews(id){if(!confirm('删除？'))return;await fetch(API+'/ai-news/articles',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});allNews=allNews.filter(a=>a.id!==id);renderNews()}
-
-async function markStatus(articleId,status){
-  // Mark on first track that has related keywords, or first track if none match
-  let trackId=allTracks[0]?.id;
-  for(const t of allTracks){if((allNews.find(a=>a.id===articleId)?.tracks||[]).includes(t.name)){trackId=t.id;break}}
-  if(!trackId){alert('请先添加一个学习路径');return}
-  // Toggle off if same status
-  const current=getArticleStatus(articleId);
-  const newStatus=current===status?'none':status;
-  await fetch(API+'/ai-news/tracks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'mark',trackId,articleId,status:newStatus})});
-  // Update local
-  const t=allTracks.find(t=>t.id===trackId);
-  if(t){const e=t.items?.find(i=>i.articleId===articleId);if(e)e.status=newStatus;else if(!t.items)t.items=[{articleId,status:newStatus}];else t.items.push({articleId,status:newStatus})}
-  renderNews();renderTracksBar();
-}
 
 async function triggerNewsScan(){
   const btn=document.getElementById('refreshNewsBtn');

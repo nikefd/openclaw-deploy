@@ -89,7 +89,25 @@ const server = http.createServer(async (req, res) => {
   try {
     // ─── AI News ───
     if (p === '/api/agents/ai-news/articles' && req.method === 'GET') {
-      return json(res, loadNews());
+      // Auto-cleanup: keep 7 days + pinned + already-read
+      let articles = loadNews();
+      const READER_DIR = path.join(AI_NEWS_DIR, 'reader');
+      let cachedIds = new Set();
+      try { fs.readdirSync(READER_DIR).forEach(f => { if (f.endsWith('.json')) cachedIds.add(f.replace('.json', '')); }); } catch {}
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      const before = articles.length;
+      articles = articles.filter(a => {
+        if (a.pinned) return true;
+        const cacheKey = (a.id || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+        if (cachedIds.has(cacheKey)) return true;
+        const d = a.date ? new Date(a.date).getTime() : 0;
+        if (d && (now - d) < sevenDays) return true;
+        if (!d) return true; // keep if no date (can't determine age)
+        return false;
+      });
+      if (articles.length < before) saveNews(articles);
+      return json(res, articles);
     }
     if (p === '/api/agents/ai-news/articles' && req.method === 'POST') {
       // Add or replace articles (from cron or manual trigger)
