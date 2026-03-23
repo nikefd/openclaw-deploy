@@ -188,7 +188,54 @@ textarea::placeholder{color:var(--text-sec)}
   .file-tree{width:100%;height:45%;border-right:none;border-bottom:1px solid var(--border)}
   .toggle-btn{font-size:24px;padding:10px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
   .topbar{padding:6px 10px;position:sticky;top:0;z-index:50}
+  .memory-panel{flex-direction:column}
+  .memory-sidebar{width:100%;height:45%;border-right:none;border-bottom:1px solid var(--border);overflow-y:auto}
+  .memory-editor{flex:1;overflow:auto}
+  .memory-welcome{flex:1;overflow:auto}
+  .mem-back{display:none!important}
 }
+.memory-panel{display:flex;height:100%}
+.memory-sidebar{width:280px;background:var(--sidebar-bg);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0}
+.memory-sidebar h3{padding:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-sec);border-bottom:1px solid var(--border)}
+.memory-arch{margin:8px 12px;background:var(--input-bg);border-radius:8px;font-size:12px;overflow:hidden}
+.memory-arch-toggle{padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:6px;font-weight:600;color:var(--text);transition:background .15s}
+.memory-arch-toggle:hover{background:var(--hover)}
+.memory-arch-body{padding:0 12px 10px;color:var(--text-sec);line-height:1.8;display:none}
+.memory-arch.open .memory-arch-body{display:block}
+.memory-arch.open .memory-arch-toggle span:last-child{transform:rotate(90deg)}
+.memory-arch-body strong{color:var(--text)}
+.memory-cron{margin:8px 12px;padding:12px;background:var(--input-bg);border-radius:8px;font-size:12px}
+.memory-cron label{color:var(--text-sec);font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.memory-cron-row{display:flex;gap:8px;align-items:center}
+.memory-cron input[type=time]{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;outline:none}
+.memory-cron input[type=time]:focus{border-color:var(--accent)}
+.memory-cron .cron-save{padding:6px 12px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:12px;transition:opacity .2s}
+.memory-cron .cron-save:hover{opacity:.9}
+.memory-cron .cron-status{font-size:11px;color:var(--accent);margin-top:6px}
+.memory-category{padding:8px 0}
+.memory-category-title{padding:4px 12px;font-size:12px;font-weight:600;color:var(--text-sec);display:flex;align-items:center;gap:6px}
+.memory-file{padding:6px 12px 6px 28px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .15s}
+.memory-file:hover{background:var(--hover)}
+.memory-file.active{background:rgba(16,163,127,.12);color:var(--accent)}
+.memory-file .mem-size{font-size:10px;color:var(--text-sec);margin-left:auto}
+.memory-editor{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.memory-editor-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--sidebar-bg)}
+.memory-editor-header .mem-title{flex:1;font-size:14px;font-weight:600}
+.memory-editor-header button{padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text);transition:all .2s}
+.memory-editor-header button:hover{border-color:var(--accent);color:var(--accent)}
+.memory-editor-header .save-btn{background:var(--accent);color:#fff;border-color:var(--accent)}
+.memory-editor-header .save-btn:hover{opacity:.9}
+.mem-back{display:none;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text);transition:all .2s;align-items:center;gap:4px}
+.mem-back:hover{border-color:var(--accent);color:var(--accent)}
+.memory-editor-header .delete-btn{color:var(--danger);border-color:var(--danger)}
+.memory-editor-header .delete-btn:hover{background:var(--danger);color:#fff}
+.memory-content{flex:1;overflow:auto;padding:16px 20px;font-size:14px;line-height:1.7;white-space:pre-wrap;font-family:inherit}
+.memory-textarea{flex:1;width:100%;border:none;background:var(--bg);color:var(--text);font-size:14px;line-height:1.7;padding:16px 20px;resize:none;outline:none;font-family:'Fira Code','Cascadia Code','Consolas',monospace}
+.memory-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-sec);gap:8px}
+.memory-empty .mem-icon{font-size:48px;opacity:.3}
+.memory-welcome{flex:1;overflow:auto}
+.memory-stats{padding:12px;background:var(--input-bg);border-radius:8px;margin:8px 12px;font-size:12px;color:var(--text-sec);line-height:1.8}
+.memory-stats strong{color:var(--text)}
 </style>
 </head>
 <body>
@@ -218,6 +265,7 @@ textarea::placeholder{color:var(--text-sec)}
     <div class="tab" data-tab="terminal">🖥 终端</div>
     <div class="tab" data-tab="files">📁 文件</div>
     <div class="tab" data-tab="demos">🎪 Demo码</div>
+    <div class="tab" data-tab="memory">🧠 记忆</div>
   </div>
   <div class="panels">
     <!-- Chat Panel -->
@@ -309,6 +357,46 @@ textarea::placeholder{color:var(--text-sec)}
         <div id="demoEmpty" style="text-align:center;padding:40px;color:var(--text-sec);font-size:14px">暂无访问码</div>
       </div>
     </div>
+    <div class="panel" id="panel-memory">
+      <div class="memory-panel">
+        <div class="memory-sidebar"></div>
+        <div class="memory-editor" style="display:none">
+        </div>
+        <div class="memory-welcome" id="memoryWelcome">
+            <div style="max-width:600px;margin:0 auto;padding:40px 24px">
+              <h2 style="font-size:22px;margin-bottom:20px;display:flex;align-items:center;gap:8px">🧠 记忆系统架构</h2>
+              <div style="display:grid;gap:16px">
+                <div style="background:var(--input-bg);border-radius:10px;padding:16px">
+                  <div style="font-size:14px;font-weight:600;margin-bottom:10px">📦 三层记忆模型</div>
+                  <div style="font-size:13px;color:var(--text-sec);line-height:2">
+                    <div style="display:flex;align-items:center;gap:8px"><span style="background:var(--accent);color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">自动</span><strong style="color:var(--text)">工作记忆</strong> — 当前对话上下文，session 内自动维护</div>
+                    <div style="display:flex;align-items:center;gap:8px"><span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">每日</span><strong style="color:var(--text)">短期记忆</strong> — 每日对话日志 (memory/YYYY-MM-DD.md)</div>
+                    <div style="display:flex;align-items:center;gap:8px"><span style="background:#8b5cf6;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">长期</span><strong style="color:var(--text)">长期记忆</strong> — 精炼关键信息 (MEMORY.md)</div>
+                  </div>
+                </div>
+                <div style="background:var(--input-bg);border-radius:10px;padding:16px">
+                  <div style="font-size:14px;font-weight:600;margin-bottom:10px">🔄 每日自动整理</div>
+                  <div style="font-size:13px;color:var(--text-sec);line-height:2">
+                    • 读取当天全部对话历史<br>
+                    • 压缩总结 → 写入短期记忆日志<br>
+                    • 提取重要信息 → 更新长期记忆
+                  </div>
+                </div>
+                <div style="background:var(--input-bg);border-radius:10px;padding:16px">
+                  <div style="font-size:14px;font-weight:600;margin-bottom:10px">🪪 身份文件</div>
+                  <div style="font-size:13px;color:var(--text-sec);line-height:2">
+                    • <strong style="color:var(--text)">IDENTITY.md</strong> — 我是谁<br>
+                    • <strong style="color:var(--text)">SOUL.md</strong> — 性格和风格<br>
+                    • <strong style="color:var(--text)">USER.md</strong> — 关于你的信息<br>
+                    • <strong style="color:var(--text)">TOOLS.md</strong> — 工具配置
+                  </div>
+                </div>
+              </div>
+              <div style="text-align:center;margin-top:24px;font-size:13px;color:var(--text-sec)">👈 点击左侧文件查看或编辑内容</div>
+            </div>
+          </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -353,10 +441,141 @@ document.querySelectorAll('.tab').forEach(tab=>{
       terminalLoaded=true;
     }
     if(tab.dataset.tab==='files'&&!filesLoaded) loadFiles();
+    if(tab.dataset.tab==='memory'&&!memoryLoaded) loadMemoryPanel();
   });
 });
 
 // === VOICE ===
+
+// === MEMORY PANEL ===
+let memoryLoaded=false, memoryEditing=false, currentMemFile=null;
+const WORKSPACE='/home/nikefd/.openclaw/workspace';
+const MEMORY_FILES={
+  longTerm:[{name:'MEMORY.md',path:WORKSPACE+'/MEMORY.md',icon:'📌'}],
+  identity:[
+    {name:'IDENTITY.md',path:WORKSPACE+'/IDENTITY.md',icon:'🪪'},
+    {name:'SOUL.md',path:WORKSPACE+'/SOUL.md',icon:'👻'},
+    {name:'USER.md',path:WORKSPACE+'/USER.md',icon:'👤'},
+    {name:'TOOLS.md',path:WORKSPACE+'/TOOLS.md',icon:'🔧'}
+  ]
+};
+async function loadMemoryPanel(){
+  memoryLoaded=true;
+  try{
+    const r=await fetch('/api/files/list?path='+encodeURIComponent(WORKSPACE+'/memory'));
+    const data=await r.json();
+    const dailyFiles=(data.entries||[]).filter(e=>e.type==='file'&&e.name.endsWith('.md')).sort((a,b)=>b.name.localeCompare(a.name));
+    MEMORY_FILES.daily=dailyFiles.map(f=>({name:f.name,path:f.path,icon:'📝',size:f.size}));
+  }catch(e){MEMORY_FILES.daily=[];}
+  renderMemorySidebar();
+}
+const MEMORY_CRON_ID='6348b819-41af-43f6-bbcc-8e5bbf70e33f';
+let memoryCronTime='23:00';
+function toggleMemArch(){document.querySelector('.memory-arch')?.classList.toggle('open');}
+async function saveMemoryCronTime(){
+  const input=document.getElementById('cronTimeInput');
+  if(!input)return;
+  const [hh,mm]=input.value.split(':').map(Number);
+  const statusEl=document.getElementById('cronStatus');
+  try{
+    const r=await fetch('/v1/cron/jobs/'+MEMORY_CRON_ID,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({schedule:{kind:'cron',expr:`${mm} ${hh} * * *`,tz:'Asia/Shanghai'}})
+    });
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    memoryCronTime=input.value;
+    if(statusEl)statusEl.textContent='✅ 已保存';
+    setTimeout(()=>{if(statusEl)statusEl.textContent='';},2000);
+  }catch(e){
+    if(statusEl)statusEl.textContent='❌ 保存失败: '+e.message;
+  }
+}
+window.toggleMemArch=toggleMemArch;
+window.saveMemoryCronTime=saveMemoryCronTime;
+function showMemWelcome(){
+  currentMemFile=null;renderMemorySidebar();
+  const panel=document.querySelector('.memory-panel');
+  const welcome=document.getElementById('memoryWelcome');
+  const editor=document.querySelector('.memory-editor');
+  panel.classList.remove('mem-viewing');panel.classList.add('mem-welcome');
+  if(welcome)welcome.style.display='';
+  if(editor)editor.style.display='none';
+}
+function memGoBack(){
+  const panel=document.querySelector('.memory-panel');
+  panel.classList.remove('mem-viewing','mem-welcome');
+  currentMemFile=null;renderMemorySidebar();
+  const welcome=document.getElementById('memoryWelcome');
+  const editor=document.querySelector('.memory-editor');
+  if(welcome)welcome.style.display='none';
+  if(editor)editor.style.display='none';
+}
+window.showMemWelcome=showMemWelcome;
+window.memGoBack=memGoBack;
+function renderMemorySidebar(){
+  const sidebar=document.querySelector('.memory-sidebar');
+  if(!sidebar)return;
+  const totalFiles=1+(MEMORY_FILES.daily||[]).length+MEMORY_FILES.identity.length;
+  let totalSize=0;
+  [MEMORY_FILES.longTerm,MEMORY_FILES.daily||[],MEMORY_FILES.identity].flat().forEach(f=>{if(f.size)totalSize+=f.size;});
+  let html=`<h3 style="cursor:pointer" onclick="showMemWelcome()">🧠 记忆管理</h3>`;
+  html+=`<div class="memory-stats"><strong>${totalFiles}</strong> 个文件`;
+  if(totalSize>0)html+=` · <strong>${(totalSize/1024).toFixed(1)}</strong> KB`;
+  html+=`</div>`;
+  html+=`<div class="memory-category"><div class="memory-category-title">📌 长期记忆</div>`;
+  MEMORY_FILES.longTerm.forEach(f=>{
+    html+=`<div class="memory-file${currentMemFile===f.path?' active':''}" onclick="openMemFile('${f.path}')">${f.icon} ${f.name}${f.size?`<span class="mem-size">${(f.size/1024).toFixed(1)}K</span>`:''}</div>`;
+  });
+  html+=`</div>`;
+  if(MEMORY_FILES.daily&&MEMORY_FILES.daily.length){
+    html+=`<div class="memory-category"><div class="memory-category-title">📝 短期记忆 (${MEMORY_FILES.daily.length})</div>`;
+    MEMORY_FILES.daily.forEach(f=>{
+      html+=`<div class="memory-file${currentMemFile===f.path?' active':''}" onclick="openMemFile('${f.path}')">${f.icon} ${f.name}${f.size?`<span class="mem-size">${(f.size/1024).toFixed(1)}K</span>`:''}</div>`;
+    });
+    html+=`</div>`;
+  }
+  html+=`<div class="memory-category"><div class="memory-category-title">🪪 身份文件</div>`;
+  MEMORY_FILES.identity.forEach(f=>{
+    html+=`<div class="memory-file${currentMemFile===f.path?' active':''}" onclick="openMemFile('${f.path}')">${f.icon} ${f.name}</div>`;
+  });
+  html+=`</div>`;
+  html+=`<div class="memory-cron"><label>⏰ 每日自动整理</label><div class="memory-cron-row"><input type="time" id="cronTimeInput" value="${memoryCronTime}"><button class="cron-save" onclick="saveMemoryCronTime()">保存</button></div><div class="cron-status" id="cronStatus"></div></div>`;
+  sidebar.innerHTML=html;
+}
+async function openMemFile(fp){
+  currentMemFile=fp;memoryEditing=false;renderMemorySidebar();
+  const panel=document.querySelector('.memory-panel');
+  const editor=document.querySelector('.memory-editor');
+  const welcome=document.getElementById('memoryWelcome');
+  if(welcome)welcome.style.display='none';
+  editor.style.display='flex';
+  panel.classList.remove('mem-welcome');panel.classList.add('mem-viewing');
+  try{
+    const r=await fetch('/api/files/read?path='+encodeURIComponent(fp));
+    const data=await r.json();
+    if(data.error)throw new Error(data.error);
+    editor.innerHTML=`<div class="memory-editor-header"><button class="mem-back" onclick="memGoBack()">← 返回</button><span class="mem-title">${fp.split('/').pop()}</span><button onclick="startMemEdit()">✏️ 编辑</button></div><div class="memory-content">${escapeHtml(data.content)}</div>`;
+    editor.dataset.content=data.content;editor.dataset.path=fp;
+  }catch(e){editor.innerHTML=`<div class="memory-empty"><div class="mem-icon">❌</div><div>加载失败: ${e.message}</div></div>`;}
+}
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function startMemEdit(){
+  memoryEditing=true;const editor=document.querySelector('.memory-editor');
+  const content=editor.dataset.content||'',fp=editor.dataset.path||'';
+  editor.innerHTML=`<div class="memory-editor-header"><span class="mem-title">${fp.split('/').pop()}</span><button onclick="cancelMemEdit()">取消</button><button class="save-btn" onclick="saveMemFile()">💾 保存</button></div><textarea class="memory-textarea" id="memTextarea">${escapeHtml(content)}</textarea>`;
+}
+function cancelMemEdit(){if(currentMemFile)openMemFile(currentMemFile);}
+async function saveMemFile(){
+  const textarea=document.getElementById('memTextarea'),editor=document.querySelector('.memory-editor'),fp=editor.dataset.path;
+  if(!fp||!textarea)return;
+  try{
+    const r=await fetch('/api/files/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:fp,content:textarea.value})});
+    const data=await r.json();if(data.error)throw new Error(data.error);
+    editor.dataset.content=textarea.value;openMemFile(fp);
+  }catch(e){alert('保存失败: '+e.message);}
+}
+window.openMemFile=openMemFile;window.startMemEdit=startMemEdit;window.cancelMemEdit=cancelMemEdit;window.saveMemFile=saveMemFile;
 let recognition=null,isRecording=false;
 if('webkitSpeechRecognition' in window||'SpeechRecognition' in window){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
