@@ -664,7 +664,7 @@ async function sendMessage(){
 input.addEventListener('input',()=>{updateSendBtn();});
 input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();sendMessage();}});
 sendBtn.addEventListener('click',sendMessage);
-$('toggleBtn').addEventListener('click',()=>{sidebar.classList.toggle('hidden');overlay.classList.toggle('show');});
+$('toggleBtn').addEventListener('click',()=>{sidebar.classList.toggle('hidden');if(window.innerWidth<=768)overlay.classList.toggle('show');});
 overlay.addEventListener('click',closeSidebar);
 function closeSidebar(){if(window.innerWidth<=768){sidebar.classList.add('hidden');overlay.classList.remove('show');}}
 $('newChatBtn').addEventListener('click',newChat);
