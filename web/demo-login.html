@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demo Access</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;display:flex;align-items:center;justify-content:center;min-height:100vh;color:#333}
+.card{background:#fff;border-radius:16px;padding:40px;max-width:380px;width:90%;box-shadow:0 4px 24px rgba(0,0,0,.08);text-align:center}
+.logo{font-size:48px;margin-bottom:12px}
+h1{font-size:20px;margin-bottom:6px;font-weight:600}
+.sub{color:#888;font-size:14px;margin-bottom:28px}
+input{width:100%;padding:14px 16px;border:2px solid #e5e5e5;border-radius:10px;font-size:18px;text-align:center;letter-spacing:4px;font-family:monospace;outline:none;transition:border-color .2s;text-transform:uppercase}
+input:focus{border-color:#10a37f}
+button{width:100%;padding:14px;background:#10a37f;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;margin-top:16px;transition:background .2s}
+button:hover{background:#0d8c6d}
+button:disabled{opacity:.5;cursor:not-allowed}
+.error{color:#ef4444;font-size:13px;margin-top:12px;display:none}
+.success{color:#10a37f;font-size:13px;margin-top:12px;display:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">🎪</div>
+  <h1>Demo Access</h1>
+  <p class="sub">输入访问码查看 Demo</p>
+  <input id="code" maxlength="6" placeholder="XXXXXX" autofocus>
+  <button id="btn" onclick="submit()">进入</button>
+  <div class="error" id="error"></div>
+  <div class="success" id="success"></div>
+</div>
+<script>
+const codeInput=document.getElementById('code');
+const btn=document.getElementById('btn');
+const errorEl=document.getElementById('error');
+const successEl=document.getElementById('success');
+
+codeInput.addEventListener('keydown',e=>{if(e.key==='Enter')submit()});
+
+async function submit(){
+  const code=codeInput.value.trim();
+  if(!code){codeInput.focus();return}
+  btn.disabled=true;errorEl.style.display='none';successEl.style.display='none';
+  try{
+    const r=await fetch('/auth/demo-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+    const d=await r.json();
+    if(d.ok){
+      successEl.textContent='✅ 验证成功，正在跳转...';successEl.style.display='block';
+      // Redirect to the page they were trying to access, or default to /demos/village/
+      const params=new URLSearchParams(window.location.search);
+      const next=params.get('next')||'/demos/village/';
+      setTimeout(()=>window.location.href=next,500);
+    }else{
+      errorEl.textContent=d.error||'验证失败';errorEl.style.display='block';btn.disabled=false;
+    }
+  }catch(e){errorEl.textContent='网络错误';errorEl.style.display='block';btn.disabled=false;}
+}
+</script>
+</body>
+</html>

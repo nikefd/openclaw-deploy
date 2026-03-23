@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClaw — 登录</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f0f10;--card:#1a1a1e;--border:#2a2a30;--text:#e4e4e7;--text-sec:#71717a;--accent:#10a37f;--accent-hover:#0d8c6d;--danger:#ef4444;--input-bg:#27272a}
+body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;overflow:hidden}
+
+.bg-grid{position:fixed;inset:0;z-index:0;overflow:hidden}
+.bg-grid::before{content:'';position:absolute;inset:-50%;width:200%;height:200%;
+  background:radial-gradient(ellipse at 30% 20%,rgba(16,163,127,.08) 0%,transparent 50%),
+             radial-gradient(ellipse at 70% 80%,rgba(99,102,241,.06) 0%,transparent 50%);
+  animation:drift 20s ease-in-out infinite alternate}
+@keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(-30px,20px)}}
+.grid-lines{position:absolute;inset:0;
+  background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);
+  background-size:60px 60px}
+
+.login-container{position:relative;z-index:1;width:100%;max-width:420px}
+
+.logo-section{text-align:center;margin-bottom:32px}
+.logo{font-size:56px;margin-bottom:12px;filter:drop-shadow(0 0 20px rgba(16,163,127,.3))}
+.logo-title{font-size:28px;font-weight:700;letter-spacing:-.5px}
+.logo-title span{color:var(--accent)}
+.logo-sub{color:var(--text-sec);font-size:13px;margin-top:6px}
+
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:32px;box-shadow:0 8px 32px rgba(0,0,0,.3),0 0 0 1px rgba(255,255,255,.03) inset}
+
+.form-group{margin-bottom:24px}
+.form-group label{display:block;font-size:13px;font-weight:500;color:var(--text-sec);margin-bottom:6px}
+.form-group .input-wrap{position:relative}
+
+.code-inputs{display:flex;gap:8px;justify-content:center}
+.code-inputs input{
+  width:48px;height:56px;text-align:center;font-size:24px;font-weight:600;font-family:'SF Mono',Monaco,Consolas,monospace;
+  background:var(--input-bg);border:1px solid var(--border);border-radius:10px;color:var(--text);outline:none;
+  transition:border-color .2s,box-shadow .2s;caret-color:var(--accent);
+}
+.code-inputs input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(16,163,127,.15)}
+.code-inputs input::placeholder{color:var(--text-sec);opacity:.3}
+
+.login-btn{
+  width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:10px;
+  font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;
+  transition:all .2s;position:relative;overflow:hidden;
+}
+.login-btn:hover{background:var(--accent-hover);transform:translateY(-1px);box-shadow:0 4px 16px rgba(16,163,127,.3)}
+.login-btn:active{transform:translateY(0)}
+.login-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.login-btn .spinner{display:none;width:18px;height:18px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;margin:0 auto}
+.login-btn.loading .btn-text{display:none}
+.login-btn.loading .spinner{display:block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.error-msg{color:var(--danger);font-size:13px;margin-top:12px;text-align:center;display:none;animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+.login-footer{text-align:center;margin-top:24px;font-size:12px;color:var(--text-sec)}
+.login-footer a{color:var(--accent);text-decoration:none}
+.login-footer a:hover{text-decoration:underline}
+
+.particle{position:fixed;width:2px;height:2px;background:var(--accent);border-radius:50%;opacity:0;animation:float-up 8s linear infinite;z-index:0}
+@keyframes float-up{0%{transform:translateY(100vh) scale(1);opacity:0}10%{opacity:.4}90%{opacity:.4}100%{transform:translateY(-10vh) scale(0);opacity:0}}
+
+.totp-hint{text-align:center;color:var(--text-sec);font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="bg-grid"><div class="grid-lines"></div></div>
+
+<script>
+for(let i=0;i<20;i++){
+  const p=document.createElement('div');p.className='particle';
+  p.style.left=Math.random()*100+'%';
+  p.style.animationDelay=Math.random()*8+'s';
+  p.style.animationDuration=(6+Math.random()*6)+'s';
+  document.body.appendChild(p);
+}
+</script>
+
+<div class="login-container">
+  <div class="logo-section">
+    <div class="logo">🦞</div>
+    <div class="logo-title">Open<span>Claw</span></div>
+    <div class="logo-sub">AI 工作站 · zhangyangbin.com</div>
+  </div>
+  <div class="login-card">
+    <form id="loginForm">
+      <div class="form-group">
+        <label style="text-align:center;font-size:14px">🔐 输入 Authenticator 验证码</label>
+        <div class="code-inputs" id="codeInputs">
+          <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="one-time-code">
+          <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]">
+          <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]">
+          <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]">
+          <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]">
+          <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]">
+        </div>
+        <div class="totp-hint">打开 Google Authenticator / Authy 查看6位验证码</div>
+      </div>
+      <button type="submit" class="login-btn" id="loginBtn">
+        <span class="btn-text">验 证</span>
+        <div class="spinner"></div>
+      </button>
+      <div class="error-msg" id="errorMsg"></div>
+    </form>
+  </div>
+  <div class="login-footer">
+    Powered by <a href="https://github.com/openclaw/openclaw" target="_blank">OpenClaw</a> · 🐶 狗蛋守护中
+  </div>
+</div>
+
+<script>
+const form=document.getElementById('loginForm');
+const btn=document.getElementById('loginBtn');
+const errEl=document.getElementById('errorMsg');
+const inputs=[...document.querySelectorAll('.code-inputs input')];
+
+// Auto-focus first input
+inputs[0].focus();
+
+// Handle typing: auto-advance, backspace, paste
+inputs.forEach((inp,i)=>{
+  inp.addEventListener('input',(e)=>{
+    const v=inp.value.replace(/\D/g,'');
+    inp.value=v.slice(0,1);
+    if(v && i<5) inputs[i+1].focus();
+    // Auto-submit when all filled
+    if(getCode().length===6) form.dispatchEvent(new Event('submit',{cancelable:true}));
+  });
+  inp.addEventListener('keydown',(e)=>{
+    if(e.key==='Backspace'&&!inp.value&&i>0){inputs[i-1].focus();inputs[i-1].value='';}
+    if(e.key==='ArrowLeft'&&i>0) inputs[i-1].focus();
+    if(e.key==='ArrowRight'&&i<5) inputs[i+1].focus();
+  });
+  inp.addEventListener('paste',(e)=>{
+    e.preventDefault();
+    const paste=(e.clipboardData.getData('text')||'').replace(/\D/g,'').slice(0,6);
+    paste.split('').forEach((ch,j)=>{if(inputs[j])inputs[j].value=ch;});
+    if(paste.length===6) form.dispatchEvent(new Event('submit',{cancelable:true}));
+    else if(inputs[paste.length]) inputs[paste.length].focus();
+  });
+});
+
+function getCode(){return inputs.map(i=>i.value).join('');}
+
+form.addEventListener('submit',async(e)=>{
+  e.preventDefault();
+  const code=getCode();
+  if(code.length!==6){errEl.textContent='请输入完整的6位验证码';errEl.style.display='block';return;}
+  
+  btn.classList.add('loading');btn.disabled=true;errEl.style.display='none';
+  
+  try{
+    const res=await fetch('/auth/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({code})
+    });
+    const data=await res.json();
+    if(res.ok&&data.ok){
+      window.location.href='/';
+    } else {
+      errEl.textContent='验证码错误，请重试';errEl.style.display='block';
+      btn.classList.remove('loading');btn.disabled=false;
+      inputs.forEach(i=>i.value='');
+      inputs[0].focus();
+    }
+  }catch(err){
+    errEl.textContent='连接失败: '+err.message;errEl.style.display='block';
+    btn.classList.remove('loading');btn.disabled=false;
+  }
+});
+
+(async()=>{
+  try{const r=await fetch('/auth/verify');if(r.ok) window.location.href='/';}catch{}
+})();
+</script>
+</body>
+</html>

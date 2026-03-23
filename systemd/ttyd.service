@@ -1,0 +1,9 @@
+[Unit]
+Description=ttyd Web Terminal
+After=network.target
+[Service]
+ExecStart=/usr/bin/ttyd -p 7681 -i 127.0.0.1 -b /terminal -W bash
+Restart=always
+RestartSec=3
+[Install]
+WantedBy=default.target
