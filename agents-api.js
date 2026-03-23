@@ -20,6 +20,16 @@ function saveNews(data) {
   fs.writeFileSync(AI_NEWS_FILE, JSON.stringify(data, null, 2));
 }
 
+const TRACKS_FILE = path.join(AI_NEWS_DIR, 'tracks.json');
+function loadTracks() {
+  try { return JSON.parse(fs.readFileSync(TRACKS_FILE, 'utf-8')); }
+  catch { return []; }
+}
+function saveTracks(data) {
+  fs.mkdirSync(AI_NEWS_DIR, { recursive: true });
+  fs.writeFileSync(TRACKS_FILE, JSON.stringify(data, null, 2));
+}
+
 // ─── Fitness Agent ───
 const FITNESS_DIR = path.join(DATA_DIR, 'fitness');
 const FITNESS_LOG_FILE = path.join(FITNESS_DIR, 'logs.json');
@@ -163,6 +173,33 @@ const server = http.createServer(async (req, res) => {
       chats.push({ role: 'assistant', content: body.message, ts: new Date().toISOString() });
       saveFitnessChats(chats);
       return json(res, { ok: true });
+    }
+
+    // ─── Learning Tracks ───
+    if (p === '/api/agents/ai-news/tracks' && req.method === 'GET') {
+      return json(res, loadTracks());
+    }
+    if (p === '/api/agents/ai-news/tracks' && req.method === 'POST') {
+      const body = await readBody(req);
+      const tracks = loadTracks();
+      if (body.action === 'add') {
+        tracks.push({ id: Date.now().toString(36), name: body.name, icon: body.icon || '📌', keywords: body.keywords || [], items: [], createdAt: new Date().toISOString() });
+      } else if (body.action === 'delete') {
+        const idx = tracks.findIndex(t => t.id === body.id);
+        if (idx >= 0) tracks.splice(idx, 1);
+      } else if (body.action === 'update') {
+        const t = tracks.find(t => t.id === body.id);
+        if (t) { if (body.name) t.name = body.name; if (body.icon) t.icon = body.icon; if (body.keywords) t.keywords = body.keywords; }
+      } else if (body.action === 'mark') {
+        const t = tracks.find(t => t.id === body.trackId);
+        if (t) {
+          const existing = t.items.find(i => i.articleId === body.articleId);
+          if (existing) existing.status = body.status;
+          else t.items.push({ articleId: body.articleId, status: body.status, ts: new Date().toISOString() });
+        }
+      }
+      saveTracks(tracks);
+      return json(res, { ok: true, tracks });
     }
 
     res.writeHead(404); res.end('Not found');

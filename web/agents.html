@@ -8,16 +8,14 @@
 :root{--bg:#f5f5f7;--card:#fff;--text:#1a1a2e;--text2:#6c757d;--border:#e5e5ea;--accent:#4361ee;--accent-bg:rgba(67,97,238,.08);--hover:#f0f0f5;--green:#2ec4b6;--orange:#ff6b35;--red:#e63946;--radius:14px}
 [data-theme=dark]{--bg:#1a1a2e;--card:#232340;--text:#e8e8f0;--text2:#8e8ea0;--border:#33334d;--accent:#6c8cff;--accent-bg:rgba(108,140,255,.12);--hover:#2a2a45;--green:#3dd9c4;--orange:#ff8c5a;--red:#ff5a6a}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 
-/* Top nav */
 .topnav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
 .topnav h1{font-size:1.1rem;flex:1}
 .topnav a{font-size:.85rem;color:var(--text2)}
 .topnav .theme-btn{background:none;border:none;font-size:1.2rem;cursor:pointer}
 
-/* Agent cards grid */
 .agents-hub{max-width:1000px;margin:0 auto;padding:20px}
 .agents-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:30px}
 .agent-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;cursor:pointer;transition:transform .15s,box-shadow .15s}
@@ -25,10 +23,8 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .agent-card .icon{font-size:2.2rem;margin-bottom:10px}
 .agent-card h3{font-size:1rem;margin-bottom:6px}
 .agent-card p{font-size:.8rem;color:var(--text2);line-height:1.5}
-.agent-card .status{display:inline-block;font-size:.7rem;padding:3px 8px;border-radius:10px;margin-top:10px}
-.agent-card .status.active{background:rgba(46,196,182,.15);color:var(--green)}
+.agent-card .status{display:inline-block;font-size:.7rem;padding:3px 8px;border-radius:10px;margin-top:10px;background:rgba(46,196,182,.15);color:var(--green)}
 
-/* Panel views */
 .panel{display:none;max-width:1000px;margin:0 auto;padding:20px}
 .panel.active{display:block}
 .panel-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
@@ -37,29 +33,56 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .btn:hover{background:var(--hover)}
 .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 .btn.primary:hover{opacity:.85}
-.btn.danger{color:var(--red);border-color:var(--red)}
+.btn.sm{padding:5px 10px;font-size:.72rem}
 .back-btn{background:none;border:none;font-size:1.2rem;cursor:pointer;padding:4px 8px}
 
-/* ─── AI News ─── */
-.news-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-.news-filter{display:flex;gap:6px;flex-wrap:wrap}
-.news-filter .chip{padding:5px 12px;border-radius:16px;font-size:.75rem;border:1px solid var(--border);background:var(--card);cursor:pointer;transition:all .15s}
-.news-filter .chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-.news-list{display:flex;flex-direction:column;gap:10px}
+/* Tracks */
+.tracks-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.track-chip{padding:5px 12px;border-radius:16px;font-size:.75rem;border:1px solid var(--border);background:var(--card);cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:4px}
+.track-chip:hover{background:var(--hover)}
+.track-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.track-chip .count{font-size:.65rem;opacity:.7}
+.track-manage{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.track-manage h3{font-size:.9rem;margin-bottom:10px}
+.track-list-edit{display:flex;flex-direction:column;gap:6px}
+.track-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:var(--bg);font-size:.8rem}
+.track-row .kw{flex:1;color:var(--text2);font-size:.72rem}
+.track-row button{background:none;border:none;cursor:pointer;font-size:.85rem;padding:2px 4px}
+.track-add-form{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.track-add-form input{padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:.8rem;background:var(--bg);color:var(--text)}
+
+/* News controls */
+.news-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.chip{padding:5px 12px;border-radius:16px;font-size:.75rem;border:1px solid var(--border);background:var(--card);cursor:pointer;transition:all .15s}
+.chip:hover{background:var(--hover)}
+.chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* News items */
+.news-list{display:flex;flex-direction:column;gap:12px}
 .news-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:background .15s}
 .news-item:hover{background:var(--hover)}
 .news-item.pinned{border-left:3px solid var(--orange)}
 .news-item .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
 .news-item .tag{font-size:.65rem;padding:2px 7px;border-radius:8px;background:var(--accent-bg);color:var(--accent)}
+.news-item .track-tag{font-size:.6rem;padding:2px 6px;border-radius:6px;background:rgba(46,196,182,.12);color:var(--green)}
 .news-item .date{font-size:.7rem;color:var(--text2)}
 .news-item h4{font-size:.9rem;margin-bottom:6px;line-height:1.4}
 .news-item .summary{font-size:.8rem;color:var(--text2);line-height:1.6}
-.news-item .actions{display:flex;gap:6px;margin-top:10px}
-.news-item .actions button{background:none;border:none;cursor:pointer;font-size:.9rem;padding:2px 6px;border-radius:4px;transition:background .15s}
+.news-item .actionable-box{margin-top:10px;padding:10px 14px;background:var(--accent-bg);border-radius:10px;border-left:3px solid var(--accent)}
+.news-item .actionable-box .ab-title{font-size:.72rem;font-weight:600;color:var(--accent);margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.news-item .actionable-box .ab-content{font-size:.78rem;line-height:1.6;color:var(--text);white-space:pre-wrap;font-family:'SF Mono',Monaco,Consolas,monospace}
+.news-item .actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.news-item .actions button{background:none;border:none;cursor:pointer;font-size:.85rem;padding:2px 6px;border-radius:4px;transition:background .15s}
 .news-item .actions button:hover{background:var(--hover)}
+.news-item .status-btns{display:flex;gap:3px;margin-left:auto}
+.news-item .status-btns button{font-size:.7rem;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--card);cursor:pointer;transition:all .15s}
+.news-item .status-btns button:hover{background:var(--hover)}
+.news-item .status-btns button.active-tried{background:var(--green);color:#fff;border-color:var(--green)}
+.news-item .status-btns button.active-want{background:var(--orange);color:#fff;border-color:var(--orange)}
+.news-item .status-btns button.active-skip{background:var(--text2);color:#fff;border-color:var(--text2)}
 .news-empty{text-align:center;padding:60px 20px;color:var(--text2)}
 
-/* ─── Fitness ─── */
+/* Fitness */
 .fitness-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .fitness-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
 .fitness-section h3{font-size:.9rem;margin-bottom:12px;display:flex;align-items:center;gap:6px}
@@ -72,22 +95,18 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .log-entry .log-type{font-size:.65rem;padding:2px 6px;border-radius:6px;background:var(--accent-bg);color:var(--accent)}
 .log-form{display:flex;flex-direction:column;gap:8px;margin-top:12px}
 .log-form select,.log-form textarea,.log-form input{padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:.8rem;background:var(--bg);color:var(--text);font-family:inherit}
-
-/* Coach chat */
 .coach-chat{display:flex;flex-direction:column;height:400px}
 .coach-messages{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
-.coach-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:.8rem;line-height:1.5;word-break:break-word}
+.coach-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:.8rem;line-height:1.5;word-break:break-word;white-space:pre-wrap}
 .coach-msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
 .coach-msg.assistant{background:var(--hover);align-self:flex-start;border-bottom-left-radius:4px}
 .coach-input{display:flex;gap:6px;margin-top:8px}
 .coach-input input{flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:.8rem;background:var(--bg);color:var(--text)}
 .coach-input button{padding:8px 14px;border-radius:8px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:.8rem}
 
-/* Loading */
 .loading-spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* Responsive */
 @media(max-width:700px){
   .agents-grid{grid-template-columns:1fr}
   .fitness-layout{grid-template-columns:1fr}
@@ -95,6 +114,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   .topnav{padding:10px 14px}
   .topnav h1{font-size:1rem}
   .coach-chat{height:350px}
+  .news-item .status-btns{margin-left:0;margin-top:6px}
 }
 </style>
 </head>
@@ -107,20 +127,20 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
 </div>
 
-<!-- Hub view -->
+<!-- Hub -->
 <div class="agents-hub" id="hubView">
   <div class="agents-grid">
     <div class="agent-card" onclick="showPanel('ai-news')">
       <div class="icon">🤖</div>
       <h3>AI 前沿追踪</h3>
-      <p>每日自动搜索 AI 领域最新进展，前沿论文、产品发布、技术突破，帮你紧跟潮流</p>
-      <span class="status active">● 每晚自动更新</span>
+      <p>每日搜索 AI 领域最新进展，带「动手试试」实操指引，按你的学习路径精准推送</p>
+      <span class="status">● 每晚自动更新</span>
     </div>
     <div class="agent-card" onclick="showPanel('fitness')">
       <div class="icon">🧗</div>
       <h3>攀岩 & 健身教练</h3>
-      <p>你的私人教练 — 攀岩难度进阶、健身计划、训练记录，帮你保持好身体</p>
-      <span class="status active">● 随时可用</span>
+      <p>你的私人教练 — 攀岩难度进阶、训练计划、记录追踪</p>
+      <span class="status">● 随时可用</span>
     </div>
   </div>
 </div>
@@ -130,21 +150,35 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   <div class="panel-header">
     <button class="back-btn" onclick="showHub()">←</button>
     <h2>🤖 AI 前沿追踪</h2>
-    <button class="btn primary" id="refreshNewsBtn" onclick="triggerNewsScan()">🔍 立即搜索</button>
+    <button class="btn sm" id="manageTracksBtn" onclick="toggleTrackManage()">⚙️ 学习路径</button>
+    <button class="btn primary" id="refreshNewsBtn" onclick="triggerNewsScan()">🔍 搜索最新</button>
   </div>
-  <div class="news-controls">
-    <div class="news-filter" id="newsFilter">
-      <span class="chip active" data-filter="all">全部</span>
-      <span class="chip" data-filter="pinned">📌 收藏</span>
-      <span class="chip" data-filter="model">模型</span>
-      <span class="chip" data-filter="product">产品</span>
-      <span class="chip" data-filter="research">研究</span>
-      <span class="chip" data-filter="tool">工具</span>
+
+  <!-- Track Management (hidden by default) -->
+  <div class="track-manage" id="trackManage" style="display:none">
+    <h3>📚 我的学习路径</h3>
+    <p style="font-size:.75rem;color:var(--text2);margin-bottom:10px">添加你关注的技术方向，AI 会重点搜索这些领域，并标记相关文章</p>
+    <div class="track-list-edit" id="trackListEdit"></div>
+    <div class="track-add-form">
+      <input id="trackNewName" placeholder="方向名称 (如: Agent框架)">
+      <input id="trackNewKw" placeholder="搜索关键词，逗号分隔">
+      <button class="btn primary sm" onclick="addTrack()">+ 添加</button>
     </div>
   </div>
-  <div class="news-list" id="newsList">
-    <div class="news-empty">🔄 加载中...</div>
+
+  <!-- Filters -->
+  <div class="tracks-bar" id="tracksBar"></div>
+  <div class="news-controls" id="newsControls">
+    <span class="chip active" data-filter="all">全部</span>
+    <span class="chip" data-filter="pinned">📌 收藏</span>
+    <span class="chip" data-filter="tried">✅ 已试</span>
+    <span class="chip" data-filter="want">🔥 想试</span>
+    <span class="chip" data-filter="model">模型</span>
+    <span class="chip" data-filter="product">产品</span>
+    <span class="chip" data-filter="research">研究</span>
+    <span class="chip" data-filter="tool">工具</span>
   </div>
+  <div class="news-list" id="newsList"><div class="news-empty">🔄 加载中...</div></div>
 </div>
 
 <!-- Fitness Panel -->
@@ -154,7 +188,6 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     <h2>🧗 攀岩 & 健身教练</h2>
   </div>
   <div class="fitness-layout">
-    <!-- Left: Profile + Log -->
     <div style="display:flex;flex-direction:column;gap:16px">
       <div class="fitness-section">
         <h3>👤 我的档案</h3>
@@ -166,16 +199,14 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
             <option>5.11a</option><option>5.11b</option><option>5.11c</option><option>5.11d</option>
             <option>5.12a</option><option>5.12b</option><option>5.12c</option><option>5.12d</option>
             <option>5.13a</option><option>5.13b</option><option>5.13c</option><option>5.13d</option>
-            <option>V0</option><option>V1</option><option>V2</option><option>V3</option><option>V4</option><option>V5</option><option>V6</option><option>V7</option><option>V8</option>
           </select>
           <label>目标</label>
           <input id="profGoals" placeholder="比如：3个月内上5.12a">
           <label>备注（伤病、偏好等）</label>
-          <textarea id="profNotes" placeholder="比如：左肩有旧伤，喜欢overhand路线"></textarea>
+          <textarea id="profNotes" placeholder="比如：左肩有旧伤，喜欢overhang路线"></textarea>
           <button class="btn primary" style="margin-top:12px" onclick="saveProfile()">保存档案</button>
         </div>
       </div>
-
       <div class="fitness-section">
         <h3>📝 训练记录</h3>
         <div class="log-form">
@@ -199,13 +230,11 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
         <div id="logList" style="margin-top:12px;max-height:300px;overflow-y:auto"></div>
       </div>
     </div>
-
-    <!-- Right: Coach Chat -->
     <div class="fitness-section">
       <h3>💬 问教练</h3>
       <div class="coach-chat">
         <div class="coach-messages" id="coachMessages">
-          <div class="coach-msg assistant">嘿！我是你的攀岩和健身教练 🧗💪 有什么训练上的问题随时问我，我也会根据你的记录给建议！</div>
+          <div class="coach-msg assistant">嘿！我是你的攀岩和健身教练 🧗💪 有什么训练上的问题随时问我！</div>
         </div>
         <div class="coach-input">
           <input id="coachInput" placeholder="问点训练相关的..." onkeydown="if(event.key==='Enter')askCoach()">
@@ -217,259 +246,163 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 </div>
 
 <script>
-const API_BASE = '/api/agents';
+const API = '/api/agents';
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
 
 // ─── Theme ───
-function getTheme() { return localStorage.getItem('agents-theme') || 'light'; }
-function applyTheme(t) {
-  document.documentElement.setAttribute('data-theme', t);
-  localStorage.setItem('agents-theme', t);
-  document.getElementById('themeBtn').textContent = t === 'dark' ? '☀️' : '🌙';
-}
-function toggleTheme() { applyTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+function getTheme(){return localStorage.getItem('agents-theme')||'light'}
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);localStorage.setItem('agents-theme',t);document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙'}
+function toggleTheme(){applyTheme(getTheme()==='dark'?'light':'dark')}
 applyTheme(getTheme());
 
-// ─── Navigation ───
-function showHub() {
-  document.getElementById('hubView').style.display = '';
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  history.pushState({}, '', '/agents/');
-}
-function showPanel(name) {
-  document.getElementById('hubView').style.display = 'none';
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('panel-' + name).classList.add('active');
-  history.pushState({}, '', '/agents/' + name);
-  if (name === 'ai-news') loadNewsList();
-  if (name === 'fitness') { loadProfile(); loadLogs(); loadChats(); }
-}
+// ─── Nav ───
+function showHub(){document.getElementById('hubView').style.display='';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));history.pushState({},'','/agents/')}
+function showPanel(n){document.getElementById('hubView').style.display='none';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+n).classList.add('active');history.pushState({},'','/agents/'+n);if(n==='ai-news'){loadTracks();loadNewsList()}if(n==='fitness'){loadProfile();loadLogs();loadChats()}}
+const ip=location.pathname.replace(/\/+$/,'');
+if(ip==='/agents/ai-news')showPanel('ai-news');else if(ip==='/agents/fitness')showPanel('fitness');
 
-// Route on load
-const initPath = location.pathname.replace(/\/+$/, '');
-if (initPath === '/agents/ai-news') showPanel('ai-news');
-else if (initPath === '/agents/fitness') showPanel('fitness');
+// ─── Learning Tracks ───
+let allTracks=[];
+function toggleTrackManage(){const el=document.getElementById('trackManage');el.style.display=el.style.display==='none'?'block':'none'}
+
+async function loadTracks(){
+  try{allTracks=await(await fetch(API+'/ai-news/tracks')).json();renderTracksBar();renderTrackEdit()}catch{}
+}
+function renderTracksBar(){
+  const bar=document.getElementById('tracksBar');
+  if(!allTracks.length){bar.innerHTML='<span style="font-size:.75rem;color:var(--text2)">💡 点击「学习路径」添加你关注的技术方向</span>';return}
+  bar.innerHTML=allTracks.map(t=>`<span class="track-chip" data-track="${esc(t.name)}" onclick="filterByTrack(this)">${t.icon} ${esc(t.name)} <span class="count">(${t.items?.filter(i=>i.status==='tried').length||0})</span></span>`).join('');
+}
+function renderTrackEdit(){
+  const el=document.getElementById('trackListEdit');
+  if(!allTracks.length){el.innerHTML='<div style="color:var(--text2);font-size:.8rem">还没有学习路径</div>';return}
+  el.innerHTML=allTracks.map(t=>`<div class="track-row"><span>${t.icon} <b>${esc(t.name)}</b></span><span class="kw">${(t.keywords||[]).join(', ')}</span><button onclick="deleteTrack('${t.id}')" title="删除">🗑</button></div>`).join('');
+}
+async function addTrack(){
+  const name=document.getElementById('trackNewName').value.trim();
+  if(!name)return alert('填个名称');
+  const kw=document.getElementById('trackNewKw').value.split(',').map(s=>s.trim()).filter(Boolean);
+  await fetch(API+'/ai-news/tracks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'add',name,keywords:kw,icon:guessIcon(name)})});
+  document.getElementById('trackNewName').value='';document.getElementById('trackNewKw').value='';
+  loadTracks();
+}
+async function deleteTrack(id){if(!confirm('删除？'))return;await fetch(API+'/ai-news/tracks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',id})});loadTracks()}
+function guessIcon(name){const n=name.toLowerCase();if(n.includes('agent'))return'🤖';if(n.includes('多模态')||n.includes('vision'))return'👁️';if(n.includes('rag'))return'📚';if(n.includes('微调')||n.includes('fine'))return'🔧';if(n.includes('开源'))return'🌐';return'🔬'}
+
+let activeTrackFilter=null;
+function filterByTrack(el){
+  if(el.classList.contains('active')){el.classList.remove('active');activeTrackFilter=null}
+  else{document.querySelectorAll('.track-chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');activeTrackFilter=el.dataset.track}
+  renderNews();
+}
 
 // ─── AI News ───
-let allNews = [];
-let newsFilter = 'all';
+let allNews=[],newsFilter='all';
+document.getElementById('newsControls').addEventListener('click',e=>{if(!e.target.classList.contains('chip'))return;document.querySelectorAll('#newsControls .chip').forEach(c=>c.classList.remove('active'));e.target.classList.add('active');newsFilter=e.target.dataset.filter;activeTrackFilter=null;document.querySelectorAll('.track-chip').forEach(c=>c.classList.remove('active'));renderNews()});
 
-document.getElementById('newsFilter').addEventListener('click', e => {
-  if (!e.target.classList.contains('chip')) return;
-  document.querySelectorAll('#newsFilter .chip').forEach(c => c.classList.remove('active'));
-  e.target.classList.add('active');
-  newsFilter = e.target.dataset.filter;
-  renderNews();
-});
-
-async function loadNewsList() {
-  try {
-    const res = await fetch(API_BASE + '/ai-news/articles');
-    allNews = await res.json();
-    renderNews();
-  } catch(e) {
-    document.getElementById('newsList').innerHTML = '<div class="news-empty">❌ 加载失败: ' + e.message + '</div>';
-  }
+async function loadNewsList(){
+  try{allNews=await(await fetch(API+'/ai-news/articles')).json();renderNews()}
+  catch(e){document.getElementById('newsList').innerHTML='<div class="news-empty">❌ 加载失败</div>'}
 }
 
-function renderNews() {
-  const list = document.getElementById('newsList');
-  let items = allNews;
-  if (newsFilter === 'pinned') items = items.filter(a => a.pinned);
-  else if (newsFilter !== 'all') items = items.filter(a => a.tag === newsFilter);
+function getArticleStatus(articleId){
+  for(const t of allTracks){const item=t.items?.find(i=>i.articleId===articleId);if(item)return item.status}
+  return null;
+}
 
-  if (!items.length) {
-    list.innerHTML = '<div class="news-empty">暂无内容' + (newsFilter !== 'all' ? '（当前筛选）' : '，点击「立即搜索」获取最新资讯') + '</div>';
-    return;
-  }
-  list.innerHTML = items.map(a => `
-    <div class="news-item ${a.pinned ? 'pinned' : ''}">
+function renderNews(){
+  const list=document.getElementById('newsList');
+  let items=allNews;
+  if(newsFilter==='pinned')items=items.filter(a=>a.pinned);
+  else if(newsFilter==='tried')items=items.filter(a=>getArticleStatus(a.id)==='tried');
+  else if(newsFilter==='want')items=items.filter(a=>getArticleStatus(a.id)==='want');
+  else if(newsFilter!=='all')items=items.filter(a=>a.tag===newsFilter);
+  if(activeTrackFilter)items=items.filter(a=>(a.tracks||[]).includes(activeTrackFilter));
+  if(!items.length){list.innerHTML='<div class="news-empty">暂无内容'+(newsFilter!=='all'||activeTrackFilter?'（当前筛选）':'，点击「搜索最新」获取')+'</div>';return}
+
+  list.innerHTML=items.map(a=>{
+    const st=getArticleStatus(a.id);
+    return `<div class="news-item ${a.pinned?'pinned':''}">
       <div class="meta">
-        ${a.tag ? '<span class="tag">' + a.tag + '</span>' : ''}
-        <span class="date">${a.date || ''}</span>
-        ${a.pinned ? '<span style="color:var(--orange);font-size:.7rem">📌 收藏</span>' : ''}
+        ${a.tag?'<span class="tag">'+a.tag+'</span>':''}
+        ${(a.tracks||[]).map(t=>'<span class="track-tag">'+esc(t)+'</span>').join('')}
+        <span class="date">${a.date||''}</span>
+        ${a.pinned?'<span style="color:var(--orange);font-size:.7rem">📌</span>':''}
+        ${st==='tried'?'<span style="color:var(--green);font-size:.7rem">✅ 已试</span>':''}
+        ${st==='want'?'<span style="color:var(--orange);font-size:.7rem">🔥 想试</span>':''}
       </div>
       <h4>${esc(a.title)}</h4>
-      <div class="summary">${esc(a.summary || '')}</div>
-      ${a.url ? '<div style="margin-top:6px"><a href="' + esc(a.url) + '" target="_blank" style="font-size:.75rem">🔗 原文链接</a></div>' : ''}
+      <div class="summary">${esc(a.summary||'')}</div>
+      ${a.actionable&&a.actionable!=='了解即可'?`<div class="actionable-box"><div class="ab-title">🚀 动手试试</div><div class="ab-content">${esc(a.actionable)}</div></div>`:''}
+      ${a.url?'<div style="margin-top:6px"><a href="'+esc(a.url)+'" target="_blank" style="font-size:.75rem">🔗 原文链接</a></div>':''}
       <div class="actions">
-        <button onclick="togglePin('${a.id}')" title="收藏">${a.pinned ? '📌' : '📍'}</button>
-        <button onclick="deleteNews('${a.id}')" title="删除">🗑</button>
+        <button onclick="togglePin('${a.id}')">${a.pinned?'📌':'📍'}</button>
+        <button onclick="deleteNews('${a.id}')">🗑</button>
+        <div class="status-btns">
+          <button class="${st==='tried'?'active-tried':''}" onclick="markStatus('${a.id}','tried')">✅ 已试</button>
+          <button class="${st==='want'?'active-want':''}" onclick="markStatus('${a.id}','want')">🔥 想试</button>
+          <button class="${st==='skip'?'active-skip':''}" onclick="markStatus('${a.id}','skip')">⏭ 跳过</button>
+        </div>
       </div>
-    </div>
-  `).join('');
+    </div>`}).join('');
 }
 
-async function togglePin(id) {
-  await fetch(API_BASE + '/ai-news/pin', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
-  const a = allNews.find(x => x.id === id);
-  if (a) a.pinned = !a.pinned;
-  renderNews();
+async function togglePin(id){await fetch(API+'/ai-news/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});const a=allNews.find(x=>x.id===id);if(a)a.pinned=!a.pinned;renderNews()}
+async function deleteNews(id){if(!confirm('删除？'))return;await fetch(API+'/ai-news/articles',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});allNews=allNews.filter(a=>a.id!==id);renderNews()}
+
+async function markStatus(articleId,status){
+  // Mark on first track that has related keywords, or first track if none match
+  let trackId=allTracks[0]?.id;
+  for(const t of allTracks){if((allNews.find(a=>a.id===articleId)?.tracks||[]).includes(t.name)){trackId=t.id;break}}
+  if(!trackId){alert('请先添加一个学习路径');return}
+  // Toggle off if same status
+  const current=getArticleStatus(articleId);
+  const newStatus=current===status?'none':status;
+  await fetch(API+'/ai-news/tracks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'mark',trackId,articleId,status:newStatus})});
+  // Update local
+  const t=allTracks.find(t=>t.id===trackId);
+  if(t){const e=t.items?.find(i=>i.articleId===articleId);if(e)e.status=newStatus;else if(!t.items)t.items=[{articleId,status:newStatus}];else t.items.push({articleId,status:newStatus})}
+  renderNews();renderTracksBar();
 }
 
-async function deleteNews(id) {
-  if (!confirm('删除这条？')) return;
-  await fetch(API_BASE + '/ai-news/articles', { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ id }) });
-  allNews = allNews.filter(a => a.id !== id);
-  renderNews();
+async function triggerNewsScan(){
+  const btn=document.getElementById('refreshNewsBtn');
+  btn.disabled=true;btn.innerHTML='<span class="loading-spinner"></span> 搜索中...';
+  try{
+    const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getGwToken()},body:JSON.stringify({model:'openclaw:main',input:'请立即执行一次AI前沿新闻搜索。先读取学习路径 curl -s http://127.0.0.1:7685/api/agents/ai-news/tracks，然后搜索最新AI进展，每条要包含 actionable（动手试试）字段和 tracks（关联学习路径）字段。搜完后 POST 到 http://127.0.0.1:7685/api/agents/ai-news/articles，格式 {"articles":[...],"mode":"append"}。每条: {id,title,summary,url,tag,date,actionable,tracks}',stream:false})});
+    await new Promise(r=>setTimeout(r,5000));loadNewsList();
+  }catch(e){alert('触发失败: '+e.message)}
+  finally{btn.disabled=false;btn.innerHTML='🔍 搜索最新'}
 }
 
-async function triggerNewsScan() {
-  const btn = document.getElementById('refreshNewsBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="loading-spinner"></span> 搜索中...';
-  try {
-    // Send message to main session to trigger AI news scan
-    const res = await fetch('/v1/responses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getGwToken() },
-      body: JSON.stringify({
-        model: 'openclaw:main',
-        input: '请立即执行一次AI前沿新闻搜索，搜索最新的AI进展和前沿技术，然后把结果通过 POST /api/agents/ai-news/articles 保存。格式: { "articles": [{ "id": "唯一id", "title": "标题", "summary": "摘要", "url": "链接", "tag": "model/product/research/tool之一", "date": "YYYY-MM-DD" }], "mode": "append" }',
-        stream: false
-      })
-    });
-    // Reload after a delay
-    setTimeout(loadNewsList, 3000);
-  } catch(e) {
-    alert('触发失败: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '🔍 立即搜索';
-  }
-}
+function getGwToken(){try{const s=sessionStorage.getItem('openclaw.control.settings.v1');if(s){const o=JSON.parse(s);if(o.token)return o.token}}catch{}return localStorage.getItem('gw-token')||''}
 
-function getGwToken() {
-  // Try to get from sessionStorage (control UI stores it there)
-  try {
-    const s = sessionStorage.getItem('openclaw.control.settings.v1');
-    if (s) { const o = JSON.parse(s); if (o.token) return o.token; }
-  } catch{}
-  return localStorage.getItem('gw-token') || '';
-}
+// ─── Fitness (same as before) ───
+async function loadProfile(){try{const p=await(await fetch(API+'/fitness/profile')).json();document.getElementById('profGrade').value=p.climbingGrade||'';document.getElementById('profGoals').value=p.goals||'';document.getElementById('profNotes').value=p.notes||''}catch{}}
+async function saveProfile(){const d={climbingGrade:document.getElementById('profGrade').value,goals:document.getElementById('profGoals').value,notes:document.getElementById('profNotes').value,updatedAt:new Date().toISOString()};await fetch(API+'/fitness/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});alert('已保存！')}
+async function loadLogs(){try{const logs=await(await fetch(API+'/fitness/logs')).json();renderLogs(logs)}catch{}}
+function renderLogs(logs){const el=document.getElementById('logList');if(!logs.length){el.innerHTML='<div style="color:var(--text2);font-size:.8rem;padding:10px">还没有训练记录</div>';return}const te={climbing:'🧗',gym:'🏋️',rest:'😴'},fe={great:'💪',ok:'👍',tired:'😩',injured:'🤕'};el.innerHTML=logs.slice(0,30).map(l=>`<div class="log-entry"><div style="display:flex;justify-content:space-between;align-items:center"><span><span class="log-type">${te[l.type]||''} ${l.type}</span> ${l.grade?'<b>'+esc(l.grade)+'</b>':''} ${fe[l.feeling]||''}</span><span class="log-date">${l.createdAt?new Date(l.createdAt).toLocaleDateString('zh-CN'):''}</span></div><div style="margin-top:4px;color:var(--text2)">${esc(l.content||'')}</div></div>`).join('')}
+async function addLog(){const c=document.getElementById('logContent').value.trim();if(!c)return alert('写点内容');await fetch(API+'/fitness/logs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:document.getElementById('logType').value,content:c,grade:document.getElementById('logGrade').value.trim(),feeling:document.getElementById('logFeeling').value})});document.getElementById('logContent').value='';document.getElementById('logGrade').value='';loadLogs()}
 
-// ─── Fitness ───
-async function loadProfile() {
-  try {
-    const p = await (await fetch(API_BASE + '/fitness/profile')).json();
-    document.getElementById('profGrade').value = p.climbingGrade || '';
-    document.getElementById('profGoals').value = p.goals || '';
-    document.getElementById('profNotes').value = p.notes || '';
-  } catch{}
-}
-
-async function saveProfile() {
-  const data = {
-    climbingGrade: document.getElementById('profGrade').value,
-    goals: document.getElementById('profGoals').value,
-    notes: document.getElementById('profNotes').value,
-    updatedAt: new Date().toISOString()
-  };
-  await fetch(API_BASE + '/fitness/profile', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
-  alert('已保存！');
-}
-
-async function loadLogs() {
-  try {
-    const logs = await (await fetch(API_BASE + '/fitness/logs')).json();
-    renderLogs(logs);
-  } catch{}
-}
-
-function renderLogs(logs) {
-  const el = document.getElementById('logList');
-  if (!logs.length) { el.innerHTML = '<div style="color:var(--text2);font-size:.8rem;padding:10px">还没有训练记录，开始记录吧！</div>'; return; }
-  const typeEmoji = { climbing: '🧗', gym: '🏋️', rest: '😴' };
-  const feelEmoji = { great: '💪', ok: '👍', tired: '😩', injured: '🤕' };
-  el.innerHTML = logs.slice(0, 30).map(l => `
-    <div class="log-entry">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span><span class="log-type">${typeEmoji[l.type] || ''} ${l.type}</span> ${l.grade ? '<b>' + esc(l.grade) + '</b>' : ''} ${feelEmoji[l.feeling] || ''}</span>
-        <span class="log-date">${l.createdAt ? new Date(l.createdAt).toLocaleDateString('zh-CN') : ''}</span>
-      </div>
-      <div style="margin-top:4px;color:var(--text2)">${esc(l.content || '')}</div>
-    </div>
-  `).join('');
-}
-
-async function addLog() {
-  const content = document.getElementById('logContent').value.trim();
-  if (!content) { alert('写点内容吧！'); return; }
-  const data = {
-    type: document.getElementById('logType').value,
-    content,
-    grade: document.getElementById('logGrade').value.trim(),
-    feeling: document.getElementById('logFeeling').value
-  };
-  await fetch(API_BASE + '/fitness/logs', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
-  document.getElementById('logContent').value = '';
-  document.getElementById('logGrade').value = '';
-  loadLogs();
-}
-
-// ─── Coach Chat ───
-async function loadChats() {
-  try {
-    const chats = await (await fetch(API_BASE + '/fitness/chats')).json();
-    const el = document.getElementById('coachMessages');
-    if (chats.length) {
-      el.innerHTML = chats.map(c => `<div class="coach-msg ${c.role}">${esc(c.content)}</div>`).join('');
-      el.scrollTop = el.scrollHeight;
-    }
-  } catch{}
-}
-
-async function askCoach() {
-  const input = document.getElementById('coachInput');
-  const msg = input.value.trim();
-  if (!msg) return;
-  input.value = '';
-
-  const el = document.getElementById('coachMessages');
-  el.innerHTML += `<div class="coach-msg user">${esc(msg)}</div>`;
-  el.innerHTML += `<div class="coach-msg assistant" id="coachLoading"><span class="loading-spinner"></span> 思考中...</div>`;
-  el.scrollTop = el.scrollHeight;
-
-  // Save user message
-  await fetch(API_BASE + '/fitness/chats', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ message: msg }) });
-
-  // Get coach reply via OpenClaw
-  try {
-    const profile = await (await fetch(API_BASE + '/fitness/profile')).json();
-    const logs = await (await fetch(API_BASE + '/fitness/logs')).json();
-    const recentLogs = logs.slice(0, 5).map(l => `${l.createdAt?.slice(0,10)} ${l.type} ${l.grade||''} ${l.feeling||''}: ${l.content}`).join('\n');
-
-    const systemPrompt = `你是一位专业的攀岩和健身教练。用户主要爬难度路线。
-用户档案: 当前难度=${profile.climbingGrade||'未填'}, 目标=${profile.goals||'未填'}, 备注=${profile.notes||'无'}
-最近训练记录:\n${recentLogs || '暂无'}
-请用中文简洁回答，给出专业且实用的建议。`;
-
-    const res = await fetch('/v1/responses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getGwToken() },
-      body: JSON.stringify({
-        model: 'github-copilot/claude-sonnet-4',
-        instructions: systemPrompt,
-        input: msg,
-        stream: false
-      })
-    });
-    const data = await res.json();
-    const reply = data.output?.find(o => o.type === 'message')?.content?.[0]?.text || data.output_text || '抱歉，暂时无法回答';
-
+async function loadChats(){try{const chats=await(await fetch(API+'/fitness/chats')).json();const el=document.getElementById('coachMessages');if(chats.length){el.innerHTML=chats.map(c=>`<div class="coach-msg ${c.role}">${esc(c.content)}</div>`).join('');el.scrollTop=el.scrollHeight}}catch{}}
+async function askCoach(){
+  const input=document.getElementById('coachInput'),msg=input.value.trim();if(!msg)return;input.value='';
+  const el=document.getElementById('coachMessages');
+  el.innerHTML+=`<div class="coach-msg user">${esc(msg)}</div><div class="coach-msg assistant" id="coachLoading"><span class="loading-spinner"></span> 思考中...</div>`;el.scrollTop=el.scrollHeight;
+  await fetch(API+'/fitness/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
+  try{
+    const profile=await(await fetch(API+'/fitness/profile')).json();
+    const logs=await(await fetch(API+'/fitness/logs')).json();
+    const rl=logs.slice(0,5).map(l=>`${l.createdAt?.slice(0,10)} ${l.type} ${l.grade||''} ${l.feeling||''}: ${l.content}`).join('\n');
+    const sp=`你是一位专业的攀岩和健身教练。用户主要爬难度路线。\n用户档案: 当前难度=${profile.climbingGrade||'未填'}, 目标=${profile.goals||'未填'}, 备注=${profile.notes||'无'}\n最近训练:\n${rl||'暂无'}\n请用中文简洁回答，给出专业实用的建议。`;
+    const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+getGwToken()},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:msg,stream:false})});
+    const data=await res.json();
+    const reply=data.output?.find(o=>o.type==='message')?.content?.[0]?.text||data.output_text||'抱歉，暂时无法回答';
     document.getElementById('coachLoading')?.remove();
-    el.innerHTML += `<div class="coach-msg assistant">${esc(reply)}</div>`;
-    el.scrollTop = el.scrollHeight;
-
-    // Save reply
-    await fetch(API_BASE + '/fitness/chats/reply', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ message: reply }) });
-  } catch(e) {
-    document.getElementById('coachLoading')?.remove();
-    el.innerHTML += `<div class="coach-msg assistant">❌ 出错了: ${esc(e.message)}</div>`;
-    el.scrollTop = el.scrollHeight;
-  }
+    el.innerHTML+=`<div class="coach-msg assistant">${esc(reply)}</div>`;el.scrollTop=el.scrollHeight;
+    await fetch(API+'/fitness/chats/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:reply})});
+  }catch(e){document.getElementById('coachLoading')?.remove();el.innerHTML+=`<div class="coach-msg assistant">❌ ${esc(e.message)}</div>`;el.scrollTop=el.scrollHeight}
 }
-
-function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 </script>
 </body>
 </html>
