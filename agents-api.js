@@ -176,6 +176,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ─── Reader Cache ───
+    if (p === '/api/agents/ai-news/reader' && req.method === 'GET') {
+      // List all cached article IDs
+      const READER_DIR = path.join(AI_NEWS_DIR, 'reader');
+      try {
+        const files = fs.readdirSync(READER_DIR).filter(f => f.endsWith('.json'));
+        const ids = files.map(f => f.replace('.json', ''));
+        return json(res, ids);
+      } catch { return json(res, []); }
+    }
     const readerMatch = p.match(/^\/api\/agents\/ai-news\/reader\/(.+)$/);
     if (readerMatch) {
       const articleId = decodeURIComponent(readerMatch[1]);
