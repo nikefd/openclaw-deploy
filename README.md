@@ -1,47 +1,120 @@
-# OpenClaw One-Click Deploy
+# OpenClaw Deploy — zhangyangbin.com
 
-一键部署 [OpenClaw](https://github.com/openclaw/openclaw) AI 代理平台，通过 Nginx 反向代理对外提供服务。
+自建 ChatGPT 风格 AI 聊天平台，基于 [OpenClaw](https://github.com/openclaw/openclaw) Gateway，带完整的认证、文件上传、语音输入、Demo 码分享、Token 用量追踪。
 
-## 前置条件
+## 功能
 
-- Ubuntu 22.04+ / Debian 12+
-- Node.js 20+（已安装 npm）
-- 域名 DNS A 记录指向服务器公网 IP
-- 有 sudo 权限的用户
+- 💬 **ChatGPT 风格聊天界面** — 支持 Markdown 渲染、代码高亮、对话历史
+- 📎 **文件上传** — 拖拽或点击上传，支持图片和文档
+- 🎤 **语音输入** — 浏览器原生 Web Speech API
+- 🔐 **登录认证** — 密码登录 + Cookie Session
+- 🎟️ **Demo 码系统** — 生成带过期时间的分享码，让朋友体验
+- 📊 **Token Usage Dashboard** — 每日/模型/Agent 维度的用量统计和费用估算
+- 🌙 **暗色/亮色主题切换**
+- 📱 **移动端适配**
 
-## 一键部署
+## 架构
 
-```bash
-git clone https://github.com/<your-username>/openclaw-deploy.git
-cd openclaw-deploy
-cp .env.example .env    # 编辑 .env 填入你的域名和端口
-chmod +x deploy.sh
-./deploy.sh
+```
+Nginx (443/80)
+├── /              → 聊天界面 (/var/www/chat/index.html)
+├── /login         → 登录页
+├── /usage.html    → Token Dashboard
+├── /v1/           → OpenClaw Gateway API (18789)
+├── /terminal      → ttyd Web 终端 (7681)
+├── /api/files/    → 文件上传 API (7682)
+├── /api/usage/    → Token 用量 API (7684)
+├── /auth/         → 认证服务 (7683)
+├── /demos/        → Demo 应用 (无需认证)
+└── /dashboard/    → OpenClaw 原版控制台 (18789)
 ```
 
 ## 目录结构
 
 ```
 openclaw-deploy/
-├── deploy.sh                  # 全自动部署脚本
-├── rollback.sh                # 回滚脚本
-├── .env.example               # 环境变量模板
-├── .gitignore
-├── LICENSE
-├── README.md
-├── systemd/
-│   └── openclaw.service.template   # systemd 用户服务模板
+├── auth-server.js          # 认证服务：登录、session、demo码管理
+├── file-api-server.js      # 文件上传 API
+├── usage-api.js            # Token 用量聚合 API
+├── deploy.sh               # 部署脚本
+├── rollback.sh             # 回滚脚本
 ├── nginx/
-│   └── openclaw.conf.template      # Nginx 虚拟主机模板
+│   ├── openclaw.conf           # 生产 Nginx 配置
+│   └── openclaw.conf.template  # 模板
+├── systemd/
+│   ├── auth-server.service     # 认证服务 (7683)
+│   ├── file-api.service        # 文件上传 (7682)
+│   ├── usage-api.service       # 用量 API (7684)
+│   ├── ttyd.service            # Web 终端 (7681)
+│   └── openclaw.service.template
+├── web/
+│   ├── index.html              # 主聊天界面
+│   ├── login.html              # 登录页
+│   ├── demo-login.html         # Demo 码入口
+│   ├── usage.html              # Token Dashboard
+│   ├── auth-ok.json            # 认证检查响应
+│   └── demos/                  # Demo 应用
+│       └── village/
 └── scripts/
-    └── healthcheck.sh              # 健康检查脚本
+    └── healthcheck.sh
 ```
 
-## 配置 AI Provider
+## 部署
 
-OpenClaw 支持多种 AI 后端。编辑 `~/.openclaw/openclaw.json`：
+### 前置条件
 
-### GitHub Copilot（默认）
+- Ubuntu 22.04+ / Debian 12+
+- Node.js 20+
+- 域名 DNS A 记录指向服务器
+- sudo 权限
+
+### 快速部署
+
+```bash
+git clone https://github.com/nikefd/openclaw-deploy.git
+cd openclaw-deploy
+
+# 1. 安装 OpenClaw
+npm install -g openclaw
+openclaw setup        # 首次配置
+openclaw auth         # GitHub Copilot 认证
+
+# 2. 部署 Web 文件
+sudo mkdir -p /var/www/chat
+sudo cp web/* /var/www/chat/
+sudo cp -r web/demos /var/www/chat/
+
+# 3. 部署服务
+cp auth-server.js file-api-server.js usage-api.js ~/
+mkdir -p ~/.config/systemd/user
+cp systemd/auth-server.service systemd/file-api.service \
+   systemd/usage-api.service systemd/ttyd.service \
+   ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now auth-server file-api usage-api
+
+# 4. Nginx
+sudo cp nginx/openclaw.conf /etc/nginx/sites-available/
+sudo cp nginx/openclaw.conf /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+
+# 5. HTTPS
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d yourdomain.com
+```
+
+### 配置认证密码
+
+编辑 `auth-server.js` 中的密码配置，或设置环境变量：
+
+```bash
+# 在 auth-server.service 中添加
+Environment=AUTH_PASSWORD=your-password
+```
+
+### 配置 AI Provider
+
+编辑 `~/.openclaw/openclaw.json`：
 
 ```json
 {
@@ -51,91 +124,52 @@ OpenClaw 支持多种 AI 后端。编辑 `~/.openclaw/openclaw.json`：
 }
 ```
 
-运行 `openclaw auth` 完成 GitHub OAuth 登录。
+GitHub Copilot 订阅用户可以免费使用多种模型（Claude、GPT-4o 等），性价比极高。
 
-### OpenAI / Anthropic
+## 服务端口
 
-```json
-{
-  "provider": {
-    "kind": "openai",
-    "apiKey": "sk-..."
-  }
-}
-```
+| 端口 | 服务 | 说明 |
+|------|------|------|
+| 18789 | OpenClaw Gateway | AI Agent 核心 |
+| 7681 | ttyd | Web 终端 |
+| 7682 | file-api-server | 文件上传 |
+| 7683 | auth-server | 登录认证 + Demo 码 |
+| 7684 | usage-api | Token 用量统计 |
 
-## 开启 Session Memory
-
-OpenClaw 默认带有 workspace 级文件记忆。如需增强：
-
-1. 编辑 `~/.openclaw/workspace/AGENTS.md` 配置记忆策略
-2. 创建 `~/.openclaw/workspace/memory/` 目录
-3. Agent 会自动在 `memory/YYYY-MM-DD.md` 写入每日笔记
-4. `MEMORY.md` 作为长期记忆自动维护
-
-## 创建多个 Agent
-
-在 `~/.openclaw/openclaw.json` 中配置多 agent：
-
-```json
-{
-  "agents": {
-    "code-agent": {
-      "model": "github-copilot/claude-opus-4.6",
-      "systemPrompt": "You are a senior software engineer..."
-    },
-    "ai-news-agent": {
-      "model": "github-copilot/gpt-4o",
-      "systemPrompt": "You track AI industry news..."
-    },
-    "market-research-agent": {
-      "model": "github-copilot/claude-opus-4.6",
-      "systemPrompt": "You analyze market trends..."
-    }
-  }
-}
-```
-
-通过 cron job 或 session spawn 调用不同 agent。
-
-## 健康检查
+## 管理命令
 
 ```bash
-./scripts/healthcheck.sh
-```
+# 查看所有服务状态
+systemctl --user status auth-server file-api usage-api openclaw-gateway
 
-## 回滚
+# 查看 OpenClaw 状态
+openclaw status
+openclaw gateway status
 
-```bash
-./rollback.sh
+# 查看日志
+journalctl --user -u openclaw-gateway -f
+journalctl --user -u auth-server -f
+sudo journalctl -u nginx -f
+
+# Demo 码管理（通过聊天界面的管理面板操作）
 ```
 
 ## 故障排查
 
 | 问题 | 排查 |
 |------|------|
-| 502 Bad Gateway | `systemctl --user status openclaw-gateway` 检查服务是否运行 |
-| 域名无法访问 | 检查 DNS A 记录是否指向服务器 IP |
-| WebSocket 断连 | 检查 Nginx 配置中 `proxy_read_timeout` |
-| 端口冲突 | `ss -tlnp \| grep 18789` 检查端口占用 |
+| 502 Bad Gateway | `systemctl --user status openclaw-gateway` |
+| 登录失败 | `systemctl --user status auth-server` + 检查密码 |
+| 文件上传失败 | `systemctl --user status file-api` + 检查 `client_max_body_size` |
+| Token Dashboard 无数据 | `systemctl --user status usage-api` + 检查 session 文件 |
+| WebSocket 断连 | 检查 Nginx `proxy_read_timeout` |
 
-查看日志：
-```bash
-journalctl --user -u openclaw-gateway -f     # OpenClaw 日志
-sudo journalctl -u nginx -f                   # Nginx 日志
-```
+## 迁移到新机器
 
-## HTTPS（推荐）
-
-```bash
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d zhangyangbin.com
-```
-
-## 替换域名
-
-1. 编辑 `.env` 中的 `DOMAIN=`
-2. 重新运行 `./deploy.sh`
+1. Clone 本 repo
+2. 按「快速部署」步骤操作
+3. 拷贝 `~/.openclaw/` 目录（包含配置、session 历史、记忆文件）
+4. 重新运行 `openclaw auth` 认证
 
 ## License
 
