@@ -271,7 +271,7 @@ async function loadTracks(){
 function renderTracksBar(){
   const bar=document.getElementById('tracksBar');
   if(!allTracks.length){bar.innerHTML='<span style="font-size:.75rem;color:var(--text2)">💡 点击「学习路径」添加你关注的技术方向</span>';return}
-  bar.innerHTML=allTracks.map(t=>`<span class="track-chip" data-track="${esc(t.name)}" onclick="filterByTrack(this)">${t.icon} ${esc(t.name)} <span class="count">(${t.items?.filter(i=>i.status==='tried').length||0})</span></span>`).join('');
+  bar.innerHTML=allTracks.map(t=>{const related=allNews.filter(a=>(a.tracks||[]).includes(t.name)).length;const tried=t.items?.filter(i=>i.status==='tried').length||0;return`<span class="track-chip" data-track="${esc(t.name)}" onclick="filterByTrack(this)">${t.icon} ${esc(t.name)} <span class="count">${tried}/${related}</span></span>`}).join('');
 }
 function renderTrackEdit(){
   const el=document.getElementById('trackListEdit');
