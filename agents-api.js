@@ -175,6 +175,24 @@ const server = http.createServer(async (req, res) => {
       return json(res, { ok: true });
     }
 
+    // ─── Reader Cache ───
+    const readerMatch = p.match(/^\/api\/agents\/ai-news\/reader\/(.+)$/);
+    if (readerMatch) {
+      const articleId = decodeURIComponent(readerMatch[1]);
+      const READER_DIR = path.join(AI_NEWS_DIR, 'reader');
+      const readerFile = path.join(READER_DIR, articleId.replace(/[^a-zA-Z0-9_-]/g, '_') + '.json');
+      if (req.method === 'GET') {
+        try { return json(res, JSON.parse(fs.readFileSync(readerFile, 'utf-8'))); }
+        catch { return json(res, {}, 404); }
+      }
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        fs.mkdirSync(READER_DIR, { recursive: true });
+        fs.writeFileSync(readerFile, JSON.stringify({ content: body.content, cachedAt: new Date().toISOString() }));
+        return json(res, { ok: true });
+      }
+    }
+
     // ─── Learning Tracks ───
     if (p === '/api/agents/ai-news/tracks' && req.method === 'GET') {
       return json(res, loadTracks());

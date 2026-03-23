@@ -369,7 +369,7 @@ function renderNews(){
       <div class="actions">
         <button onclick="togglePin('${a.id}')">${a.pinned?'📌':'📍'}</button>
         <button onclick="deleteNews('${a.id}')">🗑</button>
-        ${a.url?`<button onclick="readArticle('${a.id}')">📖 解读</button>`:''}
+        ${a.url?`<button data-reader="${a.id}" onclick="readArticle('${a.id}')">📖 解读</button>`:''}
         <div class="status-btns">
           <button class="${st==='tried'?'active-tried':''}" onclick="markStatus('${a.id}','tried')">✅ 已试</button>
           <button class="${st==='want'?'active-want':''}" onclick="markStatus('${a.id}','want')">🔥 想试</button>
@@ -437,16 +437,64 @@ async function askCoach(){
 }
 
 // ─── Article Reader ───
-function closeReader(){document.getElementById('readerOverlay').classList.remove('show')}
+const readerCache={};  // articleId -> {status:'loading'|'done'|'error', html:''}
+let currentReaderId=null;
+
+function closeReader(){document.getElementById('readerOverlay').classList.remove('show');currentReaderId=null}
+
+function openReader(articleId){
+  const article=allNews.find(a=>a.id===articleId);
+  if(!article)return;
+  currentReaderId=articleId;
+  document.getElementById('readerTitle').textContent='📖 '+article.title;
+  const cache=readerCache[articleId];
+  if(cache?.status==='done'){
+    document.getElementById('readerBody').innerHTML=cache.html;
+  }else if(cache?.status==='error'){
+    document.getElementById('readerBody').innerHTML='<div class="reader-loading">❌ 解读失败，点击「📖 解读」重试</div>';
+  }else{
+    document.getElementById('readerBody').innerHTML='<div class="reader-loading"><span class="loading-spinner"></span> 正在解读中，你可以先关掉做别的事，稍后再点「📖 查看」</div>';
+  }
+  document.getElementById('readerOverlay').classList.add('show');
+}
+
+function updateReaderBtn(articleId){
+  // Update button text in the news list
+  const btns=document.querySelectorAll(`[data-reader="${articleId}"]`);
+  const cache=readerCache[articleId];
+  btns.forEach(btn=>{
+    if(cache?.status==='done'){btn.textContent='📖 查看';btn.style.color='var(--green)'}
+    else if(cache?.status==='loading'){btn.textContent='⏳ 解读中';btn.style.color='var(--orange)'}
+    else if(cache?.status==='error'){btn.textContent='📖 重试';btn.style.color='var(--red)'}
+    else{btn.textContent='📖 解读';btn.style.color=''}
+  });
+}
 
 async function readArticle(articleId){
   const article=allNews.find(a=>a.id===articleId);
   if(!article||!article.url)return alert('没有原文链接');
-  
-  document.getElementById('readerTitle').textContent='📖 '+article.title;
-  document.getElementById('readerBody').innerHTML='<div class="reader-loading"><span class="loading-spinner"></span> 正在抓取并解读文章内容，请稍候...</div>';
-  document.getElementById('readerOverlay').classList.add('show');
-  
+
+  // If already done, just open
+  if(readerCache[articleId]?.status==='done'){openReader(articleId);return}
+  // If already loading, just open the modal to show progress
+  if(readerCache[articleId]?.status==='loading'){openReader(articleId);return}
+
+  // Try load from server cache first
+  try{
+    const cached=await fetch(API+'/ai-news/reader/'+encodeURIComponent(articleId));
+    if(cached.ok){const d=await cached.json();if(d.content){readerCache[articleId]={status:'done',html:simpleMarkdown(d.content)};updateReaderBtn(articleId);openReader(articleId);return}}
+  }catch{}
+
+  // Start background fetch
+  readerCache[articleId]={status:'loading',html:''};
+  updateReaderBtn(articleId);
+  openReader(articleId);
+
+  // Fire and forget - runs in background
+  doReadArticle(articleId,article).catch(()=>{});
+}
+
+async function doReadArticle(articleId,article){
   try{
     const prompt=`请帮我深入解读以下文章。
 
@@ -469,15 +517,29 @@ ${article.summary?'摘要：'+article.summary:''}
 这篇文章的意义、影响、值得进一步探索的方向
 
 请先用 web_fetch 工具抓取链接内容，然后进行解读。用中文回复，深入浅出，有自己的分析见解。`;
-    
+
     const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:prompt,stream:false})});
     const data=await res.json();
-    const reply=data.output?.find(o=>o.type==='message')?.content?.[0]?.text||data.output_text||'解读失败，请稍后重试';
-    
-    // Simple markdown to HTML
-    document.getElementById('readerBody').innerHTML=simpleMarkdown(reply);
+    const reply=data.output?.find(o=>o.type==='message')?.content?.[0]?.text||data.output_text||'';
+    if(!reply)throw new Error('空回复');
+
+    const html=simpleMarkdown(reply);
+    readerCache[articleId]={status:'done',html};
+    updateReaderBtn(articleId);
+
+    // Save to server cache
+    fetch(API+'/ai-news/reader/'+encodeURIComponent(articleId),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:reply})}).catch(()=>{});
+
+    // If modal is still showing this article, update it
+    if(currentReaderId===articleId){
+      document.getElementById('readerBody').innerHTML=html;
+    }
   }catch(e){
-    document.getElementById('readerBody').innerHTML='<div class="reader-loading">❌ 解读失败：'+esc(e.message)+'</div>';
+    readerCache[articleId]={status:'error',html:''};
+    updateReaderBtn(articleId);
+    if(currentReaderId===articleId){
+      document.getElementById('readerBody').innerHTML='<div class="reader-loading">❌ 解读失败：'+esc(e.message)+'</div>';
+    }
   }
 }
 
