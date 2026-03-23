@@ -460,8 +460,15 @@ function openReader(articleId){
   currentReaderId=articleId;
   document.getElementById('readerTitle').textContent='📖 '+article.title;
   const cache=readerCache[articleId];
-  if(cache?.status==='done'){
+  if(cache?.status==='done'&&cache.html){
     document.getElementById('readerBody').innerHTML=cache.html;
+  }else if(cache?.status==='done'&&!cache.html){
+    // Cached on server but not loaded yet
+    document.getElementById('readerBody').innerHTML='<div class="reader-loading"><span class="loading-spinner"></span> 加载中...</div>';
+    fetch(API+'/ai-news/reader/'+encodeURIComponent(articleCacheKey(articleId))).then(r=>r.json()).then(d=>{
+      if(d.content){readerCache[articleId].html=simpleMarkdown(d.content);if(currentReaderId===articleId)document.getElementById('readerBody').innerHTML=readerCache[articleId].html}
+      else{if(currentReaderId===articleId)document.getElementById('readerBody').innerHTML='<div class="reader-loading">内容为空，点「📖 解读」重新生成</div>'}
+    }).catch(()=>{if(currentReaderId===articleId)document.getElementById('readerBody').innerHTML='<div class="reader-loading">❌ 加载失败</div>'});
   }else if(cache?.status==='error'){
     document.getElementById('readerBody').innerHTML='<div class="reader-loading">❌ 解读失败，点击「📖 解读」重试</div>';
   }else{
