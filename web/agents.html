@@ -191,6 +191,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     <span class="chip" data-filter="pinned">📌 收藏</span>
     <span class="chip" data-filter="tried">✅ 已试</span>
     <span class="chip" data-filter="want">🔥 想试</span>
+    <span class="chip" data-filter="read">📖 已解读</span>
     <span class="chip" data-filter="model">模型</span>
     <span class="chip" data-filter="product">产品</span>
     <span class="chip" data-filter="research">研究</span>
@@ -345,6 +346,7 @@ function renderNews(){
   const list=document.getElementById('newsList');
   let items=allNews;
   if(newsFilter==='pinned')items=items.filter(a=>a.pinned);
+  else if(newsFilter==='read')items=items.filter(a=>readArticleIds.has(articleCacheKey(a.id))||readerCache[a.id]?.status==='done');
   else if(newsFilter==='tried')items=items.filter(a=>getArticleStatus(a.id)==='tried');
   else if(newsFilter==='want')items=items.filter(a=>getArticleStatus(a.id)==='want');
   else if(newsFilter!=='all')items=items.filter(a=>a.tag===newsFilter);
