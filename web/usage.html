@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Token Usage Dashboard</title>
+<style>
+:root { --bg: #f8f9fa; --card: #fff; --text: #1a1a2e; --text2: #6c757d; --border: #e9ecef; --accent: #4361ee; --accent2: #7209b7; --green: #2ec4b6; --orange: #ff6b35; --red: #e63946; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+.container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+h1 { font-size: 1.5rem; margin-bottom: 4px; }
+.subtitle { color: var(--text2); font-size: 0.85rem; margin-bottom: 24px; }
+.back-link { display: inline-block; margin-bottom: 16px; color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+.back-link:hover { text-decoration: underline; }
+
+/* Summary cards */
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 28px; }
+.card { background: var(--card); border-radius: 12px; padding: 18px; border: 1px solid var(--border); }
+.card .label { font-size: 0.75rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.card .value { font-size: 1.6rem; font-weight: 700; }
+.card .sub { font-size: 0.75rem; color: var(--text2); margin-top: 4px; }
+.card.accent .value { color: var(--accent); }
+.card.green .value { color: var(--green); }
+.card.orange .value { color: var(--orange); }
+.card.red .value { color: var(--red); }
+
+/* Chart area */
+.chart-section { background: var(--card); border-radius: 12px; padding: 20px; border: 1px solid var(--border); margin-bottom: 20px; }
+.chart-section h2 { font-size: 1rem; margin-bottom: 16px; }
+.bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 180px; padding-top: 10px; overflow-x: auto; }
+.bar-group { display: flex; flex-direction: column; align-items: center; min-width: 40px; flex: 1; }
+.bar { width: 100%; border-radius: 4px 4px 0 0; background: var(--accent); min-height: 2px; transition: height 0.3s; position: relative; cursor: pointer; }
+.bar:hover { opacity: 0.8; }
+.bar .tooltip { display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.7rem; white-space: nowrap; z-index: 10; }
+.bar:hover .tooltip { display: block; }
+.bar-label { font-size: 0.6rem; color: var(--text2); margin-top: 4px; writing-mode: vertical-lr; text-orientation: mixed; height: 50px; overflow: hidden; }
+
+/* Table */
+.table-section { background: var(--card); border-radius: 12px; padding: 20px; border: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+.table-section h2 { font-size: 1rem; margin-bottom: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th { text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); color: var(--text2); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; }
+td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: #f0f4ff; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.cost { color: var(--orange); font-weight: 600; }
+
+.loading { text-align: center; padding: 60px; color: var(--text2); }
+.note { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px 16px; font-size: 0.8rem; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="/" class="back-link">← 返回聊天</a>
+  <h1>📊 Token Usage Dashboard</h1>
+  <p class="subtitle" id="generatedAt">加载中...</p>
+
+  <div class="note" id="note" style="display:none"></div>
+
+  <div class="summary" id="summary">
+    <div class="card"><div class="label">加载中</div><div class="value">...</div></div>
+  </div>
+
+  <div class="chart-section">
+    <h2>📈 每日 Token 消耗</h2>
+    <div class="bar-chart" id="dailyChart"></div>
+  </div>
+
+  <div class="table-section">
+    <h2>📋 每日明细</h2>
+    <table>
+      <thead><tr><th>日期</th><th class="num">Input</th><th class="num">Output</th><th class="num">Cache Read</th><th class="num">Cache Write</th><th class="num">Sessions</th><th class="num">估算费用</th></tr></thead>
+      <tbody id="dailyTable"></tbody>
+    </table>
+  </div>
+
+  <div class="table-section">
+    <h2>🤖 按模型统计</h2>
+    <table>
+      <thead><tr><th>模型</th><th class="num">Input</th><th class="num">Output</th><th class="num">Cache Read</th><th class="num">Sessions</th><th class="num">估算费用</th></tr></thead>
+      <tbody id="modelTable"></tbody>
+    </table>
+  </div>
+
+  <div class="table-section">
+    <h2>🧩 按 Agent 统计</h2>
+    <table>
+      <thead><tr><th>Agent</th><th class="num">Input</th><th class="num">Output</th><th class="num">Cache Read</th><th class="num">Sessions</th><th class="num">估算费用</th></tr></thead>
+      <tbody id="agentTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function fmt(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+  return n.toLocaleString();
+}
+function fmtFull(n) { return n.toLocaleString(); }
+function fmtCost(n) { return '$' + n.toFixed(2); }
+
+async function load() {
+  try {
+    const res = await fetch('/api/usage/');
+    const data = await res.json();
+    render(data);
+  } catch (e) {
+    document.getElementById('summary').innerHTML = '<div class="card"><div class="label">错误</div><div class="value">' + e.message + '</div></div>';
+  }
+}
+
+function render(data) {
+  const s = data.summary;
+  document.getElementById('generatedAt').textContent = '更新于 ' + new Date(data.generatedAt).toLocaleString('zh-CN');
+
+  if (s.note) {
+    const noteEl = document.getElementById('note');
+    noteEl.style.display = 'block';
+    noteEl.textContent = '💡 ' + s.note;
+  }
+
+  document.getElementById('summary').innerHTML = `
+    <div class="card accent"><div class="label">总 Tokens</div><div class="value">${fmt(s.totalTokens)}</div><div class="sub">${fmtFull(s.totalTokens)} tokens</div></div>
+    <div class="card green"><div class="label">Output Tokens</div><div class="value">${fmt(s.totalOutput)}</div><div class="sub">模型生成</div></div>
+    <div class="card"><div class="label">Cache Read</div><div class="value">${fmt(s.totalCacheRead)}</div><div class="sub">缓存命中</div></div>
+    <div class="card orange"><div class="label">估算费用 (API价)</div><div class="value">${fmtCost(s.estimatedCost)}</div><div class="sub">如果按标准API计费</div></div>
+    <div class="card"><div class="label">Sessions</div><div class="value">${s.sessionCount}</div><div class="sub">对话数量</div></div>
+  `;
+
+  // Daily chart
+  const daily = data.daily;
+  const maxTokens = Math.max(...daily.map(d => d.input + d.output + d.cacheRead + d.cacheWrite));
+  const chart = document.getElementById('dailyChart');
+  chart.innerHTML = daily.map(d => {
+    const total = d.input + d.output + d.cacheRead + d.cacheWrite;
+    const h = Math.max(2, (total / maxTokens) * 160);
+    const color = d.cost > 50 ? 'var(--red)' : d.cost > 20 ? 'var(--orange)' : 'var(--accent)';
+    return `<div class="bar-group"><div class="bar" style="height:${h}px;background:${color}"><div class="tooltip">${d.date}<br>${fmt(total)} tokens<br>${fmtCost(d.cost)}<br>${d.sessions} sessions</div></div><div class="bar-label">${d.date.slice(5)}</div></div>`;
+  }).join('');
+
+  // Daily table
+  document.getElementById('dailyTable').innerHTML = daily.slice().reverse().map(d => `
+    <tr><td>${d.date}</td><td class="num">${fmtFull(d.input)}</td><td class="num">${fmtFull(d.output)}</td><td class="num">${fmtFull(d.cacheRead)}</td><td class="num">${fmtFull(d.cacheWrite)}</td><td class="num">${d.sessions}</td><td class="num cost">${fmtCost(d.cost)}</td></tr>
+  `).join('');
+
+  // Model table
+  document.getElementById('modelTable').innerHTML = data.models.map(m => `
+    <tr><td style="font-size:0.8rem">${m.model || 'unknown'}</td><td class="num">${fmtFull(m.input)}</td><td class="num">${fmtFull(m.output)}</td><td class="num">${fmtFull(m.cacheRead)}</td><td class="num">${m.sessions}</td><td class="num cost">${fmtCost(m.cost)}</td></tr>
+  `).join('');
+
+  // Agent table
+  document.getElementById('agentTable').innerHTML = (data.agents||[]).map(a => `
+    <tr><td>${a.agent}</td><td class="num">${fmtFull(a.input)}</td><td class="num">${fmtFull(a.output)}</td><td class="num">${fmtFull(a.cacheRead)}</td><td class="num">${a.sessions}</td><td class="num cost">${fmtCost(a.cost)}</td></tr>
+  `).join('');
+}
+
+load();
+</script>
+</body>
+</html>

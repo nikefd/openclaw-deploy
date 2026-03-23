@@ -16,7 +16,7 @@
   --text:#1a1a1a;--text-sec:#6b6c7b;--user-bg:#fff;--asst-bg:#f7f7f8;
   --accent:#10a37f;--border:#e5e5e5;--danger:#ef4444;--code-bg:#f5f5f5;
 }
-body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;overflow:hidden;transition:background .3s,color .3s}
+body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;overflow:hidden;transition:background .3s,color .3s;position:fixed;width:100%;top:0;left:0}
 
 .sidebar{width:260px;background:var(--sidebar-bg);display:flex;flex-direction:column;flex-shrink:0;transition:margin-left .3s,background .3s}
 .sidebar.hidden{margin-left:-260px}
@@ -77,11 +77,16 @@ body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
 .msg-text{flex:1;line-height:1.7;font-size:15px;word-break:break-word;white-space:pre-wrap}
 .msg-actions{margin-top:6px;display:flex;gap:6px}
 .tts-btn{background:none;border:1px solid var(--border);color:var(--text-sec);padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .2s}
-.tts-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tts-btn:hover,.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
 .tts-btn.speaking{border-color:var(--danger);color:var(--danger)}
+.copy-btn{background:none;border:1px solid var(--border);color:var(--text-sec);padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .2s}
+.copy-btn.copied{border-color:var(--accent);color:var(--accent)}
 .typing-dots span{display:inline-block;width:7px;height:7px;background:var(--text-sec);border-radius:50%;margin-right:4px;animation:bounce 1.4s infinite ease-in-out}
 .typing-dots span:nth-child(1){animation-delay:0s}.typing-dots span:nth-child(2){animation-delay:.2s}.typing-dots span:nth-child(3){animation-delay:.4s}
+.typing-indicator{display:flex;align-items:center;gap:10px}
+.typing-text{color:var(--text-sec);font-size:13px;animation:fade-pulse 2s infinite}
 @keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+@keyframes fade-pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;padding:40px}
 .welcome .logo{font-size:48px}.welcome h2{font-size:24px;font-weight:600}
 .welcome p{color:var(--text-sec);font-size:14px;text-align:center}
@@ -91,7 +96,7 @@ body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
 
 .input-area{padding:12px 24px 16px;background:var(--bg);flex-shrink:0;transition:background .3s}
 .input-wrap{max-width:768px;margin:0 auto;position:relative}
-textarea{width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:12px;padding:12px 90px 12px 16px;color:var(--text);font-size:15px;font-family:inherit;line-height:1.5;resize:none;outline:none;max-height:200px;overflow-y:auto;transition:background .3s,border-color .3s}
+textarea{width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:12px;padding:12px 110px 12px 16px;color:var(--text);font-size:15px;font-family:inherit;line-height:1.5;resize:none;outline:none;max-height:200px;overflow-y:auto;transition:background .3s,border-color .3s}
 textarea:focus{border-color:var(--accent)}
 textarea::placeholder{color:var(--text-sec)}
 .input-btns{position:absolute;right:8px;bottom:8px;display:flex;gap:4px}
@@ -103,26 +108,65 @@ textarea::placeholder{color:var(--text-sec)}
 .voice-btn:hover{border-color:var(--accent)!important;color:var(--accent)}
 .voice-btn.recording{border-color:var(--danger)!important;color:var(--danger);animation:pulse 1s infinite}
 .footer-text{text-align:center;font-size:11px;color:var(--text-sec);margin-top:5px}
+.attach-btn{background:none;border:1px solid var(--border)!important;color:var(--text-sec);font-size:15px}
+.attach-btn:hover{border-color:var(--accent)!important;color:var(--accent)}
+.img-preview-area{display:flex;gap:8px;flex-wrap:wrap;padding:0 0 8px;max-height:160px;overflow-y:auto}
+.img-preview-item{position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+.img-preview-item img{width:100%;height:100%;object-fit:cover}
+.img-preview-item .img-remove{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;line-height:1}
+.msg-images{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.msg-images img{max-width:300px;max-height:300px;border-radius:8px;cursor:pointer;transition:transform .2s}
+.msg-images img:hover{transform:scale(1.02)}
+.img-lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:center;justify-content:center;cursor:zoom-out}
+.img-lightbox.show{display:flex}
+.img-lightbox img{max-width:90vw;max-height:90vh;border-radius:8px}
 
 /* Terminal panel */
 .terminal-frame{width:100%;height:100%;border:none;background:#1e1e1e}
 
-/* Files panel */
+/* Files panel — VS Code style */
 .files-panel{display:flex;height:100%}
-.file-tree{width:280px;background:var(--sidebar-bg);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;transition:background .3s}
+.file-tree{width:280px;background:var(--sidebar-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:background .3s}
 .file-tree::-webkit-scrollbar{width:4px}
 .file-tree::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
-.file-breadcrumb{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-sec);display:flex;align-items:center;gap:4px;flex-wrap:wrap}
-.file-breadcrumb span{cursor:pointer;color:var(--accent)}
-.file-breadcrumb span:hover{text-decoration:underline}
-.file-entry{padding:6px 12px 6px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;transition:background .15s}
+.file-tree-header{padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-sec);display:flex;align-items:center;justify-content:between}
+.file-tree-header span{flex:1}
+.file-tree-header button{background:none;border:none;color:var(--text-sec);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;transition:all .15s}
+.file-tree-header button:hover{background:var(--hover);color:var(--text)}
+.file-breadcrumb{padding:6px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-sec);display:flex;align-items:center;gap:2px;flex-wrap:nowrap;overflow-x:auto;white-space:nowrap}
+.file-breadcrumb::-webkit-scrollbar{height:0}
+.file-breadcrumb .bc-sep{color:var(--border);margin:0 1px}
+.file-breadcrumb .bc-part{cursor:pointer;color:var(--text-sec);padding:2px 4px;border-radius:3px;transition:all .15s}
+.file-breadcrumb .bc-part:hover{background:var(--hover);color:var(--accent)}
+.file-breadcrumb .bc-part:last-child{color:var(--text);font-weight:600}
+.file-entries{flex:1;overflow-y:auto;padding:4px 0}
+.file-entry{padding:4px 8px 4px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;transition:background .1s;border-left:2px solid transparent;user-select:none}
 .file-entry:hover{background:var(--hover)}
-.file-entry.active{background:var(--hover)}
-.file-entry .icon{width:18px;text-align:center;font-size:14px;flex-shrink:0}
+.file-entry.active{background:rgba(16,163,127,.12);border-left-color:var(--accent)}
+.file-entry .f-icon{width:18px;height:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px}
+.file-entry .f-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-entry .f-size{font-size:10px;color:var(--text-sec);flex-shrink:0;min-width:45px;text-align:right}
+.file-entry .f-name.dir{font-weight:500}
+
+/* File viewer */
 .file-viewer{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.file-viewer-header{padding:10px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-sec);background:var(--sidebar-bg);display:flex;align-items:center;gap:8px;transition:background .3s}
-.file-viewer-content{flex:1;overflow:auto;padding:16px;font-family:'Fira Code','Cascadia Code','Consolas',monospace;font-size:13px;line-height:1.6;white-space:pre-wrap;background:var(--code-bg);color:var(--text);transition:background .3s}
-.file-viewer-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-sec);font-size:14px}
+.file-tabs{display:flex;background:var(--sidebar-bg);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0;transition:background .3s}
+.file-tabs::-webkit-scrollbar{height:0}
+.file-tab{padding:8px 14px;font-size:12px;cursor:pointer;color:var(--text-sec);border-right:1px solid var(--border);display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s;min-width:0;max-width:180px;position:relative}
+.file-tab:hover{color:var(--text)}
+.file-tab.active{color:var(--text);background:var(--bg);border-bottom:2px solid var(--accent)}
+.file-tab .tab-icon{font-size:12px;flex-shrink:0}
+.file-tab .tab-name{overflow:hidden;text-overflow:ellipsis}
+.file-tab .tab-close{opacity:0;background:none;border:none;color:var(--text-sec);cursor:pointer;font-size:12px;padding:0 2px;border-radius:3px;flex-shrink:0;transition:all .1s}
+.file-tab:hover .tab-close{opacity:.7}
+.file-tab .tab-close:hover{opacity:1;background:var(--hover);color:var(--danger)}
+.file-viewer-body{flex:1;overflow:auto;display:flex;background:var(--code-bg);transition:background .3s}
+.file-viewer-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-sec);font-size:14px;gap:8px;background:var(--code-bg)}
+.file-viewer-empty .empty-icon{font-size:48px;opacity:.3}
+.line-numbers{padding:12px 8px 12px 12px;text-align:right;color:var(--text-sec);opacity:.4;font-family:'Fira Code','Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;white-space:pre;user-select:none;flex-shrink:0;min-width:48px}
+.file-content{flex:1;padding:12px 16px 12px 8px;font-family:'Fira Code','Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;white-space:pre;overflow-x:auto;color:var(--text);min-width:0}
+.file-info-bar{padding:4px 12px;background:var(--sidebar-bg);border-top:1px solid var(--border);font-size:11px;color:var(--text-sec);display:flex;gap:16px;flex-shrink:0;transition:background .3s}
+.file-info-bar span{display:flex;align-items:center;gap:4px}
 
 .messages::-webkit-scrollbar{width:6px}
 .messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
@@ -133,9 +177,10 @@ textarea::placeholder{color:var(--text-sec)}
 @media(max-width:768px){
   .sidebar{position:fixed;z-index:100;height:100%}
   .sidebar.hidden{margin-left:-260px}
-  .file-tree{width:100%}
   .files-panel{flex-direction:column}
-  .file-tree{width:100%;height:50%;border-right:none;border-bottom:1px solid var(--border)}
+  .file-tree{width:100%;height:45%;border-right:none;border-bottom:1px solid var(--border)}
+  .toggle-btn{font-size:24px;padding:10px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
+  .topbar{padding:6px 10px;position:sticky;top:0;z-index:50}
 }
 </style>
 </head>
@@ -148,6 +193,7 @@ textarea::placeholder{color:var(--text-sec)}
   <div class="sidebar-footer">
     <button class="sidebar-footer-btn" id="themeBtn">🌙 深色模式</button>
     <button class="sidebar-footer-btn" id="clearAllBtn">🗑 清空对话</button>
+    <button class="sidebar-footer-btn" id="logoutBtn">🚪 退出登录</button>
   </div>
 </aside>
 <div class="main">
@@ -156,12 +202,14 @@ textarea::placeholder{color:var(--text-sec)}
     <div class="dot"></div>
     <div class="topbar-title" id="topTitle">OpenClaw</div>
     <span class="agent-badge" id="agentBadge"></span>
+    <a href="/usage.html" style="font-size:12px;color:var(--accent);text-decoration:none;padding:3px 8px;border-radius:6px;background:rgba(16,163,127,.1)" title="Token Usage">📊</a>
     <span class="streaming-badge" id="streamBadge">生成中...</span>
   </div>
   <div class="tab-bar">
     <div class="tab active" data-tab="chat">💬 对话</div>
     <div class="tab" data-tab="terminal">🖥 终端</div>
     <div class="tab" data-tab="files">📁 文件</div>
+    <div class="tab" data-tab="demos">🎪 Demo码</div>
   </div>
   <div class="panels">
     <!-- Chat Panel -->
@@ -169,13 +217,16 @@ textarea::placeholder{color:var(--text-sec)}
       <div class="messages" id="messages"></div>
       <div class="input-area">
         <div class="input-wrap">
+          <div class="img-preview-area" id="imgPreview" style="display:none"></div>
           <textarea id="input" rows="1" placeholder="发送消息..." autofocus></textarea>
+          <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
           <div class="input-btns">
+            <button class="attach-btn" id="attachBtn" title="上传图片">📎</button>
             <button class="send-btn" id="sendBtn" disabled><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
             <button class="voice-btn" id="voiceBtn" title="语音输入">🎤</button>
           </div>
         </div>
-        <div class="footer-text">Powered by OpenClaw</div>
+        <div class="footer-text">Powered by OpenClaw · Built by Yangbin</div>
       </div>
     </div>
     <!-- Terminal Panel -->
@@ -186,23 +237,76 @@ textarea::placeholder{color:var(--text-sec)}
     <div class="panel" id="panel-files">
       <div class="files-panel">
         <div class="file-tree" id="fileTree">
+          <div class="file-tree-header"><span>文件浏览</span><button onclick="uploadFiles()" title="上传文件" style="margin-right:2px">⬆</button><button onclick="loadFiles()" title="刷新">↻</button></div>
+          <input type="file" id="uploadInput" multiple style="display:none">
           <div class="file-breadcrumb" id="fileBreadcrumb"></div>
-          <div id="fileEntries"></div>
+          <div class="file-entries" id="fileEntries"></div>
         </div>
         <div class="file-viewer">
-          <div class="file-viewer-header" id="fileViewerHeader">选择一个文件查看</div>
-          <div class="file-viewer-empty" id="fileViewerEmpty">← 从左侧选择文件</div>
-          <div class="file-viewer-content" id="fileViewerContent" style="display:none"></div>
+          <div class="file-tabs" id="fileTabs"></div>
+          <div class="file-viewer-body" id="fileViewerBody">
+            <div class="file-viewer-empty" id="fileViewerEmpty">
+              <div class="empty-icon">📄</div>
+              <div>选择文件查看内容</div>
+              <div style="font-size:12px;opacity:.6">从左侧目录中点击文件</div>
+            </div>
+          </div>
+          <div class="file-info-bar" id="fileInfoBar" style="display:none">
+            <span id="fileInfoLang">📝 Text</span>
+            <span id="fileInfoLines">📏 0 行</span>
+            <span id="fileInfoSize">💾 0 B</span>
+            <span id="fileInfoPath" style="flex:1;justify-content:end;opacity:.6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+          </div>
         </div>
+      </div>
+    </div>
+    <!-- Demos Panel -->
+    <div class="panel" id="panel-demos">
+      <div style="max-width:700px;margin:0 auto;padding:24px;overflow-y:auto;height:100%">
+        <h2 style="font-size:20px;margin-bottom:20px;display:flex;align-items:center;gap:8px">🎪 Demo 访问码管理</h2>
+        
+        <div style="background:var(--input-bg);border-radius:12px;padding:20px;margin-bottom:24px">
+          <h3 style="font-size:14px;margin-bottom:14px;color:var(--text-sec)">生成新访问码</h3>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+            <div style="flex:1;min-width:150px">
+              <label style="font-size:12px;color:var(--text-sec);display:block;margin-bottom:4px">备注</label>
+              <input id="demoLabel" placeholder="例：给朋友看" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;outline:none">
+            </div>
+            <div style="min-width:120px">
+              <label style="font-size:12px;color:var(--text-sec);display:block;margin-bottom:4px">码有效期</label>
+              <select id="demoDuration" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;outline:none">
+                <option value="1">1 小时</option>
+                <option value="6">6 小时</option>
+                <option value="24" selected>1 天</option>
+                <option value="72">3 天</option>
+                <option value="168">7 天</option>
+                <option value="720">30 天</option>
+              </select>
+            </div>
+            <div style="min-width:120px">
+              <label style="font-size:12px;color:var(--text-sec);display:block;margin-bottom:4px">访问时长</label>
+              <select id="demoAccessDuration" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;outline:none">
+                <option value="1">1 小时</option>
+                <option value="6">6 小时</option>
+                <option value="24" selected>1 天</option>
+                <option value="72">3 天</option>
+                <option value="168">7 天</option>
+              </select>
+            </div>
+            <button id="demoCreateBtn" onclick="createDemoCode()" style="padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap">生成</button>
+          </div>
+        </div>
+
+        <div id="demoCodes" style="display:flex;flex-direction:column;gap:8px"></div>
+        <div id="demoEmpty" style="text-align:center;padding:40px;color:var(--text-sec);font-size:14px">暂无访问码</div>
       </div>
     </div>
   </div>
 </div>
 
+<div class="img-lightbox" id="imgLightbox" onclick="this.classList.remove('show')"><img id="lightboxImg"></div>
 <script>
-const API='/v1/chat/completions';
-const TOKEN=localStorage.getItem('oc_token')||prompt('请输入 Gateway Token\n运行: openclaw config get gateway.auth.token');
-if(TOKEN)localStorage.setItem('oc_token',TOKEN);
+const API='/v1/chat/completions',TOKEN='17043bad6b19491dfa222d681d43584fbc3e8dd3781edfbc';
 const STORAGE_KEY='oc_chats_v2',AGENT_KEY='oc_selected_agent',THEME_KEY='oc_theme';
 const AGENTS=[
   {id:'main',name:'通用助手',emoji:'🦞',color:'#10a37f',desc:'默认全能助手，可操作文件、终端、搜索'},
@@ -212,6 +316,9 @@ const AGENTS=[
 ];
 
 let chats=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'),currentId=null;
+// Load from server if local is empty
+(async()=>{try{const r=await fetch('/api/chats');if(r.ok){const d=await r.json();if(d.length>0){const merged=mergeChats(chats,d);chats=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));renderSidebar();if(currentId){const cur=chats.find(c=>c.id===currentId);if(cur)switchChat(cur.id);}}}}catch{}})();
+function mergeChats(local,remote){const map=new Map();remote.forEach(c=>map.set(c.id,c));local.forEach(c=>{const existing=map.get(c.id);if(!existing||c.updatedAt>existing.updatedAt)map.set(c.id,c);});return[...map.values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));}
 let selectedAgent=localStorage.getItem(AGENT_KEY)||'main',streamingChats=new Set();
 let currentTheme=localStorage.getItem(THEME_KEY)||'dark';
 
@@ -246,18 +353,20 @@ let recognition=null,isRecording=false;
 if('webkitSpeechRecognition' in window||'SpeechRecognition' in window){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   recognition=new SR();recognition.lang='zh-CN';recognition.continuous=false;recognition.interimResults=true;
+  let voiceSendPending=false;
   recognition.onresult=e=>{let t='';for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;input.value=t;input.dispatchEvent(new Event('input'));};
-  recognition.onend=()=>{isRecording=false;voiceBtn.classList.remove('recording');voiceBtn.textContent='🎤';};
+  recognition.onend=()=>{isRecording=false;voiceBtn.classList.remove('recording');voiceBtn.textContent='🎤';if(voiceSendPending&&input.value.trim()){voiceSendPending=false;sendMessage();}};
   recognition.onerror=recognition.onend;
 }
 voiceBtn.addEventListener('click',()=>{
   if(!recognition){alert('浏览器不支持语音，请用Chrome');return;}
-  if(isRecording)recognition.stop();
+  if(isRecording){voiceSendPending=true;recognition.stop();}
   else{isRecording=true;voiceBtn.classList.add('recording');voiceBtn.textContent='⏹';recognition.start();}
 });
 
 // === TTS ===
 let curUtter=null;
+function copyMsg(btn){const text=btn.closest('.message').querySelector('.msg-text').textContent;navigator.clipboard.writeText(text).then(()=>{btn.textContent='✅ 已复制';btn.classList.add('copied');setTimeout(()=>{btn.textContent='📋 复制';btn.classList.remove('copied')},1500)}).catch(()=>alert('复制失败'))}
 function speakText(text,btn){
   if(curUtter){speechSynthesis.cancel();if(btn.classList.contains('speaking')){btn.classList.remove('speaking');btn.textContent='🔊 朗读';curUtter=null;return;}}
   const u=new SpeechSynthesisUtterance(text);u.lang='zh-CN';curUtter=u;
@@ -268,7 +377,39 @@ function speakText(text,btn){
 window.speakText=speakText;
 
 // === FILES ===
-let filesLoaded=false,currentDir='';
+let filesLoaded=false,currentDir='',openTabs=[],activeTab=null;
+const FILE_ICONS={
+  js:'🟨',ts:'🔷',py:'🐍',rb:'💎',go:'🔵',rs:'🦀',
+  html:'🌐',css:'🎨',json:'📋',xml:'📰',yaml:'⚙️',yml:'⚙️',toml:'⚙️',
+  md:'📝',txt:'📄',log:'📜',csv:'📊',
+  sh:'⚡',bash:'⚡',zsh:'⚡',fish:'⚡',
+  png:'🖼',jpg:'🖼',gif:'🖼',svg:'🖼',webp:'🖼',ico:'🖼',
+  pdf:'📕',zip:'📦',tar:'📦',gz:'📦',
+  env:'🔒',lock:'🔒',gitignore:'👁',dockerfile:'🐳',
+  conf:'⚙️',cfg:'⚙️',ini:'⚙️',service:'⚙️',
+};
+const LANG_MAP={
+  js:'JavaScript',ts:'TypeScript',py:'Python',rb:'Ruby',go:'Go',rs:'Rust',
+  html:'HTML',css:'CSS',json:'JSON',xml:'XML',yaml:'YAML',yml:'YAML',toml:'TOML',
+  md:'Markdown',txt:'Text',log:'Log',csv:'CSV',
+  sh:'Shell',bash:'Shell',zsh:'Shell',
+};
+function fileIcon(name,isDir){
+  if(isDir) return '📁';
+  const ext=name.split('.').pop().toLowerCase();
+  return FILE_ICONS[ext]||'📄';
+}
+function fileLang(name){
+  const ext=name.split('.').pop().toLowerCase();
+  return LANG_MAP[ext]||ext.toUpperCase()||'Text';
+}
+function fmtSize(b){
+  if(b==null) return '';
+  if(b<1024) return b+' B';
+  if(b<1048576) return (b/1024).toFixed(1)+' KB';
+  return (b/1048576).toFixed(1)+' MB';
+}
+
 async function loadFiles(dir){
   filesLoaded=true;
   const url=dir?`/api/files/list?path=${encodeURIComponent(dir)}`:'/api/files/list';
@@ -278,41 +419,109 @@ async function loadFiles(dir){
     // Breadcrumb
     const parts=d.path.split('/').filter(Boolean);
     let bc='';let accum='';
-    parts.forEach((p,i)=>{accum+='/'+p;bc+=`<span onclick="loadFiles('${accum}')">${p}</span><span style="color:var(--text-sec)">/</span>`;});
+    parts.forEach((p,i)=>{
+      accum+='/'+p;
+      if(i>0)bc+='<span class="bc-sep">›</span>';
+      bc+=`<span class="bc-part" onclick="loadFiles('${accum}')">${p}</span>`;
+    });
     $('fileBreadcrumb').innerHTML=bc;
     // Entries
     let html='';
     if(d.parent&&d.parent!==d.path){
-      html+=`<div class="file-entry" onclick="loadFiles('${d.parent}')"><span class="icon">📁</span><span>..</span></div>`;
+      html+=`<div class="file-entry" onclick="loadFiles('${d.parent}')"><span class="f-icon">⬆️</span><span class="f-name dir">..</span><span class="f-size"></span></div>`;
     }
     d.entries.forEach(e=>{
-      if(e.type==='dir')html+=`<div class="file-entry" onclick="loadFiles('${e.path}')"><span class="icon">📁</span><span>${e.name}</span></div>`;
-      else html+=`<div class="file-entry" onclick="viewFile('${e.path}')"><span class="icon">📄</span><span>${e.name}</span></div>`;
+      const icon=fileIcon(e.name,e.type==='dir');
+      const size=e.type==='file'?fmtSize(e.size):'';
+      const cls=e.type==='dir'?'dir':'';
+      const click=e.type==='dir'?`loadFiles('${e.path}')`:`viewFile('${e.path}','${e.name}')`;
+      html+=`<div class="file-entry" data-path="${e.path}" onclick="${click}"><span class="f-icon">${icon}</span><span class="f-name ${cls}">${esc(e.name)}</span><span class="f-size">${size}</span></div>`;
     });
-    $('fileEntries').innerHTML=html||'<div style="padding:16px;color:var(--text-sec);font-size:13px">空目录</div>';
-  }catch(e){$('fileEntries').innerHTML=`<div style="padding:16px;color:var(--danger)">加载失败: ${e.message}</div>`;}
+    $('fileEntries').innerHTML=html||'<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px">📂 空目录</div>';
+    highlightActiveFile();
+  }catch(e){$('fileEntries').innerHTML=`<div style="padding:16px;color:var(--danger)">❌ 加载失败: ${e.message}</div>`;}
 }
 window.loadFiles=loadFiles;
 
-async function viewFile(fp){
-  $('fileViewerHeader').textContent=fp.split('/').pop();
-  $('fileViewerEmpty').style.display='none';
-  $('fileViewerContent').style.display='block';
-  $('fileViewerContent').textContent='加载中...';
+function renderFileTabs(){
+  let html='';
+  openTabs.forEach(t=>{
+    const icon=fileIcon(t.name,false);
+    const isActive=activeTab===t.path;
+    html+=`<div class="file-tab ${isActive?'active':''}" data-path="${t.path}" onclick="switchTab('${t.path}')">
+      <span class="tab-icon">${icon}</span><span class="tab-name">${esc(t.name)}</span>
+      <button class="tab-close" onclick="event.stopPropagation();closeTab('${t.path}')">✕</button>
+    </div>`;
+  });
+  $('fileTabs').innerHTML=html;
+}
+
+function switchTab(fp){
+  activeTab=fp;
+  renderFileTabs();
+  const tab=openTabs.find(t=>t.path===fp);
+  if(tab&&tab.content!=null) renderFileContent(tab);
+  highlightActiveFile();
+}
+
+function closeTab(fp){
+  openTabs=openTabs.filter(t=>t.path!==fp);
+  if(activeTab===fp){activeTab=openTabs.length?openTabs[openTabs.length-1].path:null;}
+  renderFileTabs();
+  if(activeTab){const t=openTabs.find(x=>x.path===activeTab);if(t)renderFileContent(t);}
+  else{$('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">📄</div><div>选择文件查看内容</div><div style="font-size:12px;opacity:.6">从左侧目录中点击文件</div></div>`;$('fileInfoBar').style.display='none';}
+  highlightActiveFile();
+}
+window.switchTab=switchTab;window.closeTab=closeTab;
+
+function renderFileContent(tab){
+  const lines=tab.content.split('\n');
+  const lineNums=lines.map((_,i)=>i+1).join('\n');
+  $('fileViewerBody').innerHTML=`<div class="line-numbers">${lineNums}</div><div class="file-content">${esc(tab.content)}</div>`;
+  $('fileInfoBar').style.display='flex';
+  $('fileInfoLang').textContent='📝 '+fileLang(tab.name);
+  $('fileInfoLines').textContent='📏 '+lines.length+' 行';
+  $('fileInfoSize').textContent='💾 '+fmtSize(tab.size);
+  $('fileInfoPath').textContent=tab.path;
+  // Sync scroll between line numbers and content
+  const body=$('fileViewerBody');
+  body.onscroll=()=>{body.querySelector('.line-numbers').style.transform=`translateY(0)`};
+}
+
+async function viewFile(fp,name){
+  // Check if already open
+  let tab=openTabs.find(t=>t.path===fp);
+  if(!tab){
+    tab={path:fp,name:name,content:null,size:0};
+    openTabs.push(tab);
+  }
+  activeTab=fp;
+  renderFileTabs();
+  if(tab.content!=null){renderFileContent(tab);highlightActiveFile();return;}
+  // Loading state
+  $('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">⏳</div><div>加载中...</div></div>`;
   try{
     const r=await fetch(`/api/files/read?path=${encodeURIComponent(fp)}`);
     const d=await r.json();
     if(d.error)throw new Error(d.error);
-    $('fileViewerContent').textContent=d.content;
-  }catch(e){$('fileViewerContent').textContent='❌ '+e.message;}
-  // Highlight active
-  document.querySelectorAll('.file-entry').forEach(el=>el.classList.remove('active'));
-  document.querySelectorAll('.file-entry').forEach(el=>{if(el.getAttribute('onclick')?.includes(fp))el.classList.add('active');});
+    tab.content=d.content;tab.size=d.size;
+    if(activeTab===fp)renderFileContent(tab);
+  }catch(e){
+    $('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">❌</div><div>${e.message}</div></div>`;
+  }
+  highlightActiveFile();
 }
 window.viewFile=viewFile;
 
+function highlightActiveFile(){
+  document.querySelectorAll('.file-entry').forEach(el=>{
+    el.classList.toggle('active',el.dataset.path===activeTab);
+  });
+}
+
 // === STORAGE ===
-function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));}
+let _saveTimer=null;
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));clearTimeout(_saveTimer);_saveTimer=setTimeout(()=>{fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(chats)}).catch(()=>{});},500);}
 function getChat(id){return chats.find(c=>c.id===id);}
 function getAgent(id){return AGENTS.find(a=>a.id===id)||AGENTS[0];}
 
@@ -339,6 +548,7 @@ chatList.addEventListener('click',e=>{
   const item=e.target.closest('.chat-item');if(item)switchChat(item.dataset.id);
 });
 $('clearAllBtn').addEventListener('click',()=>{if(confirm('确定清空所有对话？')){chats=[];save();currentId=null;renderChat();renderSidebar();}});
+$('logoutBtn').addEventListener('click',async()=>{await fetch('/auth/logout');window.location.href='/login';});
 
 // === CHAT ===
 function newChat(){const c={id:'chat_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),title:'新对话',agentId:selectedAgent,messages:[],createdAt:Date.now(),updatedAt:Date.now()};chats.unshift(c);save();switchChat(c.id);}
@@ -348,7 +558,7 @@ function renderChat(){
   if(!c){topTitle.textContent='OpenClaw';agentBadge.textContent='';streamBadge.classList.remove('show');renderWelcome();return;}
   const a=getAgent(c.agentId);topTitle.textContent=c.title;agentBadge.textContent=a.emoji+' '+a.name;
   streamBadge.classList.toggle('show',streamingChats.has(c.id));
-  if(!c.messages.length)renderWelcome();else{messagesEl.innerHTML='';c.messages.forEach(m=>appendMsg(m.role,m.content,a,true));}
+  if(!c.messages.length)renderWelcome();else{messagesEl.innerHTML='';c.messages.forEach(m=>appendMsg(m.role,m.content,a,true,m.images));}
   messagesEl.scrollTop=messagesEl.scrollHeight;
 }
 function renderWelcome(){
@@ -358,23 +568,26 @@ function renderWelcome(){
 function quickAgent(id){selectedAgent=id;localStorage.setItem(AGENT_KEY,selectedAgent);renderAgents();if(!currentId)renderWelcome();}
 window.quickAgent=quickAgent;
 
-function appendMsg(role,content,agent,withTTS){
+function appendMsg(role,content,agent,withTTS,images){
   const div=document.createElement('div');div.className=`message ${role}`;
   const emoji=role==='user'?'你':(agent?.emoji||'🦞');
   const bg=role==='user'?'':`style="background:${agent?.color||'var(--accent)'}"`;
   let actions='';
-  if(role==='assistant'&&withTTS&&content)actions=`<div class="msg-actions"><button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button></div>`;
-  div.innerHTML=`<div class="msg-inner"><div class="avatar" ${bg}>${emoji}</div><div style="flex:1"><div class="msg-text">${esc(content)}</div>${actions}</div></div>`;
+  if(content){const ttsBtn=(role==='assistant'&&withTTS)?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';actions=`<div class="msg-actions">${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button></div>`;}
+  let imgHtml='';
+  if(images&&images.length){imgHtml='<div class="msg-images">'+images.map(u=>`<img src="${u}" onclick="openLightbox(this.src)">`).join('')+'</div>';}
+  div.innerHTML=`<div class="msg-inner"><div class="avatar" ${bg}>${emoji}</div><div style="flex:1">${imgHtml}<div class="msg-text">${esc(content)}</div>${actions}</div></div>`;
   messagesEl.appendChild(div);messagesEl.scrollTop=messagesEl.scrollHeight;
   return div.querySelector('.msg-text');
 }
-function appendTyping(a){const d=document.createElement('div');d.className='message assistant';d.id='typing-'+currentId;d.innerHTML=`<div class="msg-inner"><div class="avatar" style="background:${a?.color||'var(--accent)'}">${a?.emoji||'🦞'}</div><div class="msg-text"><div class="typing-dots"><span></span><span></span><span></span></div></div></div>`;messagesEl.appendChild(d);messagesEl.scrollTop=messagesEl.scrollHeight;}
+function appendTyping(a){const d=document.createElement('div');d.className='message assistant';d.id='typing-'+currentId;d.innerHTML=`<div class="msg-inner"><div class="avatar" style="background:${a?.color||'var(--accent)'}">${a?.emoji||'🦞'}</div><div class="msg-text"><div class="typing-indicator"><div class="typing-dots"><span></span><span></span><span></span></div><div class="typing-text">正在思考...</div></div></div></div>`;messagesEl.appendChild(d);messagesEl.scrollTop=messagesEl.scrollHeight;}
 function removeTyping(cid){const e=document.getElementById('typing-'+(cid||currentId));if(e)e.remove();}
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
 
 // === SEND ===
 async function sendMessage(){
-  const text=input.value.trim();if(!text)return;
+  const text=input.value.trim();const images=[...pendingImages];
+  if(!text&&!images.length)return;
   if(!currentId)newChat();
   // Switch to chat tab
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -383,21 +596,32 @@ async function sendMessage(){
   $('panel-chat').classList.add('active');
   
   const chat=getChat(currentId),chatId=currentId,agent=getAgent(chat.agentId);
-  sendBtn.disabled=true;input.value='';input.style.height='auto';
+  sendBtn.disabled=true;input.value='';input.style.height='auto';pendingImages=[];renderImgPreview();
   const wel=messagesEl.querySelector('.welcome');if(wel)wel.remove();
-  appendMsg('user',text,agent,false);chat.messages.push({role:'user',content:text});
-  if(chat.messages.length===1){chat.title=text.slice(0,30)+(text.length>30?'...':'');topTitle.textContent=chat.title;}
+  const imgUrls=images.map(i=>i.dataUrl);
+  appendMsg('user',text,agent,false,imgUrls);
+  // Build message content for API
+  let msgContent;
+  if(images.length){
+    const parts=[];
+    if(text)parts.push({type:'text',text:text});
+    images.forEach(img=>parts.push({type:'image_url',image_url:{url:img.dataUrl}}));
+    msgContent=parts;
+  }else{msgContent=text;}
+  chat.messages.push({role:'user',content:text,images:imgUrls.length?imgUrls:undefined});
+  if(chat.messages.length===1){chat.title=text.slice(0,30)+(text.length>30?'...':'')||'图片对话';topTitle.textContent=chat.title;}
   streamingChats.add(chatId);streamBadge.classList.add('show');renderSidebar();appendTyping(agent);
   try{
-    const res=await fetch(API,{method:'POST',headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({model:`openclaw:${chat.agentId}`,stream:true,user:chatId,messages:[{role:'user',content:text}]})});
+    const res=await fetch(API,{method:'POST',headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({model:`openclaw:${chat.agentId}`,stream:true,user:chatId,messages:[{role:'user',content:msgContent}]})});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
-    removeTyping(chatId);let el=null;if(currentId===chatId)el=appendMsg('assistant','',agent,false);
+    let el=null,typingRemoved=false;
     const reader=res.body.getReader(),decoder=new TextDecoder();let full='',buf='';
     while(true){const{done,value}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();
       for(const line of lines){if(!line.startsWith('data: '))continue;const data=line.slice(6);if(data==='[DONE]')break;
-        try{const delta=JSON.parse(data).choices?.[0]?.delta?.content;if(delta){full+=delta;if(el&&currentId===chatId){el.textContent=full;messagesEl.scrollTop=messagesEl.scrollHeight;}}}catch{}}}
+        try{const delta=JSON.parse(data).choices?.[0]?.delta?.content;if(delta){if(!typingRemoved){removeTyping(chatId);if(currentId===chatId)el=appendMsg('assistant','',agent,false);typingRemoved=true;}full+=delta;if(el&&currentId===chatId){el.textContent=full;messagesEl.scrollTop=messagesEl.scrollHeight;}}}catch{}}}
+    if(!typingRemoved)removeTyping(chatId);
     if(full){chat.messages.push({role:'assistant',content:full});
-      if(el&&currentId===chatId){const ad=document.createElement('div');ad.className='msg-actions';ad.innerHTML=`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`;el.parentElement.appendChild(ad);}
+      if(el&&currentId===chatId){const ad=document.createElement('div');ad.className='msg-actions';const ttsBtn=agent?.tts?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';ad.innerHTML=`${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button>`;el.parentElement.appendChild(ad);}
     }
   }catch(err){removeTyping(chatId);if(currentId===chatId)appendMsg('assistant','❌ '+err.message,agent,false);chat.messages.push({role:'assistant',content:'❌ '+err.message});}
   streamingChats.delete(chatId);chat.updatedAt=Date.now();save();renderSidebar();
@@ -405,8 +629,8 @@ async function sendMessage(){
   sendBtn.disabled=!input.value.trim();input.focus();
 }
 
-input.addEventListener('input',()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,200)+'px';sendBtn.disabled=!input.value.trim();});
-input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}});
+input.addEventListener('input',()=>{updateSendBtn();});
+input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();sendMessage();}});
 sendBtn.addEventListener('click',sendMessage);
 $('toggleBtn').addEventListener('click',()=>{sidebar.classList.toggle('hidden');overlay.classList.toggle('show');});
 overlay.addEventListener('click',closeSidebar);
@@ -415,6 +639,160 @@ $('newChatBtn').addEventListener('click',newChat);
 
 renderAgents();renderSidebar();renderWelcome();
 if(window.innerWidth<=768)sidebar.classList.add('hidden');
+
+// === IMAGE UPLOAD ===
+let pendingImages=[]; // [{dataUrl, file}]
+const fileInput=$('fileInput'),attachBtn=$('attachBtn'),imgPreview=$('imgPreview');
+attachBtn.addEventListener('click',()=>fileInput.click());
+fileInput.addEventListener('change',e=>{
+  Array.from(e.target.files).forEach(f=>{
+    if(!f.type.startsWith('image/'))return;
+    const reader=new FileReader();
+    reader.onload=ev=>{pendingImages.push({dataUrl:ev.target.result,name:f.name});renderImgPreview();updateSendBtn();};
+    reader.readAsDataURL(f);
+  });
+  fileInput.value='';
+});
+function renderImgPreview(){
+  if(!pendingImages.length){imgPreview.style.display='none';return;}
+  imgPreview.style.display='flex';
+  imgPreview.innerHTML=pendingImages.map((img,i)=>`<div class="img-preview-item"><img src="${img.dataUrl}"><button class="img-remove" onclick="removeImg(${i})">✕</button></div>`).join('');
+}
+function removeImg(i){pendingImages.splice(i,1);renderImgPreview();updateSendBtn();}
+window.removeImg=removeImg;
+function updateSendBtn(){sendBtn.disabled=!input.value.trim()&&!pendingImages.length;}
+// Override input handler to also check images
+input.removeEventListener('input',input._inputHandler);
+input._inputHandler=()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,200)+'px';updateSendBtn();};
+input.addEventListener('input',input._inputHandler);
+
+// Drag and drop images
+const inputArea=document.querySelector('.input-area');
+inputArea.addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();inputArea.style.borderColor='var(--accent)';});
+inputArea.addEventListener('dragleave',e=>{e.preventDefault();inputArea.style.borderColor='';});
+inputArea.addEventListener('drop',e=>{e.preventDefault();inputArea.style.borderColor='';
+  Array.from(e.dataTransfer.files).forEach(f=>{
+    if(!f.type.startsWith('image/'))return;
+    const reader=new FileReader();
+    reader.onload=ev=>{pendingImages.push({dataUrl:ev.target.result,name:f.name});renderImgPreview();updateSendBtn();};
+    reader.readAsDataURL(f);
+  });
+});
+
+// Paste images
+input.addEventListener('paste',e=>{
+  const items=e.clipboardData?.items;if(!items)return;
+  Array.from(items).forEach(item=>{
+    if(!item.type.startsWith('image/'))return;
+    const f=item.getAsFile();if(!f)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{pendingImages.push({dataUrl:ev.target.result,name:'粘贴图片'});renderImgPreview();updateSendBtn();};
+    reader.readAsDataURL(f);
+  });
+});
+
+// Lightbox
+function openLightbox(src){$('lightboxImg').src=src;$('imgLightbox').classList.add('show');}
+// === FILE UPLOAD ===
+function uploadFiles(){$('uploadInput').click();}
+window.uploadFiles=uploadFiles;
+$('uploadInput').addEventListener('change',async e=>{
+  const files=e.target.files;if(!files.length)return;
+  const fd=new FormData();
+  for(const f of files)fd.append('file',f);
+  try{
+    const targetDir=currentDir||'';
+    const url=targetDir?'/api/files/upload?dir='+encodeURIComponent(targetDir):'/api/files/upload';
+    const r=await fetch(url,{method:'POST',body:fd});
+    const d=await r.json();
+    if(d.ok){
+      const names=d.files.map(f=>f.name).join(', ');
+      alert('✅ 上传成功: '+names);
+      loadFiles(currentDir);
+    }else{alert('❌ 上传失败: '+(d.error||'unknown'));}
+  }catch(err){alert('❌ 上传失败: '+err.message);}
+  $('uploadInput').value='';
+});
+
+// === DEMO CODES ===
+let demosLoaded=false;
+async function loadDemoCodes(){
+  demosLoaded=true;
+  try{
+    const r=await fetch('/auth/demo-codes');
+    if(!r.ok)throw new Error('Failed');
+    const codes=await r.json();
+    renderDemoCodes(codes);
+  }catch(e){$('demoCodes').innerHTML=`<div style="color:var(--danger);padding:12px">❌ 加载失败</div>`;}
+}
+
+function renderDemoCodes(codes){
+  const now=Date.now();
+  if(!codes.length){$('demoCodes').innerHTML='';$('demoEmpty').style.display='block';return;}
+  $('demoEmpty').style.display='none';
+  $('demoCodes').innerHTML=codes.sort((a,b)=>b.createdAt-a.createdAt).map(c=>{
+    const expired=c.expiresAt<=now;
+    const expStr=new Date(c.expiresAt).toLocaleString('zh-CN');
+    const createdStr=new Date(c.createdAt).toLocaleString('zh-CN');
+    const accessH=Math.round((c.accessDurationMs||0)/3600000);
+    const statusColor=expired?'var(--danger)':'var(--accent)';
+    const statusText=expired?'已过期':'有效';
+    const usedText=c.usedCount?`已使用 ${c.usedCount} 次`:'未使用';
+    const link='https://zhangyangbin.com/demos/village/';
+    return `<div style="background:var(--input-bg);border-radius:10px;padding:16px;border-left:3px solid ${statusColor}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-family:monospace;font-size:22px;font-weight:700;letter-spacing:3px;color:${expired?'var(--text-sec)':'var(--text)'}">${c.code}</span>
+          <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${expired?'rgba(239,68,68,.15)':'rgba(16,163,127,.15)'};color:${statusColor}">${statusText}</span>
+        </div>
+        <button onclick="deleteDemoCode('${c.code}')" style="background:none;border:none;color:var(--text-sec);cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px;transition:all .15s" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-sec)'" title="删除">🗑</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-sec);display:flex;flex-wrap:wrap;gap:12px">
+        ${c.label?`<span>📝 ${esc(c.label)}</span>`:''}
+        <span>📅 创建: ${createdStr}</span>
+        <span>⏰ 过期: ${expStr}</span>
+        <span>🕐 访问时长: ${accessH}h</span>
+        <span>👤 ${usedText}</span>
+      </div>
+      ${!expired?`<div style="margin-top:10px;font-size:12px;color:var(--text-sec)">
+        🔗 链接: <span style="color:var(--accent);cursor:pointer" onclick="navigator.clipboard.writeText('${link}');this.textContent='已复制!';setTimeout(()=>this.textContent='${link}',1500)">${link}</span>
+        &nbsp;|&nbsp; 码: <span style="color:var(--accent);cursor:pointer;font-family:monospace" onclick="navigator.clipboard.writeText('${c.code}');this.textContent='已复制!';setTimeout(()=>this.textContent='${c.code}',1500)">${c.code}</span>
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+async function createDemoCode(){
+  const label=$('demoLabel').value.trim();
+  const durationHours=parseInt($('demoDuration').value);
+  const accessDurationHours=parseInt($('demoAccessDuration').value);
+  $('demoCreateBtn').disabled=true;
+  try{
+    const r=await fetch('/auth/demo-codes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label,durationHours,accessDurationHours})});
+    if(!r.ok)throw new Error('Failed');
+    $('demoLabel').value='';
+    loadDemoCodes();
+  }catch(e){alert('创建失败');}
+  $('demoCreateBtn').disabled=false;
+}
+
+async function deleteDemoCode(code){
+  if(!confirm('确定删除此访问码？'))return;
+  try{
+    await fetch('/auth/demo-codes?code='+code,{method:'DELETE'});
+    loadDemoCodes();
+  }catch(e){alert('删除失败');}
+}
+window.createDemoCode=createDemoCode;window.deleteDemoCode=deleteDemoCode;
+
+// Hook demos tab
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    if(tab.dataset.tab==='demos'&&!demosLoaded) loadDemoCodes();
+  });
+});
+
+window.openLightbox=openLightbox;
 </script>
 </body>
 </html>
