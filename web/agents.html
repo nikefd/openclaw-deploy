@@ -210,6 +210,41 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .iv-diff-easy{color:#00b8a3}.iv-diff-medium{color:#e6a800}.iv-diff-hard{color:#ff375f}
 #ivListView{display:flex;flex-direction:column;height:calc(100dvh - 52px);overflow:hidden}
 
+/* View Toggle */
+.iv-view-toggle{display:flex;gap:2px;background:var(--bg);border-radius:8px;padding:2px}
+.iv-vt{padding:4px 12px;border:none;border-radius:6px;font-size:.75rem;cursor:pointer;background:none;color:var(--text2);transition:all .15s}
+.iv-vt:hover{color:var(--text)}
+.iv-vt.active{background:var(--card);color:var(--text);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+
+/* Review View */
+#ivReviewView{display:flex;flex-direction:column;height:calc(100dvh - 52px);overflow:hidden}
+.iv-review-content{flex:1;overflow-y:auto;padding:16px}
+.iv-review-cat{margin-bottom:24px}
+.iv-review-cat-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--accent);position:sticky;top:0;background:var(--bg);z-index:1;padding-top:4px}
+.iv-review-cat-header h3{font-size:.95rem;flex:1}
+.iv-review-cat-header .iv-cat-count{font-size:.72rem;color:var(--text2);background:var(--card);padding:2px 8px;border-radius:10px}
+.iv-review-item{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;transition:all .15s}
+.iv-review-item:hover{border-color:var(--accent)}
+.iv-review-item-header{display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;font-size:.84rem}
+.iv-review-item-header .iv-ri-num{color:var(--text2);font-size:.75rem;min-width:40px}
+.iv-review-item-header .iv-ri-title{flex:1;font-weight:500}
+.iv-review-item-header .iv-ri-diff{font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:10px}
+.iv-review-item-header .iv-ri-diff.Easy{background:rgba(0,184,163,.12);color:#00b8a3}
+.iv-review-item-header .iv-ri-diff.Medium{background:rgba(255,192,30,.12);color:#e6a800}
+.iv-review-item-header .iv-ri-diff.Hard{background:rgba(255,55,95,.12);color:#ff375f}
+.iv-review-item-header .iv-ri-arrow{color:var(--text2);transition:transform .2s;font-size:.8rem}
+.iv-review-item.expanded .iv-ri-arrow{transform:rotate(90deg)}
+.iv-review-item-body{display:none;padding:0 16px 14px;border-top:1px solid var(--border)}
+.iv-review-item.expanded .iv-review-item-body{display:block}
+.iv-review-sub{margin-top:10px;padding:10px 14px;background:var(--bg);border-radius:8px;border-left:3px solid var(--green)}
+.iv-review-sub.fail{border-left-color:var(--orange)}
+.iv-review-sub-head{display:flex;align-items:center;gap:8px;font-size:.78rem;margin-bottom:8px;flex-wrap:wrap}
+.iv-review-sub-code{background:#1e1e2e;color:#d4d4d4;padding:12px;border-radius:8px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.78rem;white-space:pre-wrap;overflow-x:auto;max-height:300px;overflow-y:auto;margin-bottom:8px}
+.iv-review-sub-review{font-size:.8rem;line-height:1.7}
+.iv-review-sub-toggle{font-size:.72rem;color:var(--accent);cursor:pointer;border:none;background:none;padding:2px 0}
+.iv-review-sub-toggle:hover{text-decoration:underline}
+.iv-review-empty{text-align:center;padding:60px 20px;color:var(--text2)}
+
 /* Submissions */
 .iv-sub-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all .15s}
 .iv-sub-item:hover{background:var(--hover)}
@@ -386,7 +421,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 <div class="panel" id="panel-interview">
   <!-- Top Bar -->
   <div class="iv-topbar">
-    <button class="back-btn" onclick="ivCurrentView==='problem'?ivShowList():showHub()" style="color:var(--text)">←</button>
+    <button class="back-btn" onclick="ivCurrentView==='problem'?ivShowList():ivCurrentView==='review'?ivShowList():showHub()" style="color:var(--text)">←</button>
     <div class="iv-topbar-title" id="ivTopTitle">🎯 面试刷题</div>
     <div class="iv-timer" id="ivTimer" style="display:none">
       <span>⏱</span> <span id="ivTimerVal">00:00</span>
@@ -396,6 +431,10 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
       <span class="iv-stat iv-streak" id="ivStatTotal">📝 0/149</span>
     </div>
     <div style="flex:1"></div>
+    <div id="ivViewToggle" class="iv-view-toggle">
+      <button class="iv-vt active" onclick="ivShowList()">📋 刷题</button>
+      <button class="iv-vt" onclick="ivShowReview()">📚 复习</button>
+    </div>
     <div id="ivProblemBtns" style="display:none;gap:6px;align-items:center">
       <button class="iv-topbtn" onclick="ivHint()">💡 提示</button>
       <button class="iv-topbtn" style="background:var(--green);color:#fff" onclick="ivSubmit()">▶ 提交评测</button>
@@ -428,6 +467,20 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
       </div>
       <div id="ivProblemList" class="iv-table-body"></div>
     </div>
+  </div>
+
+  <!-- Review View -->
+  <div id="ivReviewView" style="display:none">
+    <div class="iv-filters" style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="ivReviewSearch" class="iv-search" placeholder="🔍 搜索题解..." oninput="renderReview()" style="margin-bottom:0;flex:1;min-width:200px">
+        <span class="iv-chip active" data-rdiff="all" onclick="ivReviewFilterDiff(this)">全部</span>
+        <span class="iv-chip" data-rdiff="Easy" onclick="ivReviewFilterDiff(this)">🟢 简单</span>
+        <span class="iv-chip" data-rdiff="Medium" onclick="ivReviewFilterDiff(this)">🟡 中等</span>
+        <span class="iv-chip" data-rdiff="Hard" onclick="ivReviewFilterDiff(this)">🔴 困难</span>
+      </div>
+    </div>
+    <div id="ivReviewContent" class="iv-review-content"></div>
   </div>
 
   <!-- Problem Solve View -->
@@ -839,7 +892,9 @@ async function ivOpenProblem(id){
   ivCurrentView='problem';
   document.getElementById('ivListView').style.display='none';
   document.getElementById('ivSolveView').style.display='';
+  document.getElementById('ivReviewView').style.display='none';
   document.getElementById('ivProblemBtns').style.display='flex';
+  document.getElementById('ivViewToggle').style.display='none';
   ivInitEditor();
   if(ivEditor)setTimeout(()=>ivEditor.refresh(),50);
   document.getElementById('ivProblemArea').innerHTML='<div style="padding:20px;color:var(--text2)"><span class="loading-spinner"></span> 加载题目...</div>';
@@ -893,9 +948,13 @@ function ivShowList(){
   ivStopTimer();
   document.getElementById('ivListView').style.display='';
   document.getElementById('ivSolveView').style.display='none';
+  document.getElementById('ivReviewView').style.display='none';
   document.getElementById('ivProblemBtns').style.display='none';
+  document.getElementById('ivViewToggle').style.display='';
   document.getElementById('ivTopTitle').textContent='🎯 面试刷题';
   document.getElementById('ivTimer').style.display='none';
+  document.querySelectorAll('.iv-vt').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.iv-vt')[0].classList.add('active');
   updateIVStats();
   renderIVList();
 }
@@ -1051,6 +1110,133 @@ async function ivSendDiscuss(msg){
 async function askIVDiscuss(){
   const input=document.getElementById('ivDiscussInput'),msg=input.value.trim();if(!msg)return;input.value='';
   ivSendDiscuss(msg);
+}
+
+// ─── Review View ───
+let allSubmissions=[], ivReviewDiffFilter='all';
+
+async function ivShowReview(){
+  ivCurrentView='review';
+  document.getElementById('ivListView').style.display='none';
+  document.getElementById('ivSolveView').style.display='none';
+  document.getElementById('ivReviewView').style.display='';
+  document.getElementById('ivProblemBtns').style.display='none';
+  document.getElementById('ivViewToggle').style.display='';
+  document.getElementById('ivTimer').style.display='none';
+  document.getElementById('ivTopTitle').textContent='📚 题解复习';
+  document.querySelectorAll('.iv-vt').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.iv-vt')[1].classList.add('active');
+  
+  // Load all submissions
+  document.getElementById('ivReviewContent').innerHTML='<div class="iv-review-empty"><span class="loading-spinner"></span> 加载中...</div>';
+  try{allSubmissions=await(await fetch(API+'/interview/submissions')).json()}catch{allSubmissions=[]}
+  renderReview();
+}
+
+function ivReviewFilterDiff(el){
+  document.querySelectorAll('.iv-chip[data-rdiff]').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  ivReviewDiffFilter=el.dataset.rdiff;
+  renderReview();
+}
+
+function renderReview(){
+  const el=document.getElementById('ivReviewContent');
+  const search=(document.getElementById('ivReviewSearch')?.value||'').toLowerCase();
+  
+  // Group submissions by leetcode_id, keep latest per problem
+  const byProblem={};
+  for(const s of allSubmissions){
+    if(!s.leetcode_id)continue;
+    if(!byProblem[s.leetcode_id])byProblem[s.leetcode_id]={subs:[],info:s};
+    byProblem[s.leetcode_id].subs.push(s);
+  }
+  
+  // Enrich with problem info from ivProblems
+  const items=[];
+  for(const [lid,data] of Object.entries(byProblem)){
+    const p=ivProblems.find(x=>x.leetcode_id===parseInt(lid));
+    items.push({
+      leetcode_id:parseInt(lid),
+      title:p?.title||data.info.title||'Unknown',
+      difficulty:p?.difficulty||data.info.difficulty||'Medium',
+      category:p?.category||'Other',
+      tags:p?.tags||[],
+      url:p?.url||'',
+      subs:data.subs
+    });
+  }
+  
+  // Filter
+  let filtered=items;
+  if(ivReviewDiffFilter!=='all')filtered=filtered.filter(i=>i.difficulty===ivReviewDiffFilter);
+  if(search)filtered=filtered.filter(i=>i.title.toLowerCase().includes(search)||String(i.leetcode_id).includes(search)||i.category.toLowerCase().includes(search)||(i.tags||[]).some(t=>t.toLowerCase().includes(search)));
+  
+  if(!filtered.length){
+    el.innerHTML='<div class="iv-review-empty">'+(!allSubmissions.length?'还没有提交记录，去刷几道题吧 🎯':'没有匹配的题解')+'</div>';
+    return;
+  }
+  
+  // Group by category
+  const cats={};
+  for(const item of filtered){
+    if(!cats[item.category])cats[item.category]=[];
+    cats[item.category].push(item);
+  }
+  // Sort categories, within each sort by leetcode_id
+  const catOrder=Object.keys(cats).sort();
+  
+  const diffBadge=d=>`<span class="iv-ri-diff ${d}">${d}</span>`;
+  
+  el.innerHTML=catOrder.map(cat=>{
+    const problems=cats[cat].sort((a,b)=>a.leetcode_id-b.leetcode_id);
+    return`<div class="iv-review-cat">
+      <div class="iv-review-cat-header">
+        <h3>${esc(cat)}</h3>
+        <span class="iv-cat-count">${problems.length} 题</span>
+      </div>
+      ${problems.map(p=>{
+        const bestSub=p.subs.find(s=>s.result==='pass')||p.subs[0];
+        return`<div class="iv-review-item" id="rv-${p.leetcode_id}">
+          <div class="iv-review-item-header" onclick="toggleReviewItem(${p.leetcode_id})">
+            <span class="iv-ri-num">#${p.leetcode_id}</span>
+            <span class="iv-ri-title">${esc(p.title)}</span>
+            ${diffBadge(p.difficulty)}
+            <span style="font-size:.7rem;color:${p.subs.some(s=>s.result==='pass')?'var(--green)':'var(--orange)'}">${p.subs.some(s=>s.result==='pass')?'✅':'⚠️'} ${p.subs.length}次</span>
+            <span class="iv-ri-arrow">▶</span>
+          </div>
+          <div class="iv-review-item-body">
+            ${p.url?'<a href="'+esc(p.url)+'" target="_blank" style="font-size:.72rem;display:inline-block;margin-bottom:8px">🔗 LeetCode 原题</a> ':''}
+            <button class="iv-topbtn" onclick="ivOpenProblem(${p.leetcode_id})" style="font-size:.72rem;margin-bottom:10px">✏️ 再做一次</button>
+            ${p.subs.map((s,si)=>`<div class="iv-review-sub ${s.result==='pass'?'':'fail'}">
+              <div class="iv-review-sub-head">
+                <span style="font-weight:600;color:${s.result==='pass'?'var(--green)':'var(--orange)'}">${s.result==='pass'?'✅ Accepted':'⚠️ Review'}</span>
+                <span>${s.lang||'python3'}</span>
+                <span>⏱ ${s.elapsed||'--'}</span>
+                <span style="margin-left:auto">${s.createdAt?new Date(s.createdAt).toLocaleString('zh-CN'):''}</span>
+              </div>
+              <button class="iv-review-sub-toggle" onclick="toggleSubDetail(${p.leetcode_id},${si})">展开代码和评测 ▼</button>
+              <div id="rvd-${p.leetcode_id}-${si}" style="display:none">
+                <div class="iv-review-sub-code">${esc(s.code||'')}</div>
+                <div class="iv-review-sub-review">${s.review?simpleMarkdown(s.review):''}</div>
+              </div>
+            </div>`).join('')}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+function toggleReviewItem(id){
+  document.getElementById('rv-'+id)?.classList.toggle('expanded');
+}
+function toggleSubDetail(pid,si){
+  const el=document.getElementById('rvd-'+pid+'-'+si);
+  if(!el)return;
+  const show=el.style.display==='none';
+  el.style.display=show?'block':'none';
+  el.previousElementSibling.textContent=show?'收起 ▲':'展开代码和评测 ▼';
 }
 
 async function ivLoadSubmissions(leetcodeId){
