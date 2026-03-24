@@ -81,6 +81,16 @@ function saveInterviewProgress(data) {
   fs.writeFileSync(INTERVIEW_PROGRESS_FILE, JSON.stringify(data, null, 2));
 }
 
+const INTERVIEW_SOLUTIONS_FILE = path.join(INTERVIEW_DIR, 'solutions.json');
+
+function loadInterviewSolutions() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_SOLUTIONS_FILE, 'utf-8')); } catch { return {}; }
+}
+function saveInterviewSolutions(data) {
+  fs.mkdirSync(INTERVIEW_DIR, { recursive: true });
+  fs.writeFileSync(INTERVIEW_SOLUTIONS_FILE, JSON.stringify(data, null, 2));
+}
+
 const INTERVIEW_SUBMISSIONS_FILE = path.join(INTERVIEW_DIR, 'submissions.json');
 
 function loadInterviewSubmissions() {
@@ -336,6 +346,22 @@ const server = http.createServer(async (req, res) => {
       progress[body.leetcode_id] = body.status; // todo, attempted, solved
       saveInterviewProgress(progress);
       return json(res, { ok: true });
+    }
+    if (p === '/api/agents/interview/solutions' && req.method === 'GET') {
+      return json(res, loadInterviewSolutions());
+    }
+    if (p === '/api/agents/interview/solutions' && req.method === 'POST') {
+      const body = await readBody(req);
+      const solutions = loadInterviewSolutions();
+      // body: { solutions: { "leetcode_id": { code, explanation, complexity, approach } } } for batch
+      // or { leetcode_id, code, explanation, complexity, approach } for single
+      if (body.solutions) {
+        Object.assign(solutions, body.solutions);
+      } else if (body.leetcode_id) {
+        solutions[body.leetcode_id] = { code: body.code, explanation: body.explanation, complexity: body.complexity, approach: body.approach, updatedAt: new Date().toISOString() };
+      }
+      saveInterviewSolutions(solutions);
+      return json(res, { ok: true, count: Object.keys(solutions).length });
     }
     if (p === '/api/agents/interview/submissions' && req.method === 'GET') {
       const subs = loadInterviewSubmissions();

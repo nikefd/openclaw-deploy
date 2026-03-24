@@ -249,6 +249,28 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .iv-review-sub-toggle:hover{text-decoration:underline}
 .iv-review-empty{text-align:center;padding:60px 20px;color:var(--text2)}
 
+/* Solutions View */
+#ivSolutionsView{display:flex;flex-direction:column;height:calc(100dvh - 52px);overflow:hidden}
+.iv-sol-item{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;transition:all .15s}
+.iv-sol-item:hover{border-color:var(--accent)}
+.iv-sol-item-header{display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;font-size:.84rem}
+.iv-sol-item-header .iv-si-num{color:var(--text2);font-size:.75rem;min-width:40px}
+.iv-sol-item-header .iv-si-title{flex:1;font-weight:500}
+.iv-sol-item-header .iv-si-approach{font-size:.7rem;color:var(--text2);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.iv-sol-item-header .iv-si-arrow{color:var(--text2);transition:transform .2s;font-size:.8rem}
+.iv-sol-item.expanded .iv-si-arrow{transform:rotate(90deg)}
+.iv-sol-item-body{display:none;padding:0 16px 14px;border-top:1px solid var(--border)}
+.iv-sol-item.expanded .iv-sol-item-body{display:block}
+.iv-sol-approach{font-size:.82rem;color:var(--accent);font-weight:500;margin:10px 0 6px}
+.iv-sol-explain{font-size:.82rem;line-height:1.7;color:var(--text);margin-bottom:8px}
+.iv-sol-complexity{font-size:.75rem;color:var(--text2);margin-bottom:10px;font-family:'SF Mono',Monaco,Consolas,monospace}
+.iv-sol-code{background:#212121;color:#eeffff;padding:12px;border-radius:8px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.8rem;white-space:pre-wrap;overflow-x:auto;max-height:500px;overflow-y:auto;line-height:1.6}
+.iv-sol-code .cm-keyword{color:#c792ea}.iv-sol-code .cm-def{color:#82aaff}.iv-sol-code .cm-variable{color:#eeffff}.iv-sol-code .cm-variable-2{color:#eeffff}.iv-sol-code .cm-variable-3{color:#f78c6c}
+.iv-sol-code .cm-string{color:#c3e88d}.iv-sol-code .cm-string-2{color:#c3e88d}.iv-sol-code .cm-number{color:#f78c6c}.iv-sol-code .cm-operator{color:#89ddff}.iv-sol-code .cm-comment{color:#546e7a;font-style:italic}
+.iv-sol-code .cm-builtin{color:#ffcb6b}.iv-sol-code .cm-meta{color:#ffcb6b}.iv-sol-code .cm-property{color:#eeffff}.iv-sol-code .cm-atom{color:#f78c6c}.iv-sol-code .cm-type{color:#ffcb6b}
+.iv-sol-code .cm-bracket{color:#89ddff}.iv-sol-code .cm-punctuation{color:#89ddff}
+.iv-sol-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+
 /* Submissions */
 .iv-sub-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all .15s}
 .iv-sub-item:hover{background:var(--hover)}
@@ -425,7 +447,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 <div class="panel" id="panel-interview">
   <!-- Top Bar -->
   <div class="iv-topbar">
-    <button class="back-btn" onclick="ivCurrentView==='problem'?ivShowList():ivCurrentView==='review'?ivShowList():showHub()" style="color:var(--text)">←</button>
+    <button class="back-btn" onclick="ivCurrentView==='problem'?ivShowList():ivCurrentView==='review'?ivShowList():ivCurrentView==='solutions'?ivShowList():showHub()" style="color:var(--text)">←</button>
     <div class="iv-topbar-title" id="ivTopTitle">🎯 面试刷题</div>
     <div class="iv-timer" id="ivTimer" style="display:none">
       <span>⏱</span> <span id="ivTimerVal">00:00</span>
@@ -437,7 +459,8 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     <div style="flex:1"></div>
     <div id="ivViewToggle" class="iv-view-toggle">
       <button class="iv-vt active" onclick="ivShowList()">📋 刷题</button>
-      <button class="iv-vt" onclick="ivShowReview()">📚 复习</button>
+      <button class="iv-vt" onclick="ivShowReview()">📊 提交</button>
+      <button class="iv-vt" onclick="ivShowSolutions()">📚 题解</button>
     </div>
     <div id="ivProblemBtns" style="display:none;gap:6px;align-items:center">
       <button class="iv-topbtn" onclick="ivHint()">💡 提示</button>
@@ -485,6 +508,21 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
       </div>
     </div>
     <div id="ivReviewContent" class="iv-review-content"></div>
+  </div>
+
+  <!-- Solutions View -->
+  <div id="ivSolutionsView" style="display:none">
+    <div class="iv-filters" style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="ivSolSearch" class="iv-search" placeholder="🔍 搜索题解..." oninput="renderSolutions()" style="margin-bottom:0;flex:1;min-width:200px">
+        <span class="iv-chip active" data-sdiff="all" onclick="ivSolFilterDiff(this)">全部</span>
+        <span class="iv-chip" data-sdiff="Easy" onclick="ivSolFilterDiff(this)">🟢 简单</span>
+        <span class="iv-chip" data-sdiff="Medium" onclick="ivSolFilterDiff(this)">🟡 中等</span>
+        <span class="iv-chip" data-sdiff="Hard" onclick="ivSolFilterDiff(this)">🔴 困难</span>
+      </div>
+      <div class="iv-filter-row" id="ivSolCatChips" style="margin-top:6px"></div>
+    </div>
+    <div id="ivSolutionsContent" class="iv-review-content"></div>
   </div>
 
   <!-- Problem Solve View -->
@@ -898,6 +936,7 @@ async function ivOpenProblem(id){
   document.getElementById('ivListView').style.display='none';
   document.getElementById('ivSolveView').style.display='';
   document.getElementById('ivReviewView').style.display='none';
+  document.getElementById('ivSolutionsView').style.display='none';
   document.getElementById('ivProblemBtns').style.display='flex';
   document.getElementById('ivViewToggle').style.display='none';
   ivInitEditor();
@@ -954,6 +993,7 @@ function ivShowList(){
   document.getElementById('ivListView').style.display='';
   document.getElementById('ivSolveView').style.display='none';
   document.getElementById('ivReviewView').style.display='none';
+  document.getElementById('ivSolutionsView').style.display='none';
   document.getElementById('ivProblemBtns').style.display='none';
   document.getElementById('ivViewToggle').style.display='';
   document.getElementById('ivTopTitle').textContent='🎯 面试刷题';
@@ -1125,10 +1165,11 @@ async function ivShowReview(){
   document.getElementById('ivListView').style.display='none';
   document.getElementById('ivSolveView').style.display='none';
   document.getElementById('ivReviewView').style.display='';
+  document.getElementById('ivSolutionsView').style.display='none';
   document.getElementById('ivProblemBtns').style.display='none';
   document.getElementById('ivViewToggle').style.display='';
   document.getElementById('ivTimer').style.display='none';
-  document.getElementById('ivTopTitle').textContent='📚 题解复习';
+  document.getElementById('ivTopTitle').textContent='📊 提交记录';
   document.querySelectorAll('.iv-vt').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.iv-vt')[1].classList.add('active');
   
@@ -1271,6 +1312,137 @@ function detectLang(code){
   if(/^\s*(#include|using namespace|vector<|int main)/m.test(code))return'text/x-c++src';
   if(/^\s*(func |package |import \()/m.test(code))return'text/x-go';
   return'python';
+}
+
+// ─── Solutions View ───
+let allSolutions={}, ivSolDiffFilter='all', ivSolCatFilter='';
+
+async function ivShowSolutions(){
+  ivCurrentView='solutions';
+  document.getElementById('ivListView').style.display='none';
+  document.getElementById('ivSolveView').style.display='none';
+  document.getElementById('ivReviewView').style.display='none';
+  document.getElementById('ivSolutionsView').style.display='';
+  document.getElementById('ivProblemBtns').style.display='none';
+  document.getElementById('ivViewToggle').style.display='';
+  document.getElementById('ivTimer').style.display='none';
+  document.getElementById('ivTopTitle').textContent='📚 题解大全';
+  document.querySelectorAll('.iv-vt').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.iv-vt')[2].classList.add('active');
+
+  document.getElementById('ivSolutionsContent').innerHTML='<div class="iv-review-empty"><span class="loading-spinner"></span> 加载中...</div>';
+  try{allSolutions=await(await fetch(API+'/interview/solutions')).json()}catch{allSolutions={}}
+  renderSolCatChips();
+  renderSolutions();
+}
+
+function ivSolFilterDiff(el){
+  document.querySelectorAll('.iv-chip[data-sdiff]').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  ivSolDiffFilter=el.dataset.sdiff;
+  renderSolutions();
+}
+function ivSolFilterCat(el){
+  if(el.classList.contains('active')){el.classList.remove('active');ivSolCatFilter=''}
+  else{document.querySelectorAll('#ivSolCatChips .iv-chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');ivSolCatFilter=el.dataset.scat}
+  renderSolutions();
+}
+
+function renderSolCatChips(){
+  const cats=[...new Set(ivProblems.map(p=>p.category))].sort();
+  document.getElementById('ivSolCatChips').innerHTML=cats.map(c=>`<span class="iv-chip${ivSolCatFilter===c?' active':''}" data-scat="${esc(c)}" onclick="ivSolFilterCat(this)">${esc(c)}</span>`).join('');
+}
+
+function renderSolutions(){
+  const el=document.getElementById('ivSolutionsContent');
+  const search=(document.getElementById('ivSolSearch')?.value||'').toLowerCase();
+  const solCount=Object.keys(allSolutions).length;
+
+  // Merge problems with solutions
+  let items=ivProblems.map(p=>({
+    ...p,
+    sol:allSolutions[String(p.leetcode_id)]||null
+  }));
+
+  // Filter
+  if(ivSolDiffFilter!=='all')items=items.filter(i=>i.difficulty===ivSolDiffFilter);
+  if(ivSolCatFilter)items=items.filter(i=>i.category===ivSolCatFilter);
+  if(search)items=items.filter(i=>i.title.toLowerCase().includes(search)||String(i.leetcode_id).includes(search)||i.category.toLowerCase().includes(search)||(i.tags||[]).some(t=>t.toLowerCase().includes(search)));
+
+  if(!items.length){el.innerHTML='<div class="iv-review-empty">没有匹配的题目</div>';return}
+
+  // Group by category
+  const cats={};
+  for(const item of items){
+    if(!cats[item.category])cats[item.category]=[];
+    cats[item.category].push(item);
+  }
+  const catOrder=Object.keys(cats).sort();
+  const diffBadge=d=>`<span class="iv-ri-diff ${d}">${d}</span>`;
+
+  el.innerHTML=`<div style="padding:0 0 12px;font-size:.78rem;color:var(--text2)">共 ${solCount} / ${ivProblems.length} 题有题解</div>`+
+  catOrder.map(cat=>{
+    const problems=cats[cat].sort((a,b)=>a.leetcode_id-b.leetcode_id);
+    const withSol=problems.filter(p=>p.sol).length;
+    return`<div class="iv-review-cat">
+      <div class="iv-review-cat-header">
+        <h3>${esc(cat)}</h3>
+        <span class="iv-cat-count">${withSol}/${problems.length} 题解</span>
+      </div>
+      ${problems.map(p=>{
+        if(!p.sol)return`<div class="iv-sol-item" style="opacity:.5">
+          <div class="iv-sol-item-header">
+            <span class="iv-si-num">#${p.leetcode_id}</span>
+            <span class="iv-si-title">${esc(p.title)}</span>
+            ${diffBadge(p.difficulty)}
+            <span style="font-size:.7rem;color:var(--text2)">暂无题解</span>
+          </div>
+        </div>`;
+        return`<div class="iv-sol-item" id="sol-${p.leetcode_id}">
+          <div class="iv-sol-item-header" onclick="toggleSolItem(${p.leetcode_id})">
+            <span class="iv-si-num">#${p.leetcode_id}</span>
+            <span class="iv-si-title">${esc(p.title)}</span>
+            ${diffBadge(p.difficulty)}
+            <span class="iv-si-approach">${esc(p.sol.approach||'')}</span>
+            <span class="iv-si-arrow">▶</span>
+          </div>
+          <div class="iv-sol-item-body">
+            <div class="iv-sol-approach">💡 ${esc(p.sol.approach||'')}</div>
+            <div class="iv-sol-explain">${esc(p.sol.explanation||'')}</div>
+            <div class="iv-sol-complexity">⏱ ${esc(p.sol.complexity||'')}</div>
+            <div class="iv-sol-code" id="solcode-${p.leetcode_id}">${esc(p.sol.code||'')}</div>
+            <div class="iv-sol-actions">
+              <a href="${esc(p.url||'#')}" target="_blank" class="iv-topbtn" style="font-size:.72rem;text-decoration:none">🔗 LeetCode</a>
+              <button class="iv-topbtn" onclick="ivOpenProblem(${p.leetcode_id})" style="font-size:.72rem">✏️ 去做题</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+function toggleSolItem(id){
+  const el=document.getElementById('sol-'+id);
+  if(!el)return;
+  const wasExpanded=el.classList.contains('expanded');
+  el.classList.toggle('expanded');
+  if(!wasExpanded)highlightSolCode(el);
+}
+function highlightSolCode(container){
+  container.querySelectorAll('.iv-sol-code').forEach(block=>{
+    if(block.dataset.hl)return;
+    block.dataset.hl='1';
+    const code=block.textContent;
+    const out=[];
+    try{
+      CodeMirror.runMode(code,'python',(text,style)=>{
+        if(style)out.push('<span class="cm-'+style.replace(/ /g,' cm-')+'">'+esc(text)+'</span>');
+        else out.push(esc(text));
+      });
+      block.innerHTML=out.join('');
+    }catch{}
+  });
 }
 
 async function ivLoadSubmissions(leetcodeId){
