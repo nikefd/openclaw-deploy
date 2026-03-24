@@ -81,6 +81,16 @@ function saveInterviewProgress(data) {
   fs.writeFileSync(INTERVIEW_PROGRESS_FILE, JSON.stringify(data, null, 2));
 }
 
+const INTERVIEW_SUBMISSIONS_FILE = path.join(INTERVIEW_DIR, 'submissions.json');
+
+function loadInterviewSubmissions() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_SUBMISSIONS_FILE, 'utf-8')); } catch { return []; }
+}
+function saveInterviewSubmissions(data) {
+  fs.mkdirSync(INTERVIEW_DIR, { recursive: true });
+  fs.writeFileSync(INTERVIEW_SUBMISSIONS_FILE, JSON.stringify(data, null, 2));
+}
+
 function loadInterviewSessions() {
   try { return JSON.parse(fs.readFileSync(INTERVIEW_SESSIONS_FILE, 'utf-8')); } catch { return []; }
 }
@@ -326,6 +336,22 @@ const server = http.createServer(async (req, res) => {
       progress[body.leetcode_id] = body.status; // todo, attempted, solved
       saveInterviewProgress(progress);
       return json(res, { ok: true });
+    }
+    if (p === '/api/agents/interview/submissions' && req.method === 'GET') {
+      const subs = loadInterviewSubmissions();
+      const lid = url.searchParams.get('leetcode_id');
+      if (lid) return json(res, subs.filter(s => s.leetcode_id === parseInt(lid)));
+      return json(res, subs);
+    }
+    if (p === '/api/agents/interview/submissions' && req.method === 'POST') {
+      const body = await readBody(req);
+      const subs = loadInterviewSubmissions();
+      body.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      body.createdAt = new Date().toISOString();
+      subs.unshift(body);
+      if (subs.length > 1000) subs.length = 1000;
+      saveInterviewSubmissions(subs);
+      return json(res, { ok: true, submission: body });
     }
     if (p === '/api/agents/interview/sessions' && req.method === 'GET') {
       return json(res, loadInterviewSessions());

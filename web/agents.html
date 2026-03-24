@@ -209,6 +209,18 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .iv-diff-easy{color:#00b8a3}.iv-diff-medium{color:#e6a800}.iv-diff-hard{color:#ff375f}
 #ivListView{display:flex;flex-direction:column;height:calc(100dvh - 52px);overflow:hidden}
 
+/* Submissions */
+.iv-sub-item{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all .15s}
+.iv-sub-item:hover{background:var(--hover)}
+.iv-sub-item .iv-sub-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:.82rem}
+.iv-sub-item .iv-sub-status{font-weight:700}
+.iv-sub-item .iv-sub-status.pass{color:var(--green)}
+.iv-sub-item .iv-sub-status.fail{color:var(--orange)}
+.iv-sub-item .iv-sub-time{font-size:.72rem;color:var(--text2);margin-left:auto}
+.iv-sub-item .iv-sub-code{display:none;margin-top:8px;background:#1e1e2e;color:#d4d4d4;padding:10px;border-radius:8px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.78rem;white-space:pre-wrap;overflow-x:auto;max-height:300px;overflow-y:auto}
+.iv-sub-item .iv-sub-review{display:none;margin-top:8px;font-size:.8rem;line-height:1.6;padding:10px;background:var(--bg);border-radius:8px}
+.iv-sub-item.expanded .iv-sub-code,.iv-sub-item.expanded .iv-sub-review{display:block}
+
 /* Reader Modal */
 .reader-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;backdrop-filter:blur(2px)}
 .reader-overlay.show{display:flex;align-items:center;justify-content:center}
@@ -424,10 +436,14 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
       <div class="iv-left" id="ivLeft">
         <div class="iv-tabs">
           <button class="iv-tab active" data-tab="problem" onclick="ivSwitchTab(this)">📋 题目</button>
+          <button class="iv-tab" data-tab="submissions" onclick="ivSwitchTab(this)">📊 提交记录</button>
           <button class="iv-tab" data-tab="discuss" onclick="ivSwitchTab(this)">💬 讨论</button>
         </div>
         <div class="iv-tab-content active" id="ivTabProblem">
           <div id="ivProblemArea" class="iv-problem-area"></div>
+        </div>
+        <div class="iv-tab-content" id="ivTabSubmissions">
+          <div id="ivSubmissionsList" class="iv-submissions-list" style="padding:12px;overflow-y:auto;flex:1"></div>
         </div>
         <div class="iv-tab-content" id="ivTabDiscuss">
           <div class="iv-discuss">
@@ -855,6 +871,8 @@ async function ivOpenProblem(id){
     
     // Switch to problem tab
     document.querySelector('#ivLeft .iv-tab[data-tab="problem"]')?.click();
+    // Load submissions for this problem
+    ivLoadSubmissions(id);
   }catch(e){
     document.getElementById('ivProblemArea').innerHTML=`<div style="padding:20px;color:var(--red)">❌ 加载失败: ${esc(e.message)}</div>`;
   }
@@ -959,6 +977,21 @@ ${code}
     document.getElementById('ivResultStatus').innerHTML=passed?'<span style="color:var(--green)">✅ Accepted</span>':'<span style="color:var(--orange)">⚠️ Review</span>';
     document.getElementById('ivResultBody').innerHTML=simpleMarkdown(reply);
     
+    // Save submission
+    const sub = {
+      leetcode_id: ivCurrentProblem.leetcode_id,
+      title: ivCurrentProblem.title,
+      difficulty: ivCurrentProblem.difficulty,
+      code: code,
+      lang: document.getElementById('ivLang').value,
+      elapsed: elapsed,
+      result: passed ? 'pass' : 'review',
+      review: reply
+    };
+    fetch(API+'/interview/submissions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sub)}).then(()=>{
+      if(ivCurrentProblem)ivLoadSubmissions(ivCurrentProblem.leetcode_id);
+    });
+    
     // Update progress if passed
     if(passed&&ivCurrentProblem){
       fetch(API+'/interview/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({leetcode_id:ivCurrentProblem.leetcode_id,status:'solved'})});
@@ -999,6 +1032,24 @@ async function ivSendDiscuss(msg){
 async function askIVDiscuss(){
   const input=document.getElementById('ivDiscussInput'),msg=input.value.trim();if(!msg)return;input.value='';
   ivSendDiscuss(msg);
+}
+
+async function ivLoadSubmissions(leetcodeId){
+  const el=document.getElementById('ivSubmissionsList');
+  try{
+    const subs=await(await fetch(API+'/interview/submissions?leetcode_id='+leetcodeId)).json();
+    if(!subs.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text2)">还没有提交记录</div>';return}
+    el.innerHTML=subs.map((s,i)=>`<div class="iv-sub-item" onclick="this.classList.toggle('expanded')">
+      <div class="iv-sub-head">
+        <span class="iv-sub-status ${s.result==='pass'?'pass':'fail'}">${s.result==='pass'?'✅ Accepted':'⚠️ Review'}</span>
+        <span style="font-size:.72rem;color:var(--text2)">${s.lang||'python3'}</span>
+        <span style="font-size:.72rem;color:var(--text2)">⏱ ${s.elapsed||'--'}</span>
+        <span class="iv-sub-time">${s.createdAt?new Date(s.createdAt).toLocaleString('zh-CN'):''}</span>
+      </div>
+      <div class="iv-sub-code">${esc(s.code||'')}</div>
+      <div class="iv-sub-review">${s.review?simpleMarkdown(s.review):''}</div>
+    </div>`).join('');
+  }catch{el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text2)">加载失败</div>'}
 }
 
 function simpleMarkdown(text){
