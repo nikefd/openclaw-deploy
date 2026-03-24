@@ -662,7 +662,10 @@ async function sendIVMsg(msg){
   await fetch(API+'/interview/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
   try{
     const history=await(await fetch(API+'/interview/chats')).json();
-    const messages=history.slice(-20).map(c=>({role:c.role,content:c.content}));
+    const recent=history.slice(-20);
+    // Build conversation context as a single string
+    const contextStr=recent.slice(0,-1).map(c=>(c.role==='user'?'【用户】':'【教练】')+c.content).join('\n\n');
+    const lastMsg=recent[recent.length-1]?.content||msg;
     const sp=`你是一位资深的技术面试教练，专注于算法和系统设计面试准备。
 
 你的风格：
@@ -672,8 +675,10 @@ async function sendIVMsg(msg){
 - 代码用 Python 或用户偏好的语言
 - 系统设计要覆盖：需求分析、高层设计、详细设计、扩展性、瓶颈分析
 - 用中文回答，代码注释也用中文
-- 简洁专业，不要啰嗦`;
-    const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:messages,stream:false})});
+- 简洁专业，不要啰嗦
+
+${contextStr?'以下是之前的对话记录：\n'+contextStr:''}`;
+    const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:lastMsg,stream:false})});
     const data=await res.json();
     const reply=data.output?.find(o=>o.type==='message')?.content?.[0]?.text||data.output_text||'抱歉，暂时无法回答';
     document.getElementById('ivLoading')?.remove();
