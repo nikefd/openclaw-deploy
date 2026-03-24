@@ -67,6 +67,20 @@ const INTERVIEW_SESSIONS_FILE = path.join(INTERVIEW_DIR, 'sessions.json');
 const INTERVIEW_CHAT_FILE = path.join(INTERVIEW_DIR, 'chats.json');
 const INTERVIEW_STATS_FILE = path.join(INTERVIEW_DIR, 'stats.json');
 
+const INTERVIEW_PROBLEMS_FILE = path.join(INTERVIEW_DIR, 'problems.json');
+const INTERVIEW_PROGRESS_FILE = path.join(INTERVIEW_DIR, 'progress.json');
+
+function loadInterviewProblems() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_PROBLEMS_FILE, 'utf-8')); } catch { return []; }
+}
+function loadInterviewProgress() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_PROGRESS_FILE, 'utf-8')); } catch { return {}; }
+}
+function saveInterviewProgress(data) {
+  fs.mkdirSync(INTERVIEW_DIR, { recursive: true });
+  fs.writeFileSync(INTERVIEW_PROGRESS_FILE, JSON.stringify(data, null, 2));
+}
+
 function loadInterviewSessions() {
   try { return JSON.parse(fs.readFileSync(INTERVIEW_SESSIONS_FILE, 'utf-8')); } catch { return []; }
 }
@@ -280,6 +294,39 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ─── Interview Prep ───
+    if (p === '/api/agents/interview/problems' && req.method === 'GET') {
+      // Return problems list (without full description for listing)
+      const problems = loadInterviewProblems();
+      const progress = loadInterviewProgress();
+      const lite = problems.map(p => ({
+        leetcode_id: p.leetcode_id,
+        title: p.title,
+        slug: p.slug,
+        difficulty: p.difficulty,
+        category: p.category,
+        tags: p.tags,
+        url: p.url,
+        status: progress[p.leetcode_id] || 'todo' // todo, attempted, solved
+      }));
+      return json(res, lite);
+    }
+    const problemMatch = p.match(/^\/api\/agents\/interview\/problems\/(\d+)$/);
+    if (problemMatch && req.method === 'GET') {
+      const id = parseInt(problemMatch[1]);
+      const problems = loadInterviewProblems();
+      const problem = problems.find(p => p.leetcode_id === id);
+      if (!problem) return json(res, { error: 'Not found' }, 404);
+      const progress = loadInterviewProgress();
+      problem.status = progress[id] || 'todo';
+      return json(res, problem);
+    }
+    if (p === '/api/agents/interview/progress' && req.method === 'POST') {
+      const body = await readBody(req);
+      const progress = loadInterviewProgress();
+      progress[body.leetcode_id] = body.status; // todo, attempted, solved
+      saveInterviewProgress(progress);
+      return json(res, { ok: true });
+    }
     if (p === '/api/agents/interview/sessions' && req.method === 'GET') {
       return json(res, loadInterviewSessions());
     }
