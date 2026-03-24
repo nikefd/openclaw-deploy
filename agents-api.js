@@ -61,6 +61,35 @@ function saveFitnessChats(data) {
   fs.writeFileSync(FITNESS_CHAT_FILE, JSON.stringify(data, null, 2));
 }
 
+// ─── Interview Prep Agent ───
+const INTERVIEW_DIR = path.join(DATA_DIR, 'interview');
+const INTERVIEW_SESSIONS_FILE = path.join(INTERVIEW_DIR, 'sessions.json');
+const INTERVIEW_CHAT_FILE = path.join(INTERVIEW_DIR, 'chats.json');
+const INTERVIEW_STATS_FILE = path.join(INTERVIEW_DIR, 'stats.json');
+
+function loadInterviewSessions() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_SESSIONS_FILE, 'utf-8')); } catch { return []; }
+}
+function saveInterviewSessions(data) {
+  fs.mkdirSync(INTERVIEW_DIR, { recursive: true });
+  fs.writeFileSync(INTERVIEW_SESSIONS_FILE, JSON.stringify(data, null, 2));
+}
+function loadInterviewChats() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_CHAT_FILE, 'utf-8')); } catch { return []; }
+}
+function saveInterviewChats(data) {
+  fs.mkdirSync(INTERVIEW_DIR, { recursive: true });
+  fs.writeFileSync(INTERVIEW_CHAT_FILE, JSON.stringify(data, null, 2));
+}
+function loadInterviewStats() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_STATS_FILE, 'utf-8')); }
+  catch { return { algorithm: { easy: 0, medium: 0, hard: 0, total: 0 }, systemDesign: { total: 0 }, streak: 0, lastPractice: null }; }
+}
+function saveInterviewStats(data) {
+  fs.mkdirSync(INTERVIEW_DIR, { recursive: true });
+  fs.writeFileSync(INTERVIEW_STATS_FILE, JSON.stringify(data, null, 2));
+}
+
 // ─── Helpers ───
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -248,6 +277,58 @@ const server = http.createServer(async (req, res) => {
       }
       saveTracks(tracks);
       return json(res, { ok: true, tracks });
+    }
+
+    // ─── Interview Prep ───
+    if (p === '/api/agents/interview/sessions' && req.method === 'GET') {
+      return json(res, loadInterviewSessions());
+    }
+    if (p === '/api/agents/interview/sessions' && req.method === 'POST') {
+      const body = await readBody(req);
+      const sessions = loadInterviewSessions();
+      body.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      body.createdAt = new Date().toISOString();
+      sessions.unshift(body);
+      if (sessions.length > 500) sessions.length = 500;
+      saveInterviewSessions(sessions);
+      return json(res, { ok: true, session: body });
+    }
+    if (p === '/api/agents/interview/sessions' && req.method === 'DELETE') {
+      const body = await readBody(req);
+      let sessions = loadInterviewSessions();
+      sessions = sessions.filter(s => s.id !== body.id);
+      saveInterviewSessions(sessions);
+      return json(res, { ok: true });
+    }
+    if (p === '/api/agents/interview/stats' && req.method === 'GET') {
+      return json(res, loadInterviewStats());
+    }
+    if (p === '/api/agents/interview/stats' && req.method === 'POST') {
+      const body = await readBody(req);
+      saveInterviewStats(body);
+      return json(res, { ok: true });
+    }
+    if (p === '/api/agents/interview/chats' && req.method === 'GET') {
+      return json(res, loadInterviewChats());
+    }
+    if (p === '/api/agents/interview/chats' && req.method === 'POST') {
+      const body = await readBody(req);
+      const chats = loadInterviewChats();
+      chats.push({ role: 'user', content: body.message, ts: new Date().toISOString() });
+      if (chats.length > 200) chats.splice(0, chats.length - 200);
+      saveInterviewChats(chats);
+      return json(res, { ok: true });
+    }
+    if (p === '/api/agents/interview/chats/reply' && req.method === 'POST') {
+      const body = await readBody(req);
+      const chats = loadInterviewChats();
+      chats.push({ role: 'assistant', content: body.message, ts: new Date().toISOString() });
+      saveInterviewChats(chats);
+      return json(res, { ok: true });
+    }
+    if (p === '/api/agents/interview/chats' && req.method === 'DELETE') {
+      saveInterviewChats([]);
+      return json(res, { ok: true });
     }
 
     res.writeHead(404); res.end('Not found');
