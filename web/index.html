@@ -111,9 +111,7 @@ textarea::placeholder{color:var(--text-sec)}
 .send-btn{background:var(--accent)}
 .send-btn:disabled{opacity:.3;cursor:not-allowed}
 .send-btn svg{fill:#fff;width:16px;height:16px}
-.voice-btn{background:none;border:1px solid var(--border)!important;color:var(--text-sec)}
-.voice-btn:hover{border-color:var(--accent)!important;color:var(--accent)}
-.voice-btn.recording{border-color:var(--danger)!important;color:var(--danger);animation:pulse 1s infinite}
+
 .footer-text{text-align:center;font-size:11px;color:var(--text-sec);margin-top:5px}
 .attach-btn{background:none;border:1px solid var(--border)!important;color:var(--text-sec);font-size:15px}
 .attach-btn:hover{border-color:var(--accent)!important;color:var(--accent)}
@@ -279,7 +277,7 @@ textarea::placeholder{color:var(--text-sec)}
           <div class="input-btns">
             <button class="attach-btn" id="attachBtn" title="上传图片">📎</button>
             <button class="send-btn" id="sendBtn" disabled><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
-            <button class="voice-btn" id="voiceBtn" title="语音输入">🎤</button>
+
           </div>
         </div>
         <div class="footer-text">Powered by OpenClaw · Built by Yangbin</div>
@@ -421,7 +419,7 @@ let currentTheme=localStorage.getItem(THEME_KEY)||'dark';
 const $=id=>document.getElementById(id);
 const sidebar=$('sidebar'),overlay=$('overlay'),chatList=$('chatList'),agentGrid=$('agentGrid');
 const messagesEl=$('messages'),input=$('input'),sendBtn=$('sendBtn');let topTitle=$('topTitle');
-const agentBadge=$('agentBadge'),streamBadge=$('streamBadge'),themeBtn=$('themeBtn'),voiceBtn=$('voiceBtn');
+const agentBadge=$('agentBadge'),streamBadge=$('streamBadge'),themeBtn=$('themeBtn');
 
 // === THEME ===
 function applyTheme(t){currentTheme=t;document.documentElement.setAttribute('data-theme',t);localStorage.setItem(THEME_KEY,t);themeBtn.innerHTML=t==='dark'?'<span class="emoji">☀️</span><span>浅色模式</span>':'<span class="emoji">🌙</span><span>深色模式</span>';}
@@ -444,8 +442,6 @@ document.querySelectorAll('.tab').forEach(tab=>{
     if(tab.dataset.tab==='memory'&&!memoryLoaded) loadMemoryPanel();
   });
 });
-
-// === VOICE ===
 
 // === MEMORY PANEL ===
 let memoryLoaded=false, memoryEditing=false, currentMemFile=null;
@@ -576,20 +572,6 @@ async function saveMemFile(){
   }catch(e){alert('保存失败: '+e.message);}
 }
 window.openMemFile=openMemFile;window.startMemEdit=startMemEdit;window.cancelMemEdit=cancelMemEdit;window.saveMemFile=saveMemFile;
-let recognition=null,isRecording=false;
-if('webkitSpeechRecognition' in window||'SpeechRecognition' in window){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  recognition=new SR();recognition.lang='zh-CN';recognition.continuous=false;recognition.interimResults=true;
-  let voiceSendPending=false;
-  recognition.onresult=e=>{let t='';for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;input.value=t;input.dispatchEvent(new Event('input'));};
-  recognition.onend=()=>{isRecording=false;voiceBtn.classList.remove('recording');voiceBtn.textContent='🎤';if(voiceSendPending&&input.value.trim()){voiceSendPending=false;sendMessage();}};
-  recognition.onerror=recognition.onend;
-}
-voiceBtn.addEventListener('click',()=>{
-  if(!recognition){alert('浏览器不支持语音，请用Chrome');return;}
-  if(isRecording){voiceSendPending=true;recognition.stop();}
-  else{isRecording=true;voiceBtn.classList.add('recording');voiceBtn.textContent='⏹';recognition.start();}
-});
 
 // === TTS ===
 let curUtter=null;
