@@ -874,7 +874,10 @@ async function sendMessage(){
     if(full){chat.messages.push({role:'assistant',content:full});
       if(el&&currentId===chatId){const ad=document.createElement('div');ad.className='msg-actions';const ttsBtn=agent?.tts?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';ad.innerHTML=`${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button>`;el.parentElement.appendChild(ad);}
     }
-  }catch(err){removeTyping(chatId);if(currentId===chatId)appendMsg('assistant','❌ '+err.message,agent,false);chat.messages.push({role:'assistant',content:'❌ '+err.message});}
+  }catch(err){removeTyping(chatId);
+    if(full){chat.messages.push({role:'assistant',content:full});if(!el&&currentId===chatId){el=appendMsg('assistant',full,agent,false);}}
+    if(currentId===chatId){const errEl=appendMsg('assistant','❌ '+err.message+'\n\n🔄 点击重试',agent,false);errEl.closest('.message').classList.add('error-msg');errEl.closest('.message').style.cursor='pointer';errEl.closest('.message').onclick=()=>{errEl.closest('.message').remove();input.value=chat.messages.filter(m=>m.role==='user').pop()?.content||'';sendMessage();};}
+  }
   streamingChats.delete(chatId);chat.updatedAt=Date.now();save();renderSidebar();
   if(currentId===chatId)streamBadge.classList.remove('show');
   sendBtn.disabled=!input.value.trim();input.focus();
