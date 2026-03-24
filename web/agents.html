@@ -101,6 +101,94 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .loading-spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* ─── Interview LeetCode Style ─── */
+#panel-interview{padding:0}
+#panel-interview .panel-header{display:none}
+.iv-topbar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--border);flex-wrap:wrap;position:sticky;top:0;z-index:10}
+.iv-topbar-title{font-weight:700;font-size:.95rem;margin-right:4px}
+.iv-timer{font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.85rem;background:var(--bg);padding:4px 10px;border-radius:8px;color:var(--accent)}
+.iv-topbar-stats{display:flex;gap:8px;align-items:center}
+.iv-stat{font-size:.75rem;background:var(--bg);padding:3px 8px;border-radius:6px;color:var(--text2)}
+.iv-streak{color:var(--orange)}
+.iv-select{padding:4px 8px;border:1px solid var(--border);border-radius:6px;font-size:.75rem;background:var(--bg);color:var(--text);cursor:pointer}
+.iv-diff-btns{display:flex;gap:2px}
+.iv-diff{padding:4px 10px;border:none;border-radius:6px;font-size:.72rem;font-weight:600;cursor:pointer;transition:all .15s}
+.iv-diff:hover{opacity:.85;transform:scale(1.05)}
+.iv-diff.easy{background:#00b8a3;color:#fff}
+.iv-diff.medium{background:#ffc01e;color:#333}
+.iv-diff.hard{background:#ff375f;color:#fff}
+.iv-topbtn{padding:4px 10px;border:1px solid var(--border);border-radius:6px;font-size:.75rem;background:var(--card);color:var(--text);cursor:pointer;transition:all .15s;white-space:nowrap}
+.iv-topbtn:hover{background:var(--hover)}
+
+.iv-split{display:flex;height:calc(100dvh - 100px);overflow:hidden}
+.iv-left{flex:1;min-width:280px;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.iv-resizer{width:5px;cursor:col-resize;background:var(--border);flex-shrink:0;transition:background .15s}
+.iv-resizer:hover,.iv-resizer.active{background:var(--accent)}
+.iv-right{flex:1;min-width:280px;display:flex;flex-direction:column}
+
+.iv-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--card)}
+.iv-tab{padding:8px 16px;font-size:.78rem;border:none;background:none;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.iv-tab:hover{color:var(--text)}
+.iv-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.iv-tab-content{display:none;flex:1;overflow-y:auto}
+.iv-tab-content.active{display:flex;flex-direction:column}
+
+.iv-problem-area{flex:1;padding:20px;overflow-y:auto;font-size:.88rem;line-height:1.8}
+.iv-problem-area h4{color:var(--accent);margin:16px 0 8px;font-size:1rem}
+.iv-problem-area pre{background:var(--bg);padding:12px;border-radius:8px;overflow-x:auto;font-size:.82rem;margin:8px 0}
+.iv-problem-area code{background:var(--bg);padding:2px 6px;border-radius:4px;font-size:.82rem;font-family:'SF Mono',Monaco,Consolas,monospace}
+.iv-problem-area pre code{background:none;padding:0}
+.iv-problem-area ul,.iv-problem-area ol{padding-left:20px;margin:8px 0}
+.iv-problem-area li{margin:4px 0}
+.iv-problem-area blockquote{border-left:3px solid var(--accent);padding:8px 14px;margin:10px 0;background:var(--accent-bg);border-radius:0 8px 8px 0}
+.iv-problem-area .iv-difficulty{display:inline-block;padding:2px 10px;border-radius:10px;font-size:.72rem;font-weight:600;margin-bottom:12px}
+.iv-problem-area .iv-difficulty.easy{background:rgba(0,184,163,.15);color:#00b8a3}
+.iv-problem-area .iv-difficulty.medium{background:rgba(255,192,30,.15);color:#e6a800}
+.iv-problem-area .iv-difficulty.hard{background:rgba(255,55,95,.15);color:#ff375f}
+
+.iv-welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;color:var(--text2);padding:40px}
+.iv-welcome h3{margin-bottom:8px;color:var(--text);font-size:1.1rem}
+.iv-welcome p{margin-bottom:24px;font-size:.85rem}
+.iv-welcome-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:300px}
+.iv-welcome-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 12px;cursor:pointer;transition:all .15s;font-size:.82rem}
+.iv-welcome-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.08);border-color:var(--accent)}
+.iv-wc-icon{font-size:1.4rem;margin-bottom:6px}
+
+/* Discuss tab */
+.iv-discuss{display:flex;flex-direction:column;flex:1;overflow:hidden}
+.iv-discuss-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.iv-discuss-msgs .coach-msg{max-width:90%;padding:10px 14px;border-radius:12px;font-size:.82rem;line-height:1.6;word-break:break-word;white-space:pre-wrap}
+.iv-discuss-msgs .coach-msg.user{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+.iv-discuss-msgs .coach-msg.assistant{background:var(--hover);align-self:flex-start;border-bottom-left-radius:4px}
+.iv-discuss-input{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--border)}
+.iv-discuss-input input{flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:.8rem;background:var(--bg);color:var(--text)}
+.iv-discuss-input button{padding:8px 14px;border-radius:8px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:.8rem}
+
+/* Code Editor */
+.iv-editor-bar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--card);border-bottom:1px solid var(--border)}
+.iv-editor-wrap{flex:1;display:flex;overflow:hidden;position:relative;background:#1e1e2e}
+.iv-line-numbers{padding:12px 8px 12px 12px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.8rem;line-height:1.6;color:#555;text-align:right;user-select:none;overflow:hidden;min-width:36px;background:#1a1a2e}
+.iv-code{flex:1;padding:12px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.8rem;line-height:1.6;border:none;outline:none;resize:none;background:#1e1e2e;color:#d4d4d4;tab-size:4}
+.iv-code::placeholder{color:#555}
+
+.iv-result{border-top:1px solid var(--border);max-height:40%;overflow-y:auto;background:var(--card)}
+.iv-result-header{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);font-size:.85rem;font-weight:600}
+.iv-result-body{padding:12px;font-size:.82rem;line-height:1.7;white-space:pre-wrap;font-family:'SF Mono',Monaco,Consolas,monospace}
+
+/* History tab */
+.iv-history-list{padding:12px;display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1}
+.iv-history-item{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;font-size:.8rem;cursor:default}
+.iv-history-item .iv-h-diff{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.iv-history-item .iv-h-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.iv-history-item .iv-h-date{font-size:.7rem;color:var(--text2)}
+
+@media(max-width:700px){
+  .iv-split{flex-direction:column;height:auto}
+  .iv-resizer{width:100%;height:4px;cursor:row-resize}
+  .iv-left,.iv-right{min-width:0;min-height:300px}
+  .iv-diff-btns,.iv-topbar-stats{display:none}
+}
+
 /* Reader Modal */
 .reader-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;backdrop-filter:blur(2px)}
 .reader-overlay.show{display:flex;align-items:center;justify-content:center}
@@ -263,68 +351,121 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 
 <!-- Interview Prep Panel -->
 <div class="panel" id="panel-interview">
-  <div class="panel-header">
-    <button class="back-btn" onclick="showHub()">←</button>
-    <h2>🎯 面试刷题教练</h2>
+  <!-- Top Bar -->
+  <div class="iv-topbar">
+    <button class="back-btn" onclick="showHub()" style="color:var(--text)">←</button>
+    <div class="iv-topbar-title">🎯 面试刷题</div>
+    <div class="iv-timer" id="ivTimer" style="display:none">
+      <span id="ivTimerIcon">⏱</span> <span id="ivTimerVal">00:00</span>
+    </div>
+    <div class="iv-topbar-stats">
+      <span class="iv-stat" id="ivStatTotal" title="总题数">0 题</span>
+      <span class="iv-stat iv-streak" id="ivStatStreak" title="连续天数">🔥 0</span>
+    </div>
+    <div style="flex:1"></div>
+    <select id="algoTopic" class="iv-select">
+      <option value="">随机话题</option>
+      <option value="array">数组/字符串</option>
+      <option value="linkedlist">链表</option>
+      <option value="tree">树/图</option>
+      <option value="dp">动态规划</option>
+      <option value="greedy">贪心</option>
+      <option value="binary-search">二分查找</option>
+      <option value="stack-queue">栈/队列</option>
+      <option value="hash">哈希表</option>
+      <option value="sliding-window">滑动窗口</option>
+      <option value="backtracking">回溯</option>
+      <option value="graph">图论</option>
+      <option value="trie">字典树</option>
+    </select>
+    <div class="iv-diff-btns">
+      <button class="iv-diff easy" onclick="startAlgo('easy')">简单</button>
+      <button class="iv-diff medium" onclick="startAlgo('medium')">中等</button>
+      <button class="iv-diff hard" onclick="startAlgo('hard')">困难</button>
+    </div>
+    <button class="iv-topbtn" onclick="startSD()">🏗️ 系统设计</button>
   </div>
-  <div class="fitness-layout">
-    <div style="display:flex;flex-direction:column;gap:16px">
-      <!-- Quick Start -->
-      <div class="fitness-section">
-        <h3>⚡ 快速开始</h3>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn primary" onclick="startAlgo('easy')">🟢 简单算法</button>
-            <button class="btn primary" onclick="startAlgo('medium')" style="background:var(--orange);border-color:var(--orange)">🟡 中等算法</button>
-            <button class="btn primary" onclick="startAlgo('hard')" style="background:var(--red);border-color:var(--red)">🔴 困难算法</button>
+
+  <!-- Main Split -->
+  <div class="iv-split">
+    <!-- Left: Problem Description -->
+    <div class="iv-left" id="ivLeft">
+      <div class="iv-tabs">
+        <button class="iv-tab active" data-tab="problem" onclick="ivSwitchTab(this)">📋 题目</button>
+        <button class="iv-tab" data-tab="discuss" onclick="ivSwitchTab(this)">💬 讨论</button>
+        <button class="iv-tab" data-tab="history" onclick="ivSwitchTab(this)">📝 记录</button>
+      </div>
+      <div class="iv-tab-content active" id="ivTabProblem">
+        <div id="ivProblemArea" class="iv-problem-area">
+          <div class="iv-welcome">
+            <div style="font-size:3rem;margin-bottom:16px">🎯</div>
+            <h3>准备好了吗？</h3>
+            <p>从顶部选择难度和话题开始刷题</p>
+            <div class="iv-welcome-grid">
+              <div class="iv-welcome-card" onclick="startAlgo('easy')">
+                <div class="iv-wc-icon" style="color:#00b8a3">●</div>
+                <div>简单算法</div>
+              </div>
+              <div class="iv-welcome-card" onclick="startAlgo('medium')">
+                <div class="iv-wc-icon" style="color:#ffc01e">●</div>
+                <div>中等算法</div>
+              </div>
+              <div class="iv-welcome-card" onclick="startAlgo('hard')">
+                <div class="iv-wc-icon" style="color:#ff375f">●</div>
+                <div>困难算法</div>
+              </div>
+              <div class="iv-welcome-card" onclick="startSD()">
+                <div class="iv-wc-icon">🏗️</div>
+                <div>系统设计</div>
+              </div>
+            </div>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn" onclick="startSD()">🏗️ 系统设计</button>
-            <button class="btn" onclick="startBQ()">🗣️ 行为面试</button>
-          </div>
-          <select id="algoTopic" style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-size:.8rem;background:var(--bg);color:var(--text)">
-            <option value="">随机话题</option>
-            <option value="array">数组/字符串</option>
-            <option value="linkedlist">链表</option>
-            <option value="tree">树/图</option>
-            <option value="dp">动态规划</option>
-            <option value="greedy">贪心</option>
-            <option value="binary-search">二分查找</option>
-            <option value="stack-queue">栈/队列</option>
-            <option value="hash">哈希表</option>
-            <option value="sliding-window">滑动窗口</option>
-            <option value="backtracking">回溯</option>
-            <option value="graph">图论</option>
-            <option value="trie">字典树</option>
-          </select>
         </div>
       </div>
-      <!-- Stats -->
-      <div class="fitness-section">
-        <h3>📊 练习统计</h3>
-        <div id="interviewStats" style="font-size:.8rem;color:var(--text2)">加载中...</div>
+      <div class="iv-tab-content" id="ivTabDiscuss">
+        <div class="iv-discuss">
+          <div class="iv-discuss-msgs" id="ivMessages"></div>
+          <div class="iv-discuss-input">
+            <input id="ivDiscussInput" placeholder="问面试官问题..." onkeydown="if(event.key==='Enter')askIVDiscuss()">
+            <button onclick="askIVDiscuss()">发送</button>
+          </div>
+        </div>
       </div>
-      <!-- History -->
-      <div class="fitness-section">
-        <h3>📝 练习记录</h3>
-        <div id="interviewHistory" style="max-height:300px;overflow-y:auto;font-size:.8rem;color:var(--text2)">加载中...</div>
+      <div class="iv-tab-content" id="ivTabHistory">
+        <div id="ivHistoryList" class="iv-history-list"></div>
       </div>
     </div>
-    <div class="fitness-section">
-      <h3>💬 面试教练</h3>
-      <div class="coach-chat">
-        <div class="coach-messages" id="ivMessages">
-          <div class="coach-msg assistant">嘿！我是你的面试教练 🎯\n\n左边选个题目类型开始练习，或者直接问我任何面试相关的问题！\n\n支持：算法题（LeetCode 风格）、系统设计、行为面试</div>
-        </div>
-        <div class="coach-input">
-          <input id="ivInput" placeholder="输入你的答案或问题..." onkeydown="if(event.key==='Enter')askIV()">
-          <button onclick="askIV()">发送</button>
-        </div>
+
+    <!-- Resizer -->
+    <div class="iv-resizer" id="ivResizer"></div>
+
+    <!-- Right: Code Editor -->
+    <div class="iv-right" id="ivRight">
+      <div class="iv-editor-bar">
+        <select id="ivLang" class="iv-select" onchange="ivChangeLang()">
+          <option value="python">Python</option>
+          <option value="javascript">JavaScript</option>
+          <option value="java">Java</option>
+          <option value="cpp">C++</option>
+          <option value="go">Go</option>
+        </select>
+        <div style="flex:1"></div>
+        <button class="iv-topbtn" onclick="ivHint()" title="提示">💡 提示</button>
+        <button class="iv-topbtn" onclick="ivSubmit()" style="background:var(--green);color:#fff">▶ 提交</button>
+        <button class="iv-topbtn" onclick="ivSolution()">📖 答案</button>
       </div>
-      <div style="display:flex;gap:6px;margin-top:6px">
-        <button class="btn sm" onclick="ivHint()">💡 提示</button>
-        <button class="btn sm" onclick="ivSolution()">📖 看答案</button>
-        <button class="btn sm" onclick="clearIVChat()" style="margin-left:auto">🗑 清空对话</button>
+      <div class="iv-editor-wrap">
+        <div class="iv-line-numbers" id="ivLineNums">1</div>
+        <textarea id="ivCode" class="iv-code" spellcheck="false" placeholder="# 在这里写代码..."
+          oninput="ivUpdateLines()" onscroll="ivSyncScroll()" onkeydown="ivHandleTab(event)"></textarea>
+      </div>
+      <!-- Result Panel -->
+      <div class="iv-result" id="ivResult" style="display:none">
+        <div class="iv-result-header">
+          <span id="ivResultStatus"></span>
+          <button onclick="document.getElementById('ivResult').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1rem">✕</button>
+        </div>
+        <div class="iv-result-body" id="ivResultBody"></div>
       </div>
     </div>
   </div>
@@ -610,9 +751,11 @@ ${article.summary?'摘要：'+article.summary:''}
   }
 }
 
-// ─── Interview Prep ───
+// ─── Interview Prep (LeetCode Style) ───
 let ivStats={algorithm:{easy:0,medium:0,hard:0,total:0},systemDesign:{total:0},streak:0,lastPractice:null};
 let ivSessions=[];
+let ivTimerInterval=null,ivTimerStart=0;
+let ivCurrentProblem=null; // {type,difficulty,topic}
 
 async function loadIVData(){
   try{ivStats=await(await fetch(API+'/interview/stats')).json()}catch{}
@@ -622,24 +765,71 @@ async function loadIVData(){
 }
 
 function renderIVStats(){
-  const s=ivStats;
-  const today=new Date().toISOString().slice(0,10);
-  const streak=s.lastPractice===today?'🔥':'';
-  document.getElementById('interviewStats').innerHTML=`
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
-      <div style="padding:10px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:1.4rem;font-weight:700;color:var(--text)">${s.algorithm?.total||0}</div><div>算法题</div></div>
-      <div style="padding:10px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:1.4rem;font-weight:700;color:var(--text)">${s.systemDesign?.total||0}</div><div>系统设计</div></div>
-      <div style="padding:10px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:1.4rem;font-weight:700;color:var(--green)">🟢${s.algorithm?.easy||0} 🟡${s.algorithm?.medium||0} 🔴${s.algorithm?.hard||0}</div><div>难度分布</div></div>
-      <div style="padding:10px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:1.4rem;font-weight:700;color:var(--orange)">${s.streak||0}${streak}</div><div>连续天数</div></div>
-    </div>`;
+  const t=(ivStats.algorithm?.total||0)+(ivStats.systemDesign?.total||0);
+  document.getElementById('ivStatTotal').textContent=t+' 题';
+  document.getElementById('ivStatStreak').textContent='🔥 '+(ivStats.streak||0);
 }
 
 function renderIVHistory(){
-  const el=document.getElementById('interviewHistory');
-  if(!ivSessions.length){el.innerHTML='<div style="padding:10px">还没有练习记录，开始你的第一题吧！</div>';return}
-  const dc={easy:'🟢',medium:'🟡',hard:'🔴'};
-  el.innerHTML=ivSessions.slice(0,30).map(s=>`<div class="log-entry"><div style="display:flex;justify-content:space-between"><span>${s.type==='algo'?dc[s.difficulty]||'':s.type==='sd'?'🏗️':'🗣️'} <b>${esc(s.title||s.type)}</b></span><span class="log-date">${s.createdAt?new Date(s.createdAt).toLocaleDateString('zh-CN'):''}</span></div>${s.result?'<div style="margin-top:2px;color:'+(s.result==='pass'?'var(--green)':'var(--orange)')+'">'+esc(s.result==='pass'?'✅ 通过':'⚠️ 需要复习')+'</div>':''}</div>`).join('');
+  const el=document.getElementById('ivHistoryList');
+  if(!ivSessions.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text2)">还没有练习记录</div>';return}
+  const dc={easy:'#00b8a3',medium:'#ffc01e',hard:'#ff375f'};
+  el.innerHTML=ivSessions.slice(0,50).map(s=>`<div class="iv-history-item">
+    <div class="iv-h-diff" style="background:${dc[s.difficulty]||'var(--accent)'}"></div>
+    <div class="iv-h-title">${esc(s.title||s.type)}</div>
+    <span class="iv-h-date">${s.createdAt?new Date(s.createdAt).toLocaleDateString('zh-CN'):''}</span>
+  </div>`).join('');
 }
+
+// Timer
+function ivStartTimer(){
+  ivTimerStart=Date.now();
+  document.getElementById('ivTimer').style.display='';
+  clearInterval(ivTimerInterval);
+  ivTimerInterval=setInterval(()=>{
+    const s=Math.floor((Date.now()-ivTimerStart)/1000);
+    const m=Math.floor(s/60),sec=s%60;
+    document.getElementById('ivTimerVal').textContent=String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+  },1000);
+}
+function ivStopTimer(){clearInterval(ivTimerInterval)}
+
+// Tabs
+function ivSwitchTab(btn){
+  document.querySelectorAll('#ivLeft .iv-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#ivLeft .iv-tab-content').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  const tab=btn.dataset.tab;
+  document.getElementById('ivTab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
+}
+
+// Code editor helpers
+function ivUpdateLines(){
+  const code=document.getElementById('ivCode');
+  const lines=code.value.split('\n').length;
+  document.getElementById('ivLineNums').innerHTML=Array.from({length:lines},(_, i)=>i+1).join('<br>');
+}
+function ivSyncScroll(){document.getElementById('ivLineNums').scrollTop=document.getElementById('ivCode').scrollTop}
+function ivHandleTab(e){
+  if(e.key==='Tab'){e.preventDefault();const t=e.target,s=t.selectionStart,end=t.selectionEnd;t.value=t.value.substring(0,s)+'    '+t.value.substring(end);t.selectionStart=t.selectionEnd=s+4;ivUpdateLines()}
+}
+function ivChangeLang(){
+  const lang=document.getElementById('ivLang').value;
+  const templates={python:'# 在这里写代码\nclass Solution:\n    def solve(self, nums):\n        pass\n',javascript:'// 在这里写代码\nvar solve = function(nums) {\n    \n};\n',java:'class Solution {\n    public int solve(int[] nums) {\n        \n    }\n}\n',cpp:'class Solution {\npublic:\n    int solve(vector<int>& nums) {\n        \n    }\n};\n',go:'func solve(nums []int) int {\n    \n}\n'};
+  if(!document.getElementById('ivCode').value.trim()||confirm('切换语言会清空代码，继续？')){
+    document.getElementById('ivCode').value=templates[lang]||'';ivUpdateLines();
+  }
+}
+
+// Resizer
+(function(){
+  const resizer=document.getElementById('ivResizer'),left=document.getElementById('ivLeft'),right=document.getElementById('ivRight');
+  let startX,startLeftW;
+  resizer?.addEventListener('mousedown',e=>{startX=e.clientX;startLeftW=left.getBoundingClientRect().width;resizer.classList.add('active');
+    const onMove=e2=>{const dx=e2.clientX-startX;const total=left.parentElement.getBoundingClientRect().width;const newW=Math.max(200,Math.min(total-200,startLeftW+dx));left.style.flex='none';left.style.width=newW+'px';right.style.flex='1'};
+    const onUp=()=>{resizer.classList.remove('active');document.removeEventListener('mousemove',onMove);document.removeEventListener('mouseup',onUp)};
+    document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onUp)});
+})();
 
 function getAlgoTopic(){return document.getElementById('algoTopic').value}
 function topicLabel(t){const m={array:'数组/字符串',linkedlist:'链表',tree:'树/图',dp:'动态规划',greedy:'贪心','binary-search':'二分查找','stack-queue':'栈/队列',hash:'哈希表','sliding-window':'滑动窗口',backtracking:'回溯',graph:'图论',trie:'字典树'};return m[t]||'随机'}
@@ -648,14 +838,114 @@ function startAlgo(diff){
   const topic=getAlgoTopic();
   const diffLabel={easy:'简单',medium:'中等',hard:'困难'}[diff];
   const topicStr=topic?`，话题限定：${topicLabel(topic)}`:'';
-  sendIVMsg(`请出一道${diffLabel}难度的算法题${topicStr}。要求：\n1. LeetCode 风格，包含题目描述、输入输出示例\n2. 给出输入输出格式\n3. 先不要给答案，等我作答后再点评\n4. 用中文描述`);
+  ivCurrentProblem={type:'algo',difficulty:diff,topic};
+  // Switch to problem tab
+  document.querySelector('#ivLeft .iv-tab[data-tab="problem"]').click();
+  // Show loading in problem area
+  document.getElementById('ivProblemArea').innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2)"><span class="loading-spinner" style="margin-right:8px"></span> 正在出题...</div>';
+  // Reset code
+  document.getElementById('ivCode').value='';ivUpdateLines();
+  ivStartTimer();
+  ivRequestProblem(`请出一道${diffLabel}难度的算法题${topicStr}。要求：
+1. LeetCode 风格，包含题目描述、示例输入输出、约束条件
+2. 标明难度
+3. 先不要给答案
+4. 用中文描述
+5. 给出函数签名（Python）`);
 }
-function startSD(){sendIVMsg('请出一道系统设计面试题。要求：\n1. 给出需求描述和约束条件\n2. 先不要给方案，等我回答后再点评\n3. 循序渐进地引导我思考\n4. 用中文描述')}
-function startBQ(){sendIVMsg('请出一道行为面试题（Behavioral Question）。要求：\n1. 用 STAR 法引导我回答\n2. 先不要给参考答案\n3. 用中文描述')}
-function ivHint(){sendIVMsg('给我一个提示，但不要直接给出完整答案')}
-function ivSolution(){sendIVMsg('请给出这道题的完整解答，包括思路分析、代码实现（如果是算法题）、时间空间复杂度分析')}
 
-async function sendIVMsg(msg){
+function startSD(){
+  ivCurrentProblem={type:'sd',difficulty:'medium',topic:''};
+  document.querySelector('#ivLeft .iv-tab[data-tab="problem"]').click();
+  document.getElementById('ivProblemArea').innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2)"><span class="loading-spinner" style="margin-right:8px"></span> 正在出题...</div>';
+  document.getElementById('ivCode').value='';ivUpdateLines();
+  ivStartTimer();
+  ivRequestProblem(`请出一道系统设计面试题。要求：
+1. 给出需求描述、用户规模、约束条件
+2. 列出需要讨论的关键点
+3. 先不要给方案，等我回答
+4. 用中文描述`);
+}
+
+async function ivRequestProblem(prompt){
+  // Save to chat history
+  await fetch(API+'/interview/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:prompt})});
+  try{
+    const sp=`你是一位资深的技术面试教练。出题要有实际面试水准。用中文回答。简洁专业。`;
+    const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:prompt,stream:false})});
+    const data=await res.json();
+    const reply=data.output?.find(o=>o.type==='message')?.content?.[0]?.text||data.output_text||'出题失败';
+    await fetch(API+'/interview/chats/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:reply})});
+    // Render problem
+    const diffClass=ivCurrentProblem?.difficulty||'medium';
+    const diffLabel={easy:'简单',medium:'中等',hard:'困难'}[diffClass]||'';
+    document.getElementById('ivProblemArea').innerHTML=`<span class="iv-difficulty ${diffClass}">${diffLabel}</span>`+simpleMarkdown(reply);
+    // Set code template
+    const sigMatch=reply.match(/def\s+\w+\([^)]*\)[^:]*:/);
+    if(sigMatch){document.getElementById('ivCode').value=sigMatch[0]+'\n    pass\n';ivUpdateLines()}
+  }catch(e){
+    document.getElementById('ivProblemArea').innerHTML=`<div style="padding:20px;color:var(--red)">❌ 出题失败: ${esc(e.message)}</div>`;
+  }
+}
+
+function ivHint(){
+  document.querySelector('#ivLeft .iv-tab[data-tab="discuss"]').click();
+  ivSendDiscuss('给我一个提示，但不要直接给出完整答案');
+}
+
+function ivSolution(){
+  document.querySelector('#ivLeft .iv-tab[data-tab="discuss"]').click();
+  ivSendDiscuss('请给出这道题的完整解答，包括思路分析、代码实现、时间空间复杂度分析');
+}
+
+async function ivSubmit(){
+  const code=document.getElementById('ivCode').value.trim();
+  if(!code){alert('先写点代码吧');return}
+  ivStopTimer();
+  // Show result loading
+  const resultEl=document.getElementById('ivResult');
+  resultEl.style.display='';
+  document.getElementById('ivResultStatus').innerHTML='<span class="loading-spinner"></span> 评判中...';
+  document.getElementById('ivResultBody').textContent='';
+  
+  const elapsed=document.getElementById('ivTimerVal').textContent;
+  const prompt=`请评判以下代码提交。
+
+代码：
+\`\`\`
+${code}
+\`\`\`
+
+用时：${elapsed}
+
+请按以下格式评判：
+1. 正确性（是否能通过所有测试用例）
+2. 时间复杂度和空间复杂度
+3. 代码质量（可读性、命名、边界处理）
+4. 改进建议
+5. 最终评价：✅ 通过 / ⚠️ 部分通过 / ❌ 未通过`;
+
+  await fetch(API+'/interview/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:prompt})});
+  try{
+    const history=await(await fetch(API+'/interview/chats')).json();
+    const recent=history.slice(-20);
+    const contextStr=recent.slice(0,-1).map(c=>(c.role==='user'?'【用户】':'【教练】')+c.content).join('\n\n');
+    const lastMsg=recent[recent.length-1]?.content||prompt;
+    const sp=`你是一位资深的技术面试教练。评判代码要严格但公正。用中文。\n\n${contextStr?'对话记录：\n'+contextStr:''}`;
+    const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:lastMsg,stream:false})});
+    const data=await res.json();
+    const reply=data.output?.find(o=>o.type==='message')?.content?.[0]?.text||data.output_text||'评判失败';
+    await fetch(API+'/interview/chats/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:reply})});
+    const passed=reply.includes('✅');
+    document.getElementById('ivResultStatus').innerHTML=passed?'<span style="color:var(--green)">✅ Accepted</span>':'<span style="color:var(--orange)">⚠️ Review</span>';
+    document.getElementById('ivResultBody').innerHTML=simpleMarkdown(reply);
+  }catch(e){
+    document.getElementById('ivResultStatus').textContent='❌ Error';
+    document.getElementById('ivResultBody').textContent=e.message;
+  }
+}
+
+async function ivSendDiscuss(msg){
   const el=document.getElementById('ivMessages');
   el.innerHTML+=`<div class="coach-msg user">${esc(msg)}</div><div class="coach-msg assistant" id="ivLoading"><span class="loading-spinner"></span> 思考中...</div>`;
   el.scrollTop=el.scrollHeight;
@@ -663,21 +953,9 @@ async function sendIVMsg(msg){
   try{
     const history=await(await fetch(API+'/interview/chats')).json();
     const recent=history.slice(-20);
-    // Build conversation context as a single string
     const contextStr=recent.slice(0,-1).map(c=>(c.role==='user'?'【用户】':'【教练】')+c.content).join('\n\n');
     const lastMsg=recent[recent.length-1]?.content||msg;
-    const sp=`你是一位资深的技术面试教练，专注于算法和系统设计面试准备。
-
-你的风格：
-- 像真实面试官一样出题和追问
-- 给出的题目要有实际面试水准（参考 LeetCode、真实大厂面试题）
-- 点评时要具体指出优缺点，给出改进建议
-- 代码用 Python 或用户偏好的语言
-- 系统设计要覆盖：需求分析、高层设计、详细设计、扩展性、瓶颈分析
-- 用中文回答，代码注释也用中文
-- 简洁专业，不要啰嗦
-
-${contextStr?'以下是之前的对话记录：\n'+contextStr:''}`;
+    const sp=`你是一位资深的技术面试教练。简洁专业，用中文。\n\n${contextStr?'对话记录：\n'+contextStr:''}`;
     const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:lastMsg,stream:false})});
     const data=await res.json();
     const reply=data.output?.find(o=>o.type==='message')?.content?.[0]?.text||data.output_text||'抱歉，暂时无法回答';
@@ -687,15 +965,9 @@ ${contextStr?'以下是之前的对话记录：\n'+contextStr:''}`;
   }catch(e){document.getElementById('ivLoading')?.remove();el.innerHTML+=`<div class="coach-msg assistant">❌ ${esc(e.message)}</div>`;el.scrollTop=el.scrollHeight}
 }
 
-async function askIV(){
-  const input=document.getElementById('ivInput'),msg=input.value.trim();if(!msg)return;input.value='';
-  sendIVMsg(msg);
-}
-
-async function clearIVChat(){
-  if(!confirm('清空所有对话？'))return;
-  await fetch(API+'/interview/chats',{method:'DELETE'});
-  document.getElementById('ivMessages').innerHTML='<div class="coach-msg assistant">对话已清空 🎯 选个题目类型继续练习吧！</div>';
+async function askIVDiscuss(){
+  const input=document.getElementById('ivDiscussInput'),msg=input.value.trim();if(!msg)return;input.value='';
+  ivSendDiscuss(msg);
 }
 
 function simpleMarkdown(text){
