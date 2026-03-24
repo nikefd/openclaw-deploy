@@ -239,7 +239,11 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .iv-review-sub{margin-top:10px;padding:10px 14px;background:var(--bg);border-radius:8px;border-left:3px solid var(--green)}
 .iv-review-sub.fail{border-left-color:var(--orange)}
 .iv-review-sub-head{display:flex;align-items:center;gap:8px;font-size:.78rem;margin-bottom:8px;flex-wrap:wrap}
-.iv-review-sub-code{background:#1e1e2e;color:#d4d4d4;padding:12px;border-radius:8px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.78rem;white-space:pre-wrap;overflow-x:auto;max-height:300px;overflow-y:auto;margin-bottom:8px}
+.iv-review-sub-code{background:#212121;color:#eeffff;padding:12px;border-radius:8px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.78rem;white-space:pre-wrap;overflow-x:auto;max-height:400px;overflow-y:auto;margin-bottom:8px;line-height:1.6}
+.iv-review-sub-code .cm-keyword{color:#c792ea}.iv-review-sub-code .cm-def{color:#82aaff}.iv-review-sub-code .cm-variable{color:#eeffff}.iv-review-sub-code .cm-variable-2{color:#eeffff}.iv-review-sub-code .cm-variable-3{color:#f78c6c}
+.iv-review-sub-code .cm-string{color:#c3e88d}.iv-review-sub-code .cm-string-2{color:#c3e88d}.iv-review-sub-code .cm-number{color:#f78c6c}.iv-review-sub-code .cm-operator{color:#89ddff}.iv-review-sub-code .cm-comment{color:#546e7a;font-style:italic}
+.iv-review-sub-code .cm-builtin{color:#ffcb6b}.iv-review-sub-code .cm-meta{color:#ffcb6b}.iv-review-sub-code .cm-property{color:#eeffff}.iv-review-sub-code .cm-atom{color:#f78c6c}.iv-review-sub-code .cm-type{color:#ffcb6b}.iv-review-sub-code .cm-qualifier{color:#c792ea}
+.iv-review-sub-code .cm-bracket{color:#89ddff}.iv-review-sub-code .cm-tag{color:#f07178}.iv-review-sub-code .cm-attribute{color:#c792ea}.iv-review-sub-code .cm-punctuation{color:#89ddff}
 .iv-review-sub-review{font-size:.8rem;line-height:1.7}
 .iv-review-sub-toggle{font-size:.72rem;color:var(--accent);cursor:pointer;border:none;background:none;padding:2px 0}
 .iv-review-sub-toggle:hover{text-decoration:underline}
@@ -558,6 +562,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/go/go.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/matchbrackets.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/runmode/runmode.min.js"></script>
 <script>
 const API = '/api/agents';
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
@@ -1215,9 +1220,9 @@ function renderReview(){
                 <span>⏱ ${s.elapsed||'--'}</span>
                 <span style="margin-left:auto">${s.createdAt?new Date(s.createdAt).toLocaleString('zh-CN'):''}</span>
               </div>
-              <button class="iv-review-sub-toggle" onclick="toggleSubDetail(${p.leetcode_id},${si})">展开代码和评测 ▼</button>
-              <div id="rvd-${p.leetcode_id}-${si}" style="display:none">
-                <div class="iv-review-sub-code">${esc(s.code||'')}</div>
+              <button class="iv-review-sub-toggle" onclick="toggleSubDetail(${p.leetcode_id},${si})">收起 ▲</button>
+              <div id="rvd-${p.leetcode_id}-${si}">
+                <div class="iv-review-sub-code" id="rvcode-${p.leetcode_id}-${si}">${esc(s.code||'')}</div>
                 <div class="iv-review-sub-review">${s.review?simpleMarkdown(s.review):''}</div>
               </div>
             </div>`).join('')}
@@ -1229,7 +1234,10 @@ function renderReview(){
 }
 
 function toggleReviewItem(id){
-  document.getElementById('rv-'+id)?.classList.toggle('expanded');
+  const el=document.getElementById('rv-'+id);
+  if(!el)return;
+  el.classList.toggle('expanded');
+  if(el.classList.contains('expanded'))highlightReviewCode(el);
 }
 function toggleSubDetail(pid,si){
   const el=document.getElementById('rvd-'+pid+'-'+si);
@@ -1237,6 +1245,32 @@ function toggleSubDetail(pid,si){
   const show=el.style.display==='none';
   el.style.display=show?'block':'none';
   el.previousElementSibling.textContent=show?'收起 ▲':'展开代码和评测 ▼';
+  if(show)highlightReviewCode(el.parentElement);
+}
+function highlightReviewCode(container){
+  container.querySelectorAll('.iv-review-sub-code').forEach(block=>{
+    if(block.dataset.hl)return;
+    block.dataset.hl='1';
+    const code=block.textContent;
+    const mode=detectLang(code);
+    const out=[];
+    try{
+      CodeMirror.runMode(code,mode,(text,style)=>{
+        if(style)out.push('<span class="cm-'+style.replace(/ /g,' cm-')+'">'+esc(text)+'</span>');
+        else out.push(esc(text));
+      });
+      block.innerHTML=out.join('');
+      block.classList.add('cm-s-material-darker');
+    }catch(e){}
+  });
+}
+function detectLang(code){
+  if(/^\s*(def |class |import |from |print\()/m.test(code))return'python';
+  if(/^\s*(function |const |let |var |=>)/m.test(code))return'javascript';
+  if(/^\s*(public |private |class |void |int |String )/m.test(code))return'text/x-java';
+  if(/^\s*(#include|using namespace|vector<|int main)/m.test(code))return'text/x-c++src';
+  if(/^\s*(func |package |import \()/m.test(code))return'text/x-go';
+  return'python';
 }
 
 async function ivLoadSubmissions(leetcodeId){
