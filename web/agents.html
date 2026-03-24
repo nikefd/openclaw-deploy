@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>My Agents</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/theme/material-darker.min.css">
 <style>
 :root{--bg:#f5f5f7;--card:#fff;--text:#1a1a2e;--text2:#6c757d;--border:#e5e5ea;--accent:#4361ee;--accent-bg:rgba(67,97,238,.08);--hover:#f0f0f5;--green:#2ec4b6;--orange:#ff6b35;--red:#e63946;--radius:14px}
 [data-theme=dark]{--bg:#1a1a2e;--card:#232340;--text:#e8e8f0;--text2:#8e8ea0;--border:#33334d;--accent:#6c8cff;--accent-bg:rgba(108,140,255,.12);--hover:#2a2a45;--green:#3dd9c4;--orange:#ff8c5a;--red:#ff5a6a}
@@ -102,7 +104,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* ─── Interview LeetCode Style ─── */
-#panel-interview{padding:0}
+#panel-interview{padding:0;max-width:none}
 #panel-interview .panel-header{display:none}
 .iv-topbar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--border);flex-wrap:wrap;position:sticky;top:0;z-index:10}
 .iv-topbar-title{font-weight:700;font-size:.95rem;margin-right:4px}
@@ -121,7 +123,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .iv-topbtn:hover{background:var(--hover)}
 
 .iv-split{display:flex;height:calc(100dvh - 100px);overflow:hidden}
-.iv-left{flex:1;min-width:280px;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.iv-left{flex:1;min-width:280px;display:flex;flex-direction:column;border-right:1px solid var(--border);overflow:hidden}
 .iv-resizer{width:5px;cursor:col-resize;background:var(--border);flex-shrink:0;transition:background .15s}
 .iv-resizer:hover,.iv-resizer.active{background:var(--accent)}
 .iv-right{flex:1;min-width:280px;display:flex;flex-direction:column}
@@ -166,10 +168,9 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 
 /* Code Editor */
 .iv-editor-bar{display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--card);border-bottom:1px solid var(--border)}
-.iv-editor-wrap{flex:1;display:flex;overflow:hidden;position:relative;background:#1e1e2e}
-.iv-line-numbers{padding:12px 8px 12px 12px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.8rem;line-height:1.6;color:#555;text-align:right;user-select:none;overflow:hidden;min-width:36px;background:#1a1a2e}
-.iv-code{flex:1;padding:12px;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.8rem;line-height:1.6;border:none;outline:none;resize:none;background:#1e1e2e;color:#d4d4d4;tab-size:4}
-.iv-code::placeholder{color:#555}
+.iv-editor-wrap{flex:1;overflow:hidden;position:relative}
+#ivCodeMirrorWrap{height:100%}
+#ivCodeMirrorWrap .CodeMirror{height:100%;font-family:'SF Mono',Monaco,Consolas,'Courier New',monospace;font-size:.85rem;line-height:1.6}
 
 .iv-result{border-top:1px solid var(--border);max-height:40%;overflow-y:auto;background:var(--card)}
 .iv-result-header{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border);font-size:.85rem;font-weight:600}
@@ -470,9 +471,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
           <div style="flex:1"></div>
         </div>
         <div class="iv-editor-wrap">
-          <div class="iv-line-numbers" id="ivLineNums">1</div>
-          <textarea id="ivCode" class="iv-code" spellcheck="false" placeholder="# 在这里写代码..."
-            oninput="ivUpdateLines()" onscroll="ivSyncScroll()" onkeydown="ivHandleTab(event)"></textarea>
+          <div id="ivCodeMirrorWrap"></div>
         </div>
         <div class="iv-result" id="ivResult" style="display:none">
           <div class="iv-result-header">
@@ -499,6 +498,13 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/go/go.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/addon/edit/closebrackets.min.js"></script>
 <script>
 const API = '/api/agents';
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
@@ -834,6 +840,8 @@ async function ivOpenProblem(id){
   document.getElementById('ivListView').style.display='none';
   document.getElementById('ivSolveView').style.display='';
   document.getElementById('ivProblemBtns').style.display='flex';
+  ivInitEditor();
+  if(ivEditor)setTimeout(()=>ivEditor.refresh(),50);
   document.getElementById('ivProblemArea').innerHTML='<div style="padding:20px;color:var(--text2)"><span class="loading-spinner"></span> 加载题目...</div>';
   
   // Clear previous discuss
@@ -855,11 +863,13 @@ async function ivOpenProblem(id){
     
     // Set code snippet
     if(p.python_snippet){
-      document.getElementById('ivCode').value=p.python_snippet;
+      ivEditor&&ivEditor.setValue(p.python_snippet);
     }else{
-      document.getElementById('ivCode').value='class Solution:\n    pass\n';
+      ivEditor&&ivEditor.setValue('class Solution:\n    pass\n');
     }
-    ivUpdateLines();
+    // Set editor mode
+    const lang=document.getElementById('ivLang').value;
+    if(ivEditor)ivEditor.setOption('mode',ivLangModes[lang]||'python');
     ivStartTimer();
     
     // Mark as attempted
@@ -911,21 +921,30 @@ function ivSwitchTab(btn){
   document.getElementById('ivTab'+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add('active');
 }
 
-// Code editor
-function ivUpdateLines(){
-  const lines=document.getElementById('ivCode').value.split('\n').length;
-  document.getElementById('ivLineNums').innerHTML=Array.from({length:lines},(_,i)=>i+1).join('<br>');
-}
-function ivSyncScroll(){document.getElementById('ivLineNums').scrollTop=document.getElementById('ivCode').scrollTop}
-function ivHandleTab(e){
-  if(e.key==='Tab'){e.preventDefault();const t=e.target,s=t.selectionStart,end=t.selectionEnd;t.value=t.value.substring(0,s)+'    '+t.value.substring(end);t.selectionStart=t.selectionEnd=s+4;ivUpdateLines()}
+// Code editor - CodeMirror
+let ivEditor=null;
+const ivLangModes={python3:'python',javascript:'javascript',java:'text/x-java',cpp:'text/x-c++src',go:'text/x-go'};
+
+function ivInitEditor(){
+  if(ivEditor)return;
+  const wrap=document.getElementById('ivCodeMirrorWrap');
+  if(!wrap)return;
+  ivEditor=CodeMirror(wrap,{
+    value:'# 在这里写代码...\n',
+    mode:'python',
+    theme:'material-darker',
+    lineNumbers:true,
+    matchBrackets:true,
+    autoCloseBrackets:true,
+    indentUnit:4,
+    tabSize:4,
+    indentWithTabs:false,
+    extraKeys:{'Tab':cm=>{cm.replaceSelection('    ','end')}}
+  });
 }
 function ivSetSnippet(){
   const lang=document.getElementById('ivLang').value;
-  if(ivCurrentProblem){
-    // Try to find snippet for selected language from stored data
-    // For now just keep current code
-  }
+  if(ivEditor)ivEditor.setOption('mode',ivLangModes[lang]||'python');
 }
 
 // Resizer
@@ -944,8 +963,8 @@ function ivSetSnippet(){
 // Submit code for AI review
 async function ivSubmit(){
   if(!ivCurrentProblem)return;
-  const code=document.getElementById('ivCode').value.trim();
-  if(!code||code===ivCurrentProblem.python_snippet?.trim()){alert('先写完代码再提交');return}
+  const code=(ivEditor?ivEditor.getValue():'').trim();
+  if(!code||code===(ivCurrentProblem.python_snippet||'').trim()){alert('先写完代码再提交');return}
   ivStopTimer();
   const elapsed=document.getElementById('ivTimerVal').textContent;
   const resultEl=document.getElementById('ivResult');
