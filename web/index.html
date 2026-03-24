@@ -876,7 +876,24 @@ async function sendMessage(){
     }
   }catch(err){removeTyping(chatId);
     if(full){chat.messages.push({role:'assistant',content:full});if(!el&&currentId===chatId){el=appendMsg('assistant',full,agent,false);}}
-    if(currentId===chatId){const errEl=appendMsg('assistant','❌ '+err.message+'\n\n🔄 点击重试',agent,false);errEl.closest('.message').classList.add('error-msg');errEl.closest('.message').style.cursor='pointer';errEl.closest('.message').onclick=()=>{errEl.closest('.message').remove();input.value=chat.messages.filter(m=>m.role==='user').pop()?.content||'';sendMessage();};}
+    // Try to recover the reply from backend before showing error
+    async function tryRecover(){
+      try{
+        const rr=await fetch(`/v1/sessions/${encodeURIComponent(chatId)}/history?limit=2`,{headers:{'Authorization':`Bearer ${TOKEN}`}});
+        if(rr.ok){const hd=await rr.json();const last=hd.messages?.filter(m=>m.role==='assistant').pop();if(last?.content){
+          if(!full||last.content.length>full.length){
+            if(el)el.closest('.message').remove();
+            chat.messages=chat.messages.filter(m=>m.content!==full||m.role!=='assistant');
+            chat.messages.push({role:'assistant',content:last.content});
+            if(currentId===chatId){const nel=appendMsg('assistant',last.content,agent,false);const ad=document.createElement('div');ad.className='msg-actions';const ttsBtn=agent?.tts?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';ad.innerHTML=`${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button>`;nel.closest('.message').appendChild(ad);}
+            save();return true;}}}
+      }catch{}return false;
+    }
+    if(!await tryRecover()&&currentId===chatId){
+      const lastUserMsg=chat.messages.filter(m=>m.role==='user').pop()?.content||'';
+      const errEl=appendMsg('assistant','❌ '+err.message+'\n\n🔄 点击恢复回复 / 重试',agent,false);const msgEl=errEl.closest('.message');msgEl.classList.add('error-msg');msgEl.style.cursor='pointer';
+      msgEl.onclick=async()=>{msgEl.onclick=null;errEl.textContent='⏳ 正在尝试恢复...';if(await tryRecover()){msgEl.remove();}else{msgEl.remove();input.value=lastUserMsg;sendMessage();}};
+    }
   }
   streamingChats.delete(chatId);chat.updatedAt=Date.now();save();renderSidebar();
   if(currentId===chatId)streamBadge.classList.remove('show');
