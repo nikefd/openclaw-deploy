@@ -901,7 +901,7 @@ chatList.addEventListener('click',e=>{
   if(edit){e.stopPropagation();startEditSidebar(edit.dataset.edit);return;}
   const item=e.target.closest('.chat-item');if(item)switchChat(item.dataset.id);
 });
-$('clearAllBtn').addEventListener('click',()=>{if(confirm('确定清空所有对话？')){chats=[];save();currentId=null;renderChat();renderSidebar();}});
+$('clearAllBtn').addEventListener('click',()=>{if(confirm('确定清空所有对话？此操作不可撤销！')){fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json','X-Backup':'true'},body:JSON.stringify(chats)}).catch(()=>{});chats=[];save();currentId=null;renderChat();renderSidebar();}});
 $('logoutBtn').addEventListener('click',async()=>{await fetch('/auth/logout');window.location.href='/login';});
 
 // === CHAT ===

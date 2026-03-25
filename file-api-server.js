@@ -31,7 +31,11 @@ http.createServer(async(req,res)=>{
     try{const d=fs.existsSync(CHATS_FILE)?fs.readFileSync(CHATS_FILE,'utf-8'):'[]';res.end(d);}
     catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/chats'&&req.method==='POST'){
-    try{const body=await readBody(req);JSON.parse(body);fs.mkdirSync(path.dirname(CHATS_FILE),{recursive:true});fs.writeFileSync(CHATS_FILE,body,'utf-8');res.end('{"ok":true}');}
+    try{const body=await readBody(req);const parsed=JSON.parse(body);
+      fs.mkdirSync(path.dirname(CHATS_FILE),{recursive:true});
+      // Auto-backup before clearing or major reduction
+      if(fs.existsSync(CHATS_FILE)){try{const old=JSON.parse(fs.readFileSync(CHATS_FILE,'utf-8'));if(old.length>0&&(parsed.length===0||parsed.length<old.length*0.5)){const bak=CHATS_FILE.replace('.json','.bak.'+Date.now()+'.json');fs.writeFileSync(bak,JSON.stringify(old),'utf-8');}}catch{}}
+      fs.writeFileSync(CHATS_FILE,body,'utf-8');res.end('{"ok":true}');}
     catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/files/upload'&&req.method==='POST'){
     // Multipart file upload
