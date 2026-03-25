@@ -873,7 +873,7 @@ function highlightActiveFile(){
 
 // === STORAGE ===
 let _saveTimer=null;
-function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));clearTimeout(_saveTimer);_saveTimer=setTimeout(()=>{fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(chats)}).catch(()=>{});},500);}
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));if(currentNode==='local'){clearTimeout(_saveTimer);_saveTimer=setTimeout(()=>{fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(chats)}).catch(()=>{});},500);}}
 function getChat(id){return chats.find(c=>c.id===id);}
 function getAgent(id){return AGENTS.find(a=>a.id===id)||AGENTS[0];}
 
@@ -1378,6 +1378,8 @@ function switchGlobalNode(){
   chats=saved?JSON.parse(saved):[];
   currentId=null;
   renderSidebar();renderChat();
+  // If switching back to local, also merge from server
+  if(currentNode==='local'){(async()=>{try{const r=await fetch('/api/chats');if(r.ok){const d=await r.json();if(d.length>0){chats=mergeChats(chats,d);localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_local',JSON.stringify(chats));renderSidebar();}}}catch{}})();}
   // Update terminal
   terminalLoaded=false;
   const termPanel=document.getElementById('panel-terminal');
