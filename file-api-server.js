@@ -140,6 +140,13 @@ http.createServer(async(req,res)=>{
         res.end(JSON.stringify({ok:true,output:o.trim()}));
       });
     }).catch(e=>{res.writeHead(400);res.end(JSON.stringify({error:e.message}));});
+  }else if(url.pathname==='/api/gateway/token'&&req.method==='GET'){
+    try{
+      const cfg=JSON.parse(fs.readFileSync(path.join(ROOT,'.openclaw','openclaw.json'),'utf-8'));
+      const t=cfg?.gateway?.auth?.token;
+      if(t)res.end(JSON.stringify({token:t}));
+      else res.end(JSON.stringify({error:'token not found in config'}));
+    }catch(ex){res.writeHead(500);res.end(JSON.stringify({error:'cannot read config: '+ex.message}));}
   }else if(url.pathname==='/api/gateway/info'&&req.method==='GET'){
     // Return connection info for new nodes
     const hostname=require('os').hostname();
