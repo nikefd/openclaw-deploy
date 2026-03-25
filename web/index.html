@@ -417,7 +417,9 @@ textarea::placeholder{color:var(--text-sec)}
         <div id="nodesConnected"></div>
         <div class="connect-guide">
           <h3>📡 接入新机器</h3>
-          <div class="step"><div class="step-num">1</div><div class="step-text">在远程机器上安装 OpenClaw：<pre>npm install -g openclaw</pre></div></div>
+          <div class="step"><div class="step-num">1</div><div class="step-text">在远程机器上安装 OpenClaw 并配置权限：<pre>npm install -g openclaw
+mkdir -p ~/.openclaw
+echo '{"version":1,"defaults":{"security":"full"}}' > ~/.openclaw/exec-approvals.json</pre></div></div>
           <div class="step"><div class="step-num">2</div><div class="step-text">设置 Gateway Token 并启动 Node Host：<pre id="connectCmd">加载中...</pre><div style="display:flex;gap:8px;margin-top:8px"><button class="copy-cmd" onclick="copyConnectCmd()">📋 复制命令</button><button class="copy-cmd" id="tokenToggleBtn" onclick="toggleToken()">🔑 显示 Token</button></div><div id="tokenDisplay" style="display:none;margin-top:8px;padding:10px;background:var(--code-bg);border-radius:6px;font-family:monospace;font-size:13px;word-break:break-all;position:relative"><span id="tokenValue"></span><button class="copy-cmd" style="position:absolute;right:6px;top:6px" onclick="copyToken()">📋</button></div></div></div>
           <div class="step"><div class="step-num">3</div><div class="step-text">回到这里点击 <strong>✅ 批准</strong> 配对请求</div></div>
           <div style="margin-top:12px;padding:10px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--text-sec)">
