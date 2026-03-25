@@ -72,6 +72,7 @@ body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
 .panels{flex:1;overflow:hidden;position:relative}
 .panel{position:absolute;inset:0;display:none;flex-direction:column}
 .panel.active{display:flex}
+#panel-terminal.active{flex-direction:column}
 
 /* Chat panel */
 .messages{flex:1;overflow-y:auto;scroll-behavior:smooth}
@@ -360,6 +361,13 @@ textarea::placeholder{color:var(--text-sec)}
       <div class="messages" id="messages"></div>
       <div class="input-area">
         <div class="input-wrap">
+          <div id="chatNodeBar" style="display:none;padding:0 0 6px;display:flex;align-items:center;gap:6px">
+            <span style="font-size:11px;color:var(--text-sec)">🌐 目标节点:</span>
+            <select id="chatNodeSelect" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:12px;outline:none;cursor:pointer" onchange="onChatNodeChange()">
+              <option value="local">🏠 本机 (VPS)</option>
+            </select>
+            <span id="chatNodeHint" style="font-size:11px;color:var(--accent);display:none">命令将在远程节点上执行</span>
+          </div>
           <div class="img-preview-area" id="imgPreview" style="display:none"></div>
           <textarea id="input" rows="1" placeholder="发送消息..." autofocus></textarea>
           <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
@@ -374,13 +382,13 @@ textarea::placeholder{color:var(--text-sec)}
     </div>
     <!-- Terminal Panel -->
     <div class="panel" id="panel-terminal">
-      <div style="display:flex;align-items:center;padding:6px 12px;background:var(--sidebar-bg);border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;padding:6px 12px;background:var(--sidebar-bg);border-bottom:1px solid var(--border);flex-shrink:0">
         <span style="font-size:12px;color:var(--text-sec);margin-right:8px">节点:</span>
         <select id="termNodeSelect" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:12px;outline:none" onchange="switchTermNode()">
           <option value="local">🏠 本机 (VPS)</option>
         </select>
       </div>
-      <iframe class="terminal-frame" id="terminalFrame"></iframe>
+      <iframe class="terminal-frame" id="terminalFrame" style="flex:1;width:100%;border:none;background:#1e1e1e"></iframe>
     </div>
     <!-- Files Panel -->
     <div class="panel" id="panel-files">
@@ -986,6 +994,13 @@ async function sendMessage(){
   // /btw side-question: don't add to history
   if(text.startsWith('/btw ')){const q=text.slice(5).trim();if(q){input.value='';input.style.height='auto';sendBtn.disabled=true;handleBtw(q);return;}}
   if(!currentId)newChat();
+  // Prepend node context if remote node selected
+  const chatNodeSel=document.getElementById('chatNodeSelect');
+  const targetNode=chatNodeSel?.value;
+  let finalText=text;
+  if(targetNode&&targetNode!=='local'){
+    finalText='[在节点 '+targetNode+' 上操作] '+text;
+  }
   // Switch to chat tab
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
@@ -1004,7 +1019,7 @@ async function sendMessage(){
     if(text)parts.push({type:'text',text:text});
     images.forEach(img=>parts.push({type:'image_url',image_url:{url:img.dataUrl}}));
     msgContent=parts;
-  }else{msgContent=text;}
+  }else{msgContent=finalText;}
   chat.messages.push({role:'user',content:text,images:imgUrls.length?imgUrls:undefined});
   if(chat.messages.length===1){chat.title=text.slice(0,30)+(text.length>30?'...':'')||'图片对话';topTitle.textContent=chat.title;}
   streamingChats.add(chatId);streamBadge.classList.add('show');renderSidebar();appendTyping(agent);
@@ -1260,9 +1275,7 @@ async function loadNodes(){
     }
     
     // Update selectors
-    const onlineNodes=nodes.filter(n=>n.connected||n.status==='connected');
-    const opts='<option value="local">\ud83c\udfe0 本机 (VPS)</option>'+onlineNodes.map(n=>'<option value="'+esc(n.nodeId||n.name)+'">'+esc(n.displayName||n.name||n.nodeId?.slice(0,8))+' ('+( n.platform||'?')+')</option>').join('');
-    ['termNodeSelect','fileNodeSelect'].forEach(id=>{const el=document.getElementById(id);if(el){const v=el.value;el.innerHTML=opts;el.value=v||'local';}});
+    updateNodeSelectors(nodes);
   }catch(e){
     document.getElementById('nodesConnected').innerHTML='<div style="color:var(--danger);padding:12px">\u274c 加载失败: '+e.message+'</div>';
   }
@@ -1301,6 +1314,24 @@ function switchFileNode(){
   else{document.getElementById('fileEntries').innerHTML='<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px"><div style="font-size:32px;margin-bottom:8px">\ud83c\udf10</div><div>远程节点: <strong>'+esc(sel.value)+'</strong></div><div style="margin-top:8px;font-size:12px">远程文件浏览暂通过主对话操作</div></div>';}
 }
 window.loadNodes=loadNodes;window.approveDevice=approveDevice;window.rejectDevice=rejectDevice;window.copyConnectCmd=copyConnectCmd;window.switchTermNode=switchTermNode;window.switchFileNode=switchFileNode;
+
+function onChatNodeChange(){
+  const sel=document.getElementById('chatNodeSelect');
+  const hint=document.getElementById('chatNodeHint');
+  if(sel.value==='local'){hint.style.display='none';}
+  else{hint.style.display='';hint.textContent='命令将在 '+sel.options[sel.selectedIndex].text+' 上执行';}
+}
+window.onChatNodeChange=onChatNodeChange;
+
+// Update chat node selector together with others
+function updateNodeSelectors(nodes){
+  const onlineNodes=nodes.filter(n=>n.connected||n.status==='connected');
+  const opts='<option value="local">\ud83c\udfe0 本机 (VPS)</option>'+onlineNodes.map(n=>'<option value="'+esc(n.nodeId||n.name)+'">'+esc(n.displayName||n.name||n.nodeId?.slice(0,8))+' ('+( n.platform||'?')+')</option>').join('');
+  ['termNodeSelect','fileNodeSelect','chatNodeSelect'].forEach(id=>{const el=document.getElementById(id);if(el){const v=el.value;el.innerHTML=opts;el.value=v||'local';}});
+  // Show/hide chat node bar based on whether we have remote nodes
+  const bar=document.getElementById('chatNodeBar');
+  if(bar)bar.style.display=onlineNodes.length?'flex':'none';
+}
 
 // === EXPERT PANEL (帮帮团) ===
 const EXPERT_TEAMS=[
