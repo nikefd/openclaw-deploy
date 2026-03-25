@@ -72,7 +72,6 @@ body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
 .panels{flex:1;overflow:hidden;position:relative}
 .panel{position:absolute;inset:0;display:none;flex-direction:column}
 .panel.active{display:flex}
-#panel-terminal.active{flex-direction:column}
 
 /* Chat panel */
 .messages{flex:1;overflow-y:auto;scroll-behavior:smooth}
@@ -340,6 +339,9 @@ textarea::placeholder{color:var(--text-sec)}
   <div class="topbar">
     <button class="toggle-btn" id="toggleBtn">☰</button>
     <div class="dot"></div>
+    <select id="globalNodeSelect" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:12px;outline:none;cursor:pointer;max-width:160px" onchange="switchGlobalNode()">
+      <option value="local">🏠 本机</option>
+    </select>
     <div class="topbar-title" id="topTitle">OpenClaw</div>
     <span class="agent-badge" id="agentBadge"></span>
     <a href="/usage.html" style="font-size:12px;color:var(--accent);text-decoration:none;padding:3px 8px;border-radius:6px;background:rgba(16,163,127,.1)" title="Token Usage">📊</a>
@@ -361,13 +363,6 @@ textarea::placeholder{color:var(--text-sec)}
       <div class="messages" id="messages"></div>
       <div class="input-area">
         <div class="input-wrap">
-          <div id="chatNodeBar" style="display:none;padding:0 0 6px;display:flex;align-items:center;gap:6px">
-            <span style="font-size:11px;color:var(--text-sec)">🌐 目标节点:</span>
-            <select id="chatNodeSelect" style="padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:12px;outline:none;cursor:pointer" onchange="onChatNodeChange()">
-              <option value="local">🏠 本机 (VPS)</option>
-            </select>
-            <span id="chatNodeHint" style="font-size:11px;color:var(--accent);display:none">命令将在远程节点上执行</span>
-          </div>
           <div class="img-preview-area" id="imgPreview" style="display:none"></div>
           <textarea id="input" rows="1" placeholder="发送消息..." autofocus></textarea>
           <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
@@ -382,19 +377,13 @@ textarea::placeholder{color:var(--text-sec)}
     </div>
     <!-- Terminal Panel -->
     <div class="panel" id="panel-terminal">
-      <div style="display:flex;align-items:center;padding:6px 12px;background:var(--sidebar-bg);border-bottom:1px solid var(--border);flex-shrink:0">
-        <span style="font-size:12px;color:var(--text-sec);margin-right:8px">节点:</span>
-        <select id="termNodeSelect" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:12px;outline:none" onchange="switchTermNode()">
-          <option value="local">🏠 本机 (VPS)</option>
-        </select>
-      </div>
       <iframe class="terminal-frame" id="terminalFrame" style="flex:1;width:100%;border:none;background:#1e1e1e"></iframe>
     </div>
     <!-- Files Panel -->
     <div class="panel" id="panel-files">
       <div class="files-panel">
         <div class="file-tree" id="fileTree">
-          <div class="file-tree-header"><span>文件浏览</span><select id="fileNodeSelect" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;background:var(--input-bg);color:var(--text);font-size:11px;outline:none;margin:0 4px" onchange="switchFileNode()"><option value="local">🏠 本机</option></select><button onclick="uploadFiles()" title="上传文件" style="margin-right:2px">⬆</button><button onclick="loadFiles()" title="刷新">↻</button></div>
+          <div class="file-tree-header"><span>文件浏览</span><button onclick="uploadFiles()" title="上传文件" style="margin-right:2px">⬆</button><button onclick="loadFiles()" title="刷新">↻</button></div>
           <input type="file" id="uploadInput" multiple style="display:none">
           <div class="file-breadcrumb" id="fileBreadcrumb"></div>
           <div class="file-entries" id="fileEntries"></div>
@@ -575,7 +564,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
     tab.classList.add('active');
     $('panel-'+tab.dataset.tab).classList.add('active');
     if(tab.dataset.tab==='terminal'&&!terminalLoaded){
-      $('terminalFrame').src='/terminal/';
+      if(currentNode==='local'){$('terminalFrame').src='/terminal/';}
       terminalLoaded=true;
     }
     if(tab.dataset.tab==='files'&&!filesLoaded) loadFiles();
@@ -871,7 +860,7 @@ function highlightActiveFile(){
 
 // === STORAGE ===
 let _saveTimer=null;
-function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));clearTimeout(_saveTimer);_saveTimer=setTimeout(()=>{fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(chats)}).catch(()=>{});},500);}
+function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));clearTimeout(_saveTimer);_saveTimer=setTimeout(()=>{fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(chats)}).catch(()=>{});},500);}
 function getChat(id){return chats.find(c=>c.id===id);}
 function getAgent(id){return AGENTS.find(a=>a.id===id)||AGENTS[0];}
 
@@ -995,11 +984,9 @@ async function sendMessage(){
   if(text.startsWith('/btw ')){const q=text.slice(5).trim();if(q){input.value='';input.style.height='auto';sendBtn.disabled=true;handleBtw(q);return;}}
   if(!currentId)newChat();
   // Prepend node context if remote node selected
-  const chatNodeSel=document.getElementById('chatNodeSelect');
-  const targetNode=chatNodeSel?.value;
   let finalText=text;
-  if(targetNode&&targetNode!=='local'){
-    finalText='[在节点 '+targetNode+' 上操作] '+text;
+  if(currentNode&&currentNode!=='local'){
+    finalText='[在节点 '+currentNode+' 上操作] '+text;
   }
   // Switch to chat tab
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -1313,24 +1300,53 @@ function switchFileNode(){
   if(sel.value==='local'){loadFiles();}
   else{document.getElementById('fileEntries').innerHTML='<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px"><div style="font-size:32px;margin-bottom:8px">\ud83c\udf10</div><div>远程节点: <strong>'+esc(sel.value)+'</strong></div><div style="margin-top:8px;font-size:12px">远程文件浏览暂通过主对话操作</div></div>';}
 }
-window.loadNodes=loadNodes;window.approveDevice=approveDevice;window.rejectDevice=rejectDevice;window.copyConnectCmd=copyConnectCmd;window.switchTermNode=switchTermNode;window.switchFileNode=switchFileNode;
+window.loadNodes=loadNodes;window.approveDevice=approveDevice;window.rejectDevice=rejectDevice;window.copyConnectCmd=copyConnectCmd;
 
-function onChatNodeChange(){
-  const sel=document.getElementById('chatNodeSelect');
-  const hint=document.getElementById('chatNodeHint');
-  if(sel.value==='local'){hint.style.display='none';}
-  else{hint.style.display='';hint.textContent='命令将在 '+sel.options[sel.selectedIndex].text+' 上执行';}
-}
+function onChatNodeChange(){}
 window.onChatNodeChange=onChatNodeChange;
 
-// Update chat node selector together with others
+let currentNode='local';
+
+// Update global node selector
 function updateNodeSelectors(nodes){
   const onlineNodes=nodes.filter(n=>n.connected||n.status==='connected');
-  const opts='<option value="local">\ud83c\udfe0 本机 (VPS)</option>'+onlineNodes.map(n=>'<option value="'+esc(n.nodeId||n.name)+'">'+esc(n.displayName||n.name||n.nodeId?.slice(0,8))+' ('+( n.platform||'?')+')</option>').join('');
-  ['termNodeSelect','fileNodeSelect','chatNodeSelect'].forEach(id=>{const el=document.getElementById(id);if(el){const v=el.value;el.innerHTML=opts;el.value=v||'local';}});
-  // Show/hide chat node bar based on whether we have remote nodes
-  const bar=document.getElementById('chatNodeBar');
-  if(bar)bar.style.display=onlineNodes.length?'flex':'none';
+  const opts='<option value="local">\ud83c\udfe0 本机</option>'+onlineNodes.map(n=>'<option value="'+esc(n.nodeId||n.name)+'">'+esc(n.displayName||n.name||n.nodeId?.slice(0,8))+' ('+( n.platform||'?')+')</option>').join('');
+  const sel=document.getElementById('globalNodeSelect');
+  if(sel){const v=sel.value;sel.innerHTML=opts;sel.value=v||'local';}
+}
+
+function switchGlobalNode(){
+  const sel=document.getElementById('globalNodeSelect');
+  const newNode=sel.value;
+  if(newNode===currentNode)return;
+  // Save current chats for old node
+  localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));
+  currentNode=newNode;
+  // Load chats for new node
+  const saved=localStorage.getItem(STORAGE_KEY+'_'+currentNode);
+  chats=saved?JSON.parse(saved):[];
+  currentId=null;
+  renderSidebar();renderChat();
+  // Update terminal
+  terminalLoaded=false;
+  const frame=document.getElementById('terminalFrame');
+  if(currentNode==='local'){
+    frame.src='';frame.srcdoc='';
+  }else{
+    frame.src='';
+    frame.srcdoc='<div style="padding:40px;font-family:monospace;color:#ccc;background:#1e1e1e;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px"><div style="font-size:24px">\ud83c\udf10</div><div>\u8fdc\u7a0b\u8282\u70b9: <strong>'+esc(currentNode)+'</strong></div><div style="font-size:12px;color:#888">\u8fdc\u7a0b\u7ec8\u7aef\u6682\u901a\u8fc7\u4e3b\u5bf9\u8bdd\u64cd\u4f5c</div></div>';
+  }
+  // Update files
+  if(currentNode==='local'){filesLoaded=false;}
+  else{
+    document.getElementById('fileEntries').innerHTML='<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px"><div style="font-size:32px;margin-bottom:8px">\ud83c\udf10</div><div>\u8fdc\u7a0b\u8282\u70b9\u6587\u4ef6\u6682\u901a\u8fc7\u5bf9\u8bdd\u64cd\u4f5c</div></div>';
+  }
+}
+window.switchGlobalNode=switchGlobalNode;
+
+// Migrate: save initial chats as local node chats
+if(!localStorage.getItem(STORAGE_KEY+'_local')&&chats.length){
+  localStorage.setItem(STORAGE_KEY+'_local',JSON.stringify(chats));
 }
 
 // === EXPERT PANEL (帮帮团) ===
