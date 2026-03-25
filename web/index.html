@@ -421,7 +421,7 @@ textarea::placeholder{color:var(--text-sec)}
           <div class="step"><div class="step-num">2</div><div class="step-text">设置 Gateway Token 并启动 Node Host：<pre id="connectCmd">加载中...</pre><div style="display:flex;gap:8px;margin-top:8px"><button class="copy-cmd" onclick="copyConnectCmd()">📋 复制命令</button><button class="copy-cmd" id="tokenToggleBtn" onclick="toggleToken()">🔑 显示 Token</button></div><div id="tokenDisplay" style="display:none;margin-top:8px;padding:10px;background:var(--code-bg);border-radius:6px;font-family:monospace;font-size:13px;word-break:break-all;position:relative"><span id="tokenValue"></span><button class="copy-cmd" style="position:absolute;right:6px;top:6px" onclick="copyToken()">📋</button></div></div></div>
           <div class="step"><div class="step-num">3</div><div class="step-text">回到这里点击 <strong>✅ 批准</strong> 配对请求</div></div>
           <div style="margin-top:12px;padding:10px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--text-sec)">
-            💡 <strong>提示：</strong>配对成功后，你可以在终端和文件浏览器中选择远程节点进行操作。也可以安装为系统服务实现开机自启：<pre>openclaw node install --host zhangyangbin.com --port 18789</pre>
+            💡 <strong>提示：</strong>配对成功后，你可以在终端和文件浏览器中选择远程节点进行操作。也可以安装为系统服务实现开机自启：<pre>openclaw node install --host zhangyangbin.com --port 443 --tls</pre>
           </div>
         </div>
       </div>
@@ -569,7 +569,8 @@ document.querySelectorAll('.tab').forEach(tab=>{
     }
     if(tab.dataset.tab==='files'&&!filesLoaded) loadFiles();
     if(tab.dataset.tab==='memory'&&!memoryLoaded) loadMemoryPanel();
-    if(tab.dataset.tab==='nodes'&&!nodesLoaded) loadNodes();
+    if(tab.dataset.tab==='nodes'){if(!nodesLoaded)loadNodes();startNodesAutoRefresh();}
+    else{stopNodesAutoRefresh();}
   });
 });
 
@@ -1235,9 +1236,9 @@ async function loadNodes(){
     // Render connect command (auto-fill token)
     const cmdEl=document.getElementById('connectCmd');
     if(cmdEl){
-      cmdEl.textContent='export OPENCLAW_GATEWAY_TOKEN=<点击下方显示Token>\nopenclaw node run --host '+info.host+' --port '+info.port;
+      cmdEl.textContent='export OPENCLAW_GATEWAY_TOKEN=<点击下方显示Token>\nopenclaw node run --host '+info.host+' --port 443 --tls';
       fetch('/api/gateway/token').then(r=>r.json()).then(d=>{
-        if(d.token&&cmdEl){cmdEl.textContent='export OPENCLAW_GATEWAY_TOKEN='+d.token+'\nopenclaw node run --host '+info.host+' --port '+info.port;}
+        if(d.token&&cmdEl){cmdEl.textContent='export OPENCLAW_GATEWAY_TOKEN='+d.token+'\nopenclaw node run --host '+info.host+' --port 443 --tls';}
       }).catch(()=>{});
     }
     
@@ -1326,6 +1327,19 @@ function switchFileNode(){
   else{document.getElementById('fileEntries').innerHTML='<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px"><div style="font-size:32px;margin-bottom:8px">\ud83c\udf10</div><div>远程节点: <strong>'+esc(sel.value)+'</strong></div><div style="margin-top:8px;font-size:12px">远程文件浏览暂通过主对话操作</div></div>';}
 }
 window.loadNodes=loadNodes;window.approveDevice=approveDevice;window.rejectDevice=rejectDevice;window.copyConnectCmd=copyConnectCmd;
+
+// Auto-refresh nodes when on nodes tab (check for new pairing requests)
+let nodesAutoRefresh=null;
+function startNodesAutoRefresh(){
+  if(nodesAutoRefresh)return;
+  nodesAutoRefresh=setInterval(()=>{
+    const panel=document.getElementById('panel-nodes');
+    if(panel&&panel.classList.contains('active'))loadNodes();
+  },5000);
+}
+function stopNodesAutoRefresh(){
+  if(nodesAutoRefresh){clearInterval(nodesAutoRefresh);nodesAutoRefresh=null;}
+}
 
 function onChatNodeChange(){}
 window.onChatNodeChange=onChatNodeChange;
