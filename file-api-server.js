@@ -1,4 +1,6 @@
 const http=require('http'),fs=require('fs'),path=require('path');
+const {exec}=require('child_process');
+const EXEC_ENV=Object.assign({},process.env,{PATH:'/home/nikefd/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:'+process.env.PATH});
 const PORT=7682,ROOT=process.env.HOME;
 const CHATS_FILE=path.join(ROOT,'.openclaw','chat-history.json');
 function readBody(req){return new Promise((ok,no)=>{let d='';req.on('data',c=>d+=c);req.on('end',()=>ok(d));req.on('error',no);});}
@@ -82,6 +84,77 @@ http.createServer(async(req,res)=>{
         }
         res.end(JSON.stringify({ok:true,files:results}));
       }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
+    });
+  }else if(url.pathname==='/api/files/write'&&req.method==='POST'){
+    try{
+      const body=JSON.parse(await readBody(req));
+      if(!body.path||body.content==null){res.writeHead(400);res.end('{"error":"need path and content"}');return;}
+      const r=path.resolve(body.path);
+      if(!r.startsWith(ROOT)){res.writeHead(403);res.end('{"error":"forbidden"}');return;}
+      fs.mkdirSync(path.dirname(r),{recursive:true});
+      fs.writeFileSync(r,body.content,'utf-8');
+      const s=fs.statSync(r);
+      res.end(JSON.stringify({ok:true,path:r,size:s.size}));
+    }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
+  // === NODE MANAGEMENT API ===
+  }else if(url.pathname==='/api/nodes/status'&&req.method==='GET'){
+    exec('openclaw nodes status --json 2>&1',{env:EXEC_ENV},(e,o)=>{
+      if(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));return;}
+      try{res.end(o);}catch{res.writeHead(500);res.end(JSON.stringify({error:'parse error',raw:o}));}
+    });
+  }else if(url.pathname==='/api/nodes/list'&&req.method==='GET'){
+    exec('openclaw nodes list --json 2>&1',{env:EXEC_ENV},(e,o)=>{
+      if(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));return;}
+      try{res.end(o);}catch{res.writeHead(500);res.end(JSON.stringify({error:'parse error',raw:o}));}
+    });
+  }else if(url.pathname==='/api/devices/list'&&req.method==='GET'){
+    exec('openclaw devices list --json 2>&1',{env:EXEC_ENV},(e,o)=>{
+      if(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));return;}
+      try{res.end(o);}catch{res.writeHead(500);res.end(JSON.stringify({error:'parse error',raw:o}));}
+    });
+  }else if(url.pathname==='/api/devices/approve'&&req.method==='POST'){
+    readBody(req).then(body=>{
+      const d=JSON.parse(body);
+      if(!d.requestId){res.writeHead(400);res.end('{"error":"need requestId"}');return;}
+      exec(`openclaw devices approve ${d.requestId} --json 2>&1`,{env:EXEC_ENV},(e,o)=>{
+        if(e){res.writeHead(500);res.end(JSON.stringify({error:e.message,raw:o}));return;}
+        res.end(JSON.stringify({ok:true,output:o.trim()}));
+      });
+    }).catch(e=>{res.writeHead(400);res.end(JSON.stringify({error:e.message}));});
+  }else if(url.pathname==='/api/devices/reject'&&req.method==='POST'){
+    readBody(req).then(body=>{
+      const d=JSON.parse(body);
+      if(!d.requestId){res.writeHead(400);res.end('{"error":"need requestId"}');return;}
+      exec(`openclaw devices reject ${d.requestId} --json 2>&1`,{env:EXEC_ENV},(e,o)=>{
+        if(e){res.writeHead(500);res.end(JSON.stringify({error:e.message,raw:o}));return;}
+        res.end(JSON.stringify({ok:true,output:o.trim()}));
+      });
+    }).catch(e=>{res.writeHead(400);res.end(JSON.stringify({error:e.message}));});
+  }else if(url.pathname==='/api/nodes/run'&&req.method==='POST'){
+    readBody(req).then(body=>{
+      const d=JSON.parse(body);
+      if(!d.node||!d.command){res.writeHead(400);res.end('{"error":"need node and command"}');return;}
+      const cmd=`openclaw nodes run --node ${JSON.stringify(d.node)} --raw ${JSON.stringify(d.command)} --json 2>&1`;
+      exec(cmd,{timeout:30000,env:EXEC_ENV},(e,o)=>{
+        if(e&&!o){res.writeHead(500);res.end(JSON.stringify({error:e.message}));return;}
+        res.end(JSON.stringify({ok:true,output:o.trim()}));
+      });
+    }).catch(e=>{res.writeHead(400);res.end(JSON.stringify({error:e.message}));});
+  }else if(url.pathname==='/api/gateway/info'&&req.method==='GET'){
+    // Return connection info for new nodes
+    const hostname=require('os').hostname();
+    exec('curl -s ifconfig.me 2>/dev/null',(e,ip)=>{
+      const publicIp=(ip||'').trim();
+      res.end(JSON.stringify({
+        host:'zhangyangbin.com',
+        port:18789,
+        tls:false,
+        wsPort:443,
+        wsTls:true,
+        publicIp,
+        hostname,
+        hint:`# 在远程机器上运行:\nnpm install -g openclaw\nexport OPENCLAW_GATEWAY_TOKEN=<token>\nopenclaw node run --host zhangyangbin.com --port 18789`
+      }));
     });
   }else{res.writeHead(404);res.end('{"error":"not found"}');}
 }).listen(PORT,'127.0.0.1',()=>console.log('ok'));
