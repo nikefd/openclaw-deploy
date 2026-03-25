@@ -72,6 +72,7 @@ body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
 .panels{flex:1;overflow:hidden;position:relative}
 .panel{position:absolute;inset:0;display:none;flex-direction:column}
 .panel.active{display:flex}
+#panel-terminal.active{flex-direction:column}
 
 /* Chat panel */
 .messages{flex:1;overflow-y:auto;scroll-behavior:smooth}
@@ -321,6 +322,15 @@ textarea::placeholder{color:var(--text-sec)}
 .node-selector label{font-size:11px;color:var(--text-sec);font-weight:600}
 .node-selector select{padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:12px;outline:none;cursor:pointer}
 .node-selector select:focus{border-color:var(--accent)}
+/* Remote terminal */
+.remote-term{display:flex;flex-direction:column;height:100%;background:#1e1e1e;color:#ccc;font-family:'Fira Code','Cascadia Code','Consolas',monospace;font-size:13px}
+.remote-term-output{flex:1;overflow-y:auto;padding:12px;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.remote-term-output::-webkit-scrollbar{width:4px}
+.remote-term-output::-webkit-scrollbar-thumb{background:#555;border-radius:2px}
+.remote-term-input{display:flex;align-items:center;padding:8px 12px;border-top:1px solid #333;background:#181818;gap:6px;flex-shrink:0}
+.remote-term-input .prompt{color:#10a37f;font-weight:600;flex-shrink:0}
+.remote-term-input input{flex:1;background:none;border:none;color:#ccc;font-family:inherit;font-size:13px;outline:none}
+.remote-term-cwd{padding:4px 12px;background:#252525;font-size:11px;color:#888;border-bottom:1px solid #333;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -566,10 +576,10 @@ document.querySelectorAll('.tab').forEach(tab=>{
     tab.classList.add('active');
     $('panel-'+tab.dataset.tab).classList.add('active');
     if(tab.dataset.tab==='terminal'&&!terminalLoaded){
-      if(currentNode==='local'){$('terminalFrame').src='/terminal/';}
+      if(currentNode==='local'){const f=document.getElementById('terminalFrame');if(f)f.src='/terminal/';}
       terminalLoaded=true;
     }
-    if(tab.dataset.tab==='files'&&!filesLoaded) loadFiles();
+    if(tab.dataset.tab==='files'&&!filesLoaded){if(currentNode==='local')loadFiles();else loadRemoteFiles();}
     if(tab.dataset.tab==='memory'&&!memoryLoaded) loadMemoryPanel();
     if(tab.dataset.tab==='nodes'){if(!nodesLoaded)loadNodes();startNodesAutoRefresh();}
     else{stopNodesAutoRefresh();}
@@ -1370,20 +1380,154 @@ function switchGlobalNode(){
   renderSidebar();renderChat();
   // Update terminal
   terminalLoaded=false;
-  const frame=document.getElementById('terminalFrame');
+  const termPanel=document.getElementById('panel-terminal');
   if(currentNode==='local'){
-    frame.src='';frame.srcdoc='';
+    termPanel.innerHTML='<iframe class="terminal-frame" id="terminalFrame" style="flex:1;width:100%;border:none;background:#1e1e1e"></iframe>';
+    if(document.querySelector('[data-tab="terminal"]').classList.contains('active')){
+      document.getElementById('terminalFrame').src='/terminal/';terminalLoaded=true;
+    }
   }else{
-    frame.src='';
-    frame.srcdoc='<div style="padding:40px;font-family:monospace;color:#ccc;background:#1e1e1e;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px"><div style="font-size:24px">\ud83c\udf10</div><div>\u8fdc\u7a0b\u8282\u70b9: <strong>'+esc(currentNode)+'</strong></div><div style="font-size:12px;color:#888">\u8fdc\u7a0b\u7ec8\u7aef\u6682\u901a\u8fc7\u4e3b\u5bf9\u8bdd\u64cd\u4f5c</div></div>';
+    const nodeLabel=sel.options[sel.selectedIndex]?.text||currentNode;
+    termPanel.innerHTML=`<div class="remote-term" id="remoteTerm">
+      <div class="remote-term-cwd" id="remoteTermCwd">~</div>
+      <div class="remote-term-output" id="remoteTermOutput"><span style="color:#10a37f">已连接到 ${esc(nodeLabel)}</span>\n<span style="color:#888">输入命令执行，Ctrl+L 清屏</span>\n\n</div>
+      <div class="remote-term-input"><span class="prompt">$</span><input id="remoteTermInput" placeholder="输入命令..." autofocus></div>
+    </div>`;
+    const inp=document.getElementById('remoteTermInput');
+    let cmdHistory=[],histIdx=-1;
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        const cmd=inp.value.trim();if(!cmd)return;
+        cmdHistory.unshift(cmd);histIdx=-1;
+        inp.value='';runRemoteCmd(cmd);
+      }else if(e.key==='ArrowUp'){
+        e.preventDefault();if(histIdx<cmdHistory.length-1){histIdx++;inp.value=cmdHistory[histIdx];}
+      }else if(e.key==='ArrowDown'){
+        e.preventDefault();if(histIdx>0){histIdx--;inp.value=cmdHistory[histIdx];}else{histIdx=-1;inp.value='';}
+      }else if(e.ctrlKey&&e.key==='l'){
+        e.preventDefault();document.getElementById('remoteTermOutput').innerHTML='';
+      }
+    });
+    terminalLoaded=true;
   }
   // Update files
-  if(currentNode==='local'){filesLoaded=false;}
-  else{
-    document.getElementById('fileEntries').innerHTML='<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px"><div style="font-size:32px;margin-bottom:8px">\ud83c\udf10</div><div>\u8fdc\u7a0b\u8282\u70b9\u6587\u4ef6\u6682\u901a\u8fc7\u5bf9\u8bdd\u64cd\u4f5c</div></div>';
-  }
+  if(currentNode==='local'){filesLoaded=false;if(document.querySelector('[data-tab="files"]').classList.contains('active'))loadFiles();}
+  else{remoteFileCwd='~';if(document.querySelector('[data-tab="files"]').classList.contains('active'))loadRemoteFiles();}
 }
 window.switchGlobalNode=switchGlobalNode;
+
+let remoteTermCwd='~';
+async function runRemoteCmd(cmd){
+  const output=document.getElementById('remoteTermOutput');
+  const cwdEl=document.getElementById('remoteTermCwd');
+  output.innerHTML+=`<span style="color:#10a37f">$ </span><span style="color:#e5e5e5">${esc(cmd)}</span>\n`;
+  output.innerHTML+=`<span style="color:#888">执行中...</span>`;
+  output.scrollTop=output.scrollHeight;
+  // Handle cd
+  let execCmd=cmd;
+  if(cmd.startsWith('cd ')){
+    execCmd=cmd+' && pwd';
+  }else{
+    execCmd='cd '+remoteTermCwd+' 2>/dev/null; '+cmd;
+  }
+  try{
+    const r=await fetch('/api/nodes/exec',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({node:currentNode,command:execCmd})});
+    const d=await r.json();
+    // Remove "执行中..."
+    output.innerHTML=output.innerHTML.replace(/<span style="color:#888">执行中...<\/span>$/,'');
+    if(d.ok!==false){
+      if(d.stdout)output.innerHTML+=esc(d.stdout);
+      if(d.stderr)output.innerHTML+=`<span style="color:#f59e0b">${esc(d.stderr)}</span>`;
+      if(d.exitCode&&d.exitCode!==0)output.innerHTML+=`<span style="color:#ef4444">[exit ${d.exitCode}]</span>\n`;
+      // Update cwd if cd command
+      if(cmd.startsWith('cd ')&&d.stdout){
+        remoteTermCwd=d.stdout.trim().split('\n').pop();
+        if(cwdEl)cwdEl.textContent=remoteTermCwd;
+      }
+    }else{
+      output.innerHTML+=`<span style="color:#ef4444">${esc(d.error||'执行失败')}</span>\n`;
+    }
+    output.innerHTML+='\n';
+  }catch(e){
+    output.innerHTML=output.innerHTML.replace(/<span style="color:#888">执行中...<\/span>$/,'');
+    output.innerHTML+=`<span style="color:#ef4444">❌ ${esc(e.message)}</span>\n\n`;
+  }
+  output.scrollTop=output.scrollHeight;
+  document.getElementById('remoteTermInput')?.focus();
+}
+
+// Remote file browser
+let remoteFileCwd='~';
+async function loadRemoteFiles(dir){
+  if(currentNode==='local'){loadFiles(dir);return;}
+  const target=dir||remoteFileCwd;
+  const entries=document.getElementById('fileEntries');
+  const breadcrumb=document.getElementById('fileBreadcrumb');
+  entries.innerHTML='<div style="padding:16px;text-align:center;color:var(--text-sec)">加载中...</div>';
+  try{
+    const r=await fetch('/api/nodes/exec',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({node:currentNode,command:`cd ${target} 2>/dev/null && pwd && echo "---SPLIT---" && ls -laF --color=never`})});
+    const d=await r.json();
+    if(d.ok===false)throw new Error(d.error||'failed');
+    const parts=(d.stdout||'').split('---SPLIT---');
+    const pwd=(parts[0]||'').trim();
+    const listing=(parts[1]||'').trim();
+    if(pwd)remoteFileCwd=pwd;
+    // Breadcrumb
+    const bParts=pwd.split('/').filter(Boolean);
+    let bc='',acc='';
+    bParts.forEach((p,i)=>{acc+='/'+p;if(i>0)bc+='<span class="bc-sep">›</span>';bc+=`<span class="bc-part" onclick="loadRemoteFiles('${acc}')">${p}</span>`;});
+    breadcrumb.innerHTML=bc;
+    // Parse ls output
+    const lines=listing.split('\n').filter(l=>l&&!l.startsWith('total'));
+    let html='';
+    // Parent dir
+    const parent=pwd.split('/').slice(0,-1).join('/')||'/';
+    if(pwd!=='/'){
+      html+='<div class="file-entry" onclick="loadRemoteFiles(\''+parent+'\')"><span class="f-icon">⬆️</span><span class="f-name dir">..</span><span class="f-size"></span></div>';
+    }
+    lines.forEach(line=>{
+      const m=line.match(/\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+\S+\s+\S+\s+\S+\s+(.+)/);
+      if(!m)return;
+      const size=parseInt(m[1])||0;
+      let name=m[2].trim();
+      const isDir=name.endsWith('/');
+      const isLink=name.includes(' -> ');
+      if(isDir)name=name.replace(/\/$/,'');
+      const linkTarget=isLink?name.split(' -> ')[1]:'';
+      const baseName=isLink?name.split(' -> ')[0]:name;
+      if(baseName==='.'||baseName==='..')return;
+      const icon=isDir?'📁':fileIcon(baseName,false);
+      const fmtSz=isDir?'':fmtSize(size);
+      const fp=pwd+(pwd.endsWith('/')?'':'/')+baseName;
+      const click=isDir?`loadRemoteFiles('${fp}')`:`viewRemoteFile('${fp}','${esc(baseName)}')`;
+      html+=`<div class="file-entry" onclick="${click}"><span class="f-icon">${icon}</span><span class="f-name ${isDir?'dir':''}">${esc(baseName)}${isLink?' → '+esc(linkTarget):''}</span><span class="f-size">${fmtSz}</span></div>`;
+    });
+    entries.innerHTML=html||'<div style="padding:20px;text-align:center;color:var(--text-sec)">📂 空目录</div>';
+  }catch(e){
+    entries.innerHTML=`<div style="padding:16px;color:var(--danger)">❌ ${esc(e.message)}</div>`;
+  }
+}
+
+async function viewRemoteFile(fp,name){
+  let tab=openTabs.find(t=>t.path===fp);
+  if(!tab){tab={path:fp,name:name,content:null,size:0};openTabs.push(tab);}
+  activeTab=fp;renderFileTabs();
+  if(tab.content!=null){renderFileContent(tab);return;}
+  $('fileViewerBody').innerHTML='<div class="file-viewer-empty"><div class="empty-icon">⏳</div><div>加载中...</div></div>';
+  try{
+    const r=await fetch('/api/nodes/exec',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({node:currentNode,command:`cat ${JSON.stringify(fp)} 2>&1 | head -5000`})});
+    const d=await r.json();
+    if(d.ok===false)throw new Error(d.error||'failed');
+    tab.content=d.stdout||'';tab.size=(d.stdout||'').length;
+    if(activeTab===fp)renderFileContent(tab);
+  }catch(e){
+    $('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">❌</div><div>${esc(e.message)}</div></div>`;
+  }
+}
+window.loadRemoteFiles=loadRemoteFiles;window.viewRemoteFile=viewRemoteFile;
 
 // Migrate: save initial chats as local node chats
 if(!localStorage.getItem(STORAGE_KEY+'_local')&&chats.length){

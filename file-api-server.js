@@ -140,6 +140,21 @@ http.createServer(async(req,res)=>{
         res.end(JSON.stringify({ok:true,output:o.trim()}));
       });
     }).catch(e=>{res.writeHead(400);res.end(JSON.stringify({error:e.message}));});
+  }else if(url.pathname==='/api/nodes/exec'&&req.method==='POST'){
+    readBody(req).then(body=>{
+      const d=JSON.parse(body);
+      if(!d.node||!d.command){res.writeHead(400);res.end('{"error":"need node and command"}');return;}
+      const args=Array.isArray(d.command)?d.command:['/bin/sh','-c',d.command];
+      const params=JSON.stringify({command:args,cwd:d.cwd||undefined});
+      const cmd=`openclaw nodes invoke --node ${JSON.stringify(d.node)} --command system.run --params ${JSON.stringify(params)} --json 2>&1`;
+      exec(cmd,{timeout:30000,env:EXEC_ENV,maxBuffer:5*1024*1024},(e,o)=>{
+        if(e&&!o){res.writeHead(500);res.end(JSON.stringify({error:e.message}));return;}
+        try{
+          const result=JSON.parse(o);
+          res.end(JSON.stringify({ok:result.ok,stdout:result.payload?.stdout||'',stderr:result.payload?.stderr||'',exitCode:result.payload?.exitCode}));
+        }catch{res.end(JSON.stringify({ok:false,error:'parse error',raw:o.slice(0,2000)}));}
+      });
+    }).catch(e=>{res.writeHead(400);res.end(JSON.stringify({error:e.message}));});
   }else if(url.pathname==='/api/gateway/token'&&req.method==='GET'){
     try{
       const cfg=JSON.parse(fs.readFileSync(path.join(ROOT,'.openclaw','openclaw.json'),'utf-8'));
