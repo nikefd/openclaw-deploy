@@ -111,17 +111,60 @@ def get_market_sentiment() -> dict:
     return result
 
 
-@retry(max_retries=2, delay=1)
 def get_stock_daily(symbol: str, days: int = 60) -> pd.DataFrame:
-    """获取个股日K数据"""
-    df = ak.stock_zh_a_hist(
-        symbol=symbol,
-        period="daily",
-        start_date=(datetime.now() - timedelta(days=days)).strftime('%Y%m%d'),
-        end_date=datetime.now().strftime('%Y%m%d'),
-        adjust="qfq"
-    )
-    return df
+    """获取个股日K数据 — 腾讯财经源（稳定不限IP）"""
+    try:
+        prefix = 'sh' if symbol.startswith('6') or symbol.startswith('9') else 'sz'
+        qq_symbol = f'{prefix}{symbol}'
+        start = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+        end = datetime.now().strftime('%Y-%m-%d')
+        url = f'https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={qq_symbol},day,{start},{end},{days},qfq'
+        r = requests.get(url, timeout=15)
+        data = r.json()
+        stock_data = data.get('data', {}).get(qq_symbol, {})
+        klines = stock_data.get('qfqday', stock_data.get('day', []))
+        if not klines:
+            return pd.DataFrame()
+        cols = ['日期', '开盘', '收盘', '最高', '最低', '成交量']
+        df = pd.DataFrame(klines, columns=cols[:len(klines[0])])
+        for col in ['开盘', '收盘', '最高', '最低', '成交量']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+        return df
+    except Exception as e:
+        print(f"获取{symbol}日K失败: {e}")
+        return pd.DataFrame()
+
+
+def get_realtime_quotes(symbols: list) -> dict:
+    """批量获取实时行情 — 腾讯财经源"""
+    try:
+        qq_list = []
+        for s in symbols:
+            prefix = 'sh' if s.startswith('6') or s.startswith('9') else 'sz'
+            qq_list.append(f'{prefix}{s}')
+        url = f'https://qt.gtimg.cn/q={",".join(qq_list)}'
+        r = requests.get(url, timeout=10)
+        result = {}
+        for line in r.text.strip().split(';'):
+            line = line.strip()
+            if not line or '=' not in line:
+                continue
+            parts = line.split('=')
+            if len(parts) < 2:
+                continue
+            data = parts[1].strip('"').split('~')
+            if len(data) < 5:
+                continue
+            result[data[2]] = {
+                'name': data[1],
+                'price': float(data[3]) if data[3] else 0,
+                'change_pct': float(data[32]) if len(data) > 32 and data[32] else 0,
+            }
+        return result
+    except Exception as e:
+        print(f"获取实时行情失败: {e}")
+        return {}
 
 
 def get_hot_stocks() -> pd.DataFrame:
@@ -257,23 +300,22 @@ def get_stock_research_reports(symbol: str = None) -> pd.DataFrame:
 
 
 def get_market_indices() -> dict:
-    """获取大盘指数"""
+    """获取大盘指数 — 腾讯财经源"""
     try:
-        url = "https://push2.eastmoney.com/api/qt/ulist.np/get"
-        params = {
-            'fltt': 2,
-            'fields': 'f2,f3,f4,f12,f14',
-            'secids': '1.000001,0.399001,0.399006',  # 上证、深证、创业板
-        }
-        r = requests.get(url, params=params, headers=HEADERS, timeout=10)
-        data = r.json()
-        items = data.get('data', {}).get('diff', [])
+        url = 'https://qt.gtimg.cn/q=sh000001,sz399001,sz399006'
+        r = requests.get(url, timeout=10)
         result = {}
-        for item in items:
-            result[item['f14']] = {
-                'price': item.get('f2', 0),
-                'change_pct': item.get('f3', 0),
-                'change': item.get('f4', 0),
+        for line in r.text.strip().split(';'):
+            line = line.strip()
+            if not line or '=' not in line:
+                continue
+            data = line.split('=')[1].strip('"').split('~')
+            if len(data) < 33:
+                continue
+            result[data[1]] = {
+                'price': float(data[3]) if data[3] else 0,
+                'change_pct': float(data[32]) if data[32] else 0,
+                'change': float(data[31]) if len(data) > 31 and data[31] else 0,
             }
         return result
     except Exception as e:

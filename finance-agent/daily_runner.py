@@ -13,21 +13,24 @@ from config import *
 
 
 def update_positions_price():
-    """更新所有持仓的最新价格"""
+    """更新所有持仓的最新价格 — 用腾讯实时行情"""
     import sqlite3
+    from data_collector import get_realtime_quotes
     positions = get_positions()
     if not positions:
         return
+
+    symbols = [p['symbol'] for p in positions]
+    quotes = get_realtime_quotes(symbols)
 
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     for pos in positions:
         symbol = pos['symbol']
-        df = get_stock_daily(symbol, days=5)
-        if not df.empty:
-            latest_price = float(df.iloc[-1]['收盘'])
+        if symbol in quotes and quotes[symbol]['price'] > 0:
+            price = quotes[symbol]['price']
             c.execute("UPDATE positions SET current_price=?, updated_at=? WHERE symbol=?",
-                      (latest_price, datetime.now().isoformat(), symbol))
+                      (price, datetime.now().isoformat(), symbol))
     conn.commit()
     conn.close()
 
@@ -90,7 +93,7 @@ def execute_trades(picks: dict):
         if not price:
             # 用最新价
             df = get_stock_daily(symbol, days=5)
-            if df.empty:
+            if df is None or df.empty:
                 continue
             price = float(df.iloc[-1]['收盘'])
 
