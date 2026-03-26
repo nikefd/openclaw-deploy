@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vibe Coding Live</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#ffffff;--panel:#f8f9fb;--panel2:#f0f1f5;--border:#e2e4ea;
+  --text:#1a1b25;--text2:#6b7080;--accent:#6c63ff;--accent2:#0ea5e9;
+  --green:#10b981;--orange:#f59e0b;--red:#ef4444;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mono:'Fira Code','SF Mono','Cascadia Code',monospace;
+  --shadow:0 1px 3px rgba(0,0,0,.06);
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* Top Bar */
+.topbar{display:flex;align-items:center;gap:14px;padding:10px 20px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;z-index:100;box-shadow:var(--shadow)}
+.logo{font-size:18px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.logo span{font-size:22px;-webkit-text-fill-color:initial}
+.challenge-title{flex:1;display:flex;align-items:center;gap:10px}
+.challenge-input{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:7px 14px;border-radius:8px;font-size:14px;width:320px;outline:none;transition:border .2s}
+.challenge-input:focus{border-color:var(--accent)}
+.challenge-input::placeholder{color:var(--text2)}
+.timer{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--accent);min-width:80px;text-align:right}
+.timer.running{animation:timerPulse 2s infinite}
+@keyframes timerPulse{0%,100%{opacity:1}50%{opacity:.6}}
+.topbar-btn{background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:6px 14px;border-radius:8px;font-size:13px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.topbar-btn:hover{border-color:var(--accent);color:var(--accent)}
+.topbar-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* Phase indicator */
+.phase-indicator{display:flex;align-items:center;gap:8px;padding:0 8px}
+.phase-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:2px solid var(--border);color:var(--text2);transition:all .3s}
+.phase-dot.active{border-color:var(--accent);background:var(--accent);color:#fff}
+.phase-dot.done{border-color:var(--green);background:var(--green);color:#fff}
+.phase-line{width:24px;height:2px;background:var(--border);transition:background .3s}
+.phase-line.done{background:var(--green)}
+
+/* Main Layout */
+.main{flex:1;display:flex;overflow:hidden}
+
+/* Resizer */
+.resizer{width:5px;background:var(--border);cursor:col-resize;flex-shrink:0;transition:background .2s;z-index:10}
+.resizer:hover,.resizer.dragging{background:var(--accent)}
+
+/* Chat Panel */
+.chat-panel{display:flex;flex-direction:column;background:var(--bg);width:40%;min-width:300px;border-right:1px solid var(--border)}
+.chat-header{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text2);background:var(--panel)}
+.chat-header .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;background:var(--bg)}
+.chat-messages::-webkit-scrollbar{width:5px}
+.chat-messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+.msg{display:flex;gap:10px;max-width:100%;animation:msgIn .3s ease}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.msg-avatar{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;box-shadow:var(--shadow)}
+.msg-avatar.user{background:#eef0ff;border:1px solid #d4d8ff}
+.msg-avatar.assistant{background:var(--panel);border:1px solid var(--border)}
+.msg-body{flex:1;min-width:0}
+.msg-role{font-size:11px;color:var(--text2);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.msg-content{font-size:14px;line-height:1.75;color:var(--text);word-wrap:break-word}
+.msg-content p{margin:4px 0}
+.msg-content ul,.msg-content ol{padding-left:20px;margin:4px 0}
+.msg-content strong{color:var(--accent)}
+.msg-content code{background:var(--panel2);padding:1px 6px;border-radius:4px;font-size:13px;font-family:var(--mono)}
+/* Hide code blocks in chat */
+.msg-content pre{display:none}
+.msg-content table{border-collapse:collapse;margin:8px 0;font-size:13px;width:100%}
+.msg-content th,.msg-content td{border:1px solid var(--border);padding:6px 10px}
+.msg-content th{background:var(--panel2)}
+.msg-content blockquote{border-left:3px solid var(--accent);padding-left:12px;color:var(--text2);margin:8px 0}
+.msg-content h1,.msg-content h2,.msg-content h3{margin:10px 0 6px;font-weight:700;font-size:15px}
+
+.typing{display:flex;gap:4px;padding:8px 0}
+.typing span{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:typingDot 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+@keyframes typingDot{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+
+.chat-input-area{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;background:var(--panel)}
+.chat-input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:12px;font-size:14px;font-family:var(--font);outline:none;resize:none;min-height:44px;max-height:120px;transition:border .2s;box-shadow:var(--shadow)}
+.chat-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,.1)}
+.chat-input::placeholder{color:var(--text2)}
+.send-btn{background:var(--accent);color:#fff;border:none;border-radius:12px;width:44px;height:44px;cursor:pointer;font-size:18px;transition:all .2s;flex-shrink:0;box-shadow:var(--shadow)}
+.send-btn:disabled{opacity:.3;cursor:default}
+.send-btn:hover:not(:disabled){opacity:.85;transform:scale(1.05)}
+
+/* Right Panel */
+.right-panel{flex:1;display:flex;flex-direction:column;background:var(--bg);min-width:300px}
+.right-header{padding:8px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--panel)}
+.right-tabs{display:flex;gap:0}
+.right-tab{padding:6px 16px;font-size:13px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;font-weight:500;display:flex;align-items:center;gap:6px}
+.right-tab:hover{color:var(--text)}
+.right-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.right-tab .badge{background:var(--green);color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700}
+.right-content{flex:1;position:relative;overflow:hidden}
+.right-pane{position:absolute;inset:0;display:none;overflow:auto}
+.right-pane.active{display:flex;flex-direction:column}
+
+/* Design Doc pane */
+.doc-pane{padding:0;display:flex;flex-direction:column}
+.doc-content{flex:1;overflow-y:auto;padding:24px 28px}
+.doc-content::-webkit-scrollbar{width:5px}
+.doc-content::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.doc-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);flex-direction:column;gap:16px;padding:40px}
+.doc-placeholder .icon{font-size:56px;opacity:.4}
+.doc-placeholder .hint{text-align:center;line-height:1.8;max-width:360px;font-size:14px}
+
+.doc-rendered{font-size:14px;line-height:1.8;color:var(--text)}
+.doc-rendered h1{font-size:22px;margin:0 0 16px;padding-bottom:8px;border-bottom:2px solid var(--accent);color:var(--accent)}
+.doc-rendered h2{font-size:17px;margin:20px 0 10px;color:var(--text);display:flex;align-items:center;gap:8px}
+.doc-rendered h3{font-size:15px;margin:16px 0 8px;color:var(--accent2)}
+.doc-rendered p{margin:6px 0;color:#444}
+.doc-rendered ul,.doc-rendered ol{padding-left:24px;margin:6px 0}
+.doc-rendered li{margin:4px 0;color:#444}
+.doc-rendered code{background:var(--panel2);padding:1px 6px;border-radius:4px;font-size:13px;font-family:var(--mono)}
+.doc-rendered pre{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin:8px 0;overflow-x:auto;font-size:13px}
+.doc-rendered pre code{background:none;padding:0}
+.doc-rendered table{border-collapse:collapse;margin:10px 0;width:100%;font-size:13px}
+.doc-rendered th{background:var(--panel2);padding:8px 12px;border:1px solid var(--border);text-align:left;font-weight:600}
+.doc-rendered td{padding:8px 12px;border:1px solid var(--border)}
+.doc-rendered blockquote{border-left:3px solid var(--accent);padding:8px 16px;margin:10px 0;background:var(--panel);border-radius:0 8px 8px 0;color:var(--text2)}
+.doc-rendered strong{color:var(--text)}
+
+/* Accept bar */
+.doc-actions{padding:12px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--panel);display:none}
+.doc-actions.show{display:flex}
+.accept-btn{background:var(--green);color:#fff;border:none;padding:8px 24px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px}
+.accept-btn:hover{opacity:.9;transform:scale(1.02)}
+.accept-btn:disabled{opacity:.5;cursor:default;transform:none}
+.revise-btn{background:var(--bg);color:var(--text2);border:1px solid var(--border);padding:8px 20px;border-radius:10px;font-size:14px;cursor:pointer;transition:all .2s}
+.revise-btn:hover{border-color:var(--accent);color:var(--accent)}
+.doc-status{margin-left:auto;font-size:12px;color:var(--text2)}
+
+/* Preview pane */
+.preview-pane iframe{flex:1;border:none;background:#fff}
+.preview-placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text2);font-size:14px;flex-direction:column;gap:16px;padding:40px}
+.preview-placeholder .icon{font-size:56px;opacity:.4}
+.preview-placeholder .hint{text-align:center;line-height:1.8;max-width:320px}
+.preview-placeholder .hint strong{color:var(--accent)}
+
+/* Building overlay */
+.building-overlay{position:absolute;inset:0;background:rgba(255,255,255,.92);display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:20}
+.building-overlay.show{display:flex}
+.building-spinner{width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.building-text{font-size:15px;color:var(--text2);font-weight:500}
+.building-progress{width:200px;height:4px;background:var(--panel2);border-radius:2px;overflow:hidden}
+.building-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%;transition:width .3s;animation:buildProg 3s ease-in-out infinite}
+@keyframes buildProg{0%{width:10%}50%{width:70%}100%{width:90%}}
+
+/* Status Bar */
+.statusbar{display:flex;align-items:center;gap:20px;padding:7px 20px;background:var(--panel);border-top:1px solid var(--border);font-size:12px;color:var(--text2);flex-shrink:0}
+.stat{display:flex;align-items:center;gap:5px}
+.stat .dot{width:6px;height:6px;border-radius:50%}
+
+/* Update badge */
+.update-badge{position:absolute;top:12px;right:12px;background:var(--accent);color:#fff;padding:4px 12px;border-radius:16px;font-size:12px;font-weight:600;z-index:10;animation:fadeInOut 2.5s forwards}
+@keyframes fadeInOut{0%{opacity:0;transform:translateY(-8px)}10%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
+
+@media(max-width:900px){
+  .main{flex-direction:column}
+  .chat-panel{width:100%!important;height:50%;border-right:none;border-bottom:1px solid var(--border)}
+  .resizer{width:100%;height:5px;cursor:row-resize}
+  .right-panel{min-width:unset}
+  .challenge-input{width:160px}
+  .phase-indicator{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar">
+  <div class="logo"><span>⚡</span> Vibe Coding</div>
+  <div class="challenge-title">
+    <input class="challenge-input" id="challengeTitle" placeholder="输入题目标题...">
+  </div>
+  <div class="phase-indicator">
+    <div class="phase-dot active" id="phase1">1</div>
+    <div class="phase-line" id="phaseLine1"></div>
+    <div class="phase-dot" id="phase2">2</div>
+    <div class="phase-line" id="phaseLine2"></div>
+    <div class="phase-dot" id="phase3">3</div>
+  </div>
+  <button class="topbar-btn" id="btnTimer" onclick="toggleTimer()">▶ 计时</button>
+  <div class="timer" id="timer">00:00</div>
+  <button class="topbar-btn" onclick="resetSession()">🔄 重置</button>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <!-- Chat -->
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-header">
+      <div class="dot"></div>
+      <span style="font-weight:600">🐶 狗蛋</span>
+      <span style="color:var(--text2);font-size:12px">AI 编程助手</span>
+      <span style="margin-left:auto;font-size:12px;color:var(--text2)" id="msgCount">0 条消息</span>
+    </div>
+    <div class="chat-messages" id="messages">
+      <div class="msg">
+        <div class="msg-avatar assistant">🐶</div>
+        <div class="msg-body">
+          <div class="msg-role">狗蛋</div>
+          <div class="msg-content">你好！告诉我你想做什么，我先出个设计方案给你看 📋<br><br>确认方案后再开始构建，右边会实时预览效果。</div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-area">
+      <textarea class="chat-input" id="chatInput" rows="1" placeholder="描述你的需求..."></textarea>
+      <button class="send-btn" id="sendBtn" disabled>↑</button>
+    </div>
+  </div>
+
+  <!-- Resizer -->
+  <div class="resizer" id="resizer"></div>
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+    <div class="right-header">
+      <div class="right-tabs">
+        <div class="right-tab active" data-pane="doc" onclick="switchTab('doc')">📋 设计文档</div>
+        <div class="right-tab" data-pane="preview" onclick="switchTab('preview')">🖥 预览 <span class="badge" id="previewBadge" style="display:none">NEW</span></div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:6px">
+        <button class="topbar-btn" style="padding:4px 10px;font-size:12px" id="btnNewWindow" onclick="openPreviewNew()" title="新窗口打开预览">↗ 新窗口</button>
+      </div>
+    </div>
+    <div class="right-content" id="rightContent">
+      <!-- Design Doc -->
+      <div class="right-pane active" id="pane-doc">
+        <div class="doc-content" id="docContent">
+          <div class="doc-placeholder" id="docPlaceholder">
+            <div class="icon">📋</div>
+            <div class="hint">在左边描述你的需求<br>设计方案会在这里实时生成<br><br>方案确认后，点击下方 <strong>"接受并构建"</strong> 开始实现</div>
+          </div>
+          <div class="doc-rendered" id="docRendered" style="display:none"></div>
+        </div>
+        <div class="doc-actions" id="docActions">
+          <button class="accept-btn" id="acceptBtn" onclick="acceptDesign()">✅ 接受并构建</button>
+          <button class="revise-btn" onclick="focusRevise()">✏️ 我要修改</button>
+          <div class="doc-status" id="docStatus"></div>
+        </div>
+      </div>
+
+      <!-- Preview -->
+      <div class="right-pane" id="pane-preview">
+        <div class="preview-placeholder" id="previewPlaceholder">
+          <div class="icon">🎨</div>
+          <div class="hint">接受设计方案后<br>构建的页面会在这里实时预览</div>
+        </div>
+        <iframe id="previewFrame" style="display:none" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+        <div class="building-overlay" id="buildingOverlay">
+          <div class="building-spinner"></div>
+          <div class="building-text">🔨 正在构建中...</div>
+          <div class="building-progress"><div class="building-progress-fill"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Status Bar -->
+<div class="statusbar">
+  <div class="stat"><div class="dot" style="background:var(--green)"></div> 已连接</div>
+  <div class="stat" id="statPhase">📋 阶段：设计中</div>
+  <div class="stat">💬 <span id="statMsgs">0</span> 消息</div>
+  <div style="margin-left:auto;font-size:11px;color:var(--text2)">Powered by OpenClaw + 狗蛋 🐶</div>
+</div>
+
+<script>
+// === Config ===
+const API = '/v1/chat/completions';
+const TOKEN = '17043bad6b19491dfa222d681d43584fbc3e8dd3781edfbc';
+const MODEL = 'github-copilot/claude-sonnet-4';
+
+const PLAN_PROMPT = `你是一个高级前端架构师。用户描述需求后，你需要给出一份清晰的设计文档。
+
+要求：
+1. 用 Markdown 格式输出设计文档
+2. 包含以下章节：
+   - **项目概述**（一句话总结要做什么）
+   - **核心功能**（列出 3-6 个关键功能点）
+   - **技术方案**（用什么技术实现，数据结构、算法等）
+   - **UI 设计**（界面布局描述，交互方式）
+   - **实现步骤**（分步骤的实施计划）
+3. 简洁专业，不要废话
+4. 不要输出任何代码！只输出设计文档
+5. 用中文回复`;
+
+const BUILD_PROMPT = `你是一个前端编程高手。根据提供的设计文档，实现完整的页面。
+
+核心规则：
+1. 回复中必须包含完整 HTML 代码，用 \`\`\`html 和 \`\`\` 包裹
+2. 必须是单个自包含 HTML 文件（CSS 和 JS 全部内联）
+3. 只用 1 句话说"开始构建"，然后直接给完整代码，不要解释
+4. 代码必须完整可运行，包含 <!DOCTYPE html>
+5. 设计要美观现代，有交互性
+6. 严格按照设计文档实现所有功能
+7. 用中文`;
+
+// === State ===
+let phase = 'plan'; // plan | review | build | done
+let chatMessages = [];
+let designDoc = '';
+let currentCode = '';
+let streaming = false;
+let timerRunning = false, timerStart = 0, timerElapsed = 0, timerInterval = null;
+
+// === Marked config ===
+marked.setOptions({
+  highlight: (code, lang) => {
+    if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, {language: lang}).value;
+    return hljs.highlightAuto(code).value;
+  },
+  breaks: true
+});
+
+// === Phase Management ===
+function setPhase(p) {
+  phase = p;
+  const p1 = document.getElementById('phase1');
+  const p2 = document.getElementById('phase2');
+  const p3 = document.getElementById('phase3');
+  const l1 = document.getElementById('phaseLine1');
+  const l2 = document.getElementById('phaseLine2');
+
+  p1.className = 'phase-dot'; p2.className = 'phase-dot'; p3.className = 'phase-dot';
+  l1.className = 'phase-line'; l2.className = 'phase-line';
+
+  if (p === 'plan') {
+    p1.classList.add('active');
+    document.getElementById('statPhase').textContent = '📋 阶段：设计中';
+  } else if (p === 'review') {
+    p1.classList.add('done'); l1.classList.add('done'); p2.classList.add('active');
+    document.getElementById('statPhase').textContent = '👀 阶段：方案审核';
+  } else if (p === 'build') {
+    p1.classList.add('done'); l1.classList.add('done'); p2.classList.add('done'); l2.classList.add('done'); p3.classList.add('active');
+    document.getElementById('statPhase').textContent = '🔨 阶段：构建中';
+  } else if (p === 'done') {
+    p1.classList.add('done'); l1.classList.add('done'); p2.classList.add('done'); l2.classList.add('done'); p3.classList.add('done');
+    document.getElementById('statPhase').textContent = '✅ 阶段：完成';
+  }
+}
+
+// === Timer ===
+function toggleTimer() {
+  const btn = document.getElementById('btnTimer');
+  const el = document.getElementById('timer');
+  if (timerRunning) {
+    clearInterval(timerInterval);
+    timerElapsed += Date.now() - timerStart;
+    timerRunning = false;
+    btn.textContent = '▶ 继续'; el.classList.remove('running');
+  } else {
+    timerStart = Date.now(); timerRunning = true;
+    btn.textContent = '⏸ 暂停'; el.classList.add('running');
+    timerInterval = setInterval(updateTimer, 1000); updateTimer();
+  }
+}
+function updateTimer() {
+  const total = timerElapsed + (timerRunning ? Date.now() - timerStart : 0);
+  const m = Math.floor(total / 60000), s = Math.floor((total % 60000) / 1000);
+  document.getElementById('timer').textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+
+// === Chat ===
+const messagesEl = document.getElementById('messages');
+const chatInput = document.getElementById('chatInput');
+const sendBtn = document.getElementById('sendBtn');
+
+chatInput.addEventListener('input', () => {
+  sendBtn.disabled = !chatInput.value.trim() || streaming;
+  chatInput.style.height = 'auto';
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+});
+chatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendMessage(); }
+});
+sendBtn.addEventListener('click', sendMessage);
+
+function appendMsg(role, content) {
+  const div = document.createElement('div');
+  div.className = 'msg';
+  const isUser = role === 'user';
+  div.innerHTML = `
+    <div class="msg-avatar ${role}">${isUser ? '👤' : '🐶'}</div>
+    <div class="msg-body">
+      <div class="msg-role">${isUser ? 'You' : '狗蛋'}</div>
+      <div class="msg-content"></div>
+    </div>`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return div.querySelector('.msg-content');
+}
+
+function showTyping() {
+  const div = document.createElement('div');
+  div.className = 'msg'; div.id = 'typing-indicator';
+  div.innerHTML = `<div class="msg-avatar assistant">🐶</div><div class="msg-body"><div class="msg-role">狗蛋</div><div class="typing"><span></span><span></span><span></span></div></div>`;
+  messagesEl.appendChild(div);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+function removeTyping() { document.getElementById('typing-indicator')?.remove(); }
+
+async function sendMessage() {
+  const text = chatInput.value.trim();
+  if (!text || streaming) return;
+  chatInput.value = ''; chatInput.style.height = 'auto';
+  sendBtn.disabled = true; streaming = true;
+
+  if (!timerRunning && timerElapsed === 0) toggleTimer();
+
+  chatMessages.push({ role: 'user', content: text });
+  appendMsg('user', text);
+  updateStats();
+  showTyping();
+
+  if (phase === 'plan' || phase === 'review') {
+    await streamPlan(text);
+  }
+
+  streaming = false;
+  sendBtn.disabled = !chatInput.value.trim();
+  chatInput.focus();
+}
+
+// === Plan Phase: Generate Design Doc ===
+async function streamPlan(userText) {
+  const sysPrompt = phase === 'review'
+    ? PLAN_PROMPT + '\n\n用户之前的设计文档如下，请根据用户的修改意见更新：\n\n' + designDoc
+    : PLAN_PROMPT;
+
+  const apiMessages = [
+    { role: 'system', content: sysPrompt },
+    ...chatMessages.map(m => ({ role: m.role, content: m.content }))
+  ];
+
+  try {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, stream: true, messages: apiMessages })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    removeTyping();
+    const chatContentEl = appendMsg('assistant', '');
+    const docEl = document.getElementById('docRendered');
+    const docPlaceholder = document.getElementById('docPlaceholder');
+
+    docPlaceholder.style.display = 'none';
+    docEl.style.display = 'block';
+    switchTab('doc');
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let full = '', buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        if (data === '[DONE]') break;
+        try {
+          const delta = JSON.parse(data).choices?.[0]?.delta?.content;
+          if (delta) {
+            full += delta;
+            // Update chat (brief summary)
+            chatContentEl.innerHTML = marked.parse(full);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            // Update design doc (full render)
+            docEl.innerHTML = marked.parse(full);
+          }
+        } catch {}
+      }
+    }
+
+    designDoc = full;
+    chatMessages.push({ role: 'assistant', content: full });
+
+    // Highlight
+    docEl.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
+
+    // Show accept bar
+    setPhase('review');
+    document.getElementById('docActions').classList.add('show');
+    document.getElementById('docStatus').textContent = '请审核设计方案';
+    document.getElementById('acceptBtn').disabled = false;
+    updateStats();
+
+  } catch (err) {
+    removeTyping();
+    appendMsg('assistant', `❌ 请求出错: ${err.message}`);
+  }
+}
+
+// === Accept & Build ===
+async function acceptDesign() {
+  const btn = document.getElementById('acceptBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 构建中...';
+  document.getElementById('docStatus').textContent = '已接受，正在构建...';
+
+  setPhase('build');
+  switchTab('preview');
+
+  // Show building overlay
+  const overlay = document.getElementById('buildingOverlay');
+  overlay.classList.add('show');
+
+  // Add acceptance to chat
+  const acceptEl = appendMsg('assistant', '');
+  acceptEl.innerHTML = '✅ 方案已接受，开始构建...';
+
+  // Build
+  const buildMessages = [
+    { role: 'system', content: BUILD_PROMPT },
+    { role: 'user', content: '请根据以下设计文档实现完整页面：\n\n' + designDoc }
+  ];
+
+  try {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, stream: true, messages: buildMessages })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let full = '', buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        if (data === '[DONE]') break;
+        try {
+          const delta = JSON.parse(data).choices?.[0]?.delta?.content;
+          if (delta) {
+            full += delta;
+            tryLoadPreview(full);
+          }
+        } catch {}
+      }
+    }
+
+    // Final extract
+    tryLoadPreview(full);
+    overlay.classList.remove('show');
+
+    if (currentCode) {
+      setPhase('done');
+      document.getElementById('docStatus').textContent = '✅ 构建完成';
+      btn.textContent = '✅ 已完成';
+      acceptEl.innerHTML = '✅ 构建完成！右侧已渲染预览。';
+      document.getElementById('previewBadge').style.display = 'inline';
+      showUpdateBadge('✨ 构建完成');
+    } else {
+      acceptEl.innerHTML = '⚠️ 构建完成但未能提取到 HTML，请重试。';
+      overlay.classList.remove('show');
+      btn.disabled = false;
+      btn.textContent = '🔄 重新构建';
+    }
+
+    // Allow further iteration in chat
+    chatMessages.push({ role: 'assistant', content: full });
+    updateStats();
+
+  } catch (err) {
+    overlay.classList.remove('show');
+    acceptEl.innerHTML = `❌ 构建出错: ${err.message}`;
+    btn.disabled = false;
+    btn.textContent = '🔄 重新构建';
+  }
+}
+
+// === Preview ===
+let lastExtracted = '';
+
+function tryLoadPreview(text) {
+  const blocks = [];
+  const regex = /```html\s*\n([\s\S]*?)```/gi;
+  let m;
+  while ((m = regex.exec(text)) !== null) blocks.push(m[1]);
+
+  const anyRegex = /```\w*\s*\n([\s\S]*?)```/g;
+  while ((m = anyRegex.exec(text)) !== null) {
+    if ((m[1].includes('<!DOCTYPE') || m[1].includes('<html')) && !blocks.includes(m[1]))
+      blocks.push(m[1]);
+  }
+
+  if (blocks.length > 0) {
+    const latest = blocks[blocks.length - 1];
+    if (latest !== lastExtracted && latest.includes('</')) {
+      lastExtracted = latest;
+      currentCode = latest;
+      const frame = document.getElementById('previewFrame');
+      document.getElementById('previewPlaceholder').style.display = 'none';
+      frame.style.display = 'block';
+      frame.srcdoc = latest;
+    }
+  }
+}
+
+function openPreviewNew() {
+  if (!currentCode) return;
+  const w = window.open('','_blank');
+  w.document.write(currentCode);
+  w.document.close();
+}
+
+function showUpdateBadge(text) {
+  const old = document.querySelector('.update-badge');
+  if (old) old.remove();
+  const badge = document.createElement('div');
+  badge.className = 'update-badge';
+  badge.textContent = text;
+  document.getElementById('rightContent').appendChild(badge);
+  setTimeout(() => badge.remove(), 2500);
+}
+
+// === Focus revise ===
+function focusRevise() {
+  chatInput.placeholder = '输入修改意见...';
+  chatInput.focus();
+}
+
+// === Tabs ===
+function switchTab(pane) {
+  document.querySelectorAll('.right-tab').forEach(t => t.classList.toggle('active', t.dataset.pane === pane));
+  document.querySelectorAll('.right-pane').forEach(p => p.classList.toggle('active', p.id === 'pane-'+pane));
+}
+
+// === Stats ===
+function updateStats() {
+  document.getElementById('msgCount').textContent = chatMessages.length + ' 条消息';
+  document.getElementById('statMsgs').textContent = chatMessages.length;
+}
+
+// === Reset ===
+function resetSession() {
+  if (streaming) return;
+  if (chatMessages.length > 0 && !confirm('确定重置？将清空当前对话。')) return;
+  chatMessages = []; designDoc = ''; currentCode = ''; lastExtracted = '';
+  messagesEl.innerHTML = `<div class="msg"><div class="msg-avatar assistant">🐶</div><div class="msg-body"><div class="msg-role">狗蛋</div><div class="msg-content">你好！告诉我你想做什么，我先出个设计方案给你看 📋<br><br>确认方案后再开始构建，右边会实时预览效果。</div></div></div>`;
+  clearInterval(timerInterval);
+  timerRunning = false; timerElapsed = 0; timerStart = 0;
+  document.getElementById('timer').textContent = '00:00';
+  document.getElementById('timer').classList.remove('running');
+  document.getElementById('btnTimer').textContent = '▶ 计时';
+  document.getElementById('previewFrame').style.display = 'none';
+  document.getElementById('previewPlaceholder').style.display = 'flex';
+  document.getElementById('docRendered').style.display = 'none';
+  document.getElementById('docPlaceholder').style.display = 'flex';
+  document.getElementById('docActions').classList.remove('show');
+  document.getElementById('buildingOverlay').classList.remove('show');
+  document.getElementById('previewBadge').style.display = 'none';
+  document.getElementById('acceptBtn').textContent = '✅ 接受并构建';
+  document.getElementById('acceptBtn').disabled = false;
+  chatInput.placeholder = '描述你的需求...';
+  setPhase('plan');
+  updateStats();
+  switchTab('doc');
+}
+
+// === Resizer ===
+const resizer = document.getElementById('resizer');
+const chatPanel = document.getElementById('chatPanel');
+let isResizing = false;
+resizer.addEventListener('mousedown', e => {
+  isResizing = true; resizer.classList.add('dragging');
+  document.addEventListener('mousemove', onResize);
+  document.addEventListener('mouseup', stopResize);
+  e.preventDefault();
+});
+function onResize(e) {
+  if (!isResizing) return;
+  const rect = document.querySelector('.main').getBoundingClientRect();
+  const pct = ((e.clientX - rect.left) / rect.width) * 100;
+  if (pct > 20 && pct < 80) { chatPanel.style.width = pct+'%'; chatPanel.style.flex = 'none'; }
+}
+function stopResize() {
+  isResizing = false; resizer.classList.remove('dragging');
+  document.removeEventListener('mousemove', onResize);
+  document.removeEventListener('mouseup', stopResize);
+}
+
+// Init
+setPhase('plan');
+</script>
+</body>
+</html>
