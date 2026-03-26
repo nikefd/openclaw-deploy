@@ -134,13 +134,49 @@ function handleChart(req, res) {
   sendJson(res, { dates, values, returns });
 }
 
+let runState = { status: 'idle', log: '', startTime: null };
+const RUN_LOG_FILE = '/tmp/finance-runner.log';
+
 function handleRun(req, res) {
+  if (runState.status === 'running') {
+    return sendJson(res, { status: 'already_running', message: '分析正在运行中' });
+  }
+
   log('Triggering daily_runner.py...');
-  exec('cd /home/nikefd/finance-agent && python3 daily_runner.py >> /tmp/finance-runner.log 2>&1', (err) => {
-    if (err) log(`Runner finished with error: ${err.message}`);
-    else log('Runner finished successfully');
+  runState = { status: 'running', log: '', startTime: Date.now() };
+
+  // Clear log file
+  try { fs.writeFileSync(RUN_LOG_FILE, ''); } catch(e) {}
+
+  const child = exec('cd /home/nikefd/finance-agent && python3 -u daily_runner.py 2>&1', { timeout: 300000 });
+
+  child.stdout.on('data', (data) => {
+    runState.log += data;
+    try { fs.appendFileSync(RUN_LOG_FILE, data); } catch(e) {}
   });
+  child.stderr.on('data', (data) => {
+    runState.log += data;
+    try { fs.appendFileSync(RUN_LOG_FILE, data); } catch(e) {}
+  });
+  child.on('close', (code) => {
+    const elapsed = ((Date.now() - runState.startTime) / 1000).toFixed(1);
+    const msg = code === 0 ? `\n✅ 分析完成 (耗时${elapsed}s)` : `\n❌ 分析失败 (code=${code}, 耗时${elapsed}s)`;
+    runState.log += msg;
+    runState.status = code === 0 ? 'done' : 'error';
+    try { fs.appendFileSync(RUN_LOG_FILE, msg); } catch(e) {}
+    log(`Runner finished: code=${code}, elapsed=${elapsed}s`);
+  });
+
   sendJson(res, { status: 'running', message: '分析已触发' });
+}
+
+function handleRunStatus(req, res) {
+  // Also try reading from log file if log is empty
+  let logContent = runState.log;
+  if (!logContent && runState.status === 'idle') {
+    try { logContent = fs.readFileSync(RUN_LOG_FILE, 'utf-8'); } catch(e) {}
+  }
+  sendJson(res, { status: runState.status, log: logContent });
 }
 
 // --- Router ---
@@ -159,6 +195,7 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/finance/news' && req.method === 'GET') return handleNews(req, res);
     if (pathname === '/api/finance/chart' && req.method === 'GET') return handleChart(req, res);
     if (pathname === '/api/finance/run' && req.method === 'POST') return handleRun(req, res);
+    if (pathname === '/api/finance/run/status' && req.method === 'GET') return handleRunStatus(req, res);
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);
