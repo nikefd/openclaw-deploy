@@ -179,7 +179,11 @@ tr:hover{background:var(--hover)}
 
   <!-- NEWS -->
   <div class="tab-panel" id="panel-news">
-    <div class="news-placeholder">📰 新闻资讯模块开发中...</div>
+    <div class="section">
+      <div class="section-title">📰 最新财经资讯</div>
+      <div id="newsList"><div class="empty">加载中...</div></div>
+    </div>
+  </div>
   </div>
 
   <!-- TRADES -->
@@ -226,6 +230,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.tab-panel').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');
   document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+  if(t.dataset.tab==='news')loadNews();
 }));
 
 // Helpers
@@ -321,6 +326,23 @@ async function loadChart(){
 }
 
 // Analysis
+// News
+async function loadNews(){
+  const el=document.getElementById('newsList');
+  el.innerHTML='<div class="empty">加载中...</div>';
+  const d=await api('/api/finance/news');
+  const items=d?.news||[];
+  if(!items.length){el.innerHTML='<div class="empty">暂无新闻</div>';return;}
+  el.innerHTML=items.map(n=>`<div style="padding:12px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start">
+    <span style="font-size:11px;padding:3px 8px;border-radius:4px;background:var(--accent-bg);color:var(--accent);white-space:nowrap;flex-shrink:0">${n.source||'资讯'}</span>
+    <div>
+      <div style="font-size:14px;font-weight:500;margin-bottom:4px">${n.title}</div>
+      <div style="font-size:12px;color:var(--sub);line-height:1.5">${(n.content||'').slice(0,120)}${n.content&&n.content.length>120?'...':''}</div>
+      <div style="font-size:11px;color:var(--sub);margin-top:4px">${n.time||''} · ${n.keyword||''}</div>
+    </div>
+  </div>`).join('');
+}
+
 async function loadAnalysis(){
   const d=await api('/api/finance/analysis');
   if(!d)return;

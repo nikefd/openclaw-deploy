@@ -123,7 +123,31 @@ function handleReportDetail(req, res, date) {
 }
 
 function handleNews(req, res) {
-  sendJson(res, { news: [] });
+  try {
+    const py = `
+import json
+from data_collector import get_stock_news
+df = get_stock_news()
+items = []
+if df is not None and not df.empty:
+    for _, row in df.head(30).iterrows():
+        items.append({
+            "title": str(row.get("新闻标题", "")),
+            "content": str(row.get("新闻内容", ""))[:200],
+            "time": str(row.get("发布时间", "")),
+            "source": str(row.get("文章来源", "")),
+            "keyword": str(row.get("关键词", "")),
+            "url": str(row.get("新闻链接", ""))
+        })
+print(json.dumps(items, ensure_ascii=False))
+`;
+    const out = execSync(`cd /home/nikefd/finance-agent && python3 -c '${py.replace(/'/g, "'\\''")}'`, { timeout: 30000 }).toString().trim();
+    const news = JSON.parse(out || '[]');
+    sendJson(res, { news });
+  } catch (e) {
+    log(`News error: ${e.message}`);
+    sendJson(res, { news: [] });
+  }
 }
 
 function handleChart(req, res) {
