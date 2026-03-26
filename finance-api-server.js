@@ -220,6 +220,12 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/finance/chart' && req.method === 'GET') return handleChart(req, res);
     if (pathname === '/api/finance/run' && req.method === 'POST') return handleRun(req, res);
     if (pathname === '/api/finance/run/status' && req.method === 'GET') return handleRunStatus(req, res);
+    if (pathname === '/api/finance/changelog' && req.method === 'GET') {
+      try {
+        const content = fs.readFileSync('/home/nikefd/finance-agent/changelog.md', 'utf-8');
+        return sendJson(res, { content });
+      } catch(e) { return sendJson(res, { content: '暂无更新日志' }); }
+    }
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);

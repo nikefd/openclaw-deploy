@@ -141,6 +141,7 @@ tr:hover{background:var(--hover)}
   <div class="tab" data-tab="news">📰 新闻资讯</div>
   <div class="tab" data-tab="trades">📈 交易记录</div>
   <div class="tab" data-tab="reports">📋 日报</div>
+  <div class="tab" data-tab="changelog">🔄 更新日志</div>
 </div>
 
 <div class="content">
@@ -204,6 +205,12 @@ tr:hover{background:var(--hover)}
   <div class="tab-panel" id="panel-reports">
     <div class="report-list" id="reportList"></div>
   </div>
+  <div class="tab-panel" id="panel-changelog">
+    <div class="section">
+      <div class="section-title">🔄 自动优化更新日志</div>
+      <div class="md-content" id="changelogContent" style="line-height:1.8">加载中...</div>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL -->
@@ -231,6 +238,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   t.classList.add('active');
   document.getElementById('panel-'+t.dataset.tab).classList.add('active');
   if(t.dataset.tab==='news')loadNews();
+  if(t.dataset.tab==='changelog')loadChangelog();
 }));
 
 // Helpers
@@ -327,6 +335,11 @@ async function loadChart(){
 
 // Analysis
 // News
+async function loadChangelog(){
+  const d=await api('/api/finance/changelog');
+  document.getElementById('changelogContent').innerHTML=d?marked.parse(d.content||'暂无'):'加载失败';
+}
+
 async function loadNews(){
   const el=document.getElementById('newsList');
   el.innerHTML='<div class="empty">加载中...</div>';
