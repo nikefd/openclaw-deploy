@@ -1,21 +1,22 @@
-"""每日主流程 — 盘后复盘 + AI选股 + 模拟交易 + 生成报告"""
+"""每日主流程 v2 — 多策略选股+动态仓位+风控"""
 
 import json
 import sys
 from datetime import datetime, date
-from ai_analyst import pick_stocks, analyze_market, analyze_stock, call_llm
+from ai_analyst import analyze_market, call_llm
+from stock_picker import multi_strategy_pick
+from position_manager import calculate_position_size, check_dynamic_stop, portfolio_risk_check
 from trading_engine import (
     get_account, get_positions, buy_stock, sell_stock,
     save_daily_snapshot, init_db
 )
-from data_collector import get_stock_daily
+from data_collector import get_stock_daily, get_realtime_quotes, get_market_sentiment
 from config import *
 
 
 def update_positions_price():
-    """更新所有持仓的最新价格 — 用腾讯实时行情"""
+    """更新所有持仓的最新价格"""
     import sqlite3
-    from data_collector import get_realtime_quotes
     positions = get_positions()
     if not positions:
         return
@@ -35,91 +36,169 @@ def update_positions_price():
     conn.close()
 
 
-def check_stop_loss_take_profit():
-    """检查止损止盈"""
-    positions = get_positions()
-    actions = []
-    for pos in positions:
-        if pos['current_price'] and pos['avg_cost']:
-            pnl_pct = (pos['current_price'] - pos['avg_cost']) / pos['avg_cost']
-            if pnl_pct <= STOP_LOSS:
-                actions.append({
-                    "action": "SELL",
-                    "symbol": pos['symbol'],
-                    "name": pos['name'],
-                    "reason": f"止损: 亏损{pnl_pct*100:.1f}%",
-                    "shares": pos['shares'],
-                    "price": pos['current_price']
-                })
-            elif pnl_pct >= TAKE_PROFIT:
-                actions.append({
-                    "action": "SELL",
-                    "symbol": pos['symbol'],
-                    "name": pos['name'],
-                    "reason": f"止盈: 盈利{pnl_pct*100:.1f}%",
-                    "shares": pos['shares'],
-                    "price": pos['current_price']
-                })
-    return actions
-
-
-def execute_trades(picks: dict):
-    """根据AI选股结果执行模拟交易"""
+def execute_sells(sentiment_score: float) -> list:
+    """执行卖出（止损止盈）"""
     results = []
+    positions = get_positions()
+    actions = check_dynamic_stop(positions, sentiment_score)
 
-    # 先检查止损止盈
-    sl_tp = check_stop_loss_take_profit()
-    for action in sl_tp:
+    for action in actions:
         r = sell_stock(action['symbol'], action['price'], action['shares'], action['reason'])
-        results.append({"type": "止损止盈", **action, "result": r})
-
-    # 执行买入
-    picks_list = picks.get("picks", [])
-    if not picks_list:
-        return results
-
-    account = get_account()
-    available_cash = account['cash']
-
-    for pick in picks_list:
-        if pick.get('confidence', 0) < 6:
-            continue  # 信心不足的跳过
-
-        symbol = pick.get('symbol', '')
-        if not symbol:
-            continue
-
-        price = pick.get('buy_price', 0)
-        if not price:
-            # 用最新价
-            df = get_stock_daily(symbol, days=5)
-            if df is None or df.empty:
-                continue
-            price = float(df.iloc[-1]['收盘'])
-
-        position_pct = min(pick.get('position_pct', 0.1), MAX_SINGLE_POSITION)
-        buy_amount = available_cash * position_pct
-        shares = int(buy_amount / price / 100) * 100  # 取整到100股
-
-        if shares < 100:
-            continue
-
-        r = buy_stock(symbol, pick.get('name', ''), price, shares, pick.get('reason', ''))
-        results.append({"type": "AI选股买入", "symbol": symbol, "name": pick.get('name', ''),
-                        "shares": shares, "price": price, "result": r})
-
+        status = "✅" if r.get('success') else f"❌ {r.get('error', '')}"
+        results.append({
+            "type": action['reason'],
+            "symbol": action['symbol'],
+            "name": action['name'],
+            "shares": action['shares'],
+            "price": action['price'],
+            "status": status,
+            "result": r
+        })
         if r.get('success'):
-            available_cash -= r.get('cost', 0)
+            print(f"  💸 卖出 {action['name']}({action['symbol']}) {action['shares']}股 @{action['price']} — {action['reason']}")
 
     return results
 
 
-def generate_daily_report(market_analysis: dict, trade_results: list, picks: dict) -> str:
+def execute_buys(picks: list, sentiment: dict) -> list:
+    """执行买入"""
+    results = []
+    account = get_account()
+    positions = get_positions()
+    available_cash = account['cash']
+    current_count = len(positions)
+    held_symbols = {p['symbol'] for p in positions}
+
+    for pick in picks:
+        if current_count >= MAX_POSITIONS:
+            break
+
+        symbol = pick.get('symbol', '')
+        if not symbol or symbol in held_symbols:
+            continue
+
+        confidence = pick.get('confidence', 5)
+        if confidence < 6:
+            continue
+
+        # 获取实时价格
+        quotes = get_realtime_quotes([symbol])
+        if symbol not in quotes or quotes[symbol]['price'] <= 0:
+            continue
+        price = quotes[symbol]['price']
+
+        # 跳过涨停股（买不进）
+        if abs(quotes[symbol].get('change_pct', 0)) >= 9.8:
+            print(f"  ⏭️ 跳过{pick.get('name','')}({symbol}) — 涨跌停无法交易")
+            continue
+
+        # 动态仓位
+        position_pct = calculate_position_size(
+            confidence, 
+            sentiment.get('sentiment_score', 50),
+            current_count, 
+            available_cash
+        )
+        buy_amount = available_cash * position_pct
+        shares = int(buy_amount / price / 100) * 100
+
+        if shares < 100:
+            continue
+
+        reason = pick.get('reason', '') or '+'.join(pick.get('signals', []))
+        r = buy_stock(symbol, pick.get('name', ''), price, shares, reason[:200])
+
+        status = "✅" if r.get('success') else f"❌ {r.get('error', '')}"
+        results.append({
+            "type": "AI选股买入",
+            "symbol": symbol,
+            "name": pick.get('name', ''),
+            "shares": shares,
+            "price": price,
+            "confidence": confidence,
+            "status": status,
+            "result": r
+        })
+
+        if r.get('success'):
+            available_cash -= r.get('cost', 0)
+            current_count += 1
+            held_symbols.add(symbol)
+            print(f"  🛒 买入 {pick.get('name','')}({symbol}) {shares}股 @{price} 信心:{confidence}")
+
+    return results
+
+
+def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict) -> list:
+    """AI最终决策 — 综合多策略结果让LLM做最后判断"""
+    candidates_text = json.dumps(candidates[:10], ensure_ascii=False, default=str)[:3000]
+
+    positions = get_positions()
+    positions_text = ""
+    if positions:
+        positions_text = "\n".join([
+            f"  {p['name']}({p['symbol']}): {p['shares']}股 成本{p['avg_cost']:.2f} 现价{p['current_price']:.2f} "
+            f"盈亏{(p['current_price']-p['avg_cost'])/p['avg_cost']*100:+.1f}%"
+            for p in positions
+        ])
+
+    prompt = f"""你是一个A股量化分析师。基于以下多策略选股结果和市场数据，选出最终要买入的3-5只股票。
+
+## 市场情绪
+- 得分: {sentiment.get('sentiment_score', 50)}/100 ({sentiment.get('sentiment_label', '?')})
+- 涨停: {sentiment.get('limit_up_count', 0)} 跌停: {sentiment.get('limit_down_count', 0)} 炸板: {sentiment.get('bomb_count', 0)}
+
+## 当前持仓
+{positions_text or '空仓'}
+
+## 多策略候选池（已按综合评分排序）
+每只股票包含：代码、名称、信号来源、综合评分、技术指标
+{candidates_text}
+
+## 选股要求
+1. **优先选**: 多信号叠加(量价齐升+大笔买入+MACD金叉)的品种
+2. **避开**: RSI>80严重超买的、已涨停的、与现有持仓重复的
+3. **注意**: 不要追已经连续涨停3天以上的（回调风险大）
+4. **分散**: 不要全选同一板块
+
+## 输出JSON格式
+```json
+{{
+  "picks": [
+    {{
+      "symbol": "代码",
+      "name": "名称",
+      "confidence": 8,
+      "reason": "选择理由(结合信号和技术面)",
+      "signals": ["信号列表"]
+    }}
+  ],
+  "market_view": "一句话总结"
+}}
+```
+只输出JSON。"""
+
+    result = call_llm(prompt, "你是顶级A股量化分析师。严格按JSON格式输出。")
+    try:
+        if "```json" in result:
+            result = result.split("```json")[1].split("```")[0]
+        elif "```" in result:
+            result = result.split("```")[1].split("```")[0]
+        data = json.loads(result.strip())
+        return data.get('picks', [])
+    except:
+        print(f"  ⚠️ AI决策JSON解析失败，使用评分排序前5")
+        return [{'symbol': c['code'], 'name': c['name'], 'confidence': min(c['score'] // 5, 10),
+                 'reason': '+'.join(c['signals']), 'signals': c['signals']}
+                for c in candidates[:5] if not c.get('at_limit')]
+
+
+def generate_daily_report(market_analysis: dict, sell_results: list, buy_results: list, 
+                          picks: list, sentiment: dict, pick_stats: dict) -> str:
     """生成每日报告"""
     account = get_account()
     positions = get_positions()
 
-    # 计算持仓盈亏
     pos_details = []
     total_pos_value = 0
     for p in positions:
@@ -144,33 +223,36 @@ def generate_daily_report(market_analysis: dict, trade_results: list, picks: dic
 - 持仓市值: ¥{total_pos_value:,.2f}
 - 总收益率: {total_return:+.2f}%
 
+🧠 **市场情绪**: {sentiment.get('sentiment_score', 0)}/100 ({sentiment.get('sentiment_label', '?')})
+- 涨停{sentiment.get('limit_up_count', 0)}家 | 跌停{sentiment.get('limit_down_count', 0)}家 | 炸板{sentiment.get('bomb_count', 0)}家
+
 📈 **当前持仓** ({len(positions)}只)
 {chr(10).join(pos_details) if pos_details else '  空仓'}
 
 🤖 **今日AI研判**
-{market_analysis.get('analysis', 'N/A')[:1000]}
+{market_analysis.get('analysis', 'N/A')[:2000]}
 
 🎯 **今日交易**
 """
-    if trade_results:
-        for t in trade_results:
-            status = "✅" if t.get('result', {}).get('success') else "❌"
-            report += f"  {status} {t['type']}: {t.get('name','')}({t.get('symbol','')}) {t.get('shares',0)}股 @ {t.get('price',0):.2f}\n"
+    all_trades = sell_results + buy_results
+    if all_trades:
+        for t in all_trades:
+            report += f"  {t['status']} {t['type']}: {t.get('name','')}({t.get('symbol','')}) {t.get('shares',0)}股 @ {t.get('price',0):.2f}\n"
     else:
         report += "  无交易\n"
 
-    # AI推荐
-    picks_list = picks.get("picks", [])
-    if picks_list:
+    if picks:
         report += "\n🔍 **AI推荐关注**\n"
-        for p in picks_list:
-            report += f"  ⭐ {p.get('name','')}({p.get('symbol','')}) 信心:{p.get('confidence','?')}/10 — {p.get('reason','')[:60]}\n"
+        for p in picks[:5]:
+            report += f"  ⭐ {p.get('name','')}({p.get('symbol','')}) 信心:{p.get('confidence','?')}/10 — {p.get('reason','')[:80]}\n"
 
-    market_view = picks.get("market_view", "")
-    if market_view:
-        report += f"\n💡 **一句话观点**: {market_view}\n"
+    report += f"""
+📊 **选股统计**
+- 动量信号: {pick_stats.get('momentum_count', 0)}只 | 资金信号: {pick_stats.get('money_flow_count', 0)}只
+- 强势股: {pick_stats.get('strong_count', 0)}只 | 机构推荐: {pick_stats.get('institution_count', 0)}只
+- 最终候选: {pick_stats.get('final_count', 0)}只
 
-    report += f"\n⚠️ *以上为AI模拟盘分析，不构成投资建议*"
+⚠️ *以上为AI模拟盘分析，不构成投资建议*"""
     return report
 
 
@@ -182,28 +264,50 @@ def run_daily():
     print("📊 更新持仓价格...")
     update_positions_price()
 
-    # 2. AI分析选股
-    print("🧠 AI分析选股中...")
-    result = pick_stocks()
-    market = result.get("market", {})
-    picks = result.get("picks", {})
+    # 2. 获取市场情绪
+    print("🧠 获取市场情绪...")
+    sentiment = get_market_sentiment()
+    if sentiment is None:
+        sentiment = {'sentiment_score': 50, 'sentiment_label': '中性'}
+    print(f"  情绪: {sentiment.get('sentiment_score', 0)}/100 ({sentiment.get('sentiment_label', '?')})")
 
-    # 3. 执行交易
-    print("💹 执行模拟交易...")
-    trade_results = execute_trades(picks)
+    # 3. 风控检查 & 执行卖出
+    print("🛡️ 风控检查...")
+    positions = get_positions()
+    account = get_account()
+    risk = portfolio_risk_check(positions, account['total_value'])
+    if risk['warnings']:
+        for w in risk['warnings']:
+            print(f"  ⚠️ {w}")
 
-    # 4. 保存快照
-    sentiment = market.get("sentiment", {})
+    print("💸 执行止损止盈...")
+    sell_results = execute_sells(sentiment.get('sentiment_score', 50))
+
+    # 4. 多策略选股
+    print("🔍 多策略选股中...")
+    pick_result = multi_strategy_pick()
+    candidates = pick_result['candidates']
+    pick_stats = pick_result['stats']
+
+    # 5. AI最终决策
+    print("🤖 AI最终决策...")
+    market = analyze_market()
+    final_picks = ai_final_decision(candidates, market, sentiment)
+
+    # 6. 执行买入
+    print("🛒 执行买入...")
+    buy_results = execute_buys(final_picks, sentiment)
+
+    # 7. 保存快照
     save_daily_snapshot(
-        sentiment_score=sentiment.get("sentiment_score", 0),
-        notes=json.dumps(picks, ensure_ascii=False)[:500]
+        sentiment_score=sentiment.get('sentiment_score', 0),
+        notes=json.dumps({'picks': [p.get('symbol','') for p in final_picks], 'stats': pick_stats}, ensure_ascii=False)[:500]
     )
 
-    # 5. 生成报告
+    # 8. 生成报告
     print("📝 生成日报...")
-    report = generate_daily_report(market, trade_results, picks)
+    report = generate_daily_report(market, sell_results, buy_results, final_picks, sentiment, pick_stats)
 
-    # 保存报告
     report_file = f"{REPORT_DIR}/{date.today().isoformat()}.md"
     with open(report_file, 'w') as f:
         f.write(report)
