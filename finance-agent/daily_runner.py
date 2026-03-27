@@ -14,6 +14,15 @@ from data_collector import get_stock_daily, get_realtime_quotes, get_market_sent
 from config import *
 
 
+def is_trading_day() -> bool:
+    """判断今天是否为交易日（排除周末，节假日暂不处理）"""
+    today = datetime.now()
+    # 周六=5, 周日=6
+    if today.weekday() >= 5:
+        return False
+    return True
+
+
 def update_positions_price():
     """更新所有持仓的最新价格"""
     import sqlite3
@@ -259,6 +268,12 @@ def generate_daily_report(market_analysis: dict, sell_results: list, buy_results
 def run_daily():
     """每日主流程"""
     print(f"[{datetime.now()}] 🚀 开始每日分析...")
+
+    # 0. 交易日检查
+    if not is_trading_day():
+        msg = f"[{datetime.now()}] 📅 今天不是交易日(周末)，跳过分析。"
+        print(msg)
+        return msg
 
     # 1. 更新持仓价格
     print("📊 更新持仓价格...")

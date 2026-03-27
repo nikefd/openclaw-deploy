@@ -379,6 +379,31 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     else:
         indicators['trend'] = '震荡整理'
 
+    # KDJ指标 (9,3,3)
+    if len(close) >= 9:
+        low_list = df['最低'].astype(float).rolling(9).min()
+        high_list = df['最高'].astype(float).rolling(9).max()
+        rsv = (close - low_list) / (high_list - low_list) * 100
+        rsv = rsv.fillna(50)
+        k = rsv.ewm(com=2, adjust=False).mean()
+        d = k.ewm(com=2, adjust=False).mean()
+        j = 3 * k - 2 * d
+        indicators['kdj_k'] = round(k.iloc[-1], 1)
+        indicators['kdj_d'] = round(d.iloc[-1], 1)
+        indicators['kdj_j'] = round(j.iloc[-1], 1)
+        # KDJ金叉/死叉
+        if len(k) >= 2:
+            if k.iloc[-1] > d.iloc[-1] and k.iloc[-2] <= d.iloc[-2]:
+                indicators['kdj_signal'] = 'golden_cross'
+            elif k.iloc[-1] < d.iloc[-1] and k.iloc[-2] >= d.iloc[-2]:
+                indicators['kdj_signal'] = 'death_cross'
+            elif j.iloc[-1] > 80:
+                indicators['kdj_signal'] = 'overbought'
+            elif j.iloc[-1] < 20:
+                indicators['kdj_signal'] = 'oversold'
+            else:
+                indicators['kdj_signal'] = 'neutral'
+
     # 量价关系
     if volume is not None and len(volume) >= 5:
         vol_ma5 = volume.tail(5).mean()

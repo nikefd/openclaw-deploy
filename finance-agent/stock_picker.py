@@ -215,6 +215,17 @@ def score_and_rank(all_candidates: list) -> list:
                 elif vol_ratio < 0.5:  # 缩量
                     stock['score'] -= 3
 
+                # KDJ信号加减分
+                kdj_sig = tech.get('kdj_signal', '')
+                if kdj_sig == 'golden_cross':
+                    stock['score'] += 8  # KDJ金叉
+                elif kdj_sig == 'oversold':
+                    stock['score'] += 5  # 超卖反弹机会
+                elif kdj_sig == 'death_cross':
+                    stock['score'] -= 8
+                elif kdj_sig == 'overbought':
+                    stock['score'] -= 5
+
             time.sleep(0.3)
         except Exception as e:
             print(f"  ⚠️ {stock['code']}技术面验证失败: {e}")
