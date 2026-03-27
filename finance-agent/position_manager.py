@@ -11,8 +11,10 @@ def calculate_position_size(confidence: int, sentiment_score: float,
     base_pct = {10: 0.15, 9: 0.13, 8: 0.12, 7: 0.10, 6: 0.08}.get(confidence, 0.05)
     
     # 情绪调节：市场过热时减仓，恐慌时加仓（逆向思维）
-    if sentiment_score > 85:  # 极度贪婪 → 减仓
-        base_pct *= 0.6
+    if sentiment_score > 90:  # 极度贪婪 → 禁止新开仓
+        return 0.0
+    elif sentiment_score > 85:  # 贪婪 → 大幅减仓
+        base_pct *= 0.4
     elif sentiment_score > 70:  # 乐观 → 微减
         base_pct *= 0.85
     elif sentiment_score < 30:  # 恐慌 → 加仓（抄底）
@@ -20,9 +22,11 @@ def calculate_position_size(confidence: int, sentiment_score: float,
     elif sentiment_score < 45:  # 谨慎 → 微加
         base_pct *= 1.1
     
-    # 持仓数量调节：已有很多仓位时降低新仓比例
-    if current_positions >= 8:
-        base_pct *= 0.5
+    # 持仓数量调节：限制最大持仓数，分散风险
+    if current_positions >= 10:  # 硬上限
+        return 0.0
+    elif current_positions >= 8:
+        base_pct *= 0.4
     elif current_positions >= 5:
         base_pct *= 0.7
     
