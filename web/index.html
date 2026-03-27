@@ -872,8 +872,20 @@ function highlightActiveFile(){
 }
 
 // === STORAGE ===
-let _saveTimer=null;
-function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));if(currentNode==='local'){clearTimeout(_saveTimer);_saveTimer=setTimeout(()=>{fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(chats)}).catch(()=>{});},500);}}
+let _saveTimers={};
+function save(chatId){
+  const id=chatId||currentId;
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));
+  localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));
+  if(currentNode==='local'&&id){
+    clearTimeout(_saveTimers[id]);
+    _saveTimers[id]=setTimeout(()=>{
+      const chat=chats.find(c=>c.id===id);
+      if(chat){fetch('/api/chats/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat)}).catch(()=>{});}
+      delete _saveTimers[id];
+    },300);
+  }
+}
 function getChat(id){return chats.find(c=>c.id===id);}
 function getAgent(id){return AGENTS.find(a=>a.id===id)||AGENTS[0];}
 
@@ -896,7 +908,7 @@ function renderSidebar(){
 }
 chatList.addEventListener('click',e=>{
   const del=e.target.closest('[data-del]');
-  if(del){e.stopPropagation();const id=del.dataset.del;chats=chats.filter(c=>c.id!==id);save();if(currentId===id){currentId=null;renderChat();}renderSidebar();return;}
+  if(del){e.stopPropagation();const id=del.dataset.del;chats=chats.filter(c=>c.id!==id);save();fetch('/api/chats/'+encodeURIComponent(id),{method:'DELETE'}).catch(()=>{});if(currentId===id){currentId=null;renderChat();}renderSidebar();return;}
   const edit=e.target.closest('[data-edit]');
   if(edit){e.stopPropagation();startEditSidebar(edit.dataset.edit);return;}
   const item=e.target.closest('.chat-item');if(item)switchChat(item.dataset.id);

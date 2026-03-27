@@ -3,6 +3,7 @@ const {exec}=require('child_process');
 const EXEC_ENV=Object.assign({},process.env,{PATH:'/home/nikefd/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:'+process.env.PATH});
 const PORT=7682,ROOT=process.env.HOME;
 const CHATS_FILE=path.join(ROOT,'.openclaw','chat-history.json');
+const CHATS_DIR=path.join(ROOT,'.openclaw','chats');
 function readBody(req){return new Promise((ok,no)=>{let d='';req.on('data',c=>d+=c);req.on('end',()=>ok(d));req.on('error',no);});}
 http.createServer(async(req,res)=>{
   res.setHeader('Content-Type','application/json');
@@ -28,15 +29,50 @@ http.createServer(async(req,res)=>{
       res.end(JSON.stringify({path:r,size:s.size,content:fs.readFileSync(r,'utf-8')}));
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/chats'&&req.method==='GET'){
-    try{const d=fs.existsSync(CHATS_FILE)?fs.readFileSync(CHATS_FILE,'utf-8'):'[]';res.end(d);}
-    catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
+    // Read all chats from individual files in CHATS_DIR, fallback to legacy CHATS_FILE
+    try{
+      fs.mkdirSync(CHATS_DIR,{recursive:true});
+      const files=fs.readdirSync(CHATS_DIR).filter(f=>f.endsWith('.json'));
+      if(files.length>0){
+        const all=files.map(f=>{try{return JSON.parse(fs.readFileSync(path.join(CHATS_DIR,f),'utf-8'));}catch{return null;}}).filter(Boolean);
+        all.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+        res.end(JSON.stringify(all));
+      }else if(fs.existsSync(CHATS_FILE)){
+        // Migrate legacy file to individual files
+        const legacy=JSON.parse(fs.readFileSync(CHATS_FILE,'utf-8'));
+        for(const c of legacy){if(c&&c.id){try{fs.writeFileSync(path.join(CHATS_DIR,c.id+'.json'),JSON.stringify(c),'utf-8');}catch{}}}
+        legacy.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+        res.end(JSON.stringify(legacy));
+      }else{res.end('[]');}
+    }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/chats'&&req.method==='POST'){
+    // Legacy bulk save — still supported but also writes individual files
     try{const body=await readBody(req);const parsed=JSON.parse(body);
+      fs.mkdirSync(CHATS_DIR,{recursive:true});
+      for(const c of parsed){if(c&&c.id){fs.writeFileSync(path.join(CHATS_DIR,c.id+'.json'),JSON.stringify(c),'utf-8');}}
+      // Also write legacy file for backward compat
       fs.mkdirSync(path.dirname(CHATS_FILE),{recursive:true});
-      // Auto-backup before clearing or major reduction
-      if(fs.existsSync(CHATS_FILE)){try{const old=JSON.parse(fs.readFileSync(CHATS_FILE,'utf-8'));if(old.length>0&&(parsed.length===0||parsed.length<old.length*0.5)){const bak=CHATS_FILE.replace('.json','.bak.'+Date.now()+'.json');fs.writeFileSync(bak,JSON.stringify(old),'utf-8');}}catch{}}
       fs.writeFileSync(CHATS_FILE,body,'utf-8');res.end('{"ok":true}');}
     catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
+  }else if(url.pathname.startsWith('/api/chats/')&&req.method==='PUT'){
+    // Save single chat: PUT /api/chats/:id
+    const chatId=url.pathname.slice('/api/chats/'.length);
+    if(!chatId){res.writeHead(400);res.end('{"error":"need chat id"}');return;}
+    try{
+      const body=await readBody(req);const chat=JSON.parse(body);
+      fs.mkdirSync(CHATS_DIR,{recursive:true});
+      fs.writeFileSync(path.join(CHATS_DIR,chatId+'.json'),JSON.stringify(chat),'utf-8');
+      res.end('{"ok":true}');
+    }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
+  }else if(url.pathname.startsWith('/api/chats/')&&req.method==='DELETE'){
+    // Delete single chat: DELETE /api/chats/:id
+    const chatId=url.pathname.slice('/api/chats/'.length);
+    if(!chatId){res.writeHead(400);res.end('{"error":"need chat id"}');return;}
+    try{
+      const fp=path.join(CHATS_DIR,chatId+'.json');
+      if(fs.existsSync(fp))fs.unlinkSync(fp);
+      res.end('{"ok":true}');
+    }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/files/upload'&&req.method==='POST'){
     // Multipart file upload
     const ct=req.headers['content-type']||'';
