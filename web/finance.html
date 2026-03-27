@@ -142,6 +142,7 @@ tr:hover{background:var(--hover)}
   <div class="tab" data-tab="trades">📈 交易记录</div>
   <div class="tab" data-tab="reports">📋 日报</div>
   <div class="tab" data-tab="changelog">🔄 更新日志</div>
+  <div class="tab" data-tab="backtest">🧪 回测</div>
 </div>
 
 <div class="content">
@@ -211,6 +212,16 @@ tr:hover{background:var(--hover)}
       <div class="md-content" id="changelogContent" style="line-height:1.8">加载中...</div>
     </div>
   </div>
+  <div class="tab-panel" id="panel-backtest">
+    <div class="section">
+      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>🧪 策略回测结果</span>
+        <button class="btn primary" onclick="runBacktest()" id="btBtn">▶ 运行回测</button>
+      </div>
+      <p style="color:var(--sub);font-size:13px;margin-bottom:16px">用历史数据(2025.06~2026.03)验证MACD+RSI策略在不同股票池的表现</p>
+      <div id="backtestResults">加载中...</div>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL -->
@@ -239,6 +250,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   document.getElementById('panel-'+t.dataset.tab).classList.add('active');
   if(t.dataset.tab==='news')loadNews();
   if(t.dataset.tab==='changelog')loadChangelog();
+  if(t.dataset.tab==='backtest')loadBacktest();
 }));
 
 // Helpers
@@ -335,6 +347,35 @@ async function loadChart(){
 
 // Analysis
 // News
+async function loadBacktest(){
+  const d=await api('/api/finance/backtest');
+  const list=d?.results||[];
+  if(!list.length){document.getElementById('backtestResults').innerHTML='<p style="color:var(--sub)">暂无回测结果，点击上方按钮运行</p>';return;}
+  let html='<table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="border-bottom:2px solid var(--border)">';
+  html+='<th style="padding:10px;text-align:left">策略</th><th>区间</th><th>总收益</th><th>最大回撤</th><th>胜率</th><th>盈亏比</th><th>夏普</th><th>交易数</th></tr></thead><tbody>';
+  list.forEach(r=>{
+    const retCls=r.total_return>0?'up':'down';
+    html+=`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:10px;font-weight:500">${r.strategy}</td>
+      <td style="color:var(--sub);font-size:12px">${r.start_date}~${r.end_date}</td>
+      <td class="${retCls}" style="font-weight:600">${r.total_return>0?'+':''}${r.total_return}%</td>
+      <td style="color:var(--down)">${r.max_drawdown}%</td>
+      <td>${r.win_rate}%</td>
+      <td>${r.profit_factor}</td>
+      <td style="font-weight:500">${r.sharpe_ratio}</td>
+      <td style="color:var(--sub)">${r.total_trades} (${r.win_trades}赢/${r.loss_trades}亏)</td>
+    </tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('backtestResults').innerHTML=html;
+}
+async function runBacktest(){
+  const btn=document.getElementById('btBtn');
+  btn.disabled=true;btn.textContent='⏳ 回测中(约3分钟)...';
+  await fetch('/api/finance/backtest/run',{method:'POST'});
+  setTimeout(()=>{btn.disabled=false;btn.textContent='▶ 运行回测';loadBacktest();},180000);
+}
+
 async function loadChangelog(){
   const d=await api('/api/finance/changelog');
   document.getElementById('changelogContent').innerHTML=d?marked.parse(d.content||'暂无'):'加载失败';

@@ -126,7 +126,10 @@ def get_stock_daily(symbol: str, days: int = 60) -> pd.DataFrame:
         if not klines:
             return pd.DataFrame()
         cols = ['日期', '开盘', '收盘', '最高', '最低', '成交量']
-        df = pd.DataFrame(klines, columns=cols[:len(klines[0])])
+        df = pd.DataFrame(klines)
+        # 只取前6列，忽略多余的
+        df = df.iloc[:, :min(len(df.columns), 6)]
+        df.columns = cols[:len(df.columns)]
         for col in ['开盘', '收盘', '最高', '最低', '成交量']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')

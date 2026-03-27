@@ -13,9 +13,10 @@ const INITIAL_CAPITAL = 1000000;
 
 function log(msg) { console.log(`[${new Date().toISOString()}] ${msg}`); }
 
-function querySqlite(sql) {
+function querySqlite(sql, dbPath) {
+  const db = dbPath || DB_PATH;
   const escaped = sql.replace(/'/g, "'\\''");
-  const py = `import sqlite3,json;c=sqlite3.connect('${DB_PATH}');c.row_factory=sqlite3.Row;r=c.execute('''${escaped}''').fetchall();print(json.dumps([dict(x) for x in r]))`;
+  const py = `import sqlite3,json;c=sqlite3.connect('${db}');c.row_factory=sqlite3.Row;r=c.execute('''${escaped}''').fetchall();print(json.dumps([dict(x) for x in r]))`;
   try {
     const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
     return JSON.parse(out || '[]');
@@ -225,6 +226,21 @@ const server = http.createServer((req, res) => {
         const content = fs.readFileSync('/home/nikefd/finance-agent/changelog.md', 'utf-8');
         return sendJson(res, { content });
       } catch(e) { return sendJson(res, { content: '暂无更新日志' }); }
+    }
+    if (pathname === '/api/finance/backtest' && req.method === 'GET') {
+      try {
+        const rows = querySqlite("SELECT id, strategy, start_date, end_date, initial_capital, final_value, total_return, max_drawdown, win_rate, total_trades, win_trades, loss_trades, sharpe_ratio, profit_factor, created_at FROM backtest_runs ORDER BY created_at DESC LIMIT 20",
+          '/home/nikefd/finance-agent/data/backtest.db');
+        return sendJson(res, { results: rows });
+      } catch(e) { return sendJson(res, { results: [] }); }
+    }
+    if (pathname === '/api/finance/backtest/run' && req.method === 'POST') {
+      log('Triggering backtest...');
+      exec('cd /home/nikefd/finance-agent && python3 -u backtester.py >> /tmp/finance-backtest.log 2>&1', { timeout: 600000 }, (err) => {
+        if (err) log('Backtest error: ' + err.message);
+        else log('Backtest completed');
+      });
+      return sendJson(res, { status: 'running', message: '回测已触发' });
     }
 
     // /api/finance/reports/:date
