@@ -436,6 +436,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     <span class="chip" data-filter="product">产品</span>
     <span class="chip" data-filter="research">研究</span>
     <span class="chip" data-filter="tool">工具</span>
+    <span class="chip" data-filter="github">🔥 GitHub</span>
   </div>
   <div class="news-list" id="newsList"><div class="news-empty">🔄 加载中...</div></div>
 </div>
@@ -745,7 +746,7 @@ async function triggerNewsScan(){
   const oldCount=allNews.length;
   try{
     // Fire-and-forget: don't await the full response
-    fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:'请立即执行一次AI前沿新闻搜索。先读取学习路径 curl -s http://127.0.0.1:7685/api/agents/ai-news/tracks，然后搜索最新AI进展，每条要包含 actionable（动手试试）字段和 tracks（关联学习路径）字段。搜完后 POST 到 http://127.0.0.1:7685/api/agents/ai-news/articles，格式 {"articles":[...],"mode":"append"}。每条: {id,title,summary,url,tag,date,actionable,tracks}',stream:false})}).catch(()=>{});
+    fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:'请立即执行一次AI前沿新闻搜索。先读取学习路径 curl -s http://127.0.0.1:7685/api/agents/ai-news/tracks，然后搜索最新AI进展。同时也去 GitHub Trending (https://github.com/trending) 抓取当前热门AI/ML相关项目（tag设为github）。每条要包含 actionable（动手试试）字段和 tracks（关联学习路径）字段。搜完后 POST 到 http://127.0.0.1:7685/api/agents/ai-news/articles，格式 {"articles":[...],"mode":"append"}。每条: {id,title,summary,url,tag,date,actionable,tracks}',stream:false})}).catch(()=>{});
     // Poll for new articles every 8s, up to 3 minutes
     let elapsed=0;const interval=8000;const maxWait=180000;
     const poll=setInterval(async()=>{
