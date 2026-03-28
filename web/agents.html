@@ -1237,7 +1237,8 @@ async function askCoach(text) {
 
   try {
     const sessStr = CLIMB_SESSIONS.map(s=>s.date+': '+s.routes.map(r=>r.g+'('+r.s+')').join(', ')).join('\n');
-    const sp = '你是一位专业攀岩教练。用户水平：稳定完成5.8-5.10a，攻克5.10b中。问山攀岩，顶绳为主。中文简洁回答，给专业实用建议。\n\n' +
+    const today = new Date().toISOString().slice(0,10);
+    const sp = '今天日期：' + today + '。你是一位专业攀岩教练。用户水平：稳定完成5.8-5.10a，攻克5.10b中。问山攀岩，顶绳为主。中文简洁回答，给专业实用建议。\n\n' +
       '当前训练数据：\n' + sessStr + '\n\n' +
       '【报告新训练】当用户报告新训练时，在回复末尾附：\n' +
       '```session_data\n{"date":"YYYY-MM-DD","dur":分钟,"routes":[{"g":"难度","s":"flash/redpoint/project/fail","a":次数}]}\n```\n' +
