@@ -403,6 +403,16 @@ tr:hover{background:var(--hover)}
         </tbody>
       </table>
     </div>
+
+    <!-- 实盘准入 -->
+    <div class="section" style="border:2px solid #e63946">
+      <div class="section-title">🚀 实盘准入状态</div>
+      <p style="font-size:13px;color:var(--sub);margin-bottom:16px">以下条件全部满足后方可开启真金白银实盘交易</p>
+      <div id="liveStatus">
+        <button class="btn" onclick="loadLiveStatus()" style="margin-bottom:12px">🔄 检查状态</button>
+        <div id="liveStatusContent"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -433,6 +443,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   if(t.dataset.tab==='news')loadNews();
   if(t.dataset.tab==='changelog')loadChangelog();
   if(t.dataset.tab==='backtest')loadBacktest();
+  if(t.dataset.tab==='strategy')loadLiveStatus();
 }));
 
 // Helpers
@@ -529,6 +540,22 @@ async function loadChart(){
 
 // Analysis
 // News
+async function loadLiveStatus(){
+  const d=await api('/api/finance/live-status');
+  if(!d)return;
+  const reqs=d.requirements||{};
+  let html='<table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="border-bottom:2px solid var(--border)">';
+  html+='<th style="padding:8px;text-align:left">检查项</th><th>要求</th><th>当前</th><th>状态</th></tr></thead><tbody>';
+  Object.entries(reqs).forEach(([k,v])=>{
+    html+=`<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:500">${k}</td><td style="color:var(--sub)">${v.required}</td><td>${v.current}</td><td>${v.met?'✅':'❌'}</td></tr>`;
+  });
+  html+='</tbody></table>';
+  const unmet=d.unmet||[];
+  if(d.ready)html+='<p style="margin-top:12px;padding:12px;background:#2ec4b622;border-radius:8px;color:#2ec4b6;font-weight:600">🎉 所有条件已满足！可以开启实盘交易</p>';
+  else html+=`<p style="margin-top:12px;padding:12px;background:#e6394622;border-radius:8px;font-size:13px">⏳ 还有 ${unmet.length} 项未满足: ${unmet.join('、')}</p>`;
+  document.getElementById('liveStatusContent').innerHTML=html;
+}
+
 async function loadBacktest(){
   const d=await api('/api/finance/backtest');
   const list=d?.results||[];

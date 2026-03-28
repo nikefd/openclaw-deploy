@@ -242,6 +242,13 @@ const server = http.createServer((req, res) => {
       });
       return sendJson(res, { status: 'running', message: '回测已触发' });
     }
+    if (pathname === '/api/finance/live-status' && req.method === 'GET') {
+      try {
+        const py = `import json; from live_trader import check_live_readiness; print(json.dumps(check_live_readiness(), ensure_ascii=False, default=str))`;
+        const out = execSync(`cd /home/nikefd/finance-agent && python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+        return sendJson(res, JSON.parse(out));
+      } catch(e) { return sendJson(res, { ready: false, error: e.message }); }
+    }
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);
