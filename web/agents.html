@@ -310,6 +310,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   .coach-chat{height:350px}
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
 
@@ -331,9 +332,9 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     </div>
     <div class="agent-card" onclick="showPanel('fitness')">
       <div class="icon">🧗</div>
-      <h3>攀岩 & 健身教练</h3>
-      <p>你的私人教练 — 攀岩难度进阶、训练计划、记录追踪</p>
-      <span class="status">● 随时可用</span>
+      <h3>攀岩教练</h3>
+      <p>基于你的训练数据，AI教练分析进步趋势、生成图表、制定训练计划</p>
+      <span class="status">● 14次训练数据已导入</span>
     </div>
     <div class="agent-card" onclick="showPanel('interview')">
       <div class="icon">🎯</div>
@@ -346,6 +347,12 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
       <h3>A股金融Agent</h3>
       <p>AI读新闻研报选股 · 模拟盘自动交易 · 情绪指数 · 每日盘后分析报告</p>
       <span class="status">● 每日自动分析</span>
+    </div>
+    <div class="agent-card" onclick="showPanel('vibe')">
+      <div class="icon">🎨</div>
+      <h3>Vibe Coding</h3>
+      <p>实时编程挑战 — 限时写代码，AI评测，看谁vibe得更硬</p>
+      <span class="status">● 随时可用</span>
     </div>
   </div>
 </div>
@@ -389,64 +396,42 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 <div class="panel" id="panel-fitness">
   <div class="panel-header">
     <button class="back-btn" onclick="showHub()">←</button>
-    <h2>🧗 攀岩 & 健身教练</h2>
+    <h2>🧗 攀岩教练</h2>
   </div>
-  <div class="fitness-layout">
-    <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="fitness-section">
-        <h3>👤 我的档案</h3>
-        <div class="profile-form" id="profileForm">
-          <label>当前攀岩难度</label>
-          <select id="profGrade">
-            <option value="">选择...</option>
-            <option>5.8</option><option>5.9</option><option>5.10a</option><option>5.10b</option><option>5.10c</option><option>5.10d</option>
-            <option>5.11a</option><option>5.11b</option><option>5.11c</option><option>5.11d</option>
-            <option>5.12a</option><option>5.12b</option><option>5.12c</option><option>5.12d</option>
-            <option>5.13a</option><option>5.13b</option><option>5.13c</option><option>5.13d</option>
-          </select>
-          <label>目标</label>
-          <input id="profGoals" placeholder="比如：3个月内上5.12a">
-          <label>备注（伤病、偏好等）</label>
-          <textarea id="profNotes" placeholder="比如：左肩有旧伤，喜欢overhang路线"></textarea>
-          <button class="btn primary" style="margin-top:12px" onclick="saveProfile()">保存档案</button>
-        </div>
-      </div>
-      <div class="fitness-section">
-        <h3>📝 训练记录</h3>
-        <div class="log-form">
-          <select id="logType">
-            <option value="climbing">🧗 攀岩</option>
-            <option value="gym">🏋️ 健身房</option>
-            <option value="rest">😴 休息日</option>
-          </select>
-          <textarea id="logContent" placeholder="今天的训练内容..." rows="2"></textarea>
-          <div style="display:flex;gap:8px">
-            <input type="text" id="logGrade" placeholder="完成难度 (可选)" style="flex:1">
-            <select id="logFeeling" style="width:100px">
-              <option value="great">💪 状态好</option>
-              <option value="ok">👍 一般</option>
-              <option value="tired">😩 疲惫</option>
-              <option value="injured">🤕 有伤</option>
-            </select>
-          </div>
-          <button class="btn primary" onclick="addLog()">记录</button>
-        </div>
-        <div id="logList" style="margin-top:12px;max-height:300px;overflow-y:auto"></div>
-      </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px" id="climbQuickBtns">
+    <button class="btn sm" onclick="askCoach('分析我最近的进步趋势')">📈 进步趋势</button>
+    <button class="btn sm" onclick="askCoach('我的难度分布是什么样的？')">📊 难度分布</button>
+    <button class="btn sm" onclick="askCoach('给我一个训练计划建议')">📋 训练计划</button>
+    <button class="btn sm" onclick="askCoach('分析我的完成率和尝试次数')">🎯 完成率</button>
+    <button class="btn sm" onclick="askCoach('我现在的瓶颈在哪里？')">🔍 瓶颈分析</button>
+    <button class="btn sm" onclick="askCoach('对比我1月和3月的表现')">⚡ 月度对比</button>
+  </div>
+  <div class="fitness-section" style="height:calc(100vh - 200px);display:flex;flex-direction:column">
+    <div class="coach-messages" id="coachMessages" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px">
+      <div class="coach-msg assistant">嘿！我是你的攀岩教练 🧗‍♂️
+
+我已经分析了你 <b>14次训练</b> 的数据（1/21 ~ 3/13），都在问山攀岩。
+
+• 主要爬 <b>顶绳</b>，偶尔先锋
+• 稳定完成 5.7-5.8，正在攻克 5.10a-5.10b
+• 每周2-3次的节奏不错
+
+点上面的按钮快速分析，或者直接问我！</div>
     </div>
-    <div class="fitness-section">
-      <h3>💬 问教练</h3>
-      <div class="coach-chat">
-        <div class="coach-messages" id="coachMessages">
-          <div class="coach-msg assistant">嘿！我是你的攀岩和健身教练 🧗💪 有什么训练上的问题随时问我！</div>
-        </div>
-        <div class="coach-input">
-          <input id="coachInput" placeholder="问点训练相关的..." onkeydown="if(event.key==='Enter')askCoach()">
-          <button onclick="askCoach()">发送</button>
-        </div>
-      </div>
+    <div class="coach-input" style="padding-top:8px;border-top:1px solid var(--border)">
+      <input id="coachInput" placeholder="问教练任何攀岩问题..." onkeydown="if(event.key==='Enter')askCoach()">
+      <button onclick="askCoach()">发送</button>
     </div>
   </div>
+</div>
+
+<!-- Vibe Coding Panel -->
+<div class="panel" id="panel-vibe">
+  <div class="panel-header">
+    <button class="back-btn" onclick="showHub()">←</button>
+    <h2>🎨 Vibe Coding</h2>
+  </div>
+  <iframe src="/vibe-app.html" style="width:100%;height:calc(100vh - 120px);border:none;border-radius:var(--radius)"></iframe>
 </div>
 
 <!-- Interview Prep Panel -->
@@ -621,7 +606,7 @@ applyTheme(getTheme());
 
 // ─── Nav ───
 function showHub(){document.getElementById('hubView').style.display='';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));history.pushState({},'','/agents/')}
-function showPanel(n){document.getElementById('hubView').style.display='none';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+n).classList.add('active');history.pushState({},'','/agents/'+n);if(n==='ai-news'){loadNewsList().then(()=>loadTracks())}if(n==='fitness'){loadProfile();loadLogs();loadChats()}if(n==='interview'){loadIVData()}}
+function showPanel(n){document.getElementById('hubView').style.display='none';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+n).classList.add('active');history.pushState({},'','/agents/'+n);if(n==='ai-news'){loadNewsList().then(()=>loadTracks())}if(n==='fitness'){loadClimbingCoach()}if(n==='interview'){loadIVData()}}
 const ip=location.pathname.replace(/\/+$/,'');
 if(ip==='/agents/ai-news')showPanel('ai-news');else if(ip==='/agents/fitness')showPanel('fitness');else if(ip==='/agents/interview')showPanel('interview');
 
@@ -728,30 +713,305 @@ async function triggerNewsScan(){
 function getGwToken(){try{const s=sessionStorage.getItem('openclaw.control.settings.v1');if(s){const o=JSON.parse(s);if(o.token)return o.token}}catch{}return localStorage.getItem('gw-token')||''}
 
 // ─── Fitness (same as before) ───
-async function loadProfile(){try{const p=await(await fetch(API+'/fitness/profile')).json();document.getElementById('profGrade').value=p.climbingGrade||'';document.getElementById('profGoals').value=p.goals||'';document.getElementById('profNotes').value=p.notes||''}catch{}}
-async function saveProfile(){const d={climbingGrade:document.getElementById('profGrade').value,goals:document.getElementById('profGoals').value,notes:document.getElementById('profNotes').value,updatedAt:new Date().toISOString()};await fetch(API+'/fitness/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});alert('已保存！')}
-async function loadLogs(){try{const logs=await(await fetch(API+'/fitness/logs')).json();renderLogs(logs)}catch{}}
-function renderLogs(logs){const el=document.getElementById('logList');if(!logs.length){el.innerHTML='<div style="color:var(--text2);font-size:.8rem;padding:10px">还没有训练记录</div>';return}const te={climbing:'🧗',gym:'🏋️',rest:'😴'},fe={great:'💪',ok:'👍',tired:'😩',injured:'🤕'};el.innerHTML=logs.slice(0,30).map(l=>`<div class="log-entry"><div style="display:flex;justify-content:space-between;align-items:center"><span><span class="log-type">${te[l.type]||''} ${l.type}</span> ${l.grade?'<b>'+esc(l.grade)+'</b>':''} ${fe[l.feeling]||''}</span><span class="log-date">${l.createdAt?new Date(l.createdAt).toLocaleDateString('zh-CN'):''}</span></div><div style="margin-top:4px;color:var(--text2)">${esc(l.content||'')}</div></div>`).join('')}
-async function addLog(){const c=document.getElementById('logContent').value.trim();if(!c)return alert('写点内容');await fetch(API+'/fitness/logs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:document.getElementById('logType').value,content:c,grade:document.getElementById('logGrade').value.trim(),feeling:document.getElementById('logFeeling').value})});document.getElementById('logContent').value='';document.getElementById('logGrade').value='';loadLogs()}
 
-async function loadChats(){try{const chats=await(await fetch(API+'/fitness/chats')).json();const el=document.getElementById('coachMessages');if(chats.length){el.innerHTML=chats.map(c=>`<div class="coach-msg ${c.role}">${esc(c.content)}</div>`).join('');el.scrollTop=el.scrollHeight}}catch{}}
-async function askCoach(){
-  const input=document.getElementById('coachInput'),msg=input.value.trim();if(!msg)return;input.value='';
-  const el=document.getElementById('coachMessages');
-  el.innerHTML+=`<div class="coach-msg user">${esc(msg)}</div><div class="coach-msg assistant" id="coachLoading"><span class="loading-spinner"></span> 思考中...</div>`;el.scrollTop=el.scrollHeight;
-  await fetch(API+'/fitness/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
-  try{
-    const profile=await(await fetch(API+'/fitness/profile')).json();
-    const logs=await(await fetch(API+'/fitness/logs')).json();
-    const rl=logs.slice(0,5).map(l=>`${l.createdAt?.slice(0,10)} ${l.type} ${l.grade||''} ${l.feeling||''}: ${l.content}`).join('\n');
-    const sp=`你是一位专业的攀岩和健身教练。用户主要爬难度路线。\n用户档案: 当前难度=${profile.climbingGrade||'未填'}, 目标=${profile.goals||'未填'}, 备注=${profile.notes||'无'}\n最近训练:\n${rl||'暂无'}\n请用中文简洁回答，给出专业实用的建议。`;
-    const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:msg,stream:false})});
-    const data=await res.json();
-    const reply=data.output?.find(o=>o.type==='message')?.content?.[0]?.text||data.output_text||'抱歉，暂时无法回答';
+// ─── Climbing Coach ───
+const CLIMBING_DATA = {
+  "exportedAt": "2026-03-28T13:02:06Z",
+  "profile": {
+    "subscriptionStatus": "premium",
+    "currentLevel": "V0",
+    "preferredDiscipline": "boulder",
+    "preferredGradeSystem": "v_scale"
+  },
+  "sessions": [
+    {
+      "date": "2026-03-13T12:04:35Z",
+      "durationMinutes": 60,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.6", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.8", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 1}
+      ]
+    },
+    {
+      "date": "2026-03-10T12:00:10Z",
+      "durationMinutes": 60,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.8", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10a", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 3}
+      ]
+    },
+    {
+      "date": "2026-03-08T12:25:40Z",
+      "durationMinutes": 40,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "lead", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.8", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 3}
+      ]
+    },
+    {
+      "date": "2026-03-03T12:32:55Z",
+      "durationMinutes": 60,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.8", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 4},
+        {"grade": "5.8", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 1}
+      ]
+    },
+    {
+      "date": "2026-02-28T02:50:17Z",
+      "durationMinutes": 60,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10a", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 3}
+      ]
+    },
+    {
+      "date": "2026-02-25T11:28:03Z",
+      "durationMinutes": 60,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.8", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10a", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 4},
+        {"grade": "5.6", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1}
+      ]
+    },
+    {
+      "date": "2026-02-05T12:00:02Z",
+      "durationMinutes": 60,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10a", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 3},
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "fail", "attempts": 1}
+      ]
+    },
+    {
+      "date": "2026-02-03T12:17:43Z",
+      "durationMinutes": 60,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.8", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10c", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 1},
+        {"grade": "5.8", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10a", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1}
+      ]
+    },
+    {
+      "date": "2026-02-01T02:39:33Z",
+      "durationMinutes": 60,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10a", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 1},
+        {"grade": "5.10a", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1}
+      ]
+    },
+    {
+      "date": "2026-01-30T12:27:37Z",
+      "durationMinutes": 80,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10a", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 3}
+      ]
+    },
+    {
+      "date": "2026-01-27T11:43:09Z",
+      "durationMinutes": 70,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.8", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 3}
+      ]
+    },
+    {
+      "date": "2026-01-25T07:36:01Z",
+      "durationMinutes": 60,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10a", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1},
+        {"grade": "5.10a", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "flash", "attempts": 1},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 2},
+        {"grade": "5.10b", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1, "routeName": "白色"}
+      ]
+    },
+    {
+      "date": "2026-01-23T11:53:56Z",
+      "durationMinutes": 60,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 1, "routeName": "新黑色"},
+        {"grade": "5.9", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 4},
+        {"grade": "5.10a", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "redpoint", "attempts": 2}
+      ]
+    },
+    {
+      "date": "2026-01-21T12:02:06Z",
+      "durationMinutes": 60,
+      "gymName": "问山攀岩",
+      "routes": [
+        {"grade": "5.8", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "flash", "attempts": 1, "routeName": "绿色"},
+        {"grade": "5.7", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "flash", "attempts": 1, "routeName": "黑色"},
+        {"grade": "5.9", "gradeSystem": "yds", "discipline": "top_rope", "sendType": "project", "attempts": 3, "routeName": "黄色"}
+      ]
+    }
+  ]
+};
+
+let coachHistory = [];
+let climbChartCounter = 0;
+
+function loadClimbingCoach() {
+  // just scroll to bottom
+  const el = document.getElementById('coachMessages');
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+function buildClimbingSystemPrompt() {
+  return `你是一位专业的攀岩教练AI。用户的攀岩训练数据如下：
+
+${JSON.stringify(CLIMBING_DATA, null, 2)}
+
+## 你的角色
+- 经验丰富、热情友好的攀岩教练
+- 基于真实训练数据提供分析和建议
+- 说话风格：专业但不死板，偶尔幽默
+
+## 图表生成规则
+当需要展示数据可视化时，用以下格式生成Chart.js配置：
+
+\`\`\`chart
+{
+  "type": "bar/line/doughnut/radar",
+  "data": { ... },
+  "options": { ... }
+}
+\`\`\`
+
+颜色方案：#4361ee(蓝) #2ec4b6(绿) #ff6b35(橙) #e63946(红) #6c8cff(紫) #fbbf24(黄)
+
+## 数据说明
+- grade: YDS难度 (5.6 < 5.7 < 5.8 < 5.9 < 5.10a < 5.10b < 5.10c ...)
+- sendType: flash(首次就完成) > redpoint(练习后完成) > project(还在攻克) > fail(失败)
+- attempts: 尝试次数
+- discipline: top_rope(顶绳) / lead(先锋)
+
+## 重要
+- 每次回答尽量包含至少一个图表
+- 用中文回答
+- 给出具体、可执行的建议`;
+}
+
+function renderClimbChart(id, config) {
+  setTimeout(() => {
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const tc = isDark ? '#e8e8f0' : '#1a1a2e';
+    const gc = isDark ? '#33334d' : '#e5e5ea';
+    config.options = config.options || {};
+    config.options.plugins = config.options.plugins || {};
+    config.options.plugins.legend = config.options.plugins.legend || {};
+    config.options.plugins.legend.labels = { color: tc };
+    config.options.scales = config.options.scales || {};
+    Object.values(config.options.scales).forEach(s => {
+      s.ticks = s.ticks || {}; s.ticks.color = tc;
+      s.grid = s.grid || {}; s.grid.color = gc;
+    });
+    new Chart(canvas, config);
+  }, 50);
+}
+
+function parseCoachContent(text) {
+  const charts = [];
+  const processed = text.replace(/```chart\n([\s\S]*?)```/g, (m, json) => {
+    try {
+      const config = JSON.parse(json);
+      const id = 'climb-chart-' + (++climbChartCounter);
+      charts.push({ id, config });
+      return '<div style="background:var(--bg);border-radius:10px;padding:12px;margin:8px 0"><canvas id="' + id + '" style="max-height:280px"></canvas></div>';
+    } catch(e) { return '<em>[图表渲染失败]</em>'; }
+  });
+  // simple markdown-ish rendering
+  let html = processed
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>');
+  return { html, charts };
+}
+
+async function askCoach(text) {
+  const input = document.getElementById('coachInput');
+  const msg = text || (input ? input.value.trim() : '');
+  if (!msg) return;
+  if (input) input.value = '';
+
+  const el = document.getElementById('coachMessages');
+  el.innerHTML += '<div class="coach-msg user">' + esc(msg) + '</div>';
+  el.innerHTML += '<div class="coach-msg assistant" id="coachLoading"><span class="loading-spinner"></span> 分析中...</div>';
+  el.scrollTop = el.scrollHeight;
+
+  coachHistory.push({ role: 'user', content: msg });
+
+  try {
+    const body = {
+      model: 'github-copilot/claude-sonnet-4',
+      messages: [
+        { role: 'system', content: buildClimbingSystemPrompt() },
+        ...coachHistory
+      ],
+      max_tokens: 4096
+    };
+    const res = await fetch('/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content || '抱歉，出了点问题...';
+    coachHistory.push({ role: 'assistant', content: reply });
+
     document.getElementById('coachLoading')?.remove();
-    el.innerHTML+=`<div class="coach-msg assistant">${esc(reply)}</div>`;el.scrollTop=el.scrollHeight;
-    await fetch(API+'/fitness/chats/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:reply})});
-  }catch(e){document.getElementById('coachLoading')?.remove();el.innerHTML+=`<div class="coach-msg assistant">❌ ${esc(e.message)}</div>`;el.scrollTop=el.scrollHeight}
+    const { html, charts } = parseCoachContent(reply);
+    el.innerHTML += '<div class="coach-msg assistant" style="white-space:normal">' + html + '</div>';
+    el.scrollTop = el.scrollHeight;
+    charts.forEach(c => renderClimbChart(c.id, c.config));
+  } catch(e) {
+    document.getElementById('coachLoading')?.remove();
+    el.innerHTML += '<div class="coach-msg assistant">❌ ' + esc(e.message) + '</div>';
+    el.scrollTop = el.scrollHeight;
+  }
+}
+
+function getToken() {
+  const c = document.cookie.split(';').find(c => c.trim().startsWith('auth_token='));
+  return c ? c.split('=')[1].trim() : localStorage.getItem('auth_token') || '';
 }
 
 // ─── Article Reader ───
