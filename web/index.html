@@ -381,7 +381,8 @@ textarea::placeholder{color:var(--text-sec)}
     <!-- Chat Panel -->
     <div class="panel active" id="panel-chat">
       <div class="messages" id="messages"></div>
-      <div class="input-area">
+      <div class="input-area" style="position:relative">
+        <div class="mention-popup" id="mentionPopup"></div>
         <div class="input-wrap">
           <div class="img-preview-area" id="imgPreview" style="display:none"></div>
           <textarea id="input" rows="1" placeholder="发送消息..." autofocus></textarea>
@@ -554,10 +555,7 @@ echo '{"version":1,"defaults":{"security":"full"}}' > ~/.openclaw/exec-approvals
 const API='/v1/chat/completions',TOKEN='17043bad6b19491dfa222d681d43584fbc3e8dd3781edfbc';
 const STORAGE_KEY='oc_chats_v2',AGENT_KEY='oc_selected_agent',THEME_KEY='oc_theme';
 const AGENTS=[
-  {id:'main',name:'通用助手',emoji:'🦞',color:'#10a37f',desc:'默认全能助手，可操作文件、终端、搜索'},
-  {id:'code',name:'代码助手',emoji:'💻',color:'#6366f1',desc:'专注编程、调试、代码审查'},
-  {id:'writer',name:'写作助手',emoji:'✍️',color:'#f59e0b',desc:'文案、邮件、文章撰写'},
-  {id:'search',name:'搜索助手',emoji:'🔍',color:'#06b6d4',desc:'网络搜索、信息汇总'},
+  {id:'main',name:'狗蛋',emoji:'🦞',color:'#10a37f',desc:'你的全能助手'},
   {id:'climbing',name:'攀岩教练',emoji:'🧗',color:'#f97316',desc:'训练记录、进步分析、训练计划',mention:'@攀岩教练'},
   {id:'finance',name:'金融Agent',emoji:'💰',color:'#eab308',desc:'A股选股、模拟交易、行情分析',mention:'@金融Agent'},
 ];
