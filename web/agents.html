@@ -980,21 +980,21 @@ async function askCoach(text) {
   coachHistory.push({ role: 'user', content: msg });
 
   try {
-    const body = {
-      model: 'github-copilot/claude-sonnet-4',
-      messages: [
-        { role: 'system', content: buildClimbingSystemPrompt() },
-        ...coachHistory
-      ],
-      max_tokens: 4096
-    };
-    const res = await fetch('/v1/chat/completions', {
+    const systemPrompt = buildClimbingSystemPrompt();
+    const historyContext = coachHistory.slice(-10).map(m => m.role + ': ' + m.content).join('\n');
+    const fullInput = historyContext ? historyContext + '\nuser: ' + msg : msg;
+    const res = await fetch('/v1/responses', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
-      body: JSON.stringify(body)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'github-copilot/claude-sonnet-4',
+        instructions: systemPrompt,
+        input: fullInput,
+        stream: false
+      })
     });
     const data = await res.json();
-    const reply = data.choices?.[0]?.message?.content || '抱歉，出了点问题...';
+    const reply = data.output?.find(o => o.type === 'message')?.content?.[0]?.text || data.output_text || '抱歉，出了点问题...';
     coachHistory.push({ role: 'assistant', content: reply });
 
     document.getElementById('coachLoading')?.remove();
