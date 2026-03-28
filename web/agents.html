@@ -312,45 +312,51 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 }
 
 /* Climbing Coach */
-.climb-wrap{display:flex;gap:20px;height:calc(100vh - 110px);overflow:hidden}
-.climb-left{flex:1;overflow-y:auto;min-width:0;padding-right:4px}
-.climb-left::-webkit-scrollbar{width:4px}
-.climb-left::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
-.climb-right{width:360px;flex-shrink:0;display:flex;flex-direction:column;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;margin-left:4px}
-.climb-right-head{padding:14px 16px;font-weight:600;font-size:.88rem;border-bottom:1px solid var(--border);background:var(--bg);display:flex;align-items:center;gap:6px}
-.climb-right-msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
-.climb-right-msgs::-webkit-scrollbar{width:4px}
-.climb-right-msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
-.climb-right-msgs .coach-msg{font-size:.82rem;line-height:1.55;padding:10px 14px}
-.climb-right-input{padding:12px 14px;border-top:1px solid var(--border);background:var(--bg)}
-.climb-right-input textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:.82rem;background:var(--card);color:var(--text);font-family:inherit;resize:none;outline:none;transition:border .2s}
-.climb-right-input textarea:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(67,97,238,.15)}
-.climb-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px}
+.climb-wrap{display:flex;flex-direction:column;height:calc(100vh - 110px);overflow:hidden}
+.climb-top{flex:1;overflow-y:auto;padding-bottom:8px;min-height:0}
+.climb-top::-webkit-scrollbar{width:4px}
+.climb-top::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.climb-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}
 .climb-stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 8px;text-align:center;transition:transform .15s}
 .climb-stat:hover{transform:translateY(-1px)}
-.climb-stat .val{font-size:1.2rem;font-weight:700;margin:4px 0;color:var(--accent)}
-.climb-stat .lbl{font-size:.68rem;color:var(--text2);letter-spacing:.3px}
-.climb-stat .ico{font-size:1.1rem}
-.climb-charts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
-.climb-chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:box-shadow .15s}
+.climb-stat .val{font-size:1.15rem;font-weight:700;margin:3px 0;color:var(--accent)}
+.climb-stat .lbl{font-size:.68rem;color:var(--text2)}
+.climb-stat .ico{font-size:1rem}
+.climb-charts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.climb-chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;transition:box-shadow .15s}
 .climb-chart-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.06)}
-.climb-chart-card h4{font-size:.82rem;margin-bottom:10px;font-weight:600;display:flex;align-items:center;gap:4px}
-.climb-chart-box{position:relative;height:180px}
-.climb-analysis{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
-.climb-analysis h4{font-size:.82rem;margin-bottom:8px;color:var(--accent);font-weight:700}
-.climb-analysis p{margin:4px 0;font-size:.78rem;line-height:1.7}
-@media(max-width:1100px){
-  .climb-right{width:300px}
-}
+.climb-chart-card h4{font-size:.78rem;margin-bottom:8px;font-weight:600}
+.climb-chart-box{position:relative;height:160px}
+.climb-info-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.climb-info-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.climb-info-card h4{font-size:.8rem;margin-bottom:8px;color:var(--accent);font-weight:700}
+.climb-info-card p{margin:3px 0;font-size:.76rem;line-height:1.65}
+.climb-info-card ul{margin:4px 0 4px 16px;font-size:.76rem;line-height:1.7}
+.climb-info-card li{margin:2px 0}
+.climb-bottom{height:220px;flex-shrink:0;display:flex;flex-direction:column;border-top:1px solid var(--border);background:var(--card);border-radius:var(--radius) var(--radius) 0 0;overflow:hidden}
+.climb-bottom-head{padding:10px 16px;font-weight:600;font-size:.85rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;flex-shrink:0}
+.climb-bottom-body{display:flex;flex:1;min-height:0}
+.climb-bottom-msgs{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.climb-bottom-msgs::-webkit-scrollbar{width:4px}
+.climb-bottom-msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.climb-bottom-msgs .coach-msg{font-size:.8rem;line-height:1.5;padding:8px 12px}
+.climb-bottom-input{width:280px;flex-shrink:0;border-left:1px solid var(--border);padding:10px 12px;display:flex;flex-direction:column;gap:6px;background:var(--bg)}
+.climb-bottom-input textarea{flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:.8rem;background:var(--card);color:var(--text);font-family:inherit;resize:none;outline:none;transition:border .2s}
+.climb-bottom-input textarea:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(67,97,238,.12)}
+.climb-bottom-input button{align-self:flex-end}
+.climb-drag{height:6px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.climb-drag::after{content:'';width:40px;height:3px;background:var(--border);border-radius:2px}
 @media(max-width:900px){
-  .climb-wrap{flex-direction:column;height:auto;overflow:visible;gap:14px}
-  .climb-left{padding-right:0;overflow:visible}
-  .climb-right{width:100%;height:420px;margin-left:0}
+  .climb-charts{grid-template-columns:1fr 1fr}
+  .climb-info-row{grid-template-columns:1fr}
   .climb-stats{grid-template-columns:repeat(3,1fr)}
+  .climb-bottom-input{width:200px}
 }
-@media(max-width:500px){
+@media(max-width:600px){
   .climb-stats{grid-template-columns:repeat(2,1fr)}
   .climb-charts{grid-template-columns:1fr}
+  .climb-bottom-body{flex-direction:column}
+  .climb-bottom-input{width:100%;border-left:none;border-top:1px solid var(--border);flex-direction:row;padding:8px 10px}
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
@@ -442,7 +448,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     <h2>🧗 攀岩教练</h2>
   </div>
   <div class="climb-wrap">
-    <div class="climb-left">
+    <div class="climb-top">
       <div class="climb-stats" id="climbSummary"></div>
       <div class="climb-charts">
         <div class="climb-chart-card"><h4>📈 进步趋势</h4><div class="climb-chart-box"><canvas id="chartProgress"></canvas></div></div>
@@ -450,20 +456,25 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
         <div class="climb-chart-card"><h4>🎯 完成率</h4><div class="climb-chart-box"><canvas id="chartSendRate"></canvas></div></div>
         <div class="climb-chart-card"><h4>⚡ 月度对比</h4><div class="climb-chart-box"><canvas id="chartMonthly"></canvas></div></div>
       </div>
-      <div class="climb-analysis">
-        <div id="climbAnalysis"></div>
+      <div class="climb-info-row">
+        <div class="climb-info-card" id="climbBottleneck"></div>
+        <div class="climb-info-card" id="climbPlan"></div>
+        <div class="climb-info-card" id="climbWarmup"></div>
       </div>
     </div>
-    <div class="climb-right">
-      <div class="climb-right-head">💬 问教练</div>
-      <div class="climb-right-msgs" id="coachMessages"></div>
-      <div class="climb-right-input">
-        <textarea id="coachInput" rows="2" placeholder="问教练问题... (Shift+Enter换行)" onkeydown="coachKeydown(event)"></textarea>
+    <div class="climb-drag" id="climbDrag"></div>
+    <div class="climb-bottom" id="climbBottom">
+      <div class="climb-bottom-head">💬 问教练</div>
+      <div class="climb-bottom-body">
+        <div class="climb-bottom-msgs" id="coachMessages"></div>
+        <div class="climb-bottom-input">
+          <textarea id="coachInput" rows="3" placeholder="问教练问题...&#10;Shift+Enter 换行" onkeydown="coachKeydown(event)"></textarea>
+          <button class="btn primary sm" onclick="askCoach()">发送</button>
+        </div>
       </div>
     </div>
   </div>
 </div>
-
 
 <!-- Vibe Coding Panel -->
 <div class="panel" id="panel-vibe">
@@ -908,7 +919,7 @@ function renderClimbDashboard() {
     options: { responsive:true, maintainAspectRatio:false, scales:{ r:{ ticks:{color:tc,backdropColor:'transparent',font:{size:8}}, grid:{color:gc}, pointLabels:{color:tc,font:{size:9}} } }, plugins:{legend:{labels:{color:tc,font:{size:10}}}} }
   });
 
-  // Analysis
+  // Analysis + Plan + Warmup
   const recent3 = CLIMB_SESSIONS.slice(-3);
   const early3 = CLIMB_SESSIONS.slice(0,3);
   const recentMax = Math.max(...recent3.flatMap(s=>s.routes.filter(r=>['flash','redpoint'].includes(r.s)).map(r=>GRADE_NUM[r.g]||0)));
@@ -917,23 +928,53 @@ function renderClimbDashboard() {
   const projectGrades = {};
   projectRoutes.forEach(r => { projectGrades[r.g] = (projectGrades[r.g]||0) + 1; });
   const bottleneck = Object.entries(projectGrades).sort((a,b) => b[1]-a[1])[0];
+  const avgAtt = projectRoutes.length ? (projectRoutes.reduce((s,r)=>s+(r.a||1),0)/projectRoutes.length).toFixed(1) : '0';
 
-  document.getElementById('climbAnalysis').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-      <div>
-        <h4 style="margin-bottom:6px;color:var(--accent);font-size:.8rem">🔍 瓶颈</h4>
-        <p>• 卡点：<b>${bottleneck?bottleneck[0]:'无'}</b>（${bottleneck?bottleneck[1]:0}次project）</p>
-        <p>• 最高完成 ${GRADE_ORDER[earlyMax]} → ${GRADE_ORDER[recentMax]} ${recentMax>earlyMax?'📈':'→ 需突破'}</p>
-        <p>• 5.7-5.8 已是舒适区</p>
-      </div>
-      <div>
-        <h4 style="margin-bottom:6px;color:var(--accent);font-size:.8rem">📋 建议</h4>
-        <p>• 5.7热身1条即可，时间给5.10a-b</p>
-        <p>• 增加5.10a刷量，是成长区</p>
-        <p>• 多尝试先锋攀（仅1次lead记录）</p>
-        <p>• 下一目标：稳定redpoint 5.10b</p>
-      </div>
-    </div>`;
+  document.getElementById('climbBottleneck').innerHTML = `<h4>🔍 瓶颈分析</h4>
+    <p>• 主要卡点：<b>${bottleneck?bottleneck[0]:'无'}</b>（${bottleneck?bottleneck[1]:0}次project，平均${avgAtt}次尝试）</p>
+    <p>• 进步轨迹：${GRADE_ORDER[earlyMax]} → ${GRADE_ORDER[recentMax]} ${recentMax>earlyMax?'📈':'⏸ 需突破'}</p>
+    <p>• 5.7-5.8 已是舒适区，无需多练</p>
+    <p>• 先锋攀经验不足（仅1次lead记录）</p>`;
+
+  document.getElementById('climbPlan').innerHTML = `<h4>📋 下次训练计划</h4>
+    <p style="font-weight:600;margin-bottom:4px">建议安排（约60min）：</p>
+    <ul>
+      <li><b>热身攀爬</b>（10min）：1条 5.7 + 1条 5.8</li>
+      <li><b>成长区刷量</b>（20min）：2-3条 5.10a，追求流畅完攀</li>
+      <li><b>冲击难度</b>（20min）：2条 5.10b，记录卡点动作</li>
+      <li><b>收尾放松</b>（10min）：1条 5.9 轻松爬</li>
+    </ul>
+    <p style="margin-top:4px;color:var(--text2);font-size:.72rem">🎯 阶段目标：稳定 redpoint 5.10b → 摸 5.10c</p>`;
+
+  document.getElementById('climbWarmup').innerHTML = `<h4>🧘 热身 & 拉伸</h4>
+    <p style="font-weight:600">🔥 攀前热身（8-10min）：</p>
+    <ul>
+      <li>手腕画圈 × 各20 + 手指开合 × 20</li>
+      <li>肩绕环 × 各10 + 弹力带外旋 × 12</li>
+      <li>深蹲 × 10 + 弓步 × 各8</li>
+      <li>简单路线1条找感觉</li>
+    </ul>
+    <p style="font-weight:600;margin-top:6px">🧊 攀后拉伸（8-10min）：</p>
+    <ul>
+      <li>前臂拉伸（掌心朝上/下各30s）</li>
+      <li>手指逐根反向拉 × 15s</li>
+      <li>胸肌门框拉伸 × 各30s</li>
+      <li>背阔肌侧拉 + 髋屈肌弓步 × 各30s</li>
+    </ul>`;
+
+  // Drag to resize chat
+  const drag = document.getElementById('climbDrag');
+  const bottom = document.getElementById('climbBottom');
+  if (drag && bottom) {
+    let startY, startH;
+    drag.addEventListener('mousedown', e => {
+      startY = e.clientY; startH = bottom.offsetHeight;
+      const onMove = e2 => { bottom.style.height = Math.max(100, Math.min(500, startH - (e2.clientY - startY))) + 'px'; };
+      const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
 }
 
 // ─── Coach Chat (persistent) ───
