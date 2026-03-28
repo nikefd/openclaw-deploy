@@ -1010,13 +1010,57 @@ async function askCoach(text) {
   coachChatHistory.push({role:'user',content:msg});
 
   try {
-    const sp = '你是一位专业攀岩教练。用户水平：稳定完成5.8-5.10a，攻克5.10b中。问山攀岩，顶绳为主。8周14次训练。中文简洁回答，给专业实用建议。';
+    const sp = `你是一位专业攀岩教练。用户水平：稳定完成5.8-5.10a，攻克5.10b中。问山攀岩，顶绳为主。中文简洁回答，给专业实用建议。
+
+当前已记录的训练数据：
+${JSON.stringify(CLIMB_SESSIONS.map(s=>s.date+': '+s.routes.map(r=>r.g+'('+r.s+')').join(', ')))}
+
+【重要】当用户报告新的训练记录时（比如"今天爬了xx"、"刚练完"等），你必须在回复末尾附上如下JSON块，用来更新数据：
+\`\`\`session_data
+{"date":"YYYY-MM-DD","dur":分钟数,"routes":[{"g":"难度","s":"flash/redpoint/project/fail","a":尝试次数,"d":"lead可选"}]}
+\`\`\`
+- s类型：flash=第一次看就完成，redpoint=练习后完成，project=还没完成在攻克，fail=失败
+- a默认1可省略，d默认top_rope可省略
+- 如果用户没提供足够信息，先追问再生成
+- 只有报告新训练时才附这个JSON，普通问答不需要`;
+
     const ctx = coachChatHistory.slice(-8).map(m=>m.role+': '+m.content).join('\n');
     const res = await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:ctx,stream:false})});
     const data = await res.json();
-    const reply = data.output?.find(o=>o.type==='message')?.content?.[0]?.text || data.output_text || '抱歉，暂时无法回答';
+    let reply = data.output?.find(o=>o.type==='message')?.content?.[0]?.text || data.output_text || '抱歉，暂时无法回答';
+    
+    // Extract session_data if present
+    const sdMatch = reply.match(/```session_data\n([\s\S]*?)```/);
+    let displayReply = reply;
+    if (sdMatch) {
+      try {
+        const newSession = JSON.parse(sdMatch[1].trim());
+        // Validate
+        if (newSession.date && newSession.routes && newSession.routes.length) {
+          // Check if session already exists
+          const exists = CLIMB_SESSIONS.find(s => s.date === newSession.date);
+          if (exists) {
+            // Merge routes
+            exists.routes.push(...newSession.routes);
+            if (newSession.dur) exists.dur = Math.max(exists.dur || 0, newSession.dur);
+          } else {
+            CLIMB_SESSIONS.push(newSession);
+            CLIMB_SESSIONS.sort((a,b) => a.date.localeCompare(b.date));
+          }
+          // Re-render charts
+          climbChartsRendered = false;
+          renderClimbDashboard();
+          // Save to server
+          await fetch(API+'/fitness/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(newSession)}).catch(()=>{});
+        }
+      } catch(e) { console.warn('Failed to parse session_data', e); }
+      // Remove the JSON block from display
+      displayReply = reply.replace(/```session_data\n[\s\S]*?```/, '').trim();
+      displayReply += '\n\n✅ 数据已更新，图表已刷新！';
+    }
+
     document.getElementById('coachLoading')?.remove();
-    el.innerHTML += '<div class="coach-msg assistant">'+fmtCoach(reply)+'</div>';
+    el.innerHTML += '<div class="coach-msg assistant">'+fmtCoach(displayReply)+'</div>';
     el.scrollTop = el.scrollHeight;
     coachChatHistory.push({role:'assistant',content:reply});
     await fetch(API+'/fitness/chats/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:reply})});
