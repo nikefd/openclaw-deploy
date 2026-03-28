@@ -1041,7 +1041,11 @@ async function sendMessage(){
   document.querySelector('[data-tab="chat"]').classList.add('active');
   $('panel-chat').classList.add('active');
   
-  const chat=getChat(currentId),chatId=currentId,agent=getAgent(chat.agentId);
+  const chat=getChat(currentId),chatId=currentId;
+  // Detect @mention to use correct agent avatar
+  const mentionMatch=text.match(/^@(\S+)/);
+  const mentionAgent=mentionMatch?AGENTS.find(a=>a.mention===mentionMatch[0]):null;
+  const agent=mentionAgent||getAgent(chat.agentId);
   sendBtn.disabled=true;input.value='';input.style.height='auto';pendingImages=[];renderImgPreview();
   const wel=messagesEl.querySelector('.welcome');if(wel)wel.remove();
   const imgUrls=images.map(i=>i.dataUrl);
