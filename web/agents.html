@@ -308,6 +308,8 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   .topnav{padding:10px 14px}
   .topnav h1{font-size:1rem}
   .coach-chat{height:350px}
+  #panel-fitness .panel-header ~ div{flex-direction:column !important}
+  #panel-fitness .panel-header ~ div > div:last-child{width:100% !important;border-left:none !important;padding-left:0 !important;border-top:1px solid var(--border);padding-top:12px;max-height:300px}
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
@@ -397,47 +399,44 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   <div class="panel-header">
     <button class="back-btn" onclick="showHub()">←</button>
     <h2>🧗 攀岩教练</h2>
-    <div style="flex:1"></div>
-    <button class="btn sm" onclick="climbTab('dashboard')" id="climbTabDash" style="background:var(--accent);color:#fff">📊 数据面板</button>
-    <button class="btn sm" onclick="climbTab('chat')" id="climbTabChat">💬 问教练</button>
   </div>
-
-  <!-- Dashboard View -->
-  <div id="climbDashboard" style="overflow-y:auto;height:calc(100vh - 120px);padding-bottom:20px">
-    <!-- Summary Cards -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px" id="climbSummary"></div>
-    
-    <!-- Charts Grid -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="climbCharts">
-      <div class="fitness-section">
-        <h3>📈 进步趋势</h3>
-        <div style="position:relative;height:220px"><canvas id="chartProgress"></canvas></div>
+  <div style="display:flex;gap:16px;height:calc(100vh - 120px);overflow:hidden">
+    <!-- Left: Charts -->
+    <div style="flex:1;overflow-y:auto;padding-right:8px;min-width:0" id="climbLeftCol">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px" id="climbSummary"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="fitness-section" style="padding:12px">
+          <h3 style="font-size:.85rem">📈 进步趋势</h3>
+          <div style="position:relative;height:180px"><canvas id="chartProgress"></canvas></div>
+        </div>
+        <div class="fitness-section" style="padding:12px">
+          <h3 style="font-size:.85rem">📊 难度分布</h3>
+          <div style="position:relative;height:180px"><canvas id="chartGradeDist"></canvas></div>
+        </div>
+        <div class="fitness-section" style="padding:12px">
+          <h3 style="font-size:.85rem">🎯 完成率分析</h3>
+          <div style="position:relative;height:180px"><canvas id="chartSendRate"></canvas></div>
+        </div>
+        <div class="fitness-section" style="padding:12px">
+          <h3 style="font-size:.85rem">⚡ 月度对比</h3>
+          <div style="position:relative;height:180px"><canvas id="chartMonthly"></canvas></div>
+        </div>
       </div>
-      <div class="fitness-section">
-        <h3>📊 难度分布</h3>
-        <div style="position:relative;height:220px"><canvas id="chartGradeDist"></canvas></div>
-      </div>
-      <div class="fitness-section">
-        <h3>🎯 完成率分析</h3>
-        <div style="position:relative;height:220px"><canvas id="chartSendRate"></canvas></div>
-      </div>
-      <div class="fitness-section">
-        <h3>⚡ 月度对比</h3>
-        <div style="position:relative;height:220px"><canvas id="chartMonthly"></canvas></div>
-      </div>
-      <div class="fitness-section" style="grid-column:1/-1">
-        <h3>🔍 瓶颈分析 & 训练计划</h3>
-        <div id="climbAnalysis" style="font-size:.85rem;line-height:1.8"></div>
+      <div class="fitness-section" style="padding:12px;margin-top:12px">
+        <h3 style="font-size:.85rem">🔍 瓶颈分析 & 训练计划</h3>
+        <div id="climbAnalysis" style="font-size:.8rem;line-height:1.7"></div>
       </div>
     </div>
-  </div>
-
-  <!-- Chat View -->
-  <div id="climbChatView" style="display:none;height:calc(100vh - 120px);flex-direction:column">
-    <div class="coach-messages" id="coachMessages" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px"></div>
-    <div class="coach-input" style="padding:8px 0;border-top:1px solid var(--border);flex-shrink:0">
-      <input id="coachInput" placeholder="问教练任何攀岩问题..." onkeydown="if(event.key==='Enter')askCoach()">
-      <button onclick="askCoach()">发送</button>
+    <!-- Right: Chat -->
+    <div style="width:380px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid var(--border);padding-left:16px">
+      <div style="font-size:.9rem;font-weight:600;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:8px">💬 问教练</div>
+      <div class="coach-messages" id="coachMessages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 0"></div>
+      <div style="border-top:1px solid var(--border);padding-top:8px;flex-shrink:0">
+        <textarea id="coachInput" rows="2" placeholder="问教练问题...&#10;Shift+Enter 换行，Enter 发送" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:.8rem;background:var(--bg);color:var(--text);font-family:inherit;resize:none" onkeydown="coachKeydown(event)"></textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:4px">
+          <button class="btn primary sm" onclick="askCoach()">发送</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -755,41 +754,40 @@ const GRADE_NUM = {}; GRADE_ORDER.forEach((g,i) => GRADE_NUM[g] = i);
 const COLORS = {blue:'#4361ee',green:'#2ec4b6',orange:'#ff6b35',red:'#e63946',purple:'#6c8cff',yellow:'#fbbf24'};
 
 let coachChatHistory = [];
-let coachChatLoaded = false;
+let climbChartsRendered = false;
+const climbChartInstances = {};
 
-function climbTab(tab) {
-  const dash = document.getElementById('climbDashboard');
-  const chat = document.getElementById('climbChatView');
-  const btnD = document.getElementById('climbTabDash');
-  const btnC = document.getElementById('climbTabChat');
-  if (tab === 'dashboard') {
-    dash.style.display = ''; chat.style.display = 'none';
-    btnD.style.background = 'var(--accent)'; btnD.style.color = '#fff';
-    btnC.style.background = ''; btnC.style.color = '';
-  } else {
-    dash.style.display = 'none'; chat.style.display = 'flex';
-    btnC.style.background = 'var(--accent)'; btnC.style.color = '#fff';
-    btnD.style.background = ''; btnD.style.color = '';
-    if (!coachChatLoaded) loadCoachChat();
+function coachKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    askCoach();
   }
 }
 
 function loadClimbingCoach() {
-  setTimeout(renderClimbDashboard, 100);
+  loadCoachChat();
+  if (!climbChartsRendered) {
+    setTimeout(renderClimbDashboard, 120);
+  }
+}
+
+function destroyClimbCharts() {
+  Object.values(climbChartInstances).forEach(c => { try { c.destroy(); } catch {} });
+  Object.keys(climbChartInstances).forEach(k => delete climbChartInstances[k]);
 }
 
 function renderClimbDashboard() {
+  destroyClimbCharts();
+  climbChartsRendered = true;
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const tc = isDark ? '#e8e8f0' : '#1a1a2e';
   const gc = isDark ? '#33334d' : '#e5e5ea';
-  const opts = (extra={}) => ({
+  const baseOpts = () => ({
     responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { labels: { color: tc, font: { size: 11 } } } },
-    scales: { x: { ticks: { color: tc, font: { size: 10 } }, grid: { color: gc } }, y: { ticks: { color: tc, font: { size: 10 } }, grid: { color: gc } } },
-    ...extra
+    plugins: { legend: { labels: { color: tc, font: { size: 10 } } } },
+    scales: { x: { ticks: { color: tc, font: { size: 9 } }, grid: { color: gc } }, y: { ticks: { color: tc, font: { size: 9 } }, grid: { color: gc } } }
   });
 
-  // Summary cards
   const totalSessions = CLIMB_SESSIONS.length;
   const totalRoutes = CLIMB_SESSIONS.reduce((s,x) => s + x.routes.length, 0);
   const totalTime = CLIMB_SESSIONS.reduce((s,x) => s + x.dur, 0);
@@ -800,173 +798,139 @@ function renderClimbDashboard() {
 
   document.getElementById('climbSummary').innerHTML = [
     {icon:'📅',label:'训练次数',val:totalSessions+'次'},
-    {icon:'🧗',label:'总路线数',val:totalRoutes+'条'},
+    {icon:'🧗',label:'路线总数',val:totalRoutes+'条'},
     {icon:'⏱',label:'总时长',val:Math.round(totalTime/60)+'h'+totalTime%60+'m'},
     {icon:'🏆',label:'最高完成',val:GRADE_ORDER[maxGrade]},
     {icon:'🎯',label:'完成率',val:sendRate+'%'},
-    {icon:'📈',label:'训练周期',val:'8周'}
-  ].map(c => `<div class="fitness-section" style="text-align:center;padding:14px">
-    <div style="font-size:1.5rem">${c.icon}</div>
-    <div style="font-size:1.3rem;font-weight:700;margin:4px 0">${c.val}</div>
-    <div style="font-size:.75rem;color:var(--text2)">${c.label}</div>
+    {icon:'📈',label:'周期',val:'8周'}
+  ].map(c => `<div class="fitness-section" style="text-align:center;padding:10px">
+    <div style="font-size:1.2rem">${c.icon}</div>
+    <div style="font-size:1.1rem;font-weight:700;margin:2px 0">${c.val}</div>
+    <div style="font-size:.7rem;color:var(--text2)">${c.label}</div>
   </div>`).join('');
 
-  // 1. Progress Trend - max completed grade per session
+  // Progress trend
   const progressData = CLIMB_SESSIONS.map(s => {
     const completed = s.routes.filter(r => ['flash','redpoint'].includes(r.s));
     const max = completed.length ? Math.max(...completed.map(r => GRADE_NUM[r.g]||0)) : null;
     const attempted = Math.max(...s.routes.map(r => GRADE_NUM[r.g]||0));
     return { date: s.date.slice(5), max, attempted };
   });
-  new Chart(document.getElementById('chartProgress'), {
+  const bo = baseOpts();
+  climbChartInstances.progress = new Chart(document.getElementById('chartProgress'), {
     type: 'line',
     data: {
       labels: progressData.map(d => d.date),
       datasets: [
-        { label: '最高完成', data: progressData.map(d => d.max), borderColor: COLORS.green, backgroundColor: COLORS.green+'33', fill: true, tension: 0.3, pointRadius: 4 },
-        { label: '最高尝试', data: progressData.map(d => d.attempted), borderColor: COLORS.orange, borderDash: [5,3], tension: 0.3, pointRadius: 3 }
+        { label: '最高完成', data: progressData.map(d => d.max), borderColor: COLORS.green, backgroundColor: COLORS.green+'33', fill: true, tension: 0.3, pointRadius: 3 },
+        { label: '最高尝试', data: progressData.map(d => d.attempted), borderColor: COLORS.orange, borderDash: [5,3], tension: 0.3, pointRadius: 2 }
       ]
     },
-    options: { ...opts(), scales: { ...opts().scales, y: { ...opts().scales.y, ticks: { ...opts().scales.y.ticks, callback: v => GRADE_ORDER[v]||v }, min: 0, max: 7 } } }
+    options: { ...bo, scales: { x: bo.scales.x, y: { ...bo.scales.y, ticks: { ...bo.scales.y.ticks, callback: v => GRADE_ORDER[v]||'' }, min: 0, max: 7 } } }
   });
 
-  // 2. Grade Distribution
+  // Grade distribution
   const gradeCounts = {};
   allRoutes.forEach(r => { gradeCounts[r.g] = (gradeCounts[r.g]||0) + 1; });
   const gradeLabels = GRADE_ORDER.filter(g => gradeCounts[g]);
-  new Chart(document.getElementById('chartGradeDist'), {
+  climbChartInstances.grade = new Chart(document.getElementById('chartGradeDist'), {
     type: 'bar',
     data: {
       labels: gradeLabels,
-      datasets: [{
-        label: '路线数',
-        data: gradeLabels.map(g => gradeCounts[g]),
-        backgroundColor: gradeLabels.map(g => {
-          const n = GRADE_NUM[g];
-          if (n <= 2) return COLORS.green;
-          if (n <= 4) return COLORS.blue;
-          if (n <= 5) return COLORS.orange;
-          return COLORS.red;
-        }),
-        borderRadius: 6
-      }]
+      datasets: [{ data: gradeLabels.map(g => gradeCounts[g]),
+        backgroundColor: gradeLabels.map(g => { const n=GRADE_NUM[g]; return n<=2?COLORS.green:n<=4?COLORS.blue:n<=5?COLORS.orange:COLORS.red; }),
+        borderRadius: 4 }]
     },
-    options: { ...opts(), plugins: { ...opts().plugins, legend: { display: false } } }
+    options: { ...bo, plugins: { legend: { display: false } } }
   });
 
-  // 3. Send Rate by Grade
+  // Send rate by grade
   const sendByGrade = {};
-  allRoutes.forEach(r => {
-    if (!sendByGrade[r.g]) sendByGrade[r.g] = { send: 0, total: 0 };
-    sendByGrade[r.g].total++;
-    if (['flash','redpoint'].includes(r.s)) sendByGrade[r.g].send++;
-  });
+  allRoutes.forEach(r => { if(!sendByGrade[r.g]) sendByGrade[r.g]={send:0,total:0}; sendByGrade[r.g].total++; if(['flash','redpoint'].includes(r.s)) sendByGrade[r.g].send++; });
   const sendGrades = GRADE_ORDER.filter(g => sendByGrade[g]);
-  new Chart(document.getElementById('chartSendRate'), {
+  climbChartInstances.send = new Chart(document.getElementById('chartSendRate'), {
     type: 'bar',
     data: {
       labels: sendGrades,
       datasets: [
-        { label: '完成', data: sendGrades.map(g => sendByGrade[g].send), backgroundColor: COLORS.green, borderRadius: 6 },
-        { label: '未完成', data: sendGrades.map(g => sendByGrade[g].total - sendByGrade[g].send), backgroundColor: COLORS.red+'88', borderRadius: 6 }
+        { label: '完成', data: sendGrades.map(g => sendByGrade[g].send), backgroundColor: COLORS.green, borderRadius: 4 },
+        { label: '未完成', data: sendGrades.map(g => sendByGrade[g].total - sendByGrade[g].send), backgroundColor: COLORS.red+'88', borderRadius: 4 }
       ]
     },
-    options: { ...opts(), scales: { ...opts().scales, x: { ...opts().scales.x, stacked: true }, y: { ...opts().scales.y, stacked: true } } }
+    options: { ...bo, scales: { x: { ...bo.scales.x, stacked: true }, y: { ...bo.scales.y, stacked: true } } }
   });
 
-  // 4. Monthly Comparison
+  // Monthly radar
   const months = {};
   CLIMB_SESSIONS.forEach(s => {
     const m = s.date.slice(0,7);
-    if (!months[m]) months[m] = { sessions: 0, routes: 0, sends: 0, maxGrade: 0, time: 0 };
-    months[m].sessions++;
-    months[m].time += s.dur;
-    s.routes.forEach(r => {
-      months[m].routes++;
-      if (['flash','redpoint'].includes(r.s)) {
-        months[m].sends++;
-        months[m].maxGrade = Math.max(months[m].maxGrade, GRADE_NUM[r.g]||0);
-      }
-    });
+    if(!months[m]) months[m]={sessions:0,routes:0,sends:0,maxGrade:0,time:0};
+    months[m].sessions++; months[m].time+=s.dur;
+    s.routes.forEach(r => { months[m].routes++; if(['flash','redpoint'].includes(r.s)){months[m].sends++;months[m].maxGrade=Math.max(months[m].maxGrade,GRADE_NUM[r.g]||0)} });
   });
   const mLabels = Object.keys(months).sort();
-  const mNames = mLabels.map(m => ({
-    '2026-01':'1月','2026-02':'2月','2026-03':'3月'
-  }[m]||m));
-  new Chart(document.getElementById('chartMonthly'), {
+  const mNames = mLabels.map(m => ({'2026-01':'1月','2026-02':'2月','2026-03':'3月'}[m]||m));
+  climbChartInstances.monthly = new Chart(document.getElementById('chartMonthly'), {
     type: 'radar',
     data: {
-      labels: ['训练次数','路线总数','完成率%','最高难度','总时长(h)'],
+      labels: ['次数','路线','完成率%','难度','时长h'],
       datasets: mLabels.map((m,i) => ({
         label: mNames[i],
-        data: [
-          months[m].sessions,
-          months[m].routes,
-          Math.round(months[m].sends/months[m].routes*100),
-          months[m].maxGrade,
-          Math.round(months[m].time/60*10)/10
-        ],
-        borderColor: [COLORS.blue, COLORS.green, COLORS.orange][i],
-        backgroundColor: [COLORS.blue+'22', COLORS.green+'22', COLORS.orange+'22'][i],
-        pointRadius: 3
+        data: [months[m].sessions, months[m].routes, Math.round(months[m].sends/months[m].routes*100), months[m].maxGrade, Math.round(months[m].time/60*10)/10],
+        borderColor: [COLORS.blue,COLORS.green,COLORS.orange][i],
+        backgroundColor: [COLORS.blue+'22',COLORS.green+'22',COLORS.orange+'22'][i],
+        pointRadius: 2
       }))
     },
-    options: { responsive:true, maintainAspectRatio:false, scales: { r: { ticks: { color: tc, backdropColor: 'transparent' }, grid: { color: gc }, pointLabels: { color: tc, font: { size: 11 } } } }, plugins: { legend: { labels: { color: tc } } } }
+    options: { responsive:true, maintainAspectRatio:false, scales:{ r:{ ticks:{color:tc,backdropColor:'transparent',font:{size:8}}, grid:{color:gc}, pointLabels:{color:tc,font:{size:9}} } }, plugins:{legend:{labels:{color:tc,font:{size:10}}}} }
   });
 
-  // 5. Analysis text
+  // Analysis
   const recent3 = CLIMB_SESSIONS.slice(-3);
   const early3 = CLIMB_SESSIONS.slice(0,3);
   const recentMax = Math.max(...recent3.flatMap(s=>s.routes.filter(r=>['flash','redpoint'].includes(r.s)).map(r=>GRADE_NUM[r.g]||0)));
   const earlyMax = Math.max(...early3.flatMap(s=>s.routes.filter(r=>['flash','redpoint'].includes(r.s)).map(r=>GRADE_NUM[r.g]||0)));
-  
   const projectRoutes = allRoutes.filter(r => r.s === 'project');
   const projectGrades = {};
   projectRoutes.forEach(r => { projectGrades[r.g] = (projectGrades[r.g]||0) + 1; });
   const bottleneck = Object.entries(projectGrades).sort((a,b) => b[1]-a[1])[0];
 
   document.getElementById('climbAnalysis').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div>
-        <h4 style="margin-bottom:8px;color:var(--accent)">🔍 瓶颈分析</h4>
-        <p>• <b>主要卡点：${bottleneck?bottleneck[0]:'无'}</b> — 累计 ${bottleneck?bottleneck[1]:0} 次 project，是你反复攻克的难度</p>
-        <p>• 从1月到3月，最高完成难度从 <b>${GRADE_ORDER[earlyMax]}</b> 提升到 <b>${GRADE_ORDER[recentMax]}</b> ${recentMax>earlyMax?'📈 有进步！':'— 需要突破'}</p>
-        <p>• 5.10b 完成率偏低（大量 project），说明力量或技术在这个级别遇到瓶颈</p>
-        <p>• 5.7-5.8 已经是舒适区，热身即可不用花太多时间</p>
+        <h4 style="margin-bottom:6px;color:var(--accent);font-size:.8rem">🔍 瓶颈</h4>
+        <p>• 卡点：<b>${bottleneck?bottleneck[0]:'无'}</b>（${bottleneck?bottleneck[1]:0}次project）</p>
+        <p>• 最高完成 ${GRADE_ORDER[earlyMax]} → ${GRADE_ORDER[recentMax]} ${recentMax>earlyMax?'📈':'→ 需突破'}</p>
+        <p>• 5.7-5.8 已是舒适区</p>
       </div>
       <div>
-        <h4 style="margin-bottom:8px;color:var(--accent)">📋 训练建议</h4>
-        <p>• <b>减少舒适区路线</b>：5.7 热身1条即可，把时间给 5.10a-5.10b</p>
-        <p>• <b>增加 5.10a 刷量</b>：这是你的 "成长区"，多刷提升效率</p>
-        <p>• <b>5.10b 分段攻克</b>：记录卡在哪个动作，针对性练习</p>
-        <p>• <b>尝试先锋攀</b>：只有1次 lead 记录，先锋能提升心理素质</p>
-        <p>• <b>训练频率很好</b>：保持每周2-3次，注意休息日</p>
-        <p>• <b>下一个目标</b>：稳定 redpoint 5.10b，开始摸 5.10c</p>
+        <h4 style="margin-bottom:6px;color:var(--accent);font-size:.8rem">📋 建议</h4>
+        <p>• 5.7热身1条即可，时间给5.10a-b</p>
+        <p>• 增加5.10a刷量，是成长区</p>
+        <p>• 多尝试先锋攀（仅1次lead记录）</p>
+        <p>• 下一目标：稳定redpoint 5.10b</p>
       </div>
     </div>`;
 }
 
 // ─── Coach Chat (persistent) ───
 async function loadCoachChat() {
-  coachChatLoaded = true;
   const el = document.getElementById('coachMessages');
   try {
     const chats = await (await fetch(API + '/fitness/chats')).json();
     if (chats.length) {
       coachChatHistory = chats.map(c => ({ role: c.role, content: c.content }));
-      el.innerHTML = chats.map(c => `<div class="coach-msg ${c.role}">${c.role==='assistant' ? formatCoachReply(c.content) : esc(c.content)}</div>`).join('');
+      el.innerHTML = chats.map(c => `<div class="coach-msg ${c.role}">${c.role==='assistant' ? fmtCoach(c.content) : esc(c.content)}</div>`).join('');
     } else {
-      el.innerHTML = '<div class="coach-msg assistant">嘿！我是你的攀岩教练 🧗‍♂️ 数据面板已经帮你分析好了，有具体问题随时问我！</div>';
+      el.innerHTML = '<div class="coach-msg assistant">嘿！我是你的攀岩教练 🧗‍♂️ 左边是你的数据分析，有问题随时问！</div>';
     }
     el.scrollTop = el.scrollHeight;
-  } catch { 
+  } catch {
     el.innerHTML = '<div class="coach-msg assistant">嘿！有什么攀岩问题随时问我 🧗‍♂️</div>';
   }
 }
 
-function formatCoachReply(text) {
-  return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
-}
+function fmtCoach(t) { return t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>'); }
 
 async function askCoach(text) {
   const input = document.getElementById('coachInput');
@@ -979,34 +943,27 @@ async function askCoach(text) {
   el.innerHTML += '<div class="coach-msg assistant" id="coachLoading"><span class="loading-spinner"></span> 思考中...</div>';
   el.scrollTop = el.scrollHeight;
 
-  // Save user message
-  await fetch(API + '/fitness/chats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg }) });
-  coachChatHistory.push({ role: 'user', content: msg });
+  await fetch(API+'/fitness/chats',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
+  coachChatHistory.push({role:'user',content:msg});
 
   try {
-    const sp = `你是一位专业攀岩教练。用户当前水平：稳定完成5.8-5.10a，正在攻克5.10b。训练地点：问山攀岩。以顶绳为主。8周14次训练。请用中文简洁回答，给专业实用建议。`;
-    const histCtx = coachChatHistory.slice(-8).map(m => m.role + ': ' + m.content).join('\n');
-    const res = await fetch('/v1/responses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'github-copilot/claude-sonnet-4', instructions: sp, input: histCtx ? histCtx + '\nuser: ' + msg : msg, stream: false })
-    });
+    const sp = '你是一位专业攀岩教练。用户水平：稳定完成5.8-5.10a，攻克5.10b中。问山攀岩，顶绳为主。8周14次训练。中文简洁回答，给专业实用建议。';
+    const ctx = coachChatHistory.slice(-8).map(m=>m.role+': '+m.content).join('\n');
+    const res = await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:ctx,stream:false})});
     const data = await res.json();
-    const reply = data.output?.find(o => o.type === 'message')?.content?.[0]?.text || data.output_text || '抱歉，暂时无法回答';
-    
+    const reply = data.output?.find(o=>o.type==='message')?.content?.[0]?.text || data.output_text || '抱歉，暂时无法回答';
     document.getElementById('coachLoading')?.remove();
-    el.innerHTML += '<div class="coach-msg assistant">' + formatCoachReply(reply) + '</div>';
+    el.innerHTML += '<div class="coach-msg assistant">'+fmtCoach(reply)+'</div>';
     el.scrollTop = el.scrollHeight;
-    coachChatHistory.push({ role: 'assistant', content: reply });
-    
-    // Save assistant reply
-    await fetch(API + '/fitness/chats/reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: reply }) });
+    coachChatHistory.push({role:'assistant',content:reply});
+    await fetch(API+'/fitness/chats/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:reply})});
   } catch(e) {
     document.getElementById('coachLoading')?.remove();
-    el.innerHTML += '<div class="coach-msg assistant">❌ ' + esc(e.message) + '</div>';
+    el.innerHTML += '<div class="coach-msg assistant">❌ '+esc(e.message)+'</div>';
     el.scrollTop = el.scrollHeight;
   }
 }
+
 
 
 // ─── Article Reader ───
