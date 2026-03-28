@@ -567,6 +567,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
             <option value="java">Java</option>
             <option value="cpp">C++</option>
             <option value="go">Go</option>
+            <option value="sql">SQL</option>
           </select>
           <a id="ivLcLink" href="#" target="_blank" style="font-size:.72rem;color:var(--text2);margin-left:8px">在 LeetCode 打开 ↗</a>
           <div style="flex:1"></div>
@@ -601,6 +602,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/sql/sql.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/javascript/javascript.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/clike/clike.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.18/mode/go/go.min.js"></script>
@@ -973,6 +975,10 @@ async function ivOpenProblem(id){
       ivEditor&&ivEditor.setValue('class Solution:\n    pass\n');
     }
     // Set editor mode
+    // Auto-switch to SQL for SQL category problems
+    if(p.category==='SQL'){
+      document.getElementById('ivLang').value='sql';
+    }
     const lang=document.getElementById('ivLang').value;
     if(ivEditor)ivEditor.setOption('mode',ivLangModes[lang]||'python');
     ivStartTimer();
@@ -1033,7 +1039,7 @@ function ivSwitchTab(btn){
 
 // Code editor - CodeMirror
 let ivEditor=null;
-const ivLangModes={python3:'python',javascript:'javascript',java:'text/x-java',cpp:'text/x-c++src',go:'text/x-go'};
+const ivLangModes={python3:'python',javascript:'javascript',java:'text/x-java',cpp:'text/x-c++src',go:'text/x-go',sql:'text/x-sql'};
 
 function ivInitEditor(){
   if(ivEditor)return;
