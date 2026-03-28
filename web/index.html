@@ -331,6 +331,16 @@ textarea::placeholder{color:var(--text-sec)}
 .remote-term-input .prompt{color:#10a37f;font-weight:600;flex-shrink:0}
 .remote-term-input input{flex:1;background:none;border:none;color:#ccc;font-family:inherit;font-size:13px;outline:none}
 .remote-term-cwd{padding:4px 12px;background:#252525;font-size:11px;color:#888;border-bottom:1px solid #333;flex-shrink:0}
+
+/* @mention popup */
+.mention-popup{position:absolute;bottom:100%;left:0;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:4px;display:none;z-index:100;box-shadow:0 -4px 16px rgba(0,0,0,.15);min-width:200px;max-height:240px;overflow-y:auto}
+.mention-popup.show{display:block}
+.mention-item{padding:8px 12px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;transition:background .1s}
+.mention-item:hover,.mention-item.selected{background:var(--hover)}
+.mention-item .m-emoji{font-size:16px;width:22px;text-align:center}
+.mention-item .m-name{font-weight:600}
+.mention-item .m-desc{font-size:11px;color:var(--text-sec);margin-left:auto}
+.mention-tag{background:rgba(16,163,127,.15);color:var(--accent);padding:1px 4px;border-radius:4px;font-weight:600}
 </style>
 </head>
 <body>
@@ -548,6 +558,8 @@ const AGENTS=[
   {id:'code',name:'代码助手',emoji:'💻',color:'#6366f1',desc:'专注编程、调试、代码审查'},
   {id:'writer',name:'写作助手',emoji:'✍️',color:'#f59e0b',desc:'文案、邮件、文章撰写'},
   {id:'search',name:'搜索助手',emoji:'🔍',color:'#06b6d4',desc:'网络搜索、信息汇总'},
+  {id:'climbing',name:'攀岩教练',emoji:'🧗',color:'#f97316',desc:'训练记录、进步分析、训练计划',mention:'@攀岩教练'},
+  {id:'finance',name:'金融Agent',emoji:'💰',color:'#eab308',desc:'A股选股、模拟交易、行情分析',mention:'@金融Agent'},
 ];
 
 let chats=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'),currentId=null;
@@ -891,7 +903,19 @@ function getAgent(id){return AGENTS.find(a=>a.id===id)||AGENTS[0];}
 
 // === AGENTS ===
 function renderAgents(){agentGrid.innerHTML=AGENTS.map(a=>`<div class="agent-chip ${a.id===selectedAgent?'active':''}" data-agent="${a.id}"><span class="emoji">${a.emoji}</span><span>${a.name}</span></div>`).join('');}
-agentGrid.addEventListener('click',e=>{const c=e.target.closest('.agent-chip');if(!c)return;selectedAgent=c.dataset.agent;localStorage.setItem(AGENT_KEY,selectedAgent);renderAgents();});
+agentGrid.addEventListener('click',e=>{const c=e.target.closest('.agent-chip');if(!c)return;
+  const ag=AGENTS.find(a=>a.id===c.dataset.agent);
+  if(ag&&ag.mention){
+    // Insert @mention into input
+    const inp=document.getElementById('input');
+    inp.value=ag.mention+' '+inp.value;
+    inp.focus();
+    inp.setSelectionRange(inp.value.length,inp.value.length);
+    closeSidebar();
+  }else{
+    selectedAgent=c.dataset.agent;localStorage.setItem(AGENT_KEY,selectedAgent);renderAgents();
+  }
+});
 
 // === SIDEBAR ===
 function renderSidebar(){
@@ -1660,6 +1684,58 @@ async function queryExperts(userMessage, chatHistory){
     }
   });
 }
+
+
+// @mention autocomplete
+const mentionPopup=$('mentionPopup');
+const mentionAgents=AGENTS.filter(a=>a.mention);
+let mentionIdx=-1;
+
+function renderMentionPopup(filter=''){
+  const items=mentionAgents.filter(a=>!filter||a.name.includes(filter)||a.mention.includes(filter)||(a.id).includes(filter));
+  if(!items.length){mentionPopup.classList.remove('show');return;}
+  mentionIdx=0;
+  mentionPopup.innerHTML=items.map((a,i)=>`<div class="mention-item${i===0?' selected':''}" data-mention="${a.mention}"><span class="m-emoji">${a.emoji}</span><span class="m-name">${a.mention}</span><span class="m-desc">${a.desc}</span></div>`).join('');
+  mentionPopup.classList.add('show');
+  mentionPopup.querySelectorAll('.mention-item').forEach(el=>{
+    el.addEventListener('click',()=>{insertMention(el.dataset.mention);});
+    el.addEventListener('mouseenter',()=>{mentionPopup.querySelectorAll('.mention-item').forEach(x=>x.classList.remove('selected'));el.classList.add('selected');mentionIdx=[...mentionPopup.children].indexOf(el);});
+  });
+}
+
+function insertMention(mention){
+  const inp=input;
+  const val=inp.value;
+  const atIdx=val.lastIndexOf('@');
+  inp.value=val.slice(0,atIdx)+mention+' '+val.slice(inp.selectionStart);
+  inp.focus();
+  const pos=atIdx+mention.length+1;
+  inp.setSelectionRange(pos,pos);
+  mentionPopup.classList.remove('show');
+}
+
+input.addEventListener('input',e=>{
+  const val=input.value;
+  const cursor=input.selectionStart;
+  const before=val.slice(0,cursor);
+  const atMatch=before.match(/@([^\s]*)$/);
+  if(atMatch){
+    renderMentionPopup(atMatch[1]);
+  }else{
+    mentionPopup.classList.remove('show');
+  }
+});
+
+input.addEventListener('keydown',e=>{
+  if(!mentionPopup.classList.contains('show'))return;
+  const items=mentionPopup.querySelectorAll('.mention-item');
+  if(e.key==='ArrowDown'){e.preventDefault();mentionIdx=Math.min(mentionIdx+1,items.length-1);items.forEach((x,i)=>x.classList.toggle('selected',i===mentionIdx));}
+  else if(e.key==='ArrowUp'){e.preventDefault();mentionIdx=Math.max(mentionIdx-1,0);items.forEach((x,i)=>x.classList.toggle('selected',i===mentionIdx));}
+  else if(e.key==='Enter'||e.key==='Tab'){if(mentionIdx>=0&&items[mentionIdx]){e.preventDefault();insertMention(items[mentionIdx].dataset.mention);}}
+  else if(e.key==='Escape'){mentionPopup.classList.remove('show');}
+});
+
+document.addEventListener('click',e=>{if(!mentionPopup.contains(e.target)&&e.target!==input)mentionPopup.classList.remove('show');});
 
 </script>
 </body>

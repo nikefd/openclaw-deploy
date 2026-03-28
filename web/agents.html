@@ -600,16 +600,8 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
         <div class="climb-info-card" id="climbWarmup"></div>
       </div>
     </div>
-    <div class="climb-drag" id="climbDrag"></div>
-    <div class="climb-bottom" id="climbBottom">
-      <div class="climb-bottom-head">💬 问教练</div>
-      <div class="climb-bottom-body">
-        <div class="climb-bottom-msgs" id="coachMessages"></div>
-        <div class="climb-bottom-input">
-          <textarea id="coachInput" rows="3" placeholder="问教练问题...&#10;Shift+Enter 换行" onkeydown="coachKeydown(event)"></textarea>
-          <button class="btn primary sm" onclick="askCoach()">发送</button>
-        </div>
-      </div>
+    <div style="text-align:center;padding:12px;font-size:.8rem;color:var(--text2)">
+      💬 在主聊天输入 <b>@攀岩教练</b> 即可对话，训练数据会自动同步到这里
     </div>
   </div>
 </div>
