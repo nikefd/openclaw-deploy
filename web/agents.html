@@ -78,6 +78,46 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .news-item .actions button:hover{background:var(--hover)}
 .news-empty{text-align:center;padding:60px 20px;color:var(--text2)}
 
+/* AI News Tab Switcher */
+.ai-tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid var(--border)}
+.ai-tab{padding:10px 20px;font-size:.85rem;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text2);transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
+.ai-tab:hover{color:var(--text)}
+.ai-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+
+/* Learning Center */
+.learn-layout{display:grid;grid-template-columns:260px 1fr;gap:20px;min-height:60vh}
+@media(max-width:768px){.learn-layout{grid-template-columns:1fr;min-height:auto}}
+.learn-sidebar{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-y:auto;max-height:80vh}
+.learn-sidebar h3{font-size:.85rem;margin-bottom:12px;color:var(--text2)}
+.learn-cat{margin-bottom:12px}
+.learn-cat-title{font-size:.78rem;font-weight:600;color:var(--text2);padding:6px 8px;display:flex;align-items:center;gap:6px;cursor:pointer;border-radius:6px}
+.learn-cat-title:hover{background:var(--hover)}
+.learn-cat-item{padding:8px 12px 8px 28px;font-size:.8rem;cursor:pointer;border-radius:8px;transition:all .15s;line-height:1.4;display:flex;align-items:center;gap:6px}
+.learn-cat-item:hover{background:var(--hover)}
+.learn-cat-item.active{background:var(--accent-bg);color:var(--accent);font-weight:500}
+.learn-content{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px 28px;overflow-y:auto;max-height:80vh}
+.learn-content h1{font-size:1.3rem;margin-bottom:6px}
+.learn-content .learn-meta{font-size:.75rem;color:var(--text2);margin-bottom:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.learn-content .learn-meta .ltag{padding:2px 8px;border-radius:6px;background:var(--accent-bg);color:var(--accent);font-size:.7rem}
+.learn-content .learn-body{font-size:.88rem;line-height:1.8;color:var(--text)}
+.learn-body h2{font-size:1.1rem;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+.learn-body h3{font-size:.95rem;margin:18px 0 8px}
+.learn-body p{margin-bottom:12px}
+.learn-body ul,.learn-body ol{margin:8px 0 12px 20px}
+.learn-body li{margin-bottom:6px}
+.learn-body code{background:var(--accent-bg);padding:2px 6px;border-radius:4px;font-size:.82rem;font-family:'SF Mono',Monaco,Consolas,monospace}
+.learn-body pre{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin:12px 0;font-size:.8rem;line-height:1.5}
+.learn-body pre code{background:none;padding:0}
+.learn-body blockquote{border-left:3px solid var(--accent);padding:8px 14px;margin:12px 0;background:var(--accent-bg);border-radius:0 8px 8px 0;font-size:.84rem}
+.learn-body .mermaid{margin:16px 0;text-align:center}
+.learn-body table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.82rem}
+.learn-body th,.learn-body td{padding:8px 12px;border:1px solid var(--border);text-align:left}
+.learn-body th{background:var(--hover);font-weight:600}
+.learn-empty{text-align:center;padding:60px 20px;color:var(--text2)}
+.learn-empty .big-icon{font-size:3rem;margin-bottom:12px}
+.learn-delete-btn{background:none;border:1px solid var(--red);color:var(--red);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.72rem;transition:all .15s}
+.learn-delete-btn:hover{background:var(--red);color:#fff}
+
 /* Fitness */
 .fitness-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .fitness-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
@@ -359,6 +399,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 <body>
 
@@ -414,6 +455,15 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     <button class="btn primary" id="refreshNewsBtn" onclick="triggerNewsScan()">🔍 搜索最新</button>
   </div>
 
+  <!-- Tab Switcher -->
+  <div class="ai-tabs">
+    <button class="ai-tab active" data-tab="news" onclick="switchAiTab('news')">📰 新闻动态</button>
+    <button class="ai-tab" data-tab="learn" onclick="switchAiTab('learn')">📚 学习中心</button>
+  </div>
+
+  <!-- News Tab -->
+  <div id="aiTabNews">
+
   <!-- Track Management (hidden by default) -->
   <div class="track-manage" id="trackManage" style="display:none">
     <h3>📚 我的学习路径</h3>
@@ -439,6 +489,25 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     <span class="chip" data-filter="github">🔥 GitHub</span>
   </div>
   <div class="news-list" id="newsList"><div class="news-empty">🔄 加载中...</div></div>
+  </div><!-- /aiTabNews -->
+
+  <!-- Learn Tab -->
+  <div id="aiTabLearn" style="display:none">
+    <div class="learn-layout">
+      <div class="learn-sidebar" id="learnSidebar">
+        <h3>📚 学习目录</h3>
+        <div id="learnCatList"><div class="news-empty" style="padding:20px;font-size:.8rem">加载中...</div></div>
+      </div>
+      <div class="learn-content" id="learnContent">
+        <div class="learn-empty">
+          <div class="big-icon">📚</div>
+          <p>选择左侧条目开始学习</p>
+          <p style="font-size:.75rem;margin-top:8px">在新闻动态里点击「📚 加入学习」可以生成详细学习指南</p>
+        </div>
+      </div>
+    </div>
+  </div><!-- /aiTabLearn -->
+
 </div>
 
 <!-- Fitness Panel -->
@@ -733,6 +802,7 @@ function renderNews(){
       <div class="actions">
         <button onclick="togglePin('${a.id}')">${a.pinned?'📌 取消收藏':'📍 收藏'}</button>
         ${a.url?`<button data-reader="${a.id}" onclick="readArticle('${a.id}')" style="${hasReader?'color:var(--green)':isLoading?'color:var(--orange)':''}">${hasReader?'📖 查看解读':isLoading?'⏳ 解读中':'📖 解读'}</button>`:''}
+        <button onclick="addToLearn('${a.id}')">📚 加入学习</button>
         <button style="margin-left:auto" onclick="deleteNews('${a.id}')">🗑 删除</button>
       </div>
     </div>`}).join('');
@@ -763,6 +833,160 @@ async function triggerNewsScan(){
 }
 
 function getGwToken(){try{const s=sessionStorage.getItem('openclaw.control.settings.v1');if(s){const o=JSON.parse(s);if(o.token)return o.token}}catch{}return localStorage.getItem('gw-token')||''}
+
+// ─── Learning Center ───
+var allGuides=[];
+var activeGuideId=null;
+
+function switchAiTab(tab){
+  document.querySelectorAll('.ai-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  document.getElementById('aiTabNews').style.display=tab==='news'?'':'none';
+  document.getElementById('aiTabLearn').style.display=tab==='learn'?'':'none';
+  if(tab==='learn')loadGuides();
+}
+
+async function loadGuides(){
+  try{
+    allGuides=await(await fetch(API+'/ai-news/guides')).json();
+    renderGuideSidebar();
+  }catch(e){console.error('loadGuides',e)}
+}
+
+function renderGuideSidebar(){
+  const el=document.getElementById('learnCatList');
+  if(!allGuides.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text2);font-size:.8rem">暂无学习内容<br><br>在新闻动态里点击<br>「📚 加入学习」<br>生成学习指南</div>';return}
+  // Group by category
+  const cats={};
+  allGuides.forEach(g=>{const c=g.category||'未分类';if(!cats[c])cats[c]=[];cats[c].push(g)});
+  let html='';
+  for(const[cat,items]of Object.entries(cats).sort()){
+    html+=`<div class="learn-cat"><div class="learn-cat-title">${items[0]?.icon||'📁'} ${esc(cat)} <span class="count">(${items.length})</span></div>`;
+    items.forEach(g=>{
+      html+=`<div class="learn-cat-item ${g.id===activeGuideId?'active':''}" onclick="openGuide('${g.id}')">${esc(g.title)}</div>`;
+    });
+    html+='</div>';
+  }
+  el.innerHTML=html;
+}
+
+async function openGuide(id){
+  activeGuideId=id;
+  renderGuideSidebar();
+  const el=document.getElementById('learnContent');
+  el.innerHTML='<div class="news-empty">🔄 加载中...</div>';
+  try{
+    const g=await(await fetch(API+'/ai-news/guides/'+encodeURIComponent(id))).json();
+    if(g.error){el.innerHTML='<div class="news-empty">❌ 未找到</div>';return}
+    const tagsHtml=(g.tags||[]).map(t=>'<span class="ltag">'+esc(t)+'</span>').join('');
+    el.innerHTML=`<h1>${esc(g.title)}</h1>
+      <div class="learn-meta">${g.icon||''} ${esc(g.category||'')} ${tagsHtml} <span>${g.updatedAt?new Date(g.updatedAt).toLocaleDateString('zh-CN'):''}</span>
+        <button class="learn-delete-btn" onclick="deleteGuide('${g.id}')">🗑 删除</button>
+      </div>
+      <div class="learn-body" id="learnBody">${renderMarkdown(g.content||'')}</div>`;
+    // Render mermaid diagrams
+    setTimeout(()=>{try{mermaid.init(undefined,document.querySelectorAll('#learnBody .mermaid'))}catch(e){console.warn('mermaid',e)}},100);
+  }catch(e){el.innerHTML='<div class="news-empty">❌ 加载失败</div>'}
+}
+
+async function deleteGuide(id){
+  if(!confirm('确定删除这篇学习指南？'))return;
+  await fetch(API+'/ai-news/guides/'+encodeURIComponent(id),{method:'DELETE'});
+  allGuides=allGuides.filter(g=>g.id!==id);
+  if(activeGuideId===id)activeGuideId=null;
+  renderGuideSidebar();
+  document.getElementById('learnContent').innerHTML='<div class="learn-empty"><div class="big-icon">📚</div><p>选择左侧条目开始学习</p></div>';
+}
+
+function renderMarkdown(md){
+  // Simple markdown→HTML with mermaid support
+  let html=md;
+  // Code blocks with mermaid
+  html=html.replace(/```mermaid\n([\s\S]*?)```/g,'<div class="mermaid">$1</div>');
+  // Code blocks
+  html=html.replace(/```(\w*)\n([\s\S]*?)```/g,(m,lang,code)=>'<pre><code class="language-'+lang+'">'+esc(code)+'</code></pre>');
+  // Inline code
+  html=html.replace(/`([^`]+)`/g,'<code>$1</code>');
+  // Headers
+  html=html.replace(/^### (.+)$/gm,'<h3>$1</h3>');
+  html=html.replace(/^## (.+)$/gm,'<h2>$1</h2>');
+  html=html.replace(/^# (.+)$/gm,'<h1>$1</h1>');
+  // Bold & italic
+  html=html.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  html=html.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  // Blockquotes
+  html=html.replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>');
+  // Tables
+  html=html.replace(/\n((?:\|.+\|\n)+)/g,(m,table)=>{
+    const rows=table.trim().split('\n').filter(r=>!/^\|[\s-:|]+\|$/.test(r));
+    if(!rows.length)return m;
+    let t='<table>';
+    rows.forEach((r,i)=>{
+      const cells=r.split('|').filter(c=>c.trim()!=='');
+      const tag=i===0?'th':'td';
+      t+='<tr>'+cells.map(c=>`<${tag}>${c.trim()}</${tag}>`).join('')+'</tr>';
+    });
+    return t+'</table>';
+  });
+  // Unordered lists
+  html=html.replace(/^- (.+)$/gm,'<li>$1</li>');
+  html=html.replace(/((?:<li>.*<\/li>\n?)+)/g,'<ul>$1</ul>');
+  // Paragraphs (double newlines)
+  html=html.replace(/\n\n/g,'</p><p>');
+  html='<p>'+html+'</p>';
+  html=html.replace(/<p><(h[123]|ul|ol|pre|div|table|blockquote)/g,'<$1');
+  html=html.replace(/<\/(h[123]|ul|ol|pre|div|table|blockquote)><\/p>/g,'</$1>');
+  html=html.replace(/<p><\/p>/g,'');
+  // Links
+  html=html.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank">$1</a>');
+  return html;
+}
+
+async function addToLearn(articleId){
+  const article=allNews.find(a=>a.id===articleId);
+  if(!article){alert('找不到文章');return}
+  const btn=event.target;
+  btn.disabled=true;btn.textContent='⏳ 生成中...';
+  try{
+    // Ask AI to generate a learning guide
+    const prompt=`请为以下AI技术主题生成一篇详细的学习指南，要求：
+1. 用中文写
+2. 包含概述、核心原理、架构图(用mermaid语法)、关键概念详解、实际应用场景、动手实践步骤、与其他技术的对比
+3. 内容要深入但易懂，适合有编程基础的人
+4. 用markdown格式，图表用\`\`\`mermaid代码块
+5. 返回JSON格式: {"title":"标题","category":"分类(如Agent框架/大模型/工具链/基础设施)","icon":"emoji","summary":"一句话摘要","tags":["标签"],"content":"完整markdown内容"}
+
+主题: ${article.title}
+摘要: ${article.summary||''}
+${article.url?'链接: '+article.url:''}
+
+只返回JSON，不要其他内容。`;
+
+    const resp=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:prompt,stream:false})});
+    const data=await resp.json();
+    // Extract text from response
+    let text='';
+    if(data.output){for(const item of data.output){if(item.type==='message'&&item.content){for(const c of item.content){if(c.type==='output_text')text+=c.text}}}}
+    if(!text)text=data.choices?.[0]?.message?.content||'';
+    // Parse JSON from response
+    const jsonMatch=text.match(/\{[\s\S]*\}/);
+    if(!jsonMatch)throw new Error('AI未返回有效JSON');
+    const guide=JSON.parse(jsonMatch[0]);
+    guide.sourceArticleId=articleId;
+    // Save to API
+    await fetch(API+'/ai-news/guides',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(guide)});
+    btn.textContent='✅ 已加入';
+    btn.style.color='var(--green)';
+    // Auto switch to learn tab
+    setTimeout(()=>{switchAiTab('learn')},800);
+  }catch(e){
+    console.error('addToLearn',e);
+    btn.disabled=false;btn.textContent='📚 加入学习';
+    alert('生成失败: '+e.message);
+  }
+}
+
+// Init mermaid
+try{mermaid.initialize({startOnLoad:false,theme:document.documentElement.dataset.theme==='dark'?'dark':'default',securityLevel:'loose'})}catch{}
 
 // ─── Fitness (same as before) ───
 
