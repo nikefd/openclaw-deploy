@@ -1,4 +1,4 @@
-"""每日主流程 v2 — 多策略选股+动态仓位+风控"""
+"""每日主流程 v3 — 多策略选股+板块路由+动态仓位+追踪止损+绩效追踪"""
 
 import json
 import sys
@@ -11,6 +11,10 @@ from trading_engine import (
     save_daily_snapshot, init_db
 )
 from data_collector import get_stock_daily, get_realtime_quotes, get_market_sentiment
+from performance_tracker import (
+    record_recommendation, update_recommendation_outcomes,
+    get_performance_summary, classify_sector, init_tracker_tables
+)
 from config import *
 
 
@@ -24,7 +28,7 @@ def is_trading_day() -> bool:
 
 
 def update_positions_price():
-    """更新所有持仓的最新价格"""
+    """更新所有持仓的最新价格 + 追踪最高价(用于追踪止损)"""
     import sqlite3
     positions = get_positions()
     if not positions:
@@ -35,12 +39,22 @@ def update_positions_price():
 
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
+
+    # 确保peak_price列存在
+    try:
+        c.execute("ALTER TABLE positions ADD COLUMN peak_price REAL DEFAULT 0")
+    except:
+        pass  # 列已存在
+
     for pos in positions:
         symbol = pos['symbol']
         if symbol in quotes and quotes[symbol]['price'] > 0:
             price = quotes[symbol]['price']
-            c.execute("UPDATE positions SET current_price=?, updated_at=? WHERE symbol=?",
-                      (price, datetime.now().isoformat(), symbol))
+            # 更新peak_price — 取当前价和历史最高中的较大值
+            old_peak = pos.get('peak_price', 0) or pos.get('avg_cost', 0)
+            new_peak = max(old_peak, price)
+            c.execute("UPDATE positions SET current_price=?, peak_price=?, updated_at=? WHERE symbol=?",
+                      (price, new_peak, datetime.now().isoformat(), symbol))
     conn.commit()
     conn.close()
 
@@ -70,7 +84,7 @@ def execute_sells(sentiment_score: float) -> list:
 
 
 def execute_buys(picks: list, sentiment: dict) -> list:
-    """执行买入"""
+    """执行买入（含板块路由+绩效记录）"""
     results = []
     account = get_account()
     positions = get_positions()
@@ -101,12 +115,16 @@ def execute_buys(picks: list, sentiment: dict) -> list:
             print(f"  ⏭️ 跳过{pick.get('name','')}({symbol}) — 涨跌停无法交易")
             continue
 
-        # 动态仓位
+        # 板块分类
+        sector = classify_sector(symbol, pick.get('name', ''))
+
+        # 动态仓位（含板块调节）
         position_pct = calculate_position_size(
             confidence, 
             sentiment.get('sentiment_score', 50),
             current_count, 
-            available_cash
+            available_cash,
+            sector=sector
         )
         buy_amount = available_cash * position_pct
         shares = int(buy_amount / price / 100) * 100
@@ -125,6 +143,7 @@ def execute_buys(picks: list, sentiment: dict) -> list:
             "shares": shares,
             "price": price,
             "confidence": confidence,
+            "sector": sector,
             "status": status,
             "result": r
         })
@@ -133,7 +152,18 @@ def execute_buys(picks: list, sentiment: dict) -> list:
             available_cash -= r.get('cost', 0)
             current_count += 1
             held_symbols.add(symbol)
-            print(f"  🛒 买入 {pick.get('name','')}({symbol}) {shares}股 @{price} 信心:{confidence}")
+            print(f"  🛒 买入 {pick.get('name','')}({symbol}) {shares}股 @{price} 信心:{confidence} 板块:{sector}")
+
+            # 记录推荐 — 用于后续绩效追踪
+            record_recommendation(
+                symbol=symbol,
+                name=pick.get('name', ''),
+                price=price,
+                confidence=confidence,
+                signals=pick.get('signals', [pick.get('reason', '')]),
+                strategy='multi_strategy',
+                sector=sector
+            )
 
     return results
 
@@ -260,7 +290,25 @@ def generate_daily_report(market_analysis: dict, sell_results: list, buy_results
 - 动量信号: {pick_stats.get('momentum_count', 0)}只 | 资金信号: {pick_stats.get('money_flow_count', 0)}只
 - 强势股: {pick_stats.get('strong_count', 0)}只 | 机构推荐: {pick_stats.get('institution_count', 0)}只
 - 最终候选: {pick_stats.get('final_count', 0)}只
+"""
 
+    # 绩效追踪摘要
+    try:
+        perf = get_performance_summary()
+        if perf['total_recommendations'] > 0:
+            report += f"""
+📊 **历史推荐绩效** (共{perf['total_recommendations']}次推荐)
+- 命中率: {perf['hit_rate']}% (赢{perf['wins']}次 / 亏{perf['losses']}次 / 平{perf['neutrals']}次)
+- 平均最大收益: {perf['avg_max_gain']:+.1f}% | 平均最大亏损: {perf['avg_max_loss']:.1f}%
+"""
+            if perf['by_sector']:
+                report += "- 板块: "
+                report += " | ".join([f"{s['sector']}命中{s['hit_rate']}%" for s in perf['by_sector']])
+                report += "\n"
+    except:
+        pass
+
+    report += """
 ⚠️ *以上为AI模拟盘分析，不构成投资建议*"""
     return report
 
@@ -269,13 +317,25 @@ def run_daily():
     """每日主流程"""
     print(f"[{datetime.now()}] 🚀 开始每日分析...")
 
-    # 0. 交易日检查
+    # 0. 初始化
+    init_tracker_tables()
+
+    # 0.1 交易日检查
     if not is_trading_day():
         msg = f"[{datetime.now()}] 📅 今天不是交易日(周末)，跳过分析。"
         print(msg)
         return msg
 
-    # 1. 更新持仓价格
+    # 0.2 更新历史推荐表现（绩效追踪）
+    print("📈 更新历史推荐绩效...")
+    try:
+        updated = update_recommendation_outcomes()
+        if updated > 0:
+            print(f"  ✅ 更新了{updated}条历史推荐表现")
+    except Exception as e:
+        print(f"  ⚠️ 绩效更新失败: {e}")
+
+    # 1. 更新持仓价格（含追踪最高价）
     print("📊 更新持仓价格...")
     update_positions_price()
 

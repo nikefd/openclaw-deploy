@@ -234,6 +234,13 @@ const server = http.createServer((req, res) => {
         return sendJson(res, { results: rows });
       } catch(e) { return sendJson(res, { results: [] }); }
     }
+    if (pathname === '/api/finance/performance' && req.method === 'GET') {
+      try {
+        const py = `import json,sys; sys.path.insert(0,'/home/nikefd/finance-agent'); from performance_tracker import get_performance_summary, update_recommendation_outcomes; update_recommendation_outcomes(); print(json.dumps(get_performance_summary(), ensure_ascii=False, default=str))`;
+        const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 30000 }).toString().trim();
+        return sendJson(res, JSON.parse(out));
+      } catch(e) { return sendJson(res, { total_recommendations: 0, error: e.message }); }
+    }
     if (pathname === '/api/finance/backtest/run' && req.method === 'POST') {
       log('Triggering backtest...');
       exec('cd /home/nikefd/finance-agent && python3 -u backtester.py >> /tmp/finance-backtest.log 2>&1', { timeout: 600000 }, (err) => {

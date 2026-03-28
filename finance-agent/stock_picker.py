@@ -10,6 +10,8 @@ from data_collector import (
     get_hot_stocks, get_stock_research_reports, get_stock_news,
     get_market_indices, get_sector_fund_flow, calculate_technical_indicators
 )
+from performance_tracker import classify_sector, record_recommendation
+from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier
 
 
 def get_momentum_candidates() -> list:
@@ -158,7 +160,7 @@ def get_institution_candidates() -> list:
 
 
 def score_and_rank(all_candidates: list) -> list:
-    """综合打分+技术面验证+排名"""
+    """综合打分+技术面验证+板块策略路由+排名"""
     # 合并同一股票的信号
     merged = {}
     for c in all_candidates:
@@ -179,19 +181,24 @@ def score_and_rank(all_candidates: list) -> list:
     # 排序取top
     ranked = sorted(merged.values(), key=lambda x: -x['score'])[:15]
 
-    # 加技术面验证
+    # 加技术面验证 + 板块策略路由
     print(f"  📊 验证{len(ranked)}只候选股技术面...")
     for i, stock in enumerate(ranked):
         try:
+            # 板块分类
+            sector = classify_sector(stock['code'], stock.get('name', ''))
+            stock['sector'] = sector
+            weights = SECTOR_STRATEGY_WEIGHTS.get(sector, {})
+
             df = get_stock_daily(stock['code'], 60)
             if df is not None and not df.empty:
                 tech = calculate_technical_indicators(df)
                 stock['technical'] = tech
 
-                # 技术面加减分
+                # 技术面加减分 — 按板块策略权重调节
                 trend = tech.get('trend', '')
                 if '多头' in trend or '强势' in trend:
-                    stock['score'] += 10
+                    stock['score'] += int(10 * weights.get('trend_follow', 1.0))
                 elif '空头' in trend or '弱势' in trend:
                     stock['score'] -= 10
 
@@ -202,10 +209,11 @@ def score_and_rank(all_candidates: list) -> list:
                     stock['score'] -= 8
 
                 macd_sig = tech.get('macd_signal', '')
+                macd_weight = weights.get('macd_rsi', 1.0)
                 if macd_sig == 'golden_cross':
-                    stock['score'] += 12  # MACD金叉重大加分
+                    stock['score'] += int(12 * macd_weight)  # MACD金叉按板块加权
                 elif macd_sig == 'bullish':
-                    stock['score'] += 5
+                    stock['score'] += int(5 * macd_weight)
                 elif macd_sig == 'death_cross':
                     stock['score'] -= 12
 
@@ -218,13 +226,16 @@ def score_and_rank(all_candidates: list) -> list:
                 # KDJ信号加减分
                 kdj_sig = tech.get('kdj_signal', '')
                 if kdj_sig == 'golden_cross':
-                    stock['score'] += 8  # KDJ金叉
+                    stock['score'] += 8
                 elif kdj_sig == 'oversold':
-                    stock['score'] += 5  # 超卖反弹机会
+                    stock['score'] += 5
                 elif kdj_sig == 'death_cross':
                     stock['score'] -= 8
                 elif kdj_sig == 'overbought':
                     stock['score'] -= 5
+
+                # 板块整体乘数（回测验证好的板块加成）
+                stock['score'] = int(stock['score'] * get_sector_score_multiplier(sector))
 
             time.sleep(0.3)
         except Exception as e:

@@ -1,14 +1,43 @@
-"""仓位管理器 — 动态仓位+风控+止盈止损优化"""
+"""仓位管理器 — 动态仓位+风控+止盈止损+追踪止损+板块策略路由"""
 
 from datetime import datetime, date
 from config import *
 
 
+# 板块策略权重 — 来自回测数据验证
+# MACD+RSI在科技+新能源最强，TREND_FOLLOW在消费白马最稳
+SECTOR_STRATEGY_WEIGHTS = {
+    '科技成长': {'macd_rsi': 1.5, 'multi_factor': 1.2, 'trend_follow': 0.8, 'ma_cross': 1.0},
+    '新能源':   {'macd_rsi': 1.4, 'multi_factor': 1.2, 'trend_follow': 1.1, 'ma_cross': 0.9},
+    '消费白马': {'macd_rsi': 0.5, 'multi_factor': 0.8, 'trend_follow': 1.5, 'ma_cross': 1.2},
+    '主板':     {'macd_rsi': 1.0, 'multi_factor': 1.1, 'trend_follow': 1.0, 'ma_cross': 1.0},
+    '其他':     {'macd_rsi': 1.0, 'multi_factor': 1.0, 'trend_follow': 1.0, 'ma_cross': 1.0},
+}
+
+
+def get_sector_score_multiplier(sector: str) -> float:
+    """根据板块返回评分乘数 — 回测表现好的板块给更高权重"""
+    # 科技和新能源回测收益最高，给予加成
+    sector_bonus = {
+        '科技成长': 1.15,
+        '新能源': 1.10,
+        '消费白马': 0.85,  # 消费白马不适合短线技术策略
+        '主板': 1.0,
+        '其他': 0.95,
+    }
+    return sector_bonus.get(sector, 1.0)
+
+
 def calculate_position_size(confidence: int, sentiment_score: float, 
-                            current_positions: int, available_cash: float) -> float:
-    """动态计算仓位大小"""
+                            current_positions: int, available_cash: float,
+                            sector: str = "") -> float:
+    """动态计算仓位大小（加入板块调节）"""
     # 基础仓位：根据信心评分
     base_pct = {10: 0.15, 9: 0.13, 8: 0.12, 7: 0.10, 6: 0.08}.get(confidence, 0.05)
+    
+    # 板块调节 — 回测验证过的板块给更大仓位
+    if sector:
+        base_pct *= get_sector_score_multiplier(sector)
     
     # 情绪调节：市场过热时减仓，恐慌时加仓（逆向思维）
     if sentiment_score > 90:  # 极度贪婪 → 禁止新开仓
@@ -41,7 +70,7 @@ def calculate_position_size(confidence: int, sentiment_score: float,
 
 
 def check_dynamic_stop(positions: list, sentiment_score: float) -> list:
-    """动态止损止盈 — 根据市场情绪和个股走势调整"""
+    """动态止损止盈 — 追踪止损+情绪调节+阶梯止盈"""
     actions = []
     for pos in positions:
         if not pos.get('current_price') or not pos.get('avg_cost'):
@@ -54,7 +83,27 @@ def check_dynamic_stop(positions: list, sentiment_score: float) -> list:
         if buy_date == date.today().isoformat():
             continue
         
-        # 动态止损
+        # === 追踪止损 (Trailing Stop) ===
+        # 当盈利超过10%后，启用追踪止损：从最高点回撤5%即卖出
+        # 这能锁住大部分利润，避免"坐过山车"
+        peak_price = pos.get('peak_price', pos['avg_cost'])
+        if pos['current_price'] > peak_price:
+            peak_price = pos['current_price']
+        
+        if peak_price > pos['avg_cost'] * 1.10:  # 曾经盈利超10%
+            trail_drawdown = (peak_price - pos['current_price']) / peak_price
+            if trail_drawdown >= 0.05:  # 从高点回撤5%
+                actions.append({
+                    "action": "SELL",
+                    "symbol": pos['symbol'],
+                    "name": pos['name'],
+                    "reason": f"追踪止损: 高点{peak_price:.2f}回撤{trail_drawdown*100:.1f}%",
+                    "shares": pos['shares'],
+                    "price": pos['current_price']
+                })
+                continue
+        
+        # === 动态止损（情绪调节）===
         stop_loss = STOP_LOSS  # 默认-8%
         if sentiment_score < 35:  # 市场恐慌时收紧止损
             stop_loss = -0.05
@@ -72,7 +121,7 @@ def check_dynamic_stop(positions: list, sentiment_score: float) -> list:
             })
             continue
         
-        # 阶梯止盈
+        # === 阶梯止盈 ===
         if pnl_pct >= 0.30:  # 赚30%+，止盈全部
             actions.append({
                 "action": "SELL",
