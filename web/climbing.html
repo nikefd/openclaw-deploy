@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧗 攀岩教练</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
+  --text: #f1f5f9; --text2: #94a3b8; --accent: #38bdf8;
+  --accent2: #818cf8; --green: #4ade80; --orange: #fb923c;
+  --red: #f87171; --border: #475569;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+.header { padding: 16px 24px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+.header h1 { font-size: 20px; font-weight: 600; }
+.header .subtitle { color: var(--text2); font-size: 13px; }
+.chat-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.msg { max-width: 85%; padding: 12px 16px; border-radius: 16px; line-height: 1.6; font-size: 14px; animation: fadeIn 0.3s; }
+.msg.user { align-self: flex-end; background: var(--accent); color: #0f172a; border-bottom-right-radius: 4px; }
+.msg.assistant { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.msg.assistant p { margin-bottom: 8px; }
+.msg.assistant p:last-child { margin-bottom: 0; }
+.msg.assistant ul, .msg.assistant ol { margin: 8px 0 8px 20px; }
+.msg.assistant strong { color: var(--accent); }
+.msg.assistant code { background: var(--surface2); padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+.chart-container { background: var(--surface2); border-radius: 12px; padding: 16px; margin: 12px 0; max-width: 100%; }
+.chart-container canvas { max-height: 300px; }
+.input-area { padding: 16px 24px; background: var(--surface); border-top: 1px solid var(--border); display: flex; gap: 12px; }
+.input-area input { flex: 1; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font-size: 14px; outline: none; }
+.input-area input:focus { border-color: var(--accent); }
+.input-area button { padding: 12px 24px; border-radius: 12px; border: none; background: var(--accent); color: #0f172a; font-weight: 600; cursor: pointer; font-size: 14px; }
+.input-area button:disabled { opacity: 0.5; cursor: not-allowed; }
+.input-area button:hover:not(:disabled) { background: #7dd3fc; }
+.typing { display: flex; gap: 4px; padding: 8px 0; }
+.typing span { width: 8px; height: 8px; background: var(--text2); border-radius: 50%; animation: bounce 1.4s infinite; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+.quick-actions { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 24px 12px; }
+.quick-btn { padding: 8px 14px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text2); font-size: 12px; cursor: pointer; transition: all 0.2s; }
+.quick-btn:hover { border-color: var(--accent); color: var(--accent); }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-8px); } }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>🧗 攀岩教练</h1>
+    <div class="subtitle">基于你的训练数据，提供个性化分析和建议</div>
+  </div>
+</div>
+
+<div class="chat-area" id="chatArea"></div>
+
+<div class="quick-actions">
+  <button class="quick-btn" onclick="sendMsg('分析我最近的进步趋势')">📈 进步趋势</button>
+  <button class="quick-btn" onclick="sendMsg('我的难度分布是什么样的？')">📊 难度分布</button>
+  <button class="quick-btn" onclick="sendMsg('给我一个训练计划建议')">📋 训练计划</button>
+  <button class="quick-btn" onclick="sendMsg('分析我的完成率和尝试次数')">🎯 完成率分析</button>
+  <button class="quick-btn" onclick="sendMsg('我现在的瓶颈在哪里？')">🔍 瓶颈分析</button>
+  <button class="quick-btn" onclick="sendMsg('对比我1月和3月的表现')">⚡ 月度对比</button>
+</div>
+
+<div class="input-area">
+  <input type="text" id="input" placeholder="问教练任何攀岩相关的问题..." onkeydown="if(event.key==='Enter')sendMsg()">
+  <button id="sendBtn" onclick="sendMsg()">发送</button>
+</div>
+
+<script>
+const CLIMBING_DATA = null; // will be loaded
+let climbingData = null;
+let chatHistory = [];
+let chartCounter = 0;
+
+async function loadData() {
+  try {
+    const r = await fetch('/api/files/read?path=/home/nikefd/climbing-agent/data.json');
+    climbingData = await r.json();
+  } catch(e) {
+    console.error('Failed to load climbing data', e);
+  }
+}
+
+function getToken() {
+  const c = document.cookie.split(';').find(c => c.trim().startsWith('auth_token='));
+  return c ? c.split('=')[1] : localStorage.getItem('auth_token') || '';
+}
+
+function addMsg(role, content) {
+  const area = document.getElementById('chatArea');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  if (role === 'assistant') {
+    // Parse for chart directives and markdown
+    const { html, charts } = parseContent(content);
+    div.innerHTML = html;
+    area.appendChild(div);
+    // Render charts after DOM insertion
+    charts.forEach(c => renderChart(c.id, c.config));
+  } else {
+    div.textContent = content;
+    area.appendChild(div);
+  }
+  area.scrollTop = area.scrollHeight;
+}
+
+function parseContent(text) {
+  const charts = [];
+  // Extract ```chart ... ``` blocks
+  const processed = text.replace(/```chart\n([\s\S]*?)```/g, (match, json) => {
+    try {
+      const config = JSON.parse(json);
+      const id = 'chart-' + (++chartCounter);
+      charts.push({ id, config });
+      return `<div class="chart-container"><canvas id="${id}"></canvas></div>`;
+    } catch(e) {
+      return '<p><em>[图表渲染失败]</em></p>';
+    }
+  });
+  return { html: marked.parse(processed), charts };
+}
+
+function renderChart(id, config) {
+  setTimeout(() => {
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    // Apply dark theme defaults
+    config.options = config.options || {};
+    config.options.plugins = config.options.plugins || {};
+    config.options.plugins.legend = config.options.plugins.legend || {};
+    config.options.plugins.legend.labels = { color: '#f1f5f9' };
+    config.options.scales = config.options.scales || {};
+    Object.values(config.options.scales).forEach(s => {
+      s.ticks = s.ticks || {}; s.ticks.color = '#94a3b8';
+      s.grid = s.grid || {}; s.grid.color = '#334155';
+    });
+    new Chart(canvas, config);
+  }, 50);
+}
+
+function showTyping() {
+  const area = document.getElementById('chatArea');
+  const div = document.createElement('div');
+  div.className = 'msg assistant';
+  div.id = 'typing';
+  div.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typing');
+  if (el) el.remove();
+}
+
+function buildSystemPrompt() {
+  return `你是一位专业的攀岩教练AI。用户的攀岩训练数据如下：
+
+${JSON.stringify(climbingData, null, 2)}
+
+## 你的角色
+- 你是一位经验丰富、热情友好的攀岩教练
+- 基于用户的真实训练数据提供分析和建议
+- 说话风格：专业但不死板，偶尔幽默，像真正的教练
+
+## 图表生成规则
+当需要展示数据可视化时，使用以下格式生成Chart.js图表：
+
+\`\`\`chart
+{
+  "type": "bar/line/doughnut/radar",
+  "data": { ... Chart.js data config ... },
+  "options": { ... Chart.js options ... }
+}
+\`\`\`
+
+颜色方案：使用 #38bdf8(蓝), #4ade80(绿), #fb923c(橙), #f87171(红), #818cf8(紫), #fbbf24(黄)
+
+## 数据说明
+- grade: YDS难度等级 (5.6 < 5.7 < 5.8 < 5.9 < 5.10a < 5.10b < 5.10c < 5.10d < 5.11a ...)
+- sendType: flash(首次看就完成) > redpoint(练习后完成) > project(还在攻克中) > fail(失败)
+- attempts: 尝试次数
+- discipline: top_rope(顶绳) / lead(先锋) / boulder(抱石)
+- 数据跨度约2个月(1月下旬到3月中旬)
+
+## 重要
+- 每次回答尽量包含至少一个图表，让分析更直观
+- 用中文回答
+- 给出具体、可执行的建议，不要说空话`;
+}
+
+async function sendMsg(text) {
+  const input = document.getElementById('input');
+  const msg = text || input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  addMsg('user', msg);
+  chatHistory.push({ role: 'user', content: msg });
+
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  showTyping();
+
+  try {
+    const token = getToken();
+    const body = {
+      model: 'github-copilot/claude-sonnet-4',
+      messages: [
+        { role: 'system', content: buildSystemPrompt() },
+        ...chatHistory
+      ],
+      max_tokens: 4096
+    };
+
+    const resp = await fetch('/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(body)
+    });
+
+    const data = await resp.json();
+    const reply = data.choices?.[0]?.message?.content || '抱歉，出了点问题...';
+    chatHistory.push({ role: 'assistant', content: reply });
+
+    removeTyping();
+    addMsg('assistant', reply);
+  } catch(e) {
+    removeTyping();
+    addMsg('assistant', '网络错误，请稍后再试 😅');
+    console.error(e);
+  }
+  btn.disabled = false;
+  input.focus();
+}
+
+// Init
+loadData().then(() => {
+  addMsg('assistant', `Hey！我是你的攀岩教练 🧗‍♂️
+
+我已经看了你最近 **14次训练** 的数据（1月21日 ~ 3月13日），都在**问山攀岩**。
+
+一些初步观察：
+- 你主要爬 **顶绳(Top Rope)**，偶尔尝试先锋
+- 稳定完成 **5.7-5.8**，正在攻克 **5.10a-5.10b**
+- 训练频率不错，基本每周2-3次
+
+点下面的快捷按钮，或者随便问我什么都行！`);
+});
+</script>
+</body>
+</html>
