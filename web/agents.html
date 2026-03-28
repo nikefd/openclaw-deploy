@@ -84,39 +84,108 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .ai-tab:hover{color:var(--text)}
 .ai-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
 
-/* Learning Center */
-.learn-layout{display:grid;grid-template-columns:260px 1fr;gap:20px;min-height:60vh}
-@media(max-width:768px){.learn-layout{grid-template-columns:1fr;min-height:auto}}
-.learn-sidebar{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-y:auto;max-height:80vh}
+/* Learning Center — Full Width */
+#panel-ai-news.active.learn-mode{max-width:100%;padding:10px 24px}
+.learn-layout{display:grid;grid-template-columns:240px 1fr;gap:0;min-height:calc(100vh - 160px)}
+@media(max-width:900px){.learn-layout{grid-template-columns:1fr;min-height:auto}}
+.learn-sidebar{background:var(--card);border-right:1px solid var(--border);padding:16px;overflow-y:auto;height:calc(100vh - 160px);position:sticky;top:80px}
 .learn-sidebar h3{font-size:.85rem;margin-bottom:12px;color:var(--text2)}
-.learn-cat{margin-bottom:12px}
+.learn-cat{margin-bottom:8px}
 .learn-cat-title{font-size:.78rem;font-weight:600;color:var(--text2);padding:6px 8px;display:flex;align-items:center;gap:6px;cursor:pointer;border-radius:6px}
 .learn-cat-title:hover{background:var(--hover)}
-.learn-cat-item{padding:8px 12px 8px 28px;font-size:.8rem;cursor:pointer;border-radius:8px;transition:all .15s;line-height:1.4;display:flex;align-items:center;gap:6px}
+.learn-cat-item{padding:8px 12px 8px 24px;font-size:.8rem;cursor:pointer;border-radius:8px;transition:all .15s;line-height:1.4}
 .learn-cat-item:hover{background:var(--hover)}
 .learn-cat-item.active{background:var(--accent-bg);color:var(--accent);font-weight:500}
-.learn-content{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px 28px;overflow-y:auto;max-height:80vh}
-.learn-content h1{font-size:1.3rem;margin-bottom:6px}
-.learn-content .learn-meta{font-size:.75rem;color:var(--text2);margin-bottom:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.learn-content .learn-meta .ltag{padding:2px 8px;border-radius:6px;background:var(--accent-bg);color:var(--accent);font-size:.7rem}
-.learn-content .learn-body{font-size:.88rem;line-height:1.8;color:var(--text)}
-.learn-body h2{font-size:1.1rem;margin:24px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--border)}
-.learn-body h3{font-size:.95rem;margin:18px 0 8px}
-.learn-body p{margin-bottom:12px}
-.learn-body ul,.learn-body ol{margin:8px 0 12px 20px}
-.learn-body li{margin-bottom:6px}
-.learn-body code{background:var(--accent-bg);padding:2px 6px;border-radius:4px;font-size:.82rem;font-family:'SF Mono',Monaco,Consolas,monospace}
-.learn-body pre{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;overflow-x:auto;margin:12px 0;font-size:.8rem;line-height:1.5}
+.learn-content{padding:32px 48px;overflow-y:auto;height:calc(100vh - 160px)}
+@media(max-width:900px){.learn-content{padding:16px}}
+
+/* Guide Hero */
+.guide-hero{margin-bottom:32px;padding:32px 40px;background:linear-gradient(135deg,var(--accent-bg),rgba(46,196,182,.08));border-radius:16px;border:1px solid var(--border)}
+.guide-hero h1{font-size:1.8rem;margin-bottom:8px;line-height:1.3}
+.guide-hero .hero-summary{font-size:1rem;color:var(--text2);margin-bottom:16px;line-height:1.6}
+.guide-hero .hero-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.guide-hero .ltag{padding:3px 10px;border-radius:8px;background:var(--accent-bg);color:var(--accent);font-size:.75rem;font-weight:500}
+.guide-hero .hero-date{font-size:.75rem;color:var(--text2)}
+
+/* Content Sections */
+.learn-body{font-size:.92rem;line-height:1.8;color:var(--text);max-width:900px}
+.learn-body h2{font-size:1.2rem;margin:36px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--border);display:flex;align-items:center;gap:8px}
+.learn-body h3{font-size:1rem;margin:24px 0 10px;font-weight:600}
+.learn-body p{margin-bottom:14px}
+.learn-body ul,.learn-body ol{margin:8px 0 14px 20px}
+.learn-body li{margin-bottom:8px;line-height:1.7}
+.learn-body code{background:var(--accent-bg);padding:2px 6px;border-radius:4px;font-size:.84rem;font-family:'SF Mono',Monaco,Consolas,monospace}
+.learn-body pre{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:18px;overflow-x:auto;margin:16px 0;font-size:.82rem;line-height:1.6;position:relative}
 .learn-body pre code{background:none;padding:0}
-.learn-body blockquote{border-left:3px solid var(--accent);padding:8px 14px;margin:12px 0;background:var(--accent-bg);border-radius:0 8px 8px 0;font-size:.84rem}
-.learn-body .mermaid{margin:16px 0;text-align:center}
-.learn-body table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.82rem}
-.learn-body th,.learn-body td{padding:8px 12px;border:1px solid var(--border);text-align:left}
-.learn-body th{background:var(--hover);font-weight:600}
-.learn-empty{text-align:center;padding:60px 20px;color:var(--text2)}
-.learn-empty .big-icon{font-size:3rem;margin-bottom:12px}
-.learn-delete-btn{background:none;border:1px solid var(--red);color:var(--red);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:.72rem;transition:all .15s}
-.learn-delete-btn:hover{background:var(--red);color:#fff}
+.learn-body blockquote{border-left:4px solid var(--accent);padding:12px 18px;margin:16px 0;background:var(--accent-bg);border-radius:0 12px 12px 0;font-size:.88rem}
+.learn-body .mermaid{margin:24px 0;text-align:center;padding:20px;background:var(--card);border:1px solid var(--border);border-radius:12px}
+.learn-body table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.84rem;border-radius:12px;overflow:hidden}
+.learn-body th,.learn-body td{padding:10px 14px;border:1px solid var(--border);text-align:left}
+.learn-body th{background:var(--accent-bg);font-weight:600;color:var(--accent)}
+
+/* Info Cards — key concepts, callouts */
+.info-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin:20px 0}
+.info-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;transition:transform .15s,box-shadow .15s}
+.info-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.06)}
+.info-card .ic-icon{font-size:1.6rem;margin-bottom:8px}
+.info-card h4{font-size:.9rem;margin-bottom:6px}
+.info-card p{font-size:.8rem;color:var(--text2);line-height:1.6;margin:0}
+
+/* Comparison Table */
+.compare-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin:20px 0}
+.compare-col{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center}
+.compare-col.highlight{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.compare-col h4{font-size:.85rem;margin-bottom:10px;color:var(--accent)}
+.compare-col ul{list-style:none;padding:0;text-align:left;font-size:.78rem}
+.compare-col li{padding:4px 0;border-bottom:1px solid var(--border)}
+.compare-col li:last-child{border-bottom:none}
+
+/* Interactive Demo Box */
+.demo-box{background:var(--bg);border:2px dashed var(--accent);border-radius:14px;padding:24px;margin:20px 0;text-align:center}
+.demo-box h4{font-size:.9rem;margin-bottom:8px;color:var(--accent)}
+.demo-box p{font-size:.8rem;color:var(--text2);margin-bottom:14px}
+.demo-box .demo-area{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;min-height:120px;text-align:left;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.8rem;margin-bottom:12px;position:relative;overflow:hidden}
+.demo-box button{padding:8px 20px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;font-size:.82rem;transition:opacity .15s}
+.demo-box button:hover{opacity:.85}
+
+/* Timeline */
+.timeline{position:relative;margin:20px 0;padding-left:28px}
+.timeline::before{content:'';position:absolute;left:10px;top:0;bottom:0;width:2px;background:var(--border)}
+.timeline-item{position:relative;margin-bottom:20px;padding-left:20px}
+.timeline-item::before{content:'';position:absolute;left:-22px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--accent);border:2px solid var(--card)}
+.timeline-item h4{font-size:.85rem;margin-bottom:4px}
+.timeline-item p{font-size:.8rem;color:var(--text2);line-height:1.6;margin:0}
+
+/* Callout Boxes */
+.callout{border-radius:12px;padding:16px 18px;margin:16px 0;display:flex;gap:12px;align-items:flex-start}
+.callout.tip{background:rgba(46,196,182,.08);border:1px solid rgba(46,196,182,.2)}
+.callout.warning{background:rgba(255,107,53,.08);border:1px solid rgba(255,107,53,.2)}
+.callout.info{background:var(--accent-bg);border:1px solid rgba(67,97,238,.15)}
+.callout .callout-icon{font-size:1.2rem;flex-shrink:0}
+.callout .callout-body{font-size:.84rem;line-height:1.6}
+.callout .callout-body strong{display:block;margin-bottom:4px}
+
+/* Tabs within guide */
+.guide-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin:20px 0 0}
+.guide-tab{padding:8px 16px;font-size:.8rem;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text2);background:none;border-top:none;border-left:none;border-right:none;font-family:inherit;transition:all .15s}
+.guide-tab:hover{color:var(--text)}
+.guide-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.guide-tab-panel{display:none;padding:20px 0}
+.guide-tab-panel.active{display:block}
+
+/* Pros & Cons */
+.pros-cons{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+@media(max-width:600px){.pros-cons{grid-template-columns:1fr}}
+.pros-list,.cons-list{background:var(--card);border-radius:12px;padding:16px;border:1px solid var(--border)}
+.pros-list{border-top:3px solid var(--green)}
+.cons-list{border-top:3px solid var(--red)}
+.pros-list h4,.cons-list h4{font-size:.85rem;margin-bottom:10px}
+.pros-list li,.cons-list li{font-size:.8rem;margin-bottom:6px;line-height:1.5}
+
+.learn-empty{text-align:center;padding:80px 20px;color:var(--text2)}
+.learn-empty .big-icon{font-size:4rem;margin-bottom:16px}
+.learn-delete-btn{background:none;border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:8px;cursor:pointer;font-size:.75rem;transition:all .15s;margin-left:auto}
+.learn-delete-btn:hover{background:var(--red);color:#fff;border-color:var(--red)}
 
 /* Fitness */
 .fitness-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -839,10 +908,13 @@ var allGuides=[];
 var activeGuideId=null;
 
 function switchAiTab(tab){
+  const panel=document.getElementById('panel-ai-news');
   document.querySelectorAll('.ai-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
   document.getElementById('aiTabNews').style.display=tab==='news'?'':'none';
   document.getElementById('aiTabLearn').style.display=tab==='learn'?'':'none';
-  if(tab==='learn')loadGuides();
+  // Full-width mode for learn tab
+  if(tab==='learn'){panel.classList.add('learn-mode');loadGuides()}
+  else{panel.classList.remove('learn-mode')}
 }
 
 async function loadGuides(){
@@ -855,7 +927,6 @@ async function loadGuides(){
 function renderGuideSidebar(){
   const el=document.getElementById('learnCatList');
   if(!allGuides.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text2);font-size:.8rem">暂无学习内容<br><br>在新闻动态里点击<br>「📚 加入学习」<br>生成学习指南</div>';return}
-  // Group by category
   const cats={};
   allGuides.forEach(g=>{const c=g.category||'未分类';if(!cats[c])cats[c]=[];cats[c].push(g)});
   let html='';
@@ -877,15 +948,64 @@ async function openGuide(id){
   try{
     const g=await(await fetch(API+'/ai-news/guides/'+encodeURIComponent(id))).json();
     if(g.error){el.innerHTML='<div class="news-empty">❌ 未找到</div>';return}
+    el.scrollTop=0;
     const tagsHtml=(g.tags||[]).map(t=>'<span class="ltag">'+esc(t)+'</span>').join('');
-    el.innerHTML=`<h1>${esc(g.title)}</h1>
-      <div class="learn-meta">${g.icon||''} ${esc(g.category||'')} ${tagsHtml} <span>${g.updatedAt?new Date(g.updatedAt).toLocaleDateString('zh-CN'):''}</span>
-        <button class="learn-delete-btn" onclick="deleteGuide('${g.id}')">🗑 删除</button>
+    el.innerHTML=`
+      <div class="guide-hero">
+        <h1>${g.icon||''} ${esc(g.title)}</h1>
+        <div class="hero-summary">${esc(g.summary||'')}</div>
+        <div class="hero-meta">
+          ${tagsHtml}
+          <span class="hero-date">${g.updatedAt?new Date(g.updatedAt).toLocaleDateString('zh-CN',''):''}</span>
+          <button class="learn-delete-btn" onclick="deleteGuide('${g.id}')">🗑 删除</button>
+        </div>
       </div>
       <div class="learn-body" id="learnBody">${renderMarkdown(g.content||'')}</div>`;
-    // Render mermaid diagrams
-    setTimeout(()=>{try{mermaid.init(undefined,document.querySelectorAll('#learnBody .mermaid'))}catch(e){console.warn('mermaid',e)}},100);
+    // Render mermaid
+    setTimeout(()=>{
+      try{
+        mermaid.initialize({startOnLoad:false,theme:document.documentElement.dataset.theme==='dark'?'dark':'default',securityLevel:'loose'});
+        mermaid.init(undefined,document.querySelectorAll('#learnBody .mermaid'));
+      }catch(e){console.warn('mermaid',e)}
+    },200);
+    // Activate guide tabs if any
+    el.querySelectorAll('.guide-tabs').forEach(tabs=>{
+      const panels=tabs.nextElementSibling?.parentElement?.querySelectorAll('.guide-tab-panel');
+      tabs.querySelectorAll('.guide-tab').forEach((tab,i)=>{
+        tab.addEventListener('click',()=>{
+          tabs.querySelectorAll('.guide-tab').forEach(t=>t.classList.remove('active'));
+          tab.classList.add('active');
+          if(panels)panels.forEach((p,j)=>p.classList.toggle('active',i===j));
+        });
+      });
+    });
+    // Run any embedded demos
+    el.querySelectorAll('[data-demo]').forEach(setupDemo);
   }catch(e){el.innerHTML='<div class="news-empty">❌ 加载失败</div>'}
+}
+
+function setupDemo(el){
+  const type=el.dataset.demo;
+  if(type==='agent-flow'){
+    // Interactive agent flow demo
+    const area=el.querySelector('.demo-area');
+    const btn=el.querySelector('button[data-run]');
+    if(btn&&area){
+      btn.addEventListener('click',()=>{
+        area.innerHTML='';
+        const steps=['🤔 用户发送请求...','🧠 Agent 解析意图...','🔧 调用工具: web_search()','📄 获取搜索结果...','💬 生成回复...','✅ 完成!'];
+        steps.forEach((s,i)=>{
+          setTimeout(()=>{
+            const line=document.createElement('div');
+            line.style.cssText='padding:4px 0;opacity:0;transition:opacity .3s';
+            line.textContent=s;
+            area.appendChild(line);
+            requestAnimationFrame(()=>line.style.opacity='1');
+          },i*800);
+        });
+      });
+    }
+  }
 }
 
 async function deleteGuide(id){
@@ -898,9 +1018,66 @@ async function deleteGuide(id){
 }
 
 function renderMarkdown(md){
-  // Simple markdown→HTML with mermaid support
   let html=md;
-  // Code blocks with mermaid
+  // Custom blocks: :::info-cards, :::callout, :::pros-cons, :::timeline, :::demo, :::compare
+  html=html.replace(/:::demo\{title="([^"]*)"(?:\s+type="([^"]*)")?\}\n([\s\S]*?):::/g,(m,title,type,body)=>{
+    return `<div class="demo-box" data-demo="${type||'agent-flow'}"><h4>🎮 ${title}</h4><p>${body.trim().split('\n')[0]||''}</p><div class="demo-area"></div><button data-run>▶️ 运行演示</button></div>`;
+  });
+  html=html.replace(/:::callout\{type="([^"]*)"\}\n([\s\S]*?):::/g,(m,type,body)=>{
+    const icons={tip:'💡',warning:'⚠️',info:'ℹ️'};
+    return `<div class="callout ${type}"><span class="callout-icon">${icons[type]||'💡'}</span><div class="callout-body">${body.trim()}</div></div>`;
+  });
+  html=html.replace(/:::info-cards\n([\s\S]*?):::/g,(m,body)=>{
+    const cards=body.trim().split(/\n(?=####\s)/);
+    let out='<div class="info-cards">';
+    cards.forEach(c=>{
+      const iconMatch=c.match(/^####\s*(\S+)\s+(.+)/);
+      if(iconMatch){
+        const rest=c.split('\n').slice(1).join('\n').trim();
+        out+=`<div class="info-card"><div class="ic-icon">${iconMatch[1]}</div><h4>${iconMatch[2]}</h4><p>${rest}</p></div>`;
+      }
+    });
+    return out+'</div>';
+  });
+  html=html.replace(/:::pros-cons\n([\s\S]*?):::/g,(m,body)=>{
+    const parts=body.split(/\n(?=####\s)/);
+    let pros='',cons='';
+    parts.forEach(p=>{
+      if(p.includes('优势')||p.includes('Pros')||p.includes('✅')){
+        const items=p.split('\n').slice(1).filter(l=>l.trim().startsWith('-')).map(l=>'<li>'+l.trim().slice(2)+'</li>').join('');
+        pros=items;
+      }else if(p.includes('劣势')||p.includes('Cons')||p.includes('❌')){
+        const items=p.split('\n').slice(1).filter(l=>l.trim().startsWith('-')).map(l=>'<li>'+l.trim().slice(2)+'</li>').join('');
+        cons=items;
+      }
+    });
+    return `<div class="pros-cons"><div class="pros-list"><h4>✅ 优势</h4><ul>${pros}</ul></div><div class="cons-list"><h4>❌ 劣势</h4><ul>${cons}</ul></div></div>`;
+  });
+  html=html.replace(/:::timeline\n([\s\S]*?):::/g,(m,body)=>{
+    const items=body.trim().split(/\n(?=####\s)/);
+    let out='<div class="timeline">';
+    items.forEach(item=>{
+      const titleMatch=item.match(/^####\s*(.+)/);
+      if(titleMatch){
+        const desc=item.split('\n').slice(1).join(' ').trim();
+        out+=`<div class="timeline-item"><h4>${titleMatch[1]}</h4><p>${desc}</p></div>`;
+      }
+    });
+    return out+'</div>';
+  });
+  html=html.replace(/:::compare\n([\s\S]*?):::/g,(m,body)=>{
+    const cols=body.trim().split(/\n(?=####\s)/);
+    let out='<div class="compare-grid">';
+    cols.forEach(col=>{
+      const titleMatch=col.match(/^####\s*(.+)/);
+      if(titleMatch){
+        const items=col.split('\n').slice(1).filter(l=>l.trim().startsWith('-')).map(l=>'<li>'+l.trim().slice(2)+'</li>').join('');
+        out+=`<div class="compare-col"><h4>${titleMatch[1]}</h4><ul>${items}</ul></div>`;
+      }
+    });
+    return out+'</div>';
+  });
+  // Mermaid blocks
   html=html.replace(/```mermaid\n([\s\S]*?)```/g,'<div class="mermaid">$1</div>');
   // Code blocks
   html=html.replace(/```(\w*)\n([\s\S]*?)```/g,(m,lang,code)=>'<pre><code class="language-'+lang+'">'+esc(code)+'</code></pre>');
@@ -930,7 +1107,7 @@ function renderMarkdown(md){
   // Unordered lists
   html=html.replace(/^- (.+)$/gm,'<li>$1</li>');
   html=html.replace(/((?:<li>.*<\/li>\n?)+)/g,'<ul>$1</ul>');
-  // Paragraphs (double newlines)
+  // Paragraphs
   html=html.replace(/\n\n/g,'</p><p>');
   html='<p>'+html+'</p>';
   html=html.replace(/<p><(h[123]|ul|ol|pre|div|table|blockquote)/g,'<$1');
@@ -947,13 +1124,19 @@ async function addToLearn(articleId){
   const btn=event.target;
   btn.disabled=true;btn.textContent='⏳ 生成中...';
   try{
-    // Ask AI to generate a learning guide
-    const prompt=`请为以下AI技术主题生成一篇详细的学习指南，要求：
-1. 用中文写
-2. 包含概述、核心原理、架构图(用mermaid语法)、关键概念详解、实际应用场景、动手实践步骤、与其他技术的对比
-3. 内容要深入但易懂，适合有编程基础的人
-4. 用markdown格式，图表用\`\`\`mermaid代码块
-5. 返回JSON格式: {"title":"标题","category":"分类(如Agent框架/大模型/工具链/基础设施)","icon":"emoji","summary":"一句话摘要","tags":["标签"],"content":"完整markdown内容"}
+    const prompt=`请为以下AI技术主题生成一篇丰富的学习指南。要求：
+1. 用中文写，深入但易懂
+2. 用markdown格式，同时使用以下富组件语法：
+   - \`\`\`mermaid 代码块画架构图/流程图（至少2个）
+   - :::info-cards 卡片组（用 #### emoji 标题 + 描述）展示核心概念
+   - :::callout{type="tip/warning/info"} 提示/警告框
+   - :::pros-cons 优劣对比（用 #### ✅ 优势 和 #### ❌ 劣势）
+   - :::timeline 时间线（用 #### 标题 + 描述展示发展历程）
+   - :::compare 对比栏（用 #### 框架名 + 列表展示多框架对比）
+   - :::demo{title="标题" type="agent-flow"} 交互演示占位
+   - 普通markdown: 代码块、表格、引用等
+3. 内容结构：Hero概述 → 核心概念卡片 → 架构图解 → 原理深入 → 代码示例 → 实际应用 → 优劣分析 → 相关对比
+4. 返回JSON: {"title":"标题","category":"分类","icon":"emoji","summary":"一句话","tags":["标签"],"content":"markdown+组件"}
 
 主题: ${article.title}
 摘要: ${article.summary||''}
@@ -963,20 +1146,16 @@ ${article.url?'链接: '+article.url:''}
 
     const resp=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:prompt,stream:false})});
     const data=await resp.json();
-    // Extract text from response
     let text='';
     if(data.output){for(const item of data.output){if(item.type==='message'&&item.content){for(const c of item.content){if(c.type==='output_text')text+=c.text}}}}
     if(!text)text=data.choices?.[0]?.message?.content||'';
-    // Parse JSON from response
     const jsonMatch=text.match(/\{[\s\S]*\}/);
     if(!jsonMatch)throw new Error('AI未返回有效JSON');
     const guide=JSON.parse(jsonMatch[0]);
     guide.sourceArticleId=articleId;
-    // Save to API
     await fetch(API+'/ai-news/guides',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(guide)});
     btn.textContent='✅ 已加入';
     btn.style.color='var(--green)';
-    // Auto switch to learn tab
     setTimeout(()=>{switchAiTab('learn')},800);
   }catch(e){
     console.error('addToLearn',e);
