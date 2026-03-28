@@ -308,8 +308,38 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   .topnav{padding:10px 14px}
   .topnav h1{font-size:1rem}
   .coach-chat{height:350px}
-  #panel-fitness .panel-header ~ div{flex-direction:column !important}
-  #panel-fitness .panel-header ~ div > div:last-child{width:100% !important;border-left:none !important;padding-left:0 !important;border-top:1px solid var(--border);padding-top:12px;max-height:300px}
+
+}
+
+/* Climbing Coach */
+.climb-wrap{display:flex;gap:0;height:calc(100vh - 110px);overflow:hidden}
+.climb-left{flex:1;overflow-y:auto;padding:16px 20px 16px 0;min-width:0}
+.climb-right{width:340px;flex-shrink:0;display:flex;flex-direction:column;background:var(--card);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden}
+.climb-right-head{padding:12px 14px;font-weight:600;font-size:.85rem;border-bottom:1px solid var(--border);background:var(--bg)}
+.climb-right-msgs{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.climb-right-input{padding:10px 12px;border-top:1px solid var(--border);background:var(--bg)}
+.climb-right-input textarea{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:.8rem;background:var(--card);color:var(--text);font-family:inherit;resize:none;outline:none;transition:border .2s}
+.climb-right-input textarea:focus{border-color:var(--accent)}
+.climb-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}
+.climb-stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center}
+.climb-stat .val{font-size:1.15rem;font-weight:700;margin:2px 0}
+.climb-stat .lbl{font-size:.65rem;color:var(--text2)}
+.climb-stat .ico{font-size:1rem}
+.climb-charts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.climb-chart-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
+.climb-chart-card h4{font-size:.8rem;margin-bottom:8px;font-weight:600}
+.climb-chart-box{position:relative;height:170px}
+.climb-analysis{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-top:10px;font-size:.78rem;line-height:1.7}
+.climb-analysis h4{font-size:.8rem;margin-bottom:6px;color:var(--accent);font-weight:600}
+@media(max-width:900px){
+  .climb-wrap{flex-direction:column;height:auto;overflow:visible}
+  .climb-left{padding-right:0;max-height:none;overflow:visible}
+  .climb-right{width:100%;height:400px;margin-top:12px}
+  .climb-stats{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:500px){
+  .climb-stats{grid-template-columns:repeat(2,1fr)}
+  .climb-charts{grid-template-columns:1fr}
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
@@ -400,42 +430,24 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     <button class="back-btn" onclick="showHub()">←</button>
     <h2>🧗 攀岩教练</h2>
   </div>
-  <div style="display:flex;gap:16px;height:calc(100vh - 120px);overflow:hidden">
-    <!-- Left: Charts -->
-    <div style="flex:1;overflow-y:auto;padding-right:8px;min-width:0" id="climbLeftCol">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px" id="climbSummary"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="fitness-section" style="padding:12px">
-          <h3 style="font-size:.85rem">📈 进步趋势</h3>
-          <div style="position:relative;height:180px"><canvas id="chartProgress"></canvas></div>
-        </div>
-        <div class="fitness-section" style="padding:12px">
-          <h3 style="font-size:.85rem">📊 难度分布</h3>
-          <div style="position:relative;height:180px"><canvas id="chartGradeDist"></canvas></div>
-        </div>
-        <div class="fitness-section" style="padding:12px">
-          <h3 style="font-size:.85rem">🎯 完成率分析</h3>
-          <div style="position:relative;height:180px"><canvas id="chartSendRate"></canvas></div>
-        </div>
-        <div class="fitness-section" style="padding:12px">
-          <h3 style="font-size:.85rem">⚡ 月度对比</h3>
-          <div style="position:relative;height:180px"><canvas id="chartMonthly"></canvas></div>
-        </div>
+  <div class="climb-wrap">
+    <div class="climb-left">
+      <div class="climb-stats" id="climbSummary"></div>
+      <div class="climb-charts">
+        <div class="climb-chart-card"><h4>📈 进步趋势</h4><div class="climb-chart-box"><canvas id="chartProgress"></canvas></div></div>
+        <div class="climb-chart-card"><h4>📊 难度分布</h4><div class="climb-chart-box"><canvas id="chartGradeDist"></canvas></div></div>
+        <div class="climb-chart-card"><h4>🎯 完成率</h4><div class="climb-chart-box"><canvas id="chartSendRate"></canvas></div></div>
+        <div class="climb-chart-card"><h4>⚡ 月度对比</h4><div class="climb-chart-box"><canvas id="chartMonthly"></canvas></div></div>
       </div>
-      <div class="fitness-section" style="padding:12px;margin-top:12px">
-        <h3 style="font-size:.85rem">🔍 瓶颈分析 & 训练计划</h3>
-        <div id="climbAnalysis" style="font-size:.8rem;line-height:1.7"></div>
+      <div class="climb-analysis">
+        <div id="climbAnalysis"></div>
       </div>
     </div>
-    <!-- Right: Chat -->
-    <div style="width:380px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid var(--border);padding-left:16px">
-      <div style="font-size:.9rem;font-weight:600;padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:8px">💬 问教练</div>
-      <div class="coach-messages" id="coachMessages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 0"></div>
-      <div style="border-top:1px solid var(--border);padding-top:8px;flex-shrink:0">
-        <textarea id="coachInput" rows="2" placeholder="问教练问题...&#10;Shift+Enter 换行，Enter 发送" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:.8rem;background:var(--bg);color:var(--text);font-family:inherit;resize:none" onkeydown="coachKeydown(event)"></textarea>
-        <div style="display:flex;justify-content:flex-end;margin-top:4px">
-          <button class="btn primary sm" onclick="askCoach()">发送</button>
-        </div>
+    <div class="climb-right">
+      <div class="climb-right-head">💬 问教练</div>
+      <div class="climb-right-msgs" id="coachMessages"></div>
+      <div class="climb-right-input">
+        <textarea id="coachInput" rows="2" placeholder="问教练问题... (Shift+Enter换行)" onkeydown="coachKeydown(event)"></textarea>
       </div>
     </div>
   </div>
@@ -803,10 +815,10 @@ function renderClimbDashboard() {
     {icon:'🏆',label:'最高完成',val:GRADE_ORDER[maxGrade]},
     {icon:'🎯',label:'完成率',val:sendRate+'%'},
     {icon:'📈',label:'周期',val:'8周'}
-  ].map(c => `<div class="fitness-section" style="text-align:center;padding:10px">
-    <div style="font-size:1.2rem">${c.icon}</div>
-    <div style="font-size:1.1rem;font-weight:700;margin:2px 0">${c.val}</div>
-    <div style="font-size:.7rem;color:var(--text2)">${c.label}</div>
+  ].map(c => `<div class="climb-stat">
+    <div class="ico">${c.icon}</div>
+    <div class="val">${c.val}</div>
+    <div class="lbl">${c.label}</div>
   </div>`).join('');
 
   // Progress trend
