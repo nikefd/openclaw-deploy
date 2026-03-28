@@ -1098,7 +1098,7 @@ async function sendMessage(){
 }
 
 input.addEventListener('input',()=>{updateSendBtn();});
-input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();sendMessage();}});
+input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){if(mentionPopup.classList.contains('show'))return;e.preventDefault();sendMessage();}});
 sendBtn.addEventListener('click',sendMessage);
 $('toggleBtn').addEventListener('click',()=>{sidebar.classList.toggle('hidden');if(window.innerWidth<=768)overlay.classList.toggle('show');});
 overlay.addEventListener('click',closeSidebar);
