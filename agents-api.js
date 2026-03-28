@@ -61,6 +61,16 @@ function saveFitnessChats(data) {
   fs.writeFileSync(FITNESS_CHAT_FILE, JSON.stringify(data, null, 2));
 }
 
+const FITNESS_SESSIONS_FILE = path.join(FITNESS_DIR, 'sessions.json');
+function loadFitnessSessions() {
+  try { return JSON.parse(fs.readFileSync(FITNESS_SESSIONS_FILE, 'utf-8')); }
+  catch { return []; }
+}
+function saveFitnessSessions(data) {
+  fs.mkdirSync(FITNESS_DIR, { recursive: true });
+  fs.writeFileSync(FITNESS_SESSIONS_FILE, JSON.stringify(data, null, 2));
+}
+
 // ─── Interview Prep Agent ───
 const INTERVIEW_DIR = path.join(DATA_DIR, 'interview');
 const INTERVIEW_SESSIONS_FILE = path.join(INTERVIEW_DIR, 'sessions.json');
@@ -122,6 +132,28 @@ function loadInterviewStats() {
 function saveInterviewStats(data) {
   fs.mkdirSync(INTERVIEW_DIR, { recursive: true });
   fs.writeFileSync(INTERVIEW_STATS_FILE, JSON.stringify(data, null, 2));
+}
+
+// ─── Learning Guides ───
+const GUIDES_DIR = path.join(AI_NEWS_DIR, 'guides');
+function loadGuides() {
+  try {
+    fs.mkdirSync(GUIDES_DIR, { recursive: true });
+    const files = fs.readdirSync(GUIDES_DIR).filter(f => f.endsWith('.json'));
+    return files.map(f => {
+      try { return JSON.parse(fs.readFileSync(path.join(GUIDES_DIR, f), 'utf-8')); } catch { return null; }
+    }).filter(Boolean).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+  } catch { return []; }
+}
+function loadGuide(id) {
+  try { return JSON.parse(fs.readFileSync(path.join(GUIDES_DIR, id + '.json'), 'utf-8')); } catch { return null; }
+}
+function saveGuide(guide) {
+  fs.mkdirSync(GUIDES_DIR, { recursive: true });
+  fs.writeFileSync(path.join(GUIDES_DIR, guide.id + '.json'), JSON.stringify(guide, null, 2));
+}
+function deleteGuide(id) {
+  try { fs.unlinkSync(path.join(GUIDES_DIR, id + '.json')); } catch {}
 }
 
 // ─── Helpers ───
@@ -256,6 +288,31 @@ const server = http.createServer(async (req, res) => {
       const chats = loadFitnessChats();
       chats.push({ role: 'assistant', content: body.message, ts: new Date().toISOString() });
       saveFitnessChats(chats);
+      return json(res, { ok: true });
+    }
+
+    // Sessions (climbing data)
+    if (p === '/api/agents/fitness/sessions' && req.method === 'GET') {
+      return json(res, loadFitnessSessions());
+    }
+    if (p === '/api/agents/fitness/sessions' && req.method === 'POST') {
+      const body = await readBody(req);
+      const sessions = loadFitnessSessions();
+      // body can be a single session or {sessions: [...]}
+      if (body.sessions) {
+        // Bulk replace
+        saveFitnessSessions(body.sessions);
+      } else if (body.date && body.routes) {
+        const existing = sessions.find(s => s.date === body.date);
+        if (existing) {
+          existing.routes.push(...body.routes);
+          if (body.dur) existing.dur = Math.max(existing.dur || 0, body.dur);
+        } else {
+          sessions.push(body);
+          sessions.sort((a, b) => a.date.localeCompare(b.date));
+        }
+        saveFitnessSessions(sessions);
+      }
       return json(res, { ok: true });
     }
 
@@ -427,6 +484,52 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === '/api/agents/interview/chats' && req.method === 'DELETE') {
       saveInterviewChats([]);
+      return json(res, { ok: true });
+    }
+
+    // ─── Learning Guides ───
+    if (p === '/api/agents/ai-news/guides' && req.method === 'GET') {
+      // List all guides (without full content for listing)
+      const guides = loadGuides();
+      const lite = guides.map(g => ({ id: g.id, title: g.title, category: g.category, icon: g.icon, summary: g.summary, tags: g.tags, sourceArticleId: g.sourceArticleId, createdAt: g.createdAt, updatedAt: g.updatedAt }));
+      return json(res, lite);
+    }
+    const guideMatch = p.match(/^\/api\/agents\/ai-news\/guides\/(.+)$/);
+    if (guideMatch) {
+      const gid = decodeURIComponent(guideMatch[1]);
+      if (req.method === 'GET') {
+        const g = loadGuide(gid);
+        if (!g) return json(res, { error: 'Not found' }, 404);
+        return json(res, g);
+      }
+      if (req.method === 'DELETE') {
+        deleteGuide(gid);
+        return json(res, { ok: true });
+      }
+    }
+    if (p === '/api/agents/ai-news/guides' && req.method === 'POST') {
+      const body = await readBody(req);
+      const guide = {
+        id: body.id || ('guide_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7)),
+        title: body.title,
+        category: body.category || '未分类',
+        icon: body.icon || '📖',
+        summary: body.summary || '',
+        content: body.content || '',
+        tags: body.tags || [],
+        sourceArticleId: body.sourceArticleId || null,
+        createdAt: body.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      saveGuide(guide);
+      return json(res, { ok: true, guide: { id: guide.id, title: guide.title } });
+    }
+    if (p === '/api/agents/ai-news/guides' && req.method === 'PUT') {
+      const body = await readBody(req);
+      const existing = loadGuide(body.id);
+      if (!existing) return json(res, { error: 'Not found' }, 404);
+      Object.assign(existing, body, { updatedAt: new Date().toISOString() });
+      saveGuide(existing);
       return json(res, { ok: true });
     }
 
