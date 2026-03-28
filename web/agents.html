@@ -712,6 +712,7 @@ function renderNews(){
   else if(newsFilter==='read')items=items.filter(a=>readArticleIds.has(articleCacheKey(a.id))||readerCache[a.id]?.status==='done');
   else if(newsFilter!=='all')items=items.filter(a=>a.tag===newsFilter);
   if(activeTrackFilter)items=items.filter(a=>(a.tracks||[]).includes(activeTrackFilter));
+  items.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   if(!items.length){list.innerHTML='<div class="news-empty">暂无内容'+(newsFilter!=='all'||activeTrackFilter?'（当前筛选）':'，点击「搜索最新」获取')+'</div>';return}
 
   list.innerHTML=items.map(a=>{
