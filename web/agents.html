@@ -792,7 +792,7 @@ var climbChartsRendered = false;
 var climbChartInstances = {};
 
 function coachKeydown(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
     e.preventDefault();
     askCoach();
   }
