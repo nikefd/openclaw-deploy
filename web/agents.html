@@ -1026,9 +1026,10 @@ async function askCoach(text) {
     const res = await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:ctx,stream:false})});
     const data = await res.json();
     let reply = data.output?.find(o=>o.type==='message')?.content?.[0]?.text || data.output_text || '抱歉，暂时无法回答';
+    console.log('[Coach raw reply]', reply);
     
     // Extract session_data if present
-    const sdMatch = reply.match(/```session_data\n([\s\S]*?)```/);
+    const sdMatch = reply.match(/```session_data\s*\n([\s\S]*?)```/);
     let displayReply = reply;
     if (sdMatch) {
       try {
@@ -1053,7 +1054,7 @@ async function askCoach(text) {
         }
       } catch(e) { console.warn('Failed to parse session_data', e); }
       // Remove the JSON block from display
-      displayReply = reply.replace(/```session_data\n[\s\S]*?```/, '').trim();
+      displayReply = reply.replace(/```session_data\s*\n[\s\S]*?```/, '').trim();
       displayReply += '\n\n✅ 数据已更新，图表已刷新！';
     }
 
@@ -1061,7 +1062,7 @@ async function askCoach(text) {
     const cardIds = {bottleneck:'climbBottleneck', plan:'climbPlan', warmup:'climbWarmup'};
     let hasCardUpdate = false;
     ['bottleneck', 'plan', 'warmup'].forEach(type => {
-      const re = new RegExp('```cards_update_' + type + '\n([\s\S]*?)```');
+      const re = new RegExp('```cards_update_' + type + '\\s*\\n([\\s\\S]*?)```');
       const m = displayReply.match(re);
       if (m) {
         const cardEl = document.getElementById(cardIds[type]);
