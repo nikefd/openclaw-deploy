@@ -383,7 +383,7 @@ const server = http.createServer(async (req, res) => {
         category: p.category,
         tags: p.tags,
         url: p.url,
-        text_summary: p.text_summary || '',
+        text_summary: p.text_summary_cn || p.text_summary || '',
         status: progress[p.leetcode_id] || 'todo' // todo, attempted, solved
       }));
       return json(res, lite);
