@@ -978,25 +978,31 @@ async function openGuide(id){
 
 function setupDemo(el){
   const type=el.dataset.demo;
-  if(type==='agent-flow'){
-    // Interactive agent flow demo
-    const area=el.querySelector('.demo-area');
-    const btn=el.querySelector('button[data-run]');
-    if(btn&&area){
-      btn.addEventListener('click',()=>{
-        area.innerHTML='';
-        const steps=['🤔 用户发送请求...','🧠 Agent 解析意图...','🔧 调用工具: web_search()','📄 获取搜索结果...','💬 生成回复...','✅ 完成!'];
-        steps.forEach((s,i)=>{
-          setTimeout(()=>{
-            const line=document.createElement('div');
-            line.style.cssText='padding:4px 0;opacity:0;transition:opacity .3s';
-            line.textContent=s;
-            area.appendChild(line);
-            requestAnimationFrame(()=>line.style.opacity='1');
-          },i*800);
-        });
+  const demoSteps={
+    'agent-flow':['🤔 用户发送请求...','🧠 Agent 解析意图...','🔧 调用工具: web_search()','📄 获取搜索结果...','💬 生成回复...','✅ 完成!'],
+    'langchain':['📥 接收输入: "帮我总结这篇论文"','🔗 Chain 初始化: LLMChain + PromptTemplate','📎 Retriever 加载文档 → 分块 (chunk_size=1000)','🧮 Embeddings → FAISS 向量检索 Top-3 相关段落','🤖 LLM 生成摘要 (temperature=0.3)','📤 OutputParser 格式化结果','✅ 返回结构化摘要!'],
+    'autogen':['👤 User Proxy: "分析这份销售数据"','🧑‍💼 Assistant Agent: 我来写个 Python 脚本','💻 Code Executor: 运行 pandas 分析...','❌ Assistant: 发现缺失值，修改代码重试','💻 Code Executor: 重新运行... 成功!','📊 Assistant: 生成可视化图表','👤 User Proxy: AUTO_REPLY → 确认结果','✅ 多轮对话完成，共 3 轮迭代!'],
+    'crewai':['🚀 Crew 启动: 市场调研任务','🕵️ Research Agent: 搜索行业报告...','🕵️ Research Agent → 交接给 Analyst','📈 Analyst Agent: 整理数据，提取趋势...','📈 Analyst Agent → 交接给 Writer','✍️ Writer Agent: 撰写分析报告...','🔄 Manager: 审核质量，要求 Analyst 补充数据','📈 Analyst Agent: 补充完毕 → Writer 修订','✅ Crew 完成! 3个Agent协作，2轮修订'],
+    'mcp':['🖥️ Client: 连接 MCP Server (stdio)','📋 Server: 暴露工具列表 [search, calc, db_query]','🤖 LLM: 决定调用 db_query(sql="SELECT...")','→ Client: 发送 tools/call 请求','← Server: 返回查询结果 (15 rows)','🤖 LLM: 需要进一步计算，调用 calc()','→ Client: 发送第二次 tools/call','← Server: 返回计算结果','💬 LLM: 整合结果生成回答','✅ 完成! 通过标准协议调用了2个工具'],
+    'a2a':['🏢 Client Agent: "帮我订明天北京到上海的机票"','🔍 发现 Agent Card: flight-booking-agent','📡 发送 Task 请求 (JSON-RPC)','✈️ Remote Agent: 搜索航班中...','📨 状态更新: working → 找到3个航班','💬 Remote Agent: 需要确认，发送选项','🏢 Client Agent: 选择最便宜的','✈️ Remote Agent: 确认预订...','📨 Artifact 返回: 订单确认 PDF','✅ 跨Agent协作完成! (A2A协议)'],
+    'react':['❓ 问题: "SpaceX最新发射是什么时候？"','💭 Thought: 我需要搜索最新的SpaceX发射信息','⚡ Action: search("SpaceX latest launch 2026")','👁️ Observation: 搜索返回3条结果...','💭 Thought: 第一条结果有具体日期，但需要确认','⚡ Action: fetch(url) 获取详情页','👁️ Observation: 确认发射日期为...','💭 Thought: 信息充分，可以回答了','📝 Final Answer: SpaceX于...完成了第N次发射','✅ ReAct循环结束 (2轮推理)']
+  };
+  const steps=demoSteps[type]||demoSteps['agent-flow'];
+  const area=el.querySelector('.demo-area');
+  const btn=el.querySelector('button[data-run]');
+  if(btn&&area){
+    btn.addEventListener('click',()=>{
+      area.innerHTML='';
+      steps.forEach((s,i)=>{
+        setTimeout(()=>{
+          const line=document.createElement('div');
+          line.style.cssText='padding:4px 0;opacity:0;transition:opacity .3s';
+          line.textContent=s;
+          area.appendChild(line);
+          requestAnimationFrame(()=>line.style.opacity='1');
+        },i*700);
       });
-    }
+    });
   }
 }
 
