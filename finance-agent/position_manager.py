@@ -1,6 +1,6 @@
-"""仓位管理器 — 动态仓位+风控+止盈止损+追踪止损+板块策略路由"""
+"""仓位管理器 — 动态仓位+风控+止盈止损+追踪止损+板块策略路由+时间止损+市场状态"""
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from config import *
 
 
@@ -30,14 +30,24 @@ def get_sector_score_multiplier(sector: str) -> float:
 
 def calculate_position_size(confidence: int, sentiment_score: float, 
                             current_positions: int, available_cash: float,
-                            sector: str = "") -> float:
-    """动态计算仓位大小（加入板块调节）"""
+                            sector: str = "", regime: str = "") -> float:
+    """动态计算仓位大小（板块+市场状态调节）"""
     # 基础仓位：根据信心评分
     base_pct = {10: 0.15, 9: 0.13, 8: 0.12, 7: 0.10, 6: 0.08}.get(confidence, 0.05)
     
     # 板块调节 — 回测验证过的板块给更大仓位
     if sector:
         base_pct *= get_sector_score_multiplier(sector)
+    
+    # 市场状态调节
+    if regime:
+        from market_regime import get_regime_position_cap
+        cap = get_regime_position_cap(regime)
+        # 熊市整体压低仓位
+        if regime == 'bear':
+            base_pct *= 0.6
+        elif regime == 'bull':
+            base_pct *= 1.1
     
     # 情绪调节：市场过热时减仓，恐慌时加仓（逆向思维）
     if sentiment_score > 90:  # 极度贪婪 → 禁止新开仓
@@ -69,8 +79,8 @@ def calculate_position_size(confidence: int, sentiment_score: float,
     return round(base_pct, 4)
 
 
-def check_dynamic_stop(positions: list, sentiment_score: float) -> list:
-    """动态止损止盈 — 追踪止损+情绪调节+阶梯止盈"""
+def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = "") -> list:
+    """动态止损止盈 — 追踪止损+情绪调节+阶梯止盈+时间止损"""
     actions = []
     for pos in positions:
         if not pos.get('current_price') or not pos.get('avg_cost'):
@@ -82,6 +92,25 @@ def check_dynamic_stop(positions: list, sentiment_score: float) -> list:
         # T+1检查
         if buy_date == date.today().isoformat():
             continue
+        
+        # === 时间止损 (Time Stop) ===
+        # 持仓超过15个交易日且收益在-3%~+3%之间 → 说明选错了，清掉换票
+        if buy_date:
+            try:
+                buy_dt = datetime.strptime(buy_date, '%Y-%m-%d').date()
+                hold_days = (date.today() - buy_dt).days
+                if hold_days >= 20 and -0.03 <= pnl_pct <= 0.03:
+                    actions.append({
+                        "action": "SELL",
+                        "symbol": pos['symbol'],
+                        "name": pos['name'],
+                        "reason": f"时间止损: 持仓{hold_days}天无明显盈亏({pnl_pct*100:+.1f}%)",
+                        "shares": pos['shares'],
+                        "price": pos['current_price']
+                    })
+                    continue
+            except:
+                pass
         
         # === 追踪止损 (Trailing Stop) ===
         # 当盈利超过10%后，启用追踪止损：从最高点回撤5%即卖出
@@ -103,12 +132,19 @@ def check_dynamic_stop(positions: list, sentiment_score: float) -> list:
                 })
                 continue
         
-        # === 动态止损（情绪调节）===
+        # === 动态止损（情绪+市场状态调节）===
         stop_loss = STOP_LOSS  # 默认-8%
+        
+        # 市场状态调节
+        if regime:
+            from market_regime import get_regime_stop_loss
+            stop_loss = get_regime_stop_loss(regime)
+        
+        # 情绪再调节
         if sentiment_score < 35:  # 市场恐慌时收紧止损
-            stop_loss = -0.05
+            stop_loss = max(stop_loss, -0.05)  # 不低于-5%
         elif sentiment_score > 75:  # 市场乐观时放宽
-            stop_loss = -0.10
+            stop_loss = min(stop_loss, -0.10)
         
         if pnl_pct <= stop_loss:
             actions.append({
@@ -166,7 +202,14 @@ def portfolio_risk_check(positions: list, total_value: float) -> dict:
     if total_cost > 0 and total_pnl / total_cost < -0.10:
         warnings.append(f"组合总亏损超10%: {total_pnl/total_cost*100:.1f}%")
     
-    # 持仓过于集中（同一行业）
-    # TODO: 加行业分散度检查
+    # 持仓过于集中（同一板块检查）
+    from performance_tracker import classify_sector
+    sector_counts = {}
+    for pos in positions:
+        sector = classify_sector(pos['symbol'], pos.get('name', ''))
+        sector_counts[sector] = sector_counts.get(sector, 0) + 1
+    for sector, count in sector_counts.items():
+        if count >= 4:
+            warnings.append(f"板块过于集中: {sector}有{count}只持仓，建议分散")
     
     return {"healthy": len(warnings) == 0, "warnings": warnings}

@@ -14,6 +14,19 @@ from performance_tracker import classify_sector, record_recommendation
 from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier
 
 
+# 各信号源对应的策略key（用于市场状态调节权重）
+SIGNAL_STRATEGY_MAP = {
+    '量价齐升': 'momentum',
+    '创新高': 'momentum',
+    '大笔买入': 'money_flow',
+    '火箭发射': 'money_flow',
+    '强势股': 'strong',
+    '机构买入': 'institution',
+    '机构增持': 'institution',
+    '机构强烈推荐': 'institution',
+}
+
+
 def get_momentum_candidates() -> list:
     """策略1: 动量策略 — 量价齐升+创新高"""
     candidates = []
@@ -159,8 +172,8 @@ def get_institution_candidates() -> list:
     return candidates[:20]
 
 
-def score_and_rank(all_candidates: list) -> list:
-    """综合打分+技术面验证+板块策略路由+排名"""
+def score_and_rank(all_candidates: list, regime: str = "") -> list:
+    """综合打分+技术面验证+板块策略路由+市场状态调节+排名"""
     # 合并同一股票的信号
     merged = {}
     for c in all_candidates:
@@ -180,6 +193,18 @@ def score_and_rank(all_candidates: list) -> list:
 
     # 排序取top
     ranked = sorted(merged.values(), key=lambda x: -x['score'])[:15]
+
+    # 市场状态调节信号源权重
+    if regime:
+        from market_regime import get_regime_strategy_multiplier
+        for stock in ranked:
+            adjusted_score = 0
+            for sig in stock['signals']:
+                sig_base = sig.split('×')[0].split('+')[0]  # 取信号基础名
+                strategy_key = SIGNAL_STRATEGY_MAP.get(sig_base, 'multi_factor')
+                multiplier = get_regime_strategy_multiplier(regime, strategy_key)
+                adjusted_score += stock['score'] / max(len(stock['signals']), 1) * multiplier
+            stock['score'] = int(adjusted_score)
 
     # 加技术面验证 + 板块策略路由
     print(f"  📊 验证{len(ranked)}只候选股技术面...")
@@ -271,7 +296,7 @@ def filter_tradeable(candidates: list) -> list:
     return filtered
 
 
-def multi_strategy_pick() -> dict:
+def multi_strategy_pick(regime: str = "") -> dict:
     """多策略综合选股主流程"""
     print("  🔍 策略1: 动量选股(量价齐升+创新高)...")
     momentum = get_momentum_candidates()
@@ -293,8 +318,8 @@ def multi_strategy_pick() -> dict:
     all_candidates = momentum + money + strong + institution
     print(f"  📊 共{len(all_candidates)}条信号，开始综合打分...")
 
-    # 打分排名
-    ranked = score_and_rank(all_candidates)
+    # 打分排名（含市场状态调节）
+    ranked = score_and_rank(all_candidates, regime=regime)
 
     # 过滤
     tradeable = filter_tradeable(ranked)

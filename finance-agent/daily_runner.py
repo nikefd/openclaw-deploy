@@ -1,4 +1,4 @@
-"""每日主流程 v3 — 多策略选股+板块路由+动态仓位+追踪止损+绩效追踪"""
+"""每日主流程 v4 — 多策略选股+板块路由+动态仓位+追踪止损+绩效追踪+市场状态感知"""
 
 import json
 import sys
@@ -15,6 +15,7 @@ from performance_tracker import (
     record_recommendation, update_recommendation_outcomes,
     get_performance_summary, classify_sector, init_tracker_tables
 )
+from market_regime import detect_market_regime
 from config import *
 
 
@@ -59,11 +60,11 @@ def update_positions_price():
     conn.close()
 
 
-def execute_sells(sentiment_score: float) -> list:
+def execute_sells(sentiment_score: float, regime: str = "") -> list:
     """执行卖出（止损止盈）"""
     results = []
     positions = get_positions()
-    actions = check_dynamic_stop(positions, sentiment_score)
+    actions = check_dynamic_stop(positions, sentiment_score, regime=regime)
 
     for action in actions:
         r = sell_stock(action['symbol'], action['price'], action['shares'], action['reason'])
@@ -83,7 +84,7 @@ def execute_sells(sentiment_score: float) -> list:
     return results
 
 
-def execute_buys(picks: list, sentiment: dict) -> list:
+def execute_buys(picks: list, sentiment: dict, regime: str = "") -> list:
     """执行买入（含板块路由+绩效记录）"""
     results = []
     account = get_account()
@@ -118,13 +119,14 @@ def execute_buys(picks: list, sentiment: dict) -> list:
         # 板块分类
         sector = classify_sector(symbol, pick.get('name', ''))
 
-        # 动态仓位（含板块调节）
+        # 动态仓位（含板块+市场状态调节）
         position_pct = calculate_position_size(
             confidence, 
             sentiment.get('sentiment_score', 50),
             current_count, 
             available_cash,
-            sector=sector
+            sector=sector,
+            regime=regime
         )
         buy_amount = available_cash * position_pct
         shares = int(buy_amount / price / 100) * 100
@@ -233,7 +235,8 @@ def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict) 
 
 
 def generate_daily_report(market_analysis: dict, sell_results: list, buy_results: list, 
-                          picks: list, sentiment: dict, pick_stats: dict) -> str:
+                          picks: list, sentiment: dict, pick_stats: dict,
+                          regime_info: dict = None) -> str:
     """生成每日报告"""
     account = get_account()
     positions = get_positions()
@@ -252,6 +255,13 @@ def generate_daily_report(market_analysis: dict, sell_results: list, buy_results
     total_value = account['cash'] + total_pos_value
     total_return = (total_value - INITIAL_CAPITAL) / INITIAL_CAPITAL * 100
 
+    regime_info = regime_info or {}
+    regime = regime_info.get('regime', 'sideways')
+    regime_labels = {'bull': '🐂 牛市', 'bear': '🐻 熊市', 'sideways': '↔️ 震荡'}
+    regime_label = regime_labels.get(regime, '未知')
+    regime_conf = regime_info.get('confidence', 0)
+    regime_details = regime_info.get('details', 'N/A')
+
     report = f"""
 📊 **金融Agent日报** — {datetime.now().strftime('%Y年%m月%d日')}
 {'='*50}
@@ -264,6 +274,9 @@ def generate_daily_report(market_analysis: dict, sell_results: list, buy_results
 
 🧠 **市场情绪**: {sentiment.get('sentiment_score', 0)}/100 ({sentiment.get('sentiment_label', '?')})
 - 涨停{sentiment.get('limit_up_count', 0)}家 | 跌停{sentiment.get('limit_down_count', 0)}家 | 炸板{sentiment.get('bomb_count', 0)}家
+
+📡 **市场状态**: {regime_label} (信心{regime_conf:.0%})
+- {regime_details}
 
 📈 **当前持仓** ({len(positions)}只)
 {chr(10).join(pos_details) if pos_details else '  空仓'}
@@ -346,6 +359,14 @@ def run_daily():
         sentiment = {'sentiment_score': 50, 'sentiment_label': '中性'}
     print(f"  情绪: {sentiment.get('sentiment_score', 0)}/100 ({sentiment.get('sentiment_label', '?')})")
 
+    # 2.5 检测市场状态
+    print("📡 检测市场状态...")
+    regime_info = detect_market_regime()
+    regime = regime_info.get('regime', 'sideways')
+    regime_labels = {'bull': '🐂 牛市', 'bear': '🐻 熊市', 'sideways': '↔️ 震荡'}
+    print(f"  状态: {regime_labels.get(regime, regime)} (信心{regime_info.get('confidence', 0):.0%})")
+    print(f"  依据: {regime_info.get('details', '')}")
+
     # 3. 风控检查 & 执行卖出
     print("🛡️ 风控检查...")
     positions = get_positions()
@@ -356,11 +377,11 @@ def run_daily():
             print(f"  ⚠️ {w}")
 
     print("💸 执行止损止盈...")
-    sell_results = execute_sells(sentiment.get('sentiment_score', 50))
+    sell_results = execute_sells(sentiment.get('sentiment_score', 50), regime=regime)
 
-    # 4. 多策略选股
+    # 4. 多策略选股（传入市场状态）
     print("🔍 多策略选股中...")
-    pick_result = multi_strategy_pick()
+    pick_result = multi_strategy_pick(regime=regime)
     candidates = pick_result['candidates']
     pick_stats = pick_result['stats']
 
@@ -371,17 +392,17 @@ def run_daily():
 
     # 6. 执行买入
     print("🛒 执行买入...")
-    buy_results = execute_buys(final_picks, sentiment)
+    buy_results = execute_buys(final_picks, sentiment, regime=regime)
 
     # 7. 保存快照
     save_daily_snapshot(
         sentiment_score=sentiment.get('sentiment_score', 0),
-        notes=json.dumps({'picks': [p.get('symbol','') for p in final_picks], 'stats': pick_stats}, ensure_ascii=False)[:500]
+        notes=json.dumps({'picks': [p.get('symbol','') for p in final_picks], 'stats': pick_stats, 'regime': regime}, ensure_ascii=False)[:500]
     )
 
     # 8. 生成报告
     print("📝 生成日报...")
-    report = generate_daily_report(market, sell_results, buy_results, final_picks, sentiment, pick_stats)
+    report = generate_daily_report(market, sell_results, buy_results, final_picks, sentiment, pick_stats, regime_info=regime_info)
 
     report_file = f"{REPORT_DIR}/{date.today().isoformat()}.md"
     with open(report_file, 'w') as f:

@@ -256,6 +256,13 @@ const server = http.createServer((req, res) => {
         return sendJson(res, JSON.parse(out));
       } catch(e) { return sendJson(res, { ready: false, error: e.message }); }
     }
+    if (pathname === '/api/finance/regime' && req.method === 'GET') {
+      try {
+        const py = `import json,sys; sys.path.insert(0,'/home/nikefd/finance-agent'); from market_regime import detect_market_regime; print(json.dumps(detect_market_regime(), ensure_ascii=False, default=str))`;
+        const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 30000 }).toString().trim();
+        return sendJson(res, JSON.parse(out));
+      } catch(e) { return sendJson(res, { regime: 'unknown', error: e.message }); }
+    }
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);
