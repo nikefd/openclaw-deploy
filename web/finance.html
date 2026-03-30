@@ -46,7 +46,7 @@ a{color:var(--accent);text-decoration:none}
 .card-value.up{color:var(--up)}.card-value.down{color:var(--down)}
 
 /* CHART AREA */
-.chart-row{display:grid;grid-template-columns:1fr 280px;gap:16px;margin-bottom:24px}
+.chart-row{display:grid;grid-template-columns:1fr 160px 160px;gap:16px;margin-bottom:24px}
 .chart-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
 .chart-box h3{font-size:14px;margin-bottom:12px;color:var(--sub)}
 .gauge-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center}
@@ -143,6 +143,7 @@ tr:hover{background:var(--hover)}
   <div class="tab" data-tab="reports">📋 日报</div>
   <div class="tab" data-tab="changelog">🔄 更新日志</div>
   <div class="tab" data-tab="backtest">🧪 回测</div>
+  <div class="tab" data-tab="performance">📈 绩效</div>
   <div class="tab" data-tab="strategy">🎯 策略</div>
 </div>
 
@@ -157,9 +158,15 @@ tr:hover{background:var(--hover)}
       </div>
       <div class="chart-box gauge-wrap">
         <h3 style="align-self:flex-start;width:100%">市场情绪</h3>
-        <canvas id="gaugeChart" style="max-width:220px"></canvas>
-        <div id="gaugeScore">--</div>
+        <canvas id="gaugeChart" style="max-width:140px"></canvas>
+        <div id="gaugeScore" style="font-size:28px">--</div>
         <div id="gaugeLabel">--</div>
+      </div>
+      <div class="chart-box" style="display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <h3 style="align-self:flex-start;width:100%">市场状态</h3>
+        <div id="regimeIcon" style="font-size:48px;margin:8px 0">--</div>
+        <div id="regimeLabel" style="font-size:18px;font-weight:700">--</div>
+        <div id="regimeConf" style="font-size:12px;color:var(--sub);margin-top:4px">--</div>
       </div>
     </div>
     <div class="tbl-wrap">
@@ -223,6 +230,21 @@ tr:hover{background:var(--hover)}
       <div id="backtestResults">加载中...</div>
     </div>
   </div>
+  <!-- PERFORMANCE -->
+  <div class="tab-panel" id="panel-performance">
+    <div class="cards" id="perfSummaryCards"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+      <div class="chart-box"><h3>按策略命中率</h3><canvas id="perfByStrategyChart"></canvas></div>
+      <div class="chart-box"><h3>按板块命中率</h3><canvas id="perfBySectorChart"></canvas></div>
+    </div>
+    <div class="tbl-wrap">
+      <h3>最近推荐追踪</h3>
+      <div style="overflow-x:auto">
+        <table><thead><tr><th>日期</th><th>股票</th><th>代码</th><th>策略</th><th>板块</th><th>买入价</th><th>1日收益</th><th>3日收益</th><th>5日收益</th><th>10日收益</th></tr></thead><tbody id="perfRecsBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
   <div class="tab-panel" id="panel-strategy">
     <div class="section">
       <div class="section-title">🎯 当前策略体系</div>
@@ -443,6 +465,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   if(t.dataset.tab==='news')loadNews();
   if(t.dataset.tab==='changelog')loadChangelog();
   if(t.dataset.tab==='backtest')loadBacktest();
+  if(t.dataset.tab==='performance')loadPerformance();
   if(t.dataset.tab==='strategy')loadLiveStatus();
 }));
 
@@ -698,7 +721,73 @@ function updateTime(){
 }
 
 async function refreshAll(){
-  await Promise.all([loadDashboard(),loadChart(),loadAnalysis(),loadTrades(),loadReports()]);
+  await Promise.all([loadDashboard(),loadChart(),loadAnalysis(),loadTrades(),loadReports(),loadRegime()]);
+}
+
+// Market Regime
+async function loadRegime(){
+  const d=await api('/api/finance/regime');
+  if(!d||d.error)return;
+  const icons={bull:'🐂',bear:'🐻',sideways:'🦀',unknown:'❓'};
+  const labels={bull:'牛市',bear:'熊市',sideways:'震荡',unknown:'未知'};
+  const colors={bull:'var(--up)',bear:'var(--down)',sideways:'var(--sub)',unknown:'var(--sub)'};
+  const r=d.regime||'unknown';
+  document.getElementById('regimeIcon').textContent=icons[r]||'❓';
+  document.getElementById('regimeLabel').textContent=labels[r]||r;
+  document.getElementById('regimeLabel').style.color=colors[r]||'';
+  const conf=d.confidence?Math.round(d.confidence*100)+'%':'';
+  const reason=d.reason||'';
+  document.getElementById('regimeConf').textContent=conf+(reason?' · '+reason:'');
+}
+
+// Performance
+let perfStrategyChart=null,perfSectorChart=null;
+async function loadPerformance(){
+  const d=await api('/api/finance/performance');
+  if(!d)return;
+  // Summary cards
+  const hitRate=d.hit_rate!=null?d.hit_rate.toFixed(1)+'%':'--';
+  const avgReturn=d.avg_return!=null?(d.avg_return>0?'+':'')+d.avg_return.toFixed(2)+'%':'--';
+  const cards=[
+    {label:'总推荐数',value:d.total_recommendations||0},
+    {label:'整体命中率',value:hitRate,cls:parseFloat(hitRate)>=50?'up':'down'},
+    {label:'平均收益',value:avgReturn,cls:d.avg_return>0?'up':'down'},
+    {label:'最佳策略',value:d.best_strategy||'--'},
+  ];
+  document.getElementById('perfSummaryCards').innerHTML=cards.map(c=>`<div class="card"><div class="card-label">${c.label}</div><div class="card-value ${c.cls||''}">${c.value}</div></div>`).join('');
+
+  // By-strategy chart
+  const byStrategy=d.by_strategy||{};
+  const sKeys=Object.keys(byStrategy);
+  if(sKeys.length){
+    const ctx1=document.getElementById('perfByStrategyChart').getContext('2d');
+    if(perfStrategyChart)perfStrategyChart.destroy();
+    perfStrategyChart=new Chart(ctx1,{type:'bar',data:{
+      labels:sKeys,
+      datasets:[{label:'命中率%',data:sKeys.map(k=>byStrategy[k].hit_rate||0),backgroundColor:'#4361ee',borderRadius:6}]
+    },options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}}}}});
+  }
+
+  // By-sector chart
+  const bySector=d.by_sector||{};
+  const secKeys=Object.keys(bySector);
+  if(secKeys.length){
+    const ctx2=document.getElementById('perfBySectorChart').getContext('2d');
+    if(perfSectorChart)perfSectorChart.destroy();
+    const colors2=['#4361ee','#e63946','#2ec4b6','#ffd166','#9b2226','#f4a261'];
+    perfSectorChart=new Chart(ctx2,{type:'bar',data:{
+      labels:secKeys,
+      datasets:[{label:'命中率%',data:secKeys.map(k=>bySector[k].hit_rate||0),backgroundColor:secKeys.map((_,i)=>colors2[i%colors2.length]),borderRadius:6}]
+    },options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}}}}});
+  }
+
+  // Recent recommendations table
+  const recs=d.recent_recommendations||[];
+  document.getElementById('perfRecsBody').innerHTML=recs.map(r=>{
+    const r1=r.return_1d,r3=r.return_3d,r5=r.return_5d,r10=r.return_10d;
+    const fmtR=v=>v==null?'<span style="color:var(--sub)">--</span>':`<span class="${v>0?'up':'down'}">${v>0?'+':''}${v.toFixed(2)}%</span>`;
+    return`<tr><td>${r.date||''}</td><td>${r.name||''}</td><td>${r.symbol||''}</td><td>${r.strategy||''}</td><td>${r.sector||''}</td><td>${fmt(r.buy_price)}</td><td>${fmtR(r1)}</td><td>${fmtR(r3)}</td><td>${fmtR(r5)}</td><td>${fmtR(r10)}</td></tr>`;
+  }).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--sub)">暂无推荐记录</td></tr>';
 }
 
 // Init
