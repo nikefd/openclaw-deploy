@@ -259,6 +259,13 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 elif kdj_sig == 'overbought':
                     stock['score'] -= 5
 
+                # RSI背离信号 — 强反转信号
+                rsi_div = tech.get('rsi_divergence', 'none')
+                if rsi_div == 'bullish':
+                    stock['score'] += 10  # 底背离是强买入信号
+                elif rsi_div == 'bearish':
+                    stock['score'] -= 10  # 顶背离是强卖出信号
+
                 # 板块整体乘数（回测验证好的板块加成）
                 stock['score'] = int(stock['score'] * get_sector_score_multiplier(sector))
 

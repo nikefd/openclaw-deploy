@@ -108,6 +108,32 @@ def get_market_sentiment() -> dict:
     elif s >= 30: result['sentiment_label'] = '谨慎'
     else: result['sentiment_label'] = '恐慌'
 
+    # 情绪EMA平滑 — 用最近5日快照做指数移动平均，避免单日极端值
+    try:
+        import sqlite3
+        conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
+        c = conn.cursor()
+        c.execute("SELECT sentiment_score FROM daily_snapshots ORDER BY date DESC LIMIT 5")
+        history = [row[0] for row in c.fetchall() if row[0] and row[0] > 0]
+        conn.close()
+        if history:
+            # EMA: 当日权重0.4, 历史权重0.6
+            ema = result['sentiment_score']
+            alpha = 0.4
+            for h in history:
+                ema = alpha * ema + (1 - alpha) * h
+            result['sentiment_raw'] = result['sentiment_score']
+            result['sentiment_score'] = round(ema, 1)
+            # 重新判断标签
+            s = result['sentiment_score']
+            if s >= 80: result['sentiment_label'] = '贪婪'
+            elif s >= 65: result['sentiment_label'] = '乐观'
+            elif s >= 45: result['sentiment_label'] = '中性'
+            elif s >= 30: result['sentiment_label'] = '谨慎'
+            else: result['sentiment_label'] = '恐慌'
+    except:
+        pass  # 数据库不存在或无历史，用原始值
+
     return result
 
 
@@ -412,6 +438,35 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
         vol_ma5 = volume.tail(5).mean()
         vol_today = volume.iloc[-1]
         indicators['volume_ratio'] = round(vol_today / vol_ma5, 2) if vol_ma5 > 0 else 1.0
+
+    # RSI背离检测 (看近10根K线)
+    # 价格创新低但RSI不创新低 → 看涨背离(底背离)
+    # 价格创新高但RSI不创新高 → 看跌背离(顶背离)
+    if len(close) >= 20 and not rsi.empty and len(rsi) >= 20:
+        try:
+            recent_close = close.iloc[-10:]
+            prev_close = close.iloc[-20:-10]
+            recent_rsi = rsi.iloc[-10:]
+            prev_rsi = rsi.iloc[-20:-10]
+
+            recent_low = recent_close.min()
+            prev_low = prev_close.min()
+            recent_rsi_low = recent_rsi.min()
+            prev_rsi_low = prev_rsi.min()
+
+            recent_high = recent_close.max()
+            prev_high = prev_close.max()
+            recent_rsi_high = recent_rsi.max()
+            prev_rsi_high = prev_rsi.max()
+
+            if recent_low < prev_low and recent_rsi_low > prev_rsi_low:
+                indicators['rsi_divergence'] = 'bullish'  # 底背离，看涨
+            elif recent_high > prev_high and recent_rsi_high < prev_rsi_high:
+                indicators['rsi_divergence'] = 'bearish'  # 顶背离，看跌
+            else:
+                indicators['rsi_divergence'] = 'none'
+        except:
+            indicators['rsi_divergence'] = 'none'
 
     return indicators
 

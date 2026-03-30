@@ -94,12 +94,18 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
             continue
         
         # === 时间止损 (Time Stop) ===
-        # 持仓超过15个交易日且收益在-3%~+3%之间 → 说明选错了，清掉换票
+        # 持仓天数阈值根据市场状态自适应: 牛市宽松(25天)，熊市收紧(15天)
+        time_stop_days = 20  # 默认震荡市
+        if regime == 'bull':
+            time_stop_days = 25  # 牛市给更多时间发酵
+        elif regime == 'bear':
+            time_stop_days = 15  # 熊市快速止损换票
+        
         if buy_date:
             try:
                 buy_dt = datetime.strptime(buy_date, '%Y-%m-%d').date()
                 hold_days = (date.today() - buy_dt).days
-                if hold_days >= 20 and -0.03 <= pnl_pct <= 0.03:
+                if hold_days >= time_stop_days and -0.03 <= pnl_pct <= 0.03:
                     actions.append({
                         "action": "SELL",
                         "symbol": pos['symbol'],
