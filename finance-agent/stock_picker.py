@@ -11,7 +11,7 @@ from data_collector import (
     get_market_indices, get_sector_fund_flow, calculate_technical_indicators
 )
 from performance_tracker import classify_sector, record_recommendation
-from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier
+from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier, kelly_position_size
 
 
 # 各信号源对应的策略key（用于市场状态调节权重）
@@ -25,6 +25,41 @@ SIGNAL_STRATEGY_MAP = {
     '机构增持': 'institution',
     '机构强烈推荐': 'institution',
 }
+
+
+def get_recent_strategy_performance() -> dict:
+    """读取近期推荐绩效，动态调节策略可信度
+    
+    如果某策略近期命中率低于30%，降低其权重
+    如果某板块近期表现好，提升其权重
+    """
+    try:
+        from performance_tracker import get_performance_summary
+        perf = get_performance_summary()
+        
+        strategy_mult = {}
+        for s in perf.get('by_strategy', []):
+            if s['total'] >= 3:  # 至少3次推荐才有统计意义
+                hr = s['hit_rate']
+                if hr >= 50:
+                    strategy_mult[s['strategy']] = 1.2
+                elif hr >= 30:
+                    strategy_mult[s['strategy']] = 1.0
+                else:
+                    strategy_mult[s['strategy']] = 0.7  # 近期表现差，降权
+        
+        sector_mult = {}
+        for s in perf.get('by_sector', []):
+            if s['total'] >= 3:
+                hr = s['hit_rate']
+                if hr >= 50:
+                    sector_mult[s['sector']] = 1.15
+                elif hr < 25:
+                    sector_mult[s['sector']] = 0.8
+        
+        return {'strategy': strategy_mult, 'sector': sector_mult}
+    except:
+        return {'strategy': {}, 'sector': {}}
 
 
 def get_momentum_candidates() -> list:
@@ -266,8 +301,23 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 elif rsi_div == 'bearish':
                     stock['score'] -= 10  # 顶背离是强卖出信号
 
+                # === 动量衰减检测 — 避免追高 ===
+                if tech.get('momentum_decay'):
+                    stock['score'] -= 8  # MACD柱线递减，动力不足
+                if tech.get('volume_price_diverge'):
+                    stock['score'] -= 6  # 量价背离，上涨不可持续
+
                 # 板块整体乘数（回测验证好的板块加成）
                 stock['score'] = int(stock['score'] * get_sector_score_multiplier(sector))
+
+                # === 近期绩效自适应 ===
+                # 根据近期实际推荐表现动态调节分数
+                try:
+                    perf_mult = get_recent_strategy_performance()
+                    sector_adj = perf_mult.get('sector', {}).get(sector, 1.0)
+                    stock['score'] = int(stock['score'] * sector_adj)
+                except:
+                    pass
 
             time.sleep(0.3)
         except Exception as e:

@@ -26,7 +26,8 @@ def init_db():
         avg_cost REAL,
         buy_date TEXT,
         current_price REAL,
-        updated_at TEXT
+        updated_at TEXT,
+        peak_price REAL DEFAULT 0
     )''')
 
     c.execute('''CREATE TABLE IF NOT EXISTS trades (
@@ -137,8 +138,8 @@ def buy_stock(symbol: str, name: str, price: float, shares: int, reason: str = "
         c.execute("UPDATE positions SET shares=?, avg_cost=?, current_price=?, updated_at=? WHERE symbol=?",
                   (new_shares, new_cost, price, now, symbol))
     else:
-        c.execute("INSERT INTO positions VALUES (?,?,?,?,?,?,?)",
-                  (symbol, name, shares, price, today, price, now))
+        c.execute("INSERT INTO positions VALUES (?,?,?,?,?,?,?,?)",
+                  (symbol, name, shares, price, today, price, now, price))
 
     # 扣款
     c.execute("UPDATE account SET cash=cash-?, updated_at=? WHERE id=1", (total_cost, now))

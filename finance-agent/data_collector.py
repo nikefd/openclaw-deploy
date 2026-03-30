@@ -468,6 +468,30 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
         except:
             indicators['rsi_divergence'] = 'none'
 
+    # === 动量衰减检测 ===
+    # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
+    if len(close) >= 10:
+        try:
+            macd_hist = macd.tail(5).tolist()
+            # MACD柱线连续3天递减 = 动量衰减
+            if len(macd_hist) >= 3:
+                if (macd_hist[-1] < macd_hist[-2] < macd_hist[-3] and 
+                    macd_hist[-1] > 0):  # 还在零上但在递减
+                    indicators['momentum_decay'] = True
+                else:
+                    indicators['momentum_decay'] = False
+            
+            # 量能衰减: 价格上涨但成交量递减
+            if volume is not None and len(volume) >= 5:
+                price_up = close.iloc[-1] > close.iloc[-3]
+                vol_down = volume.iloc[-1] < volume.iloc[-3] * 0.7
+                indicators['volume_price_diverge'] = price_up and vol_down
+            else:
+                indicators['volume_price_diverge'] = False
+        except:
+            indicators['momentum_decay'] = False
+            indicators['volume_price_diverge'] = False
+
     return indicators
 
 

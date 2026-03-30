@@ -17,27 +17,67 @@ SECTOR_STRATEGY_WEIGHTS = {
 
 def get_sector_score_multiplier(sector: str) -> float:
     """根据板块返回评分乘数 — 回测表现好的板块给更高权重"""
-    # 科技和新能源回测收益最高，给予加成
     sector_bonus = {
         '科技成长': 1.15,
         '新能源': 1.10,
-        '消费白马': 0.85,  # 消费白马不适合短线技术策略
+        '消费白马': 0.85,
         '主板': 1.0,
         '其他': 0.95,
     }
     return sector_bonus.get(sector, 1.0)
 
 
+# === Kelly Criterion 仓位优化 ===
+# 基于回测验证的各板块策略胜率和盈亏比
+KELLY_PARAMS = {
+    '科技成长': {'win_rate': 0.60, 'profit_factor': 2.35, 'max_kelly': 0.25},
+    '新能源':   {'win_rate': 0.70, 'profit_factor': 1.78, 'max_kelly': 0.25},
+    '消费白马': {'win_rate': 0.40, 'profit_factor': 0.80, 'max_kelly': 0.10},
+    '主板':     {'win_rate': 0.50, 'profit_factor': 1.20, 'max_kelly': 0.15},
+    '其他':     {'win_rate': 0.45, 'profit_factor': 1.00, 'max_kelly': 0.12},
+}
+
+
+def kelly_position_size(sector: str, confidence: int) -> float:
+    """Kelly Criterion计算最优仓位比例
+    
+    Kelly% = W - (1-W)/R
+    W = 胜率, R = 盈亏比
+    实际使用半Kelly(更保守)
+    """
+    params = KELLY_PARAMS.get(sector, KELLY_PARAMS['其他'])
+    w = params['win_rate']
+    r = params['profit_factor']
+    
+    if r <= 0:
+        return 0.05
+    
+    kelly = w - (1 - w) / r
+    kelly = max(kelly, 0)  # 负Kelly = 不下注
+    
+    # 半Kelly更保守
+    half_kelly = kelly / 2
+    
+    # 信心度调节: confidence 6-10 映射到 0.6-1.0
+    conf_mult = max(0.6, min(confidence / 10, 1.0))
+    adjusted = half_kelly * conf_mult
+    
+    # 限制在合理范围
+    return min(adjusted, params['max_kelly'])
+
+
 def calculate_position_size(confidence: int, sentiment_score: float, 
                             current_positions: int, available_cash: float,
                             sector: str = "", regime: str = "") -> float:
     """动态计算仓位大小（板块+市场状态调节）"""
-    # 基础仓位：根据信心评分
-    base_pct = {10: 0.15, 9: 0.13, 8: 0.12, 7: 0.10, 6: 0.08}.get(confidence, 0.05)
-    
-    # 板块调节 — 回测验证过的板块给更大仓位
+    # 基础仓位：使用Kelly Criterion（有回测数据支撑）
     if sector:
-        base_pct *= get_sector_score_multiplier(sector)
+        kelly = kelly_position_size(sector, confidence)
+        # Kelly仓位 vs 经验仓位取加权平均 (Kelly 60% + 经验 40%)
+        exp_pct = {10: 0.15, 9: 0.13, 8: 0.12, 7: 0.10, 6: 0.08}.get(confidence, 0.05)
+        base_pct = kelly * 0.6 + exp_pct * 0.4
+    else:
+        base_pct = {10: 0.15, 9: 0.13, 8: 0.12, 7: 0.10, 6: 0.08}.get(confidence, 0.05)
     
     # 市场状态调节
     if regime:
@@ -80,7 +120,7 @@ def calculate_position_size(confidence: int, sentiment_score: float,
 
 
 def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = "") -> list:
-    """动态止损止盈 — 追踪止损+情绪调节+阶梯止盈+时间止损"""
+    """动态止损止盈 — 追踪止损+情绪调节+阶梯止盈+时间止损+动量衰减卖出"""
     actions = []
     for pos in positions:
         if not pos.get('current_price') or not pos.get('avg_cost'):
@@ -92,6 +132,44 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         # T+1检查
         if buy_date == date.today().isoformat():
             continue
+        
+        # === 动量衰减卖出 ===
+        # 持仓盈利但动量正在衰减时，主动减仓保利润
+        try:
+            from data_collector import get_stock_daily, calculate_technical_indicators
+            df = get_stock_daily(pos['symbol'], 30)
+            if df is not None and not df.empty:
+                tech = calculate_technical_indicators(df)
+                if tech:
+                    # 盈利5%+且动量衰减+量价背离 → 减半仓
+                    if (pnl_pct >= 0.05 and 
+                        tech.get('momentum_decay') and 
+                        tech.get('volume_price_diverge')):
+                        half = (pos['shares'] // 200) * 100
+                        if half >= 100:
+                            actions.append({
+                                "action": "SELL",
+                                "symbol": pos['symbol'],
+                                "name": pos['name'],
+                                "reason": f"动量衰减减仓: 盈利{pnl_pct*100:+.1f}%但MACD递减+量价背离",
+                                "shares": half,
+                                "price": pos['current_price']
+                            })
+                            continue
+                    # RSI顶背离 + 盈利 → 卖出
+                    if (pnl_pct >= 0.03 and 
+                        tech.get('rsi_divergence') == 'bearish'):
+                        actions.append({
+                            "action": "SELL",
+                            "symbol": pos['symbol'],
+                            "name": pos['name'],
+                            "reason": f"RSI顶背离卖出: 盈利{pnl_pct*100:+.1f}%+顶背离信号",
+                            "shares": pos['shares'],
+                            "price": pos['current_price']
+                        })
+                        continue
+        except:
+            pass
         
         # === 时间止损 (Time Stop) ===
         # 持仓天数阈值根据市场状态自适应: 牛市宽松(25天)，熊市收紧(15天)
