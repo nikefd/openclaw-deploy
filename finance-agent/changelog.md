@@ -4,6 +4,25 @@
 
 ---
 
+## 2026-03-31 11:30 — v4.5 持仓分布饼图+交易统计卡片
+
+### 📊 仪表盘持仓分布饼图
+- 新增两个并排饼图(Doughnut): 个股持仓分布 + 板块分布
+- 个股饼图含现金占比，hover显示金额和百分比
+- 板块饼图按sector字段聚合，直观看行业集中度
+- 移动端自动单列布局
+
+### 📈 交易记录统计卡片
+- 交易Tab顶部新增4个统计卡片: 总交易次数、买入/卖出笔数、总交易额、总佣金
+- 快速了解整体交易活跃度和成本
+
+### 🔧 技术细节
+- finance.html: 新增allocChart/sectorAllocChart两个canvas + renderAllocCharts()
+- finance.html: 新增tradeStatsCards容器 + renderTradeStats()
+- 响应式适配768px以下
+
+---
+
 ## 2026-03-31 08:00 — v4.4 ATR自适应止损+波动率选股过滤
 
 ### 📊 ATR (Average True Range) 指标
