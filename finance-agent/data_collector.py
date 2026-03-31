@@ -468,6 +468,24 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
         except:
             indicators['rsi_divergence'] = 'none'
 
+    # === ATR (Average True Range) — 波动率指标，用于自适应止损 ===
+    if len(close) >= 14:
+        try:
+            high = df['最高'].astype(float)
+            low = df['最低'].astype(float)
+            prev_close = close.shift(1)
+            tr1 = high - low
+            tr2 = (high - prev_close).abs()
+            tr3 = (low - prev_close).abs()
+            tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+            atr14 = tr.rolling(14).mean().iloc[-1]
+            indicators['atr14'] = round(atr14, 4)
+            # ATR占价格的百分比 — 衡量相对波动率
+            indicators['atr_pct'] = round(atr14 / current * 100, 2) if current > 0 else 0
+        except:
+            indicators['atr14'] = 0
+            indicators['atr_pct'] = 0
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     if len(close) >= 10:

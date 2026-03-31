@@ -216,13 +216,32 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                 })
                 continue
         
-        # === 动态止损（情绪+市场状态调节）===
+        # === ATR自适应止损 + 情绪/市场状态调节 ===
+        # 先计算该股票的ATR止损线（基于个股波动率）
         stop_loss = STOP_LOSS  # 默认-8%
+        atr_stop = None
+        try:
+            from data_collector import get_stock_daily as _gsd, calculate_technical_indicators as _cti
+            _df = _gsd(pos['symbol'], 30)
+            if _df is not None and not _df.empty:
+                _tech = _cti(_df)
+                atr_pct = _tech.get('atr_pct', 0)
+                if atr_pct > 0:
+                    # ATR止损 = 2倍ATR百分比（给正常波动留空间）
+                    atr_stop = -(atr_pct * 2) / 100
+                    # 限制在合理范围 [-3%, -15%]
+                    atr_stop = max(min(atr_stop, -0.03), -0.15)
+        except:
+            pass
         
-        # 市场状态调节
+        # 市场状态调节基准
         if regime:
             from market_regime import get_regime_stop_loss
             stop_loss = get_regime_stop_loss(regime)
+        
+        # 如果有ATR数据，取ATR止损和市场止损中更保守的（更紧的）
+        if atr_stop is not None:
+            stop_loss = max(stop_loss, atr_stop)  # max because both are negative
         
         # 情绪再调节
         if sentiment_score < 35:  # 市场恐慌时收紧止损
@@ -231,11 +250,12 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
             stop_loss = min(stop_loss, -0.10)
         
         if pnl_pct <= stop_loss:
+            atr_info = f" ATR止损{atr_stop*100:.1f}%" if atr_stop else ""
             actions.append({
                 "action": "SELL",
                 "symbol": pos['symbol'],
                 "name": pos['name'],
-                "reason": f"动态止损: 亏损{pnl_pct*100:.1f}% (阈值{stop_loss*100:.0f}%)",
+                "reason": f"动态止损: 亏损{pnl_pct*100:.1f}% (阈值{stop_loss*100:.0f}%{atr_info})",
                 "shares": pos['shares'],
                 "price": pos['current_price']
             })

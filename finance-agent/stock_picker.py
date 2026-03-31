@@ -307,6 +307,14 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 if tech.get('volume_price_diverge'):
                     stock['score'] -= 6  # 量价背离，上涨不可持续
 
+                # === ATR波动率过滤 ===
+                atr_pct = tech.get('atr_pct', 0)
+                if atr_pct > 6:  # 日均波动>6%，风险太大
+                    stock['score'] -= 8
+                elif atr_pct > 4:  # 较高波动
+                    stock['score'] -= 3
+                stock['atr_pct'] = atr_pct
+
                 # 板块整体乘数（回测验证好的板块加成）
                 stock['score'] = int(stock['score'] * get_sector_score_multiplier(sector))
 
