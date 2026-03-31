@@ -84,8 +84,8 @@ def execute_sells(sentiment_score: float, regime: str = "") -> list:
     return results
 
 
-def execute_buys(picks: list, sentiment: dict, regime: str = "") -> list:
-    """执行买入（含板块路由+绩效记录）"""
+def execute_buys(picks: list, sentiment: dict, regime: str = "", loss_streak: int = 0) -> list:
+    """执行买入（含板块路由+绩效记录+连亏保护）"""
     results = []
     account = get_account()
     positions = get_positions()
@@ -102,7 +102,11 @@ def execute_buys(picks: list, sentiment: dict, regime: str = "") -> list:
             continue
 
         confidence = pick.get('confidence', 5)
-        if confidence < 6:
+        # 熊市/连亏时提高信心门槛，减少低质量开仓
+        min_confidence = 7 if regime == 'bear' else 6
+        if loss_streak >= 3:
+            min_confidence = max(min_confidence, 8)  # 连亏3+次，要求信心>=8
+        if confidence < min_confidence:
             continue
 
         # 获取实时价格
@@ -119,14 +123,21 @@ def execute_buys(picks: list, sentiment: dict, regime: str = "") -> list:
         # 板块分类
         sector = classify_sector(symbol, pick.get('name', ''))
 
-        # 动态仓位（含板块+市场状态调节）
+        # === 板块相关性检查: 同板块已有3只+，跳过 ===
+        same_sector_count = sum(1 for p in positions if classify_sector(p['symbol'], p.get('name', '')) == sector)
+        if same_sector_count >= 3:
+            print(f"  ⏭️ 跳过{pick.get('name','')}({symbol}) — {sector}已有{same_sector_count}只持仓")
+            continue
+
+        # 动态仓位（含板块+市场状态+连亏保护）
         position_pct = calculate_position_size(
             confidence, 
             sentiment.get('sentiment_score', 50),
             current_count, 
             available_cash,
             sector=sector,
-            regime=regime
+            regime=regime,
+            loss_streak=loss_streak
         )
         buy_amount = available_cash * position_pct
         shares = int(buy_amount / price / 100) * 100
@@ -236,7 +247,7 @@ def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict) 
 
 def generate_daily_report(market_analysis: dict, sell_results: list, buy_results: list, 
                           picks: list, sentiment: dict, pick_stats: dict,
-                          regime_info: dict = None) -> str:
+                          regime_info: dict = None, loss_streak: int = 0) -> str:
     """生成每日报告"""
     account = get_account()
     positions = get_positions()
@@ -304,6 +315,8 @@ def generate_daily_report(market_analysis: dict, sell_results: list, buy_results
 - 强势股: {pick_stats.get('strong_count', 0)}只 | 机构推荐: {pick_stats.get('institution_count', 0)}只
 - 最终候选: {pick_stats.get('final_count', 0)}只
 """
+    if loss_streak >= 2:
+        report += f"⚠️ **连亏保护**: 连续{loss_streak}次止损，仓位已自动收缩\n"
 
     # 绩效追踪摘要
     try:
@@ -372,6 +385,7 @@ def run_daily():
     positions = get_positions()
     account = get_account()
     risk = portfolio_risk_check(positions, account['total_value'])
+    loss_streak = risk.get('loss_streak', 0)
     if risk['warnings']:
         for w in risk['warnings']:
             print(f"  ⚠️ {w}")
@@ -392,7 +406,7 @@ def run_daily():
 
     # 6. 执行买入
     print("🛒 执行买入...")
-    buy_results = execute_buys(final_picks, sentiment, regime=regime)
+    buy_results = execute_buys(final_picks, sentiment, regime=regime, loss_streak=loss_streak)
 
     # 7. 保存快照
     save_daily_snapshot(
@@ -402,7 +416,7 @@ def run_daily():
 
     # 8. 生成报告
     print("📝 生成日报...")
-    report = generate_daily_report(market, sell_results, buy_results, final_picks, sentiment, pick_stats, regime_info=regime_info)
+    report = generate_daily_report(market, sell_results, buy_results, final_picks, sentiment, pick_stats, regime_info=regime_info, loss_streak=loss_streak)
 
     report_file = f"{REPORT_DIR}/{date.today().isoformat()}.md"
     with open(report_file, 'w') as f:

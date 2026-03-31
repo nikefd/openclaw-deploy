@@ -486,6 +486,18 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['atr14'] = 0
             indicators['atr_pct'] = 0
 
+    # === VWAP (Volume Weighted Average Price) ===
+    # 近20日VWAP，用于判断入场时机: 低于VWAP买入更安全
+    if volume is not None and len(close) >= 20:
+        try:
+            typical_price = (df['最高'].astype(float) + df['最低'].astype(float) + close) / 3
+            vwap_20 = (typical_price.tail(20) * volume.tail(20)).sum() / volume.tail(20).sum()
+            indicators['vwap_20'] = round(vwap_20, 2)
+            indicators['price_vs_vwap'] = round((current - vwap_20) / vwap_20 * 100, 2)  # 正=溢价, 负=折价
+        except:
+            indicators['vwap_20'] = 0
+            indicators['price_vs_vwap'] = 0
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     if len(close) >= 10:

@@ -26,6 +26,18 @@ SIGNAL_STRATEGY_MAP = {
     '机构强烈推荐': 'institution',
 }
 
+# 信号历史胜率权重(基于回测和实盘经验)
+SIGNAL_QUALITY_WEIGHTS = {
+    '量价齐升': 1.2,     # 量价配合信号可靠
+    '创新高': 0.9,       # 追高有风险
+    '大笔买入': 1.1,     # 资金流入有效
+    '火箭发射': 0.7,     # 短线信号容易反转
+    '强势股': 0.8,       # 可能已到顶
+    '机构买入': 1.3,     # 机构买入最可靠
+    '机构增持': 1.2,
+    '机构强烈推荐': 1.4,
+}
+
 
 def get_recent_strategy_performance() -> dict:
     """读取近期推荐绩效，动态调节策略可信度
@@ -209,21 +221,24 @@ def get_institution_candidates() -> list:
 
 def score_and_rank(all_candidates: list, regime: str = "") -> list:
     """综合打分+技术面验证+板块策略路由+市场状态调节+排名"""
-    # 合并同一股票的信号
+    # 合并同一股票的信号（按信号质量加权）
     merged = {}
     for c in all_candidates:
         code = c['code']
         if not code or len(code) < 6:
             continue
+        sig_base = c['signal'].split('×')[0].split('+')[0]
+        quality_w = SIGNAL_QUALITY_WEIGHTS.get(sig_base, 1.0)
+        weighted_score = int(c['score'] * quality_w)
         if code in merged:
             merged[code]['signals'].append(c['signal'])
-            merged[code]['score'] += c['score']
+            merged[code]['score'] += weighted_score
         else:
             merged[code] = {
                 'code': code,
                 'name': c.get('name', ''),
                 'signals': [c['signal']],
-                'score': c['score'],
+                'score': weighted_score,
             }
 
     # 排序取top
@@ -306,6 +321,15 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] -= 8  # MACD柱线递减，动力不足
                 if tech.get('volume_price_diverge'):
                     stock['score'] -= 6  # 量价背离，上涨不可持续
+
+                # === VWAP入场时机 ===
+                price_vs_vwap = tech.get('price_vs_vwap', 0)
+                if price_vs_vwap < -3:  # 低于VWAP 3%+，折价买入好时机
+                    stock['score'] += 8
+                elif price_vs_vwap < -1:
+                    stock['score'] += 4
+                elif price_vs_vwap > 5:  # 远超VWAP，溢价追高风险大
+                    stock['score'] -= 5
 
                 # === ATR波动率过滤 ===
                 atr_pct = tech.get('atr_pct', 0)

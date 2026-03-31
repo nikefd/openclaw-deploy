@@ -68,8 +68,9 @@ def kelly_position_size(sector: str, confidence: int) -> float:
 
 def calculate_position_size(confidence: int, sentiment_score: float, 
                             current_positions: int, available_cash: float,
-                            sector: str = "", regime: str = "") -> float:
-    """动态计算仓位大小（板块+市场状态调节）"""
+                            sector: str = "", regime: str = "",
+                            loss_streak: int = 0) -> float:
+    """动态计算仓位大小（板块+市场状态+连亏保护）"""
     # 基础仓位：使用Kelly Criterion（有回测数据支撑）
     if sector:
         kelly = kelly_position_size(sector, confidence)
@@ -108,6 +109,14 @@ def calculate_position_size(confidence: int, sentiment_score: float,
         base_pct *= 0.4
     elif current_positions >= 5:
         base_pct *= 0.7
+    
+    # === 连亏保护: 连续止损后自动收缩仓位 ===
+    if loss_streak >= 5:
+        base_pct *= 0.3  # 连亏5次，仓位降到30%
+    elif loss_streak >= 3:
+        base_pct *= 0.5  # 连亏3次，仓位减半
+    elif loss_streak >= 2:
+        base_pct *= 0.7  # 连亏2次，仓位降30%
     
     # 绝对限制
     base_pct = min(base_pct, MAX_SINGLE_POSITION)
@@ -205,7 +214,9 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         
         if peak_price > pos['avg_cost'] * 1.10:  # 曾经盈利超10%
             trail_drawdown = (peak_price - pos['current_price']) / peak_price
-            if trail_drawdown >= 0.05:  # 从高点回撤5%
+            # 熊市收紧追踪止损：4%回撤即卖出（默认5%）
+            trail_threshold = 0.04 if regime == 'bear' else 0.05
+            if trail_drawdown >= trail_threshold:  # 从高点回撤
                 actions.append({
                     "action": "SELL",
                     "symbol": pos['symbol'],
@@ -261,7 +272,7 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
             })
             continue
         
-        # === 阶梯止盈 ===
+        # === 阶梯止盈 (三档渐进) ===
         if pnl_pct >= 0.30:  # 赚30%+，止盈全部
             actions.append({
                 "action": "SELL",
@@ -282,14 +293,25 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                     "shares": half,
                     "price": pos['current_price']
                 })
+        elif pnl_pct >= 0.12:  # 赚12%+，止盈1/3
+            third = (pos['shares'] // 300) * 100
+            if third >= 100:
+                actions.append({
+                    "action": "SELL",
+                    "symbol": pos['symbol'],
+                    "name": pos['name'],
+                    "reason": f"阶梯止盈: 盈利{pnl_pct*100:.1f}% ≥12%, 卖出1/3",
+                    "shares": third,
+                    "price": pos['current_price']
+                })
     
     return actions
 
 
 def portfolio_risk_check(positions: list, total_value: float) -> dict:
-    """组合风险检查"""
+    """组合风险检查 — 含连亏保护+板块集中度+相关性"""
     if not positions:
-        return {"healthy": True, "warnings": []}
+        return {"healthy": True, "warnings": [], "loss_streak": 0}
     
     warnings = []
     
@@ -316,4 +338,27 @@ def portfolio_risk_check(positions: list, total_value: float) -> dict:
         if count >= 4:
             warnings.append(f"板块过于集中: {sector}有{count}只持仓，建议分散")
     
-    return {"healthy": len(warnings) == 0, "warnings": warnings}
+    # === 连亏检测 — 查最近交易记录 ===
+    loss_streak = 0
+    try:
+        import sqlite3
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT direction, reason FROM trades ORDER BY id DESC LIMIT 10")
+        recent_sells = []
+        for row in c.fetchall():
+            if row[0] == 'SELL':
+                recent_sells.append(row[1] or '')
+        conn.close()
+        # 统计连续止损次数
+        for reason in recent_sells:
+            if '止损' in reason:
+                loss_streak += 1
+            else:
+                break
+        if loss_streak >= 3:
+            warnings.append(f"⚠️ 连续{loss_streak}次止损! 建议降低仓位+提高选股门槛")
+    except:
+        pass
+    
+    return {"healthy": len(warnings) == 0, "warnings": warnings, "loss_streak": loss_streak}
