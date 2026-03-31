@@ -114,6 +114,7 @@ tr:hover{background:var(--hover)}
   .content{padding:16px}
   .nav-left h1{font-size:16px}
   .tab{padding:12px 14px;font-size:13px}
+  #panel-dashboard>div:nth-child(2){grid-template-columns:1fr!important}
 }
 @media(max-width:480px){
   .cards{grid-template-columns:1fr}
@@ -169,6 +170,17 @@ tr:hover{background:var(--hover)}
         <div id="regimeConf" style="font-size:12px;color:var(--sub);margin-top:4px">--</div>
       </div>
     </div>
+    <!-- Portfolio Allocation Chart -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+      <div class="chart-box">
+        <h3>持仓分布</h3>
+        <canvas id="allocChart" style="max-height:260px"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>板块分布</h3>
+        <canvas id="sectorAllocChart" style="max-height:260px"></canvas>
+      </div>
+    </div>
     <div class="tbl-wrap">
       <h3>持仓明细</h3>
       <div style="overflow-x:auto">
@@ -198,6 +210,7 @@ tr:hover{background:var(--hover)}
 
   <!-- TRADES -->
   <div class="tab-panel" id="panel-trades">
+    <div class="cards" id="tradeStatsCards" style="margin-bottom:16px"></div>
     <div class="filters">
       <select id="filterDir"><option value="">全部方向</option><option value="BUY">买入</option><option value="SELL">卖出</option></select>
       <input type="date" id="filterDate">
@@ -506,6 +519,7 @@ async function loadDashboard(){
 
   // Gauge
   renderGauge(d.sentiment);
+  renderAllocCharts(posData, a.cash);
   updateTime();
 }
 
@@ -650,6 +664,7 @@ async function loadTrades(){
   const d=await api('/api/finance/trades');
   tradesData=d?.trades||[];
   renderTrades();
+  renderTradeStats(tradesData);
 }
 function renderTrades(){
   const dir=document.getElementById('filterDir').value;
@@ -718,6 +733,52 @@ function closeLog(){
 function updateTime(){
   document.getElementById('lastUpdate').textContent='更新: '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
   document.getElementById('statusDot').classList.remove('error');
+}
+
+// Allocation Charts
+let allocChartInst=null,sectorAllocInst=null;
+function renderAllocCharts(positions, cash){
+  const posValue=positions.reduce((s,p)=>s+(p.current_price||0)*(p.shares||0),0);
+  // Pie: individual holdings + cash
+  const labels=[...positions.map(p=>p.name||p.symbol),'现金'];
+  const values=[...positions.map(p=>(p.current_price||0)*(p.shares||0)),cash];
+  const colors=['#4361ee','#e63946','#2ec4b6','#ffd166','#9b2226','#f4a261','#264653','#e76f51','#606c38','#dda15e','#a8dadc'];
+  const ctx=document.getElementById('allocChart');
+  if(!ctx)return;
+  if(allocChartInst)allocChartInst.destroy();
+  if(values.filter(v=>v>0).length===0)return;
+  allocChartInst=new Chart(ctx,{type:'doughnut',data:{labels,datasets:[{data:values,backgroundColor:colors.slice(0,labels.length),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:ctx2=>{const v=ctx2.raw;const pct=(v/(posValue+cash)*100).toFixed(1);return ctx2.label+': ¥'+v.toLocaleString()+' ('+pct+'%)';}}}}}});
+  // Sector allocation (group by first char of name as rough sector proxy — or use sector field if available)
+  const sectorMap={};
+  positions.forEach(p=>{
+    const sec=p.sector||'未分类';
+    sectorMap[sec]=(sectorMap[sec]||0)+(p.current_price||0)*(p.shares||0);
+  });
+  const secKeys=Object.keys(sectorMap);
+  if(secKeys.length===0)return;
+  const ctx2=document.getElementById('sectorAllocChart');
+  if(!ctx2)return;
+  if(sectorAllocInst)sectorAllocInst.destroy();
+  sectorAllocInst=new Chart(ctx2,{type:'doughnut',data:{labels:secKeys,datasets:[{data:secKeys.map(k=>sectorMap[k]),backgroundColor:colors.slice(0,secKeys.length),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:ctx3=>{const v=ctx3.raw;const pct=(v/posValue*100).toFixed(1);return ctx3.label+': ¥'+v.toLocaleString()+' ('+pct+'%)';}}}}}});
+}
+
+// Trade Stats
+function renderTradeStats(trades){
+  const sells=trades.filter(t=>t.direction==='SELL');
+  const buys=trades.filter(t=>t.direction==='BUY');
+  const totalAmount=trades.reduce((s,t)=>s+(t.amount||0),0);
+  const totalCommission=trades.reduce((s,t)=>s+(t.commission||0),0);
+  // Win/loss from sells with pnl info
+  const wins=sells.filter(t=>(t.pnl||0)>0).length;
+  const losses=sells.filter(t=>(t.pnl||0)<0).length;
+  const winRate=sells.length?((wins/sells.length)*100).toFixed(1)+'%':'--';
+  const cards=[
+    {label:'总交易次数',value:trades.length},
+    {label:'买入/卖出',value:`${buys.length} / ${sells.length}`},
+    {label:'总交易额',value:'¥'+Math.round(totalAmount).toLocaleString()},
+    {label:'总佣金',value:'¥'+fmt(totalCommission)},
+  ];
+  document.getElementById('tradeStatsCards').innerHTML=cards.map(c=>`<div class="card"><div class="card-label">${c.label}</div><div class="card-value" style="font-size:20px">${c.value}</div></div>`).join('');
 }
 
 async function refreshAll(){
