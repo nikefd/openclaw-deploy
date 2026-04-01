@@ -186,7 +186,7 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         if regime == 'bull':
             time_stop_days = 25  # 牛市给更多时间发酵
         elif regime == 'bear':
-            time_stop_days = 15  # 熊市快速止损换票
+            time_stop_days = 12  # 熊市快速止损换票（加速换仓）
         
         if buy_date:
             try:
@@ -212,7 +212,8 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         if pos['current_price'] > peak_price:
             peak_price = pos['current_price']
         
-        if peak_price > pos['avg_cost'] * 1.10:  # 曾经盈利超10%
+        trail_activation = 1.06 if regime == 'bear' else 1.10  # 熊市6%即激活追踪止损
+        if peak_price > pos['avg_cost'] * trail_activation:
             trail_drawdown = (peak_price - pos['current_price']) / peak_price
             # 熊市收紧追踪止损：4%回撤即卖出（默认5%）
             trail_threshold = 0.04 if regime == 'bear' else 0.05
