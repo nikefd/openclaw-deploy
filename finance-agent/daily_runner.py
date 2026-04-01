@@ -5,7 +5,7 @@ import sys
 from datetime import datetime, date
 from ai_analyst import analyze_market, call_llm
 from stock_picker import multi_strategy_pick
-from position_manager import calculate_position_size, check_dynamic_stop, portfolio_risk_check
+from position_manager import calculate_position_size, check_dynamic_stop, portfolio_risk_check, check_portfolio_drawdown
 from trading_engine import (
     get_account, get_positions, buy_stock, sell_stock,
     save_daily_snapshot, init_db
@@ -85,8 +85,17 @@ def execute_sells(sentiment_score: float, regime: str = "") -> list:
 
 
 def execute_buys(picks: list, sentiment: dict, regime: str = "", loss_streak: int = 0) -> list:
-    """执行买入（含板块路由+绩效记录+连亏保护）"""
+    """执行买入（含板块路由+绩效记录+连亏保护+回撤熔断）"""
     results = []
+    
+    # 回撤熔断检查
+    dd_info = check_portfolio_drawdown()
+    if dd_info.get('is_circuit_break'):
+        print(f"  🚨 回撤熔断! 组合回撤{dd_info['drawdown_pct']:.1f}%超过阈值，暂停所有买入")
+        return results
+    if dd_info.get('reduce_position'):
+        print(f"  ⚠️ 组合回撤{dd_info['drawdown_pct']:.1f}%，仓位自动减半")
+    
     account = get_account()
     positions = get_positions()
     available_cash = account['cash']
@@ -129,7 +138,18 @@ def execute_buys(picks: list, sentiment: dict, regime: str = "", loss_streak: in
             print(f"  ⏭️ 跳过{pick.get('name','')}({symbol}) — {sector}已有{same_sector_count}只持仓")
             continue
 
-        # 动态仓位（含板块+市场状态+连亏保护）
+        # 动态仓位（含板块+市场状态+连亏保护+风险平价）
+        # 获取ATR用于风险平价
+        stock_atr = 0
+        try:
+            _df = get_stock_daily(symbol, 30)
+            if _df is not None and not _df.empty:
+                from data_collector import calculate_technical_indicators as _cti
+                _t = _cti(_df)
+                stock_atr = _t.get('atr_pct', 0)
+        except:
+            pass
+        
         position_pct = calculate_position_size(
             confidence, 
             sentiment.get('sentiment_score', 50),
@@ -137,7 +157,8 @@ def execute_buys(picks: list, sentiment: dict, regime: str = "", loss_streak: in
             available_cash,
             sector=sector,
             regime=regime,
-            loss_streak=loss_streak
+            loss_streak=loss_streak,
+            atr_pct=stock_atr
         )
         buy_amount = available_cash * position_pct
         shares = int(buy_amount / price / 100) * 100
@@ -247,7 +268,8 @@ def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict) 
 
 def generate_daily_report(market_analysis: dict, sell_results: list, buy_results: list, 
                           picks: list, sentiment: dict, pick_stats: dict,
-                          regime_info: dict = None, loss_streak: int = 0) -> str:
+                          regime_info: dict = None, loss_streak: int = 0,
+                          dd_info: dict = None) -> str:
     """生成每日报告"""
     account = get_account()
     positions = get_positions()
@@ -317,6 +339,15 @@ def generate_daily_report(market_analysis: dict, sell_results: list, buy_results
 """
     if loss_streak >= 2:
         report += f"⚠️ **连亏保护**: 连续{loss_streak}次止损，仓位已自动收缩\n"
+
+    dd_info = dd_info or {}
+    if dd_info.get('drawdown_pct', 0) < -3:
+        report += f"📉 **组合回撤**: {dd_info['drawdown_pct']:.1f}% (峰值¥{dd_info.get('peak_value',0):,.0f})"
+        if dd_info.get('is_circuit_break'):
+            report += " 🚨**熔断中，暂停买入**"
+        elif dd_info.get('reduce_position'):
+            report += " ⚠️仓位已减半"
+        report += "\n"
 
     # 绩效追踪摘要
     try:
@@ -416,7 +447,8 @@ def run_daily():
 
     # 8. 生成报告
     print("📝 生成日报...")
-    report = generate_daily_report(market, sell_results, buy_results, final_picks, sentiment, pick_stats, regime_info=regime_info, loss_streak=loss_streak)
+    dd_info = check_portfolio_drawdown()
+    report = generate_daily_report(market, sell_results, buy_results, final_picks, sentiment, pick_stats, regime_info=regime_info, loss_streak=loss_streak, dd_info=dd_info)
 
     report_file = f"{REPORT_DIR}/{date.today().isoformat()}.md"
     with open(report_file, 'w') as f:

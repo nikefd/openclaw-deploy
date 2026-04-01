@@ -1,4 +1,4 @@
-"""仓位管理器 — 动态仓位+风控+止盈止损+追踪止损+板块策略路由+时间止损+市场状态"""
+"""仓位管理器 — 动态仓位+风控+止盈止损+追踪止损+板块策略路由+时间止损+市场状态+回撤熔断+风险平价"""
 
 from datetime import datetime, date, timedelta
 from config import *
@@ -66,11 +66,77 @@ def kelly_position_size(sector: str, confidence: int) -> float:
     return min(adjusted, params['max_kelly'])
 
 
+# === 组合回撤熔断器 ===
+# 总组合从峰值回撤超过阈值时，暂停新买入
+DRAWDOWN_CIRCUIT_BREAKER = {
+    'threshold': -0.08,      # 总回撤>8%触发熔断
+    'cooldown_days': 3,      # 熔断后冷却3天不买入
+    'reduce_threshold': -0.05,  # 回撤>5%仓位减半
+}
+
+
+def check_portfolio_drawdown() -> dict:
+    """检查组合回撤状态，返回熔断信息
+    
+    Returns: {drawdown_pct, from_peak, is_circuit_break, reduce_position}
+    """
+    try:
+        import sqlite3
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT total_value, date FROM daily_snapshots ORDER BY date DESC LIMIT 30")
+        rows = c.fetchall()
+        conn.close()
+        
+        if len(rows) < 2:
+            return {'drawdown_pct': 0, 'is_circuit_break': False, 'reduce_position': False}
+        
+        values = [(r[1], r[0]) for r in rows]
+        values.reverse()
+        
+        peak = max(v for _, v in values)
+        current = values[-1][1]
+        drawdown = (current - peak) / peak
+        
+        is_break = drawdown <= DRAWDOWN_CIRCUIT_BREAKER['threshold']
+        reduce = drawdown <= DRAWDOWN_CIRCUIT_BREAKER['reduce_threshold']
+        
+        return {
+            'drawdown_pct': round(drawdown * 100, 2),
+            'peak_value': peak,
+            'current_value': current,
+            'is_circuit_break': is_break,
+            'reduce_position': reduce,
+        }
+    except:
+        return {'drawdown_pct': 0, 'is_circuit_break': False, 'reduce_position': False}
+
+
+def risk_parity_weight(atr_pct: float, target_vol: float = 3.0) -> float:
+    """风险平价仓位权重 — ATR反比调仓
+    
+    低波动股给更大仓位，高波动股给更小仓位
+    目标: 每只股票对组合贡献相同的风险
+    
+    target_vol: 目标每只股票日波动贡献(%)
+    """
+    if atr_pct <= 0:
+        return 1.0
+    # weight ∝ 1/ATR，归一化到[0.5, 2.0]范围
+    raw_weight = target_vol / atr_pct
+    return max(0.5, min(raw_weight, 2.0))
+
+
 def calculate_position_size(confidence: int, sentiment_score: float, 
                             current_positions: int, available_cash: float,
                             sector: str = "", regime: str = "",
-                            loss_streak: int = 0) -> float:
-    """动态计算仓位大小（板块+市场状态+连亏保护）"""
+                            loss_streak: int = 0, atr_pct: float = 0) -> float:
+    """动态计算仓位大小（板块+市场状态+连亏保护+回撤熔断+风险平价）"""
+    # === 回撤熔断检查 ===
+    dd_info = check_portfolio_drawdown()
+    if dd_info['is_circuit_break']:
+        return 0.0  # 熔断: 完全停止买入
+    
     # 基础仓位：使用Kelly Criterion（有回测数据支撑）
     if sector:
         kelly = kelly_position_size(sector, confidence)
@@ -117,6 +183,15 @@ def calculate_position_size(confidence: int, sentiment_score: float,
         base_pct *= 0.5  # 连亏3次，仓位减半
     elif loss_streak >= 2:
         base_pct *= 0.7  # 连亏2次，仓位降30%
+    
+    # === 回撤减仓: 组合回撤>5%时仓位减半 ===
+    if dd_info.get('reduce_position'):
+        base_pct *= 0.5
+    
+    # === 风险平价: 低波动股给更大仓位 ===
+    if atr_pct > 0:
+        rp_weight = risk_parity_weight(atr_pct)
+        base_pct *= rp_weight
     
     # 绝对限制
     base_pct = min(base_pct, MAX_SINGLE_POSITION)

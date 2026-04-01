@@ -209,6 +209,11 @@ body.dark .md-content pre{background:#0a0a12}
       <h3>📅 每日收益热力图 (近30个交易日)</h3>
       <div class="heatmap-grid" id="heatmapGrid"></div>
     </div>
+    <!-- Drawdown Chart -->
+    <div class="chart-box" style="margin-bottom:24px">
+      <h3>📉 回撤曲线</h3>
+      <canvas id="drawdownChart" style="max-height:180px"></canvas>
+    </div>
     <div class="tbl-wrap">
       <h3>持仓明细</h3>
       <div style="overflow-x:auto">
@@ -603,6 +608,38 @@ async function loadChart(){
   });
 }
 
+let ddChartInst;
+async function loadDrawdownChart(){
+  const d=await api('/api/finance/chart');
+  if(!d||!d.values||d.values.length<2)return;
+  const vals=d.values;
+  let peak=vals[0],dd=[];
+  for(let v of vals){if(v>peak)peak=v;dd.push(((v-peak)/peak*100));}
+  const ctx=document.getElementById('drawdownChart').getContext('2d');
+  if(ddChartInst)ddChartInst.destroy();
+  ddChartInst=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:d.dates,
+      datasets:[{
+        label:'回撤%',data:dd,
+        borderColor:'#e63946',backgroundColor:'rgba(230,57,70,.15)',
+        fill:true,tension:.3,pointRadius:0,borderWidth:1.5
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>c.raw.toFixed(2)+'%'}}
+      },
+      scales:{
+        x:{grid:{display:false},ticks:{maxTicksLimit:8,font:{size:10}}},
+        y:{grid:{color:'#e5e5ea'},ticks:{font:{size:10},callback:v=>v.toFixed(1)+'%'},max:0}
+      }
+    }
+  });
+}
+
 // Analysis
 // News
 async function loadLiveStatus(){
@@ -810,7 +847,7 @@ function renderTradeStats(trades){
 }
 
 async function refreshAll(){
-  await Promise.all([loadDashboard(),loadChart(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime()]);
+  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime()]);
 }
 
 // Market Regime

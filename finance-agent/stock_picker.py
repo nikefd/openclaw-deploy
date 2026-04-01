@@ -219,6 +219,40 @@ def get_institution_candidates() -> list:
     return candidates[:20]
 
 
+def get_sector_momentum() -> dict:
+    """板块动量轮动 — 追踪近期板块资金流入方向，倾斜选股权重
+    
+    Returns: {sector_name: momentum_score} 正=资金流入，负=流出
+    """
+    try:
+        from data_collector import get_sector_fund_flow
+        sectors = get_sector_fund_flow()
+        if sectors is None or sectors.empty:
+            return {}
+        
+        result = {}
+        for _, row in sectors.iterrows():
+            name = str(row.get('板块名称', ''))
+            change = float(row.get('涨跌幅', 0) or 0)
+            net_flow = float(row.get('主力净流入', 0) or 0)
+            # 正向动量: 涨幅+资金流入
+            momentum = 0
+            if change > 2:
+                momentum += 2
+            elif change > 0:
+                momentum += 1
+            elif change < -2:
+                momentum -= 2
+            if net_flow > 0:
+                momentum += 1
+            elif net_flow < -1e8:  # 超过1亿流出
+                momentum -= 1
+            result[name] = momentum
+        return result
+    except:
+        return {}
+
+
 def score_and_rank(all_candidates: list, regime: str = "") -> list:
     """综合打分+技术面验证+板块策略路由+市场状态调节+排名"""
     # 合并同一股票的信号（按信号质量加权）
@@ -351,6 +385,20 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] -= 3
                 stock['atr_pct'] = atr_pct
 
+                # === 抛物线拉升过滤 ===
+                # 5日涨幅>15%的票大概率要回调，不追
+                if df is not None and len(df) >= 5:
+                    try:
+                        close_5 = df['收盘'].astype(float)
+                        ret_5d = (close_5.iloc[-1] - close_5.iloc[-5]) / close_5.iloc[-5] * 100
+                        if ret_5d > 15:
+                            stock['score'] -= 12  # 重扣: 抛物线拉升回调风险极大
+                            stock['parabolic'] = True
+                        elif ret_5d > 10:
+                            stock['score'] -= 5   # 轻扣: 短期涨幅较大
+                    except:
+                        pass
+
                 # 板块整体乘数（回测验证好的板块加成）
                 stock['score'] = int(stock['score'] * get_sector_score_multiplier(sector))
 
@@ -360,6 +408,20 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     perf_mult = get_recent_strategy_performance()
                     sector_adj = perf_mult.get('sector', {}).get(sector, 1.0)
                     stock['score'] = int(stock['score'] * sector_adj)
+                except:
+                    pass
+
+                # === 板块动量轮动加分 ===
+                try:
+                    sector_mom = get_sector_momentum()
+                    # 简单匹配: 如果候选股的板块名在热门板块中
+                    for sec_name, mom_score in sector_mom.items():
+                        if sector in sec_name or sec_name in stock.get('name', ''):
+                            if mom_score >= 2:
+                                stock['score'] += 6  # 强势板块加分
+                            elif mom_score <= -2:
+                                stock['score'] -= 4  # 弱势板块扣分
+                            break
                 except:
                     pass
 
