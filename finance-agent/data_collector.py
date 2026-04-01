@@ -498,6 +498,30 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['vwap_20'] = 0
             indicators['price_vs_vwap'] = 0
 
+    # === 跳空缺口检测 (Gap Detection) ===
+    # 近5日内的跳空缺口是重要的趋势信号
+    if len(close) >= 5:
+        try:
+            high_col = df['最高'].astype(float)
+            low_col = df['最低'].astype(float)
+            gap_up = False
+            gap_down = False
+            for i in range(-1, -4, -1):  # 检查最近3天
+                if len(low_col) + i >= 1:
+                    prev_high = high_col.iloc[i - 1]
+                    curr_low = low_col.iloc[i]
+                    prev_low = low_col.iloc[i - 1]
+                    curr_high = high_col.iloc[i]
+                    if curr_low > prev_high:  # 向上跳空
+                        gap_up = True
+                    if curr_high < prev_low:  # 向下跳空
+                        gap_down = True
+            indicators['gap_up'] = gap_up
+            indicators['gap_down'] = gap_down
+        except:
+            indicators['gap_up'] = False
+            indicators['gap_down'] = False
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     if len(close) >= 10:

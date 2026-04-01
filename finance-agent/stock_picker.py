@@ -331,6 +331,18 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 elif price_vs_vwap > 5:  # 远超VWAP，溢价追高风险大
                     stock['score'] -= 5
 
+                # === 跳空缺口信号 ===
+                if tech.get('gap_up'):
+                    stock['score'] += 6  # 向上跳空缺口=强势突破
+                if tech.get('gap_down'):
+                    stock['score'] -= 8  # 向下跳空缺口=破位风险
+
+                # === 换手率过滤 ===
+                # 用volume_ratio近似判断异常换手: 量比>3说明换手极高,可能是游资炒作
+                if vol_ratio > 3.0:
+                    stock['score'] -= 6  # 异常高换手,游资出货风险
+                    stock['high_turnover'] = True
+
                 # === ATR波动率过滤 ===
                 atr_pct = tech.get('atr_pct', 0)
                 if atr_pct > 6:  # 日均波动>6%，风险太大
