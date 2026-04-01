@@ -106,6 +106,28 @@ tr:hover{background:var(--hover)}
 /* NEWS */
 .news-placeholder{text-align:center;padding:60px;color:var(--sub)}
 
+/* DARK MODE */
+body.dark{--bg:#0f0f17;--card:#1a1a2e;--text:#e0e0e0;--sub:#8a8a9a;--border:#2a2a3e;--hover:#252540;--accent:#6c8cff}
+body.dark .nav{background:#1a1a2e;border-color:#2a2a3e}
+body.dark .log-panel{background:#0a0a12}
+body.dark table th{color:#8a8a9a}
+body.dark .btn{background:#1a1a2e;border-color:#2a2a3e;color:#e0e0e0}
+body.dark .btn:hover{background:#252540}
+body.dark .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+body.dark .modal{background:#1a1a2e}
+body.dark .md-content pre{background:#0a0a12}
+.dark-toggle{background:none;border:none;font-size:20px;cursor:pointer;padding:4px 8px;border-radius:6px}
+.dark-toggle:hover{background:var(--hover)}
+
+/* HEATMAP */
+.heatmap-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px}
+.heatmap-wrap h3{font-size:14px;color:var(--sub);margin-bottom:12px}
+.heatmap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:4px}
+.heatmap-cell{aspect-ratio:1.2;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;cursor:default;transition:transform .15s}
+.heatmap-cell:hover{transform:scale(1.1);z-index:1}
+.heatmap-cell .day{font-weight:600;font-size:11px}
+.heatmap-cell .ret{font-size:10px;margin-top:1px}
+
 /* RESPONSIVE */
 @media(max-width:768px){
   .chart-row{grid-template-columns:1fr}
@@ -131,6 +153,7 @@ tr:hover{background:var(--hover)}
   <div class="nav-right">
     <span class="status-dot" id="statusDot"></span>
     <span id="lastUpdate">--</span>
+    <button class="dark-toggle" id="darkToggle" onclick="toggleDark()" title="切换深色模式">🌙</button>
     <button class="btn" onclick="refreshAll()">🔄 刷新</button>
     <button class="btn btn-primary" id="runBtn" onclick="runAnalysis()">▶ 运行分析</button>
   </div>
@@ -180,6 +203,11 @@ tr:hover{background:var(--hover)}
         <h3>板块分布</h3>
         <canvas id="sectorAllocChart" style="max-height:260px"></canvas>
       </div>
+    </div>
+    <!-- Returns Heatmap -->
+    <div class="heatmap-wrap">
+      <h3>📅 每日收益热力图 (近30个交易日)</h3>
+      <div class="heatmap-grid" id="heatmapGrid"></div>
     </div>
     <div class="tbl-wrap">
       <h3>持仓明细</h3>
@@ -519,7 +547,7 @@ async function loadDashboard(){
 
   // Gauge
   renderGauge(d.sentiment);
-  renderAllocCharts(posData, a.cash);
+  renderAllocCharts(d.positions||[], a.cash);
   updateTime();
 }
 
@@ -782,7 +810,7 @@ function renderTradeStats(trades){
 }
 
 async function refreshAll(){
-  await Promise.all([loadDashboard(),loadChart(),loadAnalysis(),loadTrades(),loadReports(),loadRegime()]);
+  await Promise.all([loadDashboard(),loadChart(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime()]);
 }
 
 // Market Regime
@@ -849,6 +877,48 @@ async function loadPerformance(){
     const fmtR=v=>v==null?'<span style="color:var(--sub)">--</span>':`<span class="${v>0?'up':'down'}">${v>0?'+':''}${v.toFixed(2)}%</span>`;
     return`<tr><td>${r.date||''}</td><td>${r.name||''}</td><td>${r.symbol||''}</td><td>${r.strategy||''}</td><td>${r.sector||''}</td><td>${fmt(r.buy_price)}</td><td>${fmtR(r1)}</td><td>${fmtR(r3)}</td><td>${fmtR(r5)}</td><td>${fmtR(r10)}</td></tr>`;
   }).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--sub)">暂无推荐记录</td></tr>';
+}
+
+// Dark Mode
+function toggleDark(){
+  document.body.classList.toggle('dark');
+  const isDark=document.body.classList.contains('dark');
+  localStorage.setItem('finance-dark',isDark?'1':'0');
+  document.getElementById('darkToggle').textContent=isDark?'☀️':'🌙';
+}
+if(localStorage.getItem('finance-dark')==='1'){
+  document.body.classList.add('dark');
+  document.getElementById('darkToggle').textContent='☀️';
+}
+
+// Returns Heatmap
+async function loadHeatmap(){
+  const d=await api('/api/finance/chart');
+  if(!d||!d.dates||d.dates.length<2)return;
+  const grid=document.getElementById('heatmapGrid');
+  if(!grid)return;
+  // Calculate daily returns from snapshots
+  const cells=[];
+  const len=d.values.length;
+  const start=Math.max(1,len-30);
+  for(let i=start;i<len;i++){
+    const ret=((d.values[i]-d.values[i-1])/d.values[i-1]*100);
+    cells.push({date:d.dates[i],ret});
+  }
+  const maxAbs=Math.max(...cells.map(c=>Math.abs(c.ret)),0.5);
+  grid.innerHTML=cells.map(c=>{
+    const intensity=Math.min(Math.abs(c.ret)/maxAbs,1);
+    let bg;
+    if(c.ret>0) bg=`rgba(230,57,70,${0.15+intensity*0.7})`;
+    else if(c.ret<0) bg=`rgba(46,196,182,${0.15+intensity*0.7})`;
+    else bg='var(--hover)';
+    const textColor=intensity>0.5?'#fff':'var(--text)';
+    const dayLabel=c.date.slice(5); // MM-DD
+    return`<div class="heatmap-cell" style="background:${bg};color:${textColor}" title="${c.date}: ${c.ret>0?'+':''}${c.ret.toFixed(2)}%">
+      <span class="day">${dayLabel}</span>
+      <span class="ret">${c.ret>0?'+':''}${c.ret.toFixed(2)}%</span>
+    </div>`;
+  }).join('');
 }
 
 // Init
