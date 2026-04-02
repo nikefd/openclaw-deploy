@@ -371,6 +371,15 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 if tech.get('gap_down'):
                     stock['score'] -= 8  # 向下跳空缺口=破位风险
 
+                # === OBV能量潮确认 ===
+                obv_trend = tech.get('obv_trend', 0)
+                if obv_trend > 0.15:  # OBV明显上升，量价配合
+                    stock['score'] += 6
+                elif obv_trend < -0.15:  # OBV下降，上涨可能是假突破
+                    stock['score'] -= 5
+                if tech.get('obv_price_diverge'):  # 价涨量缩的OBV背离
+                    stock['score'] -= 7
+
                 # === 换手率过滤 ===
                 # 用volume_ratio近似判断异常换手: 量比>3说明换手极高,可能是游资炒作
                 if vol_ratio > 3.0:
@@ -414,14 +423,24 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 # === 板块动量轮动加分 ===
                 try:
                     sector_mom = get_sector_momentum()
-                    # 简单匹配: 如果候选股的板块名在热门板块中
+                    # 用板块名称关键词匹配: 科技→半导体/软件/芯片, 新能源→光伏/锂电/风电 等
+                    SECTOR_KEYWORDS = {
+                        '科技成长': ['半导体', '软件', '芯片', '计算机', '电子', '通信', '互联网', '人工智能', 'AI'],
+                        '新能源': ['光伏', '锂电', '风电', '新能源', '储能', '太阳能', '电池'],
+                        '消费白马': ['白酒', '食品', '家电', '医药', '消费', '零售'],
+                    }
+                    keywords = SECTOR_KEYWORDS.get(sector, [])
+                    best_mom = 0
                     for sec_name, mom_score in sector_mom.items():
-                        if sector in sec_name or sec_name in stock.get('name', ''):
-                            if mom_score >= 2:
-                                stock['score'] += 6  # 强势板块加分
-                            elif mom_score <= -2:
-                                stock['score'] -= 4  # 弱势板块扣分
-                            break
+                        for kw in keywords:
+                            if kw in sec_name:
+                                if abs(mom_score) > abs(best_mom):
+                                    best_mom = mom_score
+                                break
+                    if best_mom >= 2:
+                        stock['score'] += 6  # 强势板块加分
+                    elif best_mom <= -2:
+                        stock['score'] -= 4  # 弱势板块扣分
                 except:
                     pass
 

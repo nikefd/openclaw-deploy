@@ -217,43 +217,59 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         if buy_date == date.today().isoformat():
             continue
         
-        # === 动量衰减卖出 ===
-        # 持仓盈利但动量正在衰减时，主动减仓保利润
+        # === 预取技术指标(一次获取，多处复用) ===
+        pos_tech = None
         try:
             from data_collector import get_stock_daily, calculate_technical_indicators
-            df = get_stock_daily(pos['symbol'], 30)
-            if df is not None and not df.empty:
-                tech = calculate_technical_indicators(df)
-                if tech:
-                    # 盈利5%+且动量衰减+量价背离 → 减半仓
-                    if (pnl_pct >= 0.05 and 
-                        tech.get('momentum_decay') and 
-                        tech.get('volume_price_diverge')):
-                        half = (pos['shares'] // 200) * 100
-                        if half >= 100:
-                            actions.append({
-                                "action": "SELL",
-                                "symbol": pos['symbol'],
-                                "name": pos['name'],
-                                "reason": f"动量衰减减仓: 盈利{pnl_pct*100:+.1f}%但MACD递减+量价背离",
-                                "shares": half,
-                                "price": pos['current_price']
-                            })
-                            continue
-                    # RSI顶背离 + 盈利 → 卖出
-                    if (pnl_pct >= 0.03 and 
-                        tech.get('rsi_divergence') == 'bearish'):
-                        actions.append({
-                            "action": "SELL",
-                            "symbol": pos['symbol'],
-                            "name": pos['name'],
-                            "reason": f"RSI顶背离卖出: 盈利{pnl_pct*100:+.1f}%+顶背离信号",
-                            "shares": pos['shares'],
-                            "price": pos['current_price']
-                        })
-                        continue
+            _df = get_stock_daily(pos['symbol'], 30)
+            if _df is not None and not _df.empty:
+                pos_tech = calculate_technical_indicators(_df)
         except:
             pass
+        
+        # === 动量衰减卖出 ===
+        # 持仓盈利但动量正在衰减时，主动减仓保利润
+        if pos_tech:
+            # 盈利5%+且动量衰减+量价背离 → 减半仓
+            if (pnl_pct >= 0.05 and 
+                pos_tech.get('momentum_decay') and 
+                pos_tech.get('volume_price_diverge')):
+                half = (pos['shares'] // 200) * 100
+                if half >= 100:
+                    actions.append({
+                        "action": "SELL",
+                        "symbol": pos['symbol'],
+                        "name": pos['name'],
+                        "reason": f"动量衰减减仓: 盈利{pnl_pct*100:+.1f}%但MACD递减+量价背离",
+                        "shares": half,
+                        "price": pos['current_price']
+                    })
+                    continue
+            # OBV量价背离 + 盈利 → 减半仓（新增）
+            if (pnl_pct >= 0.05 and pos_tech.get('obv_price_diverge')):
+                half = (pos['shares'] // 200) * 100
+                if half >= 100:
+                    actions.append({
+                        "action": "SELL",
+                        "symbol": pos['symbol'],
+                        "name": pos['name'],
+                        "reason": f"OBV量价背离减仓: 盈利{pnl_pct*100:+.1f}%但OBV下降",
+                        "shares": half,
+                        "price": pos['current_price']
+                    })
+                    continue
+            # RSI顶背离 + 盈利 → 卖出
+            if (pnl_pct >= 0.03 and 
+                pos_tech.get('rsi_divergence') == 'bearish'):
+                actions.append({
+                    "action": "SELL",
+                    "symbol": pos['symbol'],
+                    "name": pos['name'],
+                    "reason": f"RSI顶背离卖出: 盈利{pnl_pct*100:+.1f}%+顶背离信号",
+                    "shares": pos['shares'],
+                    "price": pos['current_price']
+                })
+                continue
         
         # === 时间止损 (Time Stop) ===
         # 持仓天数阈值根据市场状态自适应: 牛市宽松(25天)，熊市收紧(15天)
@@ -304,22 +320,13 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                 continue
         
         # === ATR自适应止损 + 情绪/市场状态调节 ===
-        # 先计算该股票的ATR止损线（基于个股波动率）
         stop_loss = STOP_LOSS  # 默认-8%
         atr_stop = None
-        try:
-            from data_collector import get_stock_daily as _gsd, calculate_technical_indicators as _cti
-            _df = _gsd(pos['symbol'], 30)
-            if _df is not None and not _df.empty:
-                _tech = _cti(_df)
-                atr_pct = _tech.get('atr_pct', 0)
-                if atr_pct > 0:
-                    # ATR止损 = 2倍ATR百分比（给正常波动留空间）
-                    atr_stop = -(atr_pct * 2) / 100
-                    # 限制在合理范围 [-3%, -15%]
-                    atr_stop = max(min(atr_stop, -0.03), -0.15)
-        except:
-            pass
+        if pos_tech:
+            atr_pct = pos_tech.get('atr_pct', 0)
+            if atr_pct > 0:
+                atr_stop = -(atr_pct * 2) / 100
+                atr_stop = max(min(atr_stop, -0.03), -0.15)
         
         # 市场状态调节基准
         if regime:

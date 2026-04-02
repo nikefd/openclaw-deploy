@@ -522,6 +522,34 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['gap_up'] = False
             indicators['gap_down'] = False
 
+    # === OBV (On-Balance Volume) 能量潮 ===
+    # 经典量价确认指标: OBV上升确认上涨趋势，OBV下降警示假突破
+    if volume is not None and len(close) >= 20:
+        try:
+            obv = pd.Series(0.0, index=close.index)
+            for idx in range(1, len(close)):
+                if close.iloc[idx] > close.iloc[idx-1]:
+                    obv.iloc[idx] = obv.iloc[idx-1] + volume.iloc[idx]
+                elif close.iloc[idx] < close.iloc[idx-1]:
+                    obv.iloc[idx] = obv.iloc[idx-1] - volume.iloc[idx]
+                else:
+                    obv.iloc[idx] = obv.iloc[idx-1]
+            # OBV趋势: 比较近5日OBV均值 vs 前5日OBV均值
+            obv_recent = obv.iloc[-5:].mean()
+            obv_prev = obv.iloc[-10:-5].mean()
+            if obv_prev != 0:
+                obv_trend = (obv_recent - obv_prev) / abs(obv_prev)
+            else:
+                obv_trend = 0
+            indicators['obv_trend'] = round(obv_trend, 4)
+            # 量价背离: 价格上涨但OBV下降
+            price_up_5d = close.iloc[-1] > close.iloc[-5]
+            obv_down = obv_trend < -0.1
+            indicators['obv_price_diverge'] = price_up_5d and obv_down
+        except:
+            indicators['obv_trend'] = 0
+            indicators['obv_price_diverge'] = False
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     if len(close) >= 10:
