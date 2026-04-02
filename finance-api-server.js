@@ -305,6 +305,97 @@ const server = http.createServer((req, res) => {
       });
       return sendJson(res, { status: 'running', message: '健康检查已触发' });
     }
+    // === 实盘操作 ===
+    if (pathname === '/api/finance/real/positions' && req.method === 'GET') {
+      try {
+        const py = `import json,sys;sys.path.insert(0,'/home/nikefd/finance-agent');from real_trader import get_positions;from data_collector import get_realtime_quotes;pos=get_positions();codes=[p['symbol'] for p in pos];quotes=get_realtime_quotes(codes) if codes else {};
+for p in pos:
+    q=quotes.get(p['symbol'],{})
+    p['current_price']=q.get('price',0)
+    p['change_pct']=q.get('change_pct',0)
+    p['pnl_pct']=round((p['current_price']-p['avg_cost'])/p['avg_cost']*100,2) if p['current_price'] and p['avg_cost'] else 0
+    p['pnl_amount']=round((p['current_price']-p['avg_cost'])*p['shares'],2) if p['current_price'] else 0
+    p['market_value']=round(p['current_price']*p['shares'],2) if p['current_price'] else 0
+print(json.dumps(pos,ensure_ascii=False,default=str))`;
+        const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 15000 }).toString().trim();
+        return sendJson(res, { positions: JSON.parse(out || '[]') });
+      } catch(e) { return sendJson(res, { positions: [], error: e.message }); }
+    }
+    if (pathname === '/api/finance/real/positions' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          const py = `import json,sys;sys.path.insert(0,'/home/nikefd/finance-agent');from real_trader import add_position;r=add_position('${data.symbol}','${data.name||""}',${data.shares||0},${data.avg_cost||0},'${data.buy_date||""}','${data.notes||""}');print(json.dumps(r,ensure_ascii=False))`;
+          const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+          sendJson(res, JSON.parse(out));
+        } catch(e) { sendError(res, e.message); }
+      });
+      return;
+    }
+    if (pathname === '/api/finance/real/account' && req.method === 'GET') {
+      try {
+        const py = `import json,sys;sys.path.insert(0,'/home/nikefd/finance-agent');from real_trader import get_account;print(json.dumps(get_account(),ensure_ascii=False,default=str))`;
+        const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 5000 }).toString().trim();
+        return sendJson(res, JSON.parse(out || '{}'));
+      } catch(e) { return sendJson(res, { total_capital: 0, available_cash: 0, error: e.message }); }
+    }
+    if (pathname === '/api/finance/real/account' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          const py = `import sys;sys.path.insert(0,'/home/nikefd/finance-agent');from real_trader import update_account;update_account(${data.total_capital||0},${data.available_cash||0});print('{"ok":true}')`;
+          execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 5000 });
+          sendJson(res, { ok: true });
+        } catch(e) { sendError(res, e.message); }
+      });
+      return;
+    }
+    if (pathname === '/api/finance/real/actions' && req.method === 'GET') {
+      try {
+        const date = params.date || new Date().toISOString().slice(0, 10);
+        const py = `import json,sys;sys.path.insert(0,'/home/nikefd/finance-agent');from real_trader import get_today_actions;print(json.dumps(get_today_actions('${date}'),ensure_ascii=False,default=str))`;
+        const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+        return sendJson(res, { actions: JSON.parse(out || '[]'), date });
+      } catch(e) { return sendJson(res, { actions: [], error: e.message }); }
+    }
+    if (pathname === '/api/finance/real/actions/generate' && req.method === 'POST') {
+      log('Generating daily actions...');
+      exec('cd /home/nikefd/finance-agent && python3 -u -c "from real_trader import generate_daily_actions; generate_daily_actions()" >> /tmp/real-actions.log 2>&1', { timeout: 300000 }, (err) => {
+        if (err) log('Action generation error: ' + err.message);
+        else log('Action generation completed');
+      });
+      return sendJson(res, { status: 'running', message: '正在生成操作建议...' });
+    }
+    if (pathname === '/api/finance/real/actions/update' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          const py = `import sys;sys.path.insert(0,'/home/nikefd/finance-agent');from real_trader import update_action_status;update_action_status(${data.id},'${data.status}',${data.executed_price||'None'},'${(data.notes||"").replace(/'/g,"\\'")}');print('{"ok":true}')`;
+          execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 5000 });
+          sendJson(res, { ok: true });
+        } catch(e) { sendError(res, e.message); }
+      });
+      return;
+    }
+    if (pathname === '/api/finance/real/sell' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          const py = `import json,sys;sys.path.insert(0,'/home/nikefd/finance-agent');from real_trader import sell_position;r=sell_position('${data.symbol}',${data.shares||'None'},${data.price||'None'},'${data.notes||""}');print(json.dumps(r,ensure_ascii=False))`;
+          const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+          sendJson(res, JSON.parse(out));
+        } catch(e) { sendError(res, e.message); }
+      });
+      return;
+    }
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);
