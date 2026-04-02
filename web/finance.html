@@ -214,6 +214,11 @@ body.dark .md-content pre{background:#0a0a12}
       <h3>📉 回撤曲线</h3>
       <canvas id="drawdownChart" style="max-height:180px"></canvas>
     </div>
+    <!-- Position PnL Bar Chart -->
+    <div class="chart-box" style="margin-bottom:24px">
+      <h3>📊 持仓盈亏对比</h3>
+      <canvas id="posPnlChart" style="max-height:220px"></canvas>
+    </div>
     <div class="tbl-wrap">
       <h3>持仓明细</h3>
       <div style="overflow-x:auto">
@@ -244,6 +249,10 @@ body.dark .md-content pre{background:#0a0a12}
   <!-- TRADES -->
   <div class="tab-panel" id="panel-trades">
     <div class="cards" id="tradeStatsCards" style="margin-bottom:16px"></div>
+    <div class="chart-box" style="margin-bottom:16px">
+      <h3>📈 累计交易盈亏曲线</h3>
+      <canvas id="cumPnlChart" style="max-height:200px"></canvas>
+    </div>
     <div class="filters">
       <select id="filterDir"><option value="">全部方向</option><option value="BUY">买入</option><option value="SELL">卖出</option></select>
       <input type="date" id="filterDate">
@@ -553,6 +562,7 @@ async function loadDashboard(){
   // Gauge
   renderGauge(d.sentiment);
   renderAllocCharts(d.positions||[], a.cash);
+  renderPosPnlChart(d.positions||[]);
   updateTime();
 }
 
@@ -730,6 +740,7 @@ async function loadTrades(){
   tradesData=d?.trades||[];
   renderTrades();
   renderTradeStats(tradesData);
+  renderCumPnlChart(tradesData);
 }
 function renderTrades(){
   const dir=document.getElementById('filterDir').value;
@@ -825,6 +836,40 @@ function renderAllocCharts(positions, cash){
   if(!ctx2)return;
   if(sectorAllocInst)sectorAllocInst.destroy();
   sectorAllocInst=new Chart(ctx2,{type:'doughnut',data:{labels:secKeys,datasets:[{data:secKeys.map(k=>sectorMap[k]),backgroundColor:colors.slice(0,secKeys.length),borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:ctx3=>{const v=ctx3.raw;const pct=(v/posValue*100).toFixed(1);return ctx3.label+': ¥'+v.toLocaleString()+' ('+pct+'%)';}}}}}});
+}
+
+// Position PnL Bar Chart
+let posPnlChartInst=null;
+function renderPosPnlChart(positions){
+  const ctx=document.getElementById('posPnlChart');
+  if(!ctx||!positions.length)return;
+  if(posPnlChartInst)posPnlChartInst.destroy();
+  const sorted=[...positions].sort((a,b)=>(b.pnl_pct||0)-(a.pnl_pct||0));
+  const labels=sorted.map(p=>p.name||p.symbol);
+  const data=sorted.map(p=>p.pnl_pct||0);
+  const bgColors=data.map(v=>v>=0?'rgba(230,57,70,0.75)':'rgba(46,196,182,0.75)');
+  posPnlChartInst=new Chart(ctx,{type:'bar',data:{
+    labels,datasets:[{label:'盈亏%',data,backgroundColor:bgColors,borderRadius:4,barThickness:24}]
+  },options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw.toFixed(2)+'%'}}},
+    scales:{x:{grid:{color:'#e5e5ea'},ticks:{callback:v=>v+'%'}},y:{grid:{display:false},ticks:{font:{size:12}}}}}});
+}
+
+// Cumulative Trade PnL Chart
+let cumPnlChartInst=null;
+function renderCumPnlChart(trades){
+  const ctx=document.getElementById('cumPnlChart');
+  if(!ctx)return;
+  if(cumPnlChartInst)cumPnlChartInst.destroy();
+  const sells=trades.filter(t=>t.direction==='SELL'&&t.pnl!=null).sort((a,b)=>(a.trade_date||'').localeCompare(b.trade_date||''));
+  if(!sells.length)return;
+  let cum=0;const labels=[],data=[];
+  sells.forEach(t=>{cum+=t.pnl||0;labels.push(t.trade_date+(t.name?' '+t.name:''));data.push(Math.round(cum*100)/100);});
+  cumPnlChartInst=new Chart(ctx,{type:'line',data:{labels,datasets:[{
+    label:'累计盈亏',data,borderColor:cum>=0?'#e63946':'#2ec4b6',
+    backgroundColor:cum>=0?'rgba(230,57,70,.1)':'rgba(46,196,182,.1)',
+    fill:true,tension:.3,pointRadius:data.length>20?0:3,borderWidth:2
+  }]},options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'¥'+c.raw.toLocaleString()}}},
+    scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8,font:{size:10}}},y:{grid:{color:'#e5e5ea'},ticks:{font:{size:11},callback:v=>'¥'+v.toLocaleString()}}}}});
 }
 
 // Trade Stats

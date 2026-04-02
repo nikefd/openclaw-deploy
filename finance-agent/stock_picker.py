@@ -1,4 +1,4 @@
-"""多策略选股引擎 — 综合技术面+资金面+消息面+AI研判"""
+"""多策略选股引擎 — 综合技术面+资金面+消息面+新闻舆情+AI研判"""
 
 import akshare as ak
 import pandas as pd
@@ -478,8 +478,8 @@ def filter_tradeable(candidates: list) -> list:
     return filtered
 
 
-def multi_strategy_pick(regime: str = "") -> dict:
-    """多策略综合选股主流程"""
+def multi_strategy_pick(regime: str = "", use_news: bool = True) -> dict:
+    """多策略综合选股主流程（含新闻/舆情数据源）"""
     print("  🔍 策略1: 动量选股(量价齐升+创新高)...")
     momentum = get_momentum_candidates()
     print(f"    → {len(momentum)}只候选")
@@ -496,25 +496,128 @@ def multi_strategy_pick(regime: str = "") -> dict:
     institution = get_institution_candidates()
     print(f"    → {len(institution)}只候选")
 
+    # === 策略5: 新闻/舆情驱动 ===
+    news_signals = None
+    news_candidates = []
+    if use_news:
+        try:
+            from news_collector import collect_and_analyze, get_news_score_for_stock
+            print("  📰 策略5: 新闻/舆情信号...")
+            news_result = collect_and_analyze()
+            news_signals = news_result.get('signals', {})
+            
+            # 从新闻信号中提取个股候选
+            for sig in news_signals.get('stock_signals', []):
+                code = sig.get('code', '')
+                if code and len(code) == 6 and sig.get('signal') == '利好':
+                    news_candidates.append({
+                        'code': code,
+                        'name': sig.get('name', ''),
+                        'signal': f"新闻利好:{sig.get('reason', '')[:20]}",
+                        'score': 15,
+                    })
+            print(f"    → {len(news_signals.get('stock_signals', []))}条个股信号, "
+                  f"{len(news_signals.get('sector_signals', []))}条板块信号")
+        except Exception as e:
+            print(f"  ⚠️ 新闻采集失败(不影响其他策略): {e}")
+
+    # === 策略6: 资金面数据(北向+龙虎榜+融资融券+宏观) ===
+    money_overview = None
+    money_candidates = []
+    try:
+        from market_data_ext import get_money_flow_overview, get_stock_money_signals, save_money_flow_snapshot
+        print("  💰 策略6: 资金面数据(北向/龙虎榜/融资融券/宏观)...")
+        money_overview = get_money_flow_overview()
+        save_money_flow_snapshot(money_overview)
+        
+        # 从龙虎榜机构买入中提取候选
+        for stock in money_overview.get('lhb', {}).get('institution_buys', []):
+            code = stock.get('code', '')
+            if code and len(code) == 6:
+                money_candidates.append({
+                    'code': code,
+                    'name': stock.get('name', ''),
+                    'signal': f"机构龙虎榜买入",
+                    'score': 15,
+                })
+        # 北向大额增持
+        for stock in money_overview.get('northbound', {}).get('top_buys', [])[:5]:
+            code = stock.get('code', '')
+            if code and len(code) == 6 and stock.get('increase_value', 0) > 1:
+                money_candidates.append({
+                    'code': code,
+                    'name': stock.get('name', ''),
+                    'signal': f"北向增持{stock['increase_value']}亿",
+                    'score': 12,
+                })
+        print(f"    → 资金面评分: {money_overview.get('money_flow_score', '?')}/100 "
+              f"({money_overview.get('money_flow_label', '?')}), "
+              f"{len(money_candidates)}只资金面候选")
+    except Exception as e:
+        print(f"  ⚠️ 资金面数据采集失败(不影响其他策略): {e}")
+
     # 合并所有候选
-    all_candidates = momentum + money + strong + institution
+    all_candidates = momentum + money + strong + institution + news_candidates + money_candidates
     print(f"  📊 共{len(all_candidates)}条信号，开始综合打分...")
 
     # 打分排名（含市场状态调节）
     ranked = score_and_rank(all_candidates, regime=regime)
+
+    # === 新闻信号叠加到候选股分数 ===
+    if news_signals and use_news:
+        try:
+            from news_collector import get_news_score_for_stock
+            print("  📰 叠加新闻信号到候选股...")
+            for stock in ranked:
+                news_score = get_news_score_for_stock(
+                    stock['code'], stock.get('name', ''), news_signals)
+                if news_score['has_news']:
+                    stock['score'] += news_score['score_delta']
+                    stock['news_reasons'] = news_score['reasons']
+                    print(f"    {stock.get('name','')}({stock['code']}): "
+                          f"新闻{'+' if news_score['score_delta']>=0 else ''}{news_score['score_delta']}分")
+            # 重新排序
+            ranked = sorted(ranked, key=lambda x: -x['score'])
+        except Exception as e:
+            print(f"  ⚠️ 新闻信号叠加失败: {e}")
+
+    # === 资金面信号叠加到候选股分数 ===
+    if money_overview:
+        try:
+            from market_data_ext import get_stock_money_signals
+            print("  💰 叠加资金面信号到候选股...")
+            for stock in ranked:
+                money_sig = get_stock_money_signals(
+                    stock['code'], stock.get('name', ''), money_overview)
+                if money_sig['score_delta'] != 0:
+                    stock['score'] += money_sig['score_delta']
+                    stock['money_reasons'] = money_sig['reasons']
+                    stock['northbound_hold'] = money_sig.get('northbound_hold', False)
+                    stock['institution_buy'] = money_sig.get('institution_buy', False)
+                    print(f"    {stock.get('name','')}({stock['code']}): "
+                          f"资金面{'+' if money_sig['score_delta']>=0 else ''}{money_sig['score_delta']}分")
+            ranked = sorted(ranked, key=lambda x: -x['score'])
+        except Exception as e:
+            print(f"  ⚠️ 资金面信号叠加失败: {e}")
 
     # 过滤
     tradeable = filter_tradeable(ranked)
 
     return {
         'candidates': tradeable,
+        'news_signals': news_signals,
+        'money_overview': money_overview,
         'stats': {
             'momentum_count': len(momentum),
             'money_flow_count': len(money),
             'strong_count': len(strong),
             'institution_count': len(institution),
+            'news_count': len(news_candidates),
+            'money_data_count': len(money_candidates),
             'total_signals': len(all_candidates),
             'final_count': len(tradeable),
+            'money_flow_score': money_overview.get('money_flow_score', 0) if money_overview else 0,
+            'money_flow_label': money_overview.get('money_flow_label', '') if money_overview else '',
         }
     }
 

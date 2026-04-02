@@ -105,7 +105,34 @@ function handleTrades(req, res, params) {
   if (params.start) sql += ` AND trade_date>='${params.start}'`;
   if (params.end) sql += ` AND trade_date<='${params.end}'`;
   sql += ' ORDER BY trade_date DESC, id DESC';
-  sendJson(res, { trades: querySqlite(sql) });
+  const trades = querySqlite(sql);
+
+  // Calculate PnL for SELL trades by matching with earlier BUY trades
+  const buyMap = {};  // symbol -> [{price, shares, date}]
+  // Process in chronological order to build buy history
+  const allTrades = querySqlite('SELECT * FROM trades ORDER BY trade_date ASC, id ASC');
+  allTrades.forEach(t => {
+    if (t.direction === 'BUY') {
+      if (!buyMap[t.symbol]) buyMap[t.symbol] = [];
+      buyMap[t.symbol].push({ price: t.price, shares: t.shares, remaining: t.shares });
+    }
+  });
+  // Calculate avg cost per symbol
+  const avgCosts = {};
+  Object.keys(buyMap).forEach(sym => {
+    const buys = buyMap[sym];
+    const totalShares = buys.reduce((s, b) => s + b.shares, 0);
+    const totalCost = buys.reduce((s, b) => s + b.price * b.shares, 0);
+    avgCosts[sym] = totalShares > 0 ? totalCost / totalShares : 0;
+  });
+  // Attach pnl to sell trades
+  trades.forEach(t => {
+    if (t.direction === 'SELL' && avgCosts[t.symbol]) {
+      t.pnl = Math.round((t.price - avgCosts[t.symbol]) * t.shares * 100) / 100;
+    }
+  });
+
+  sendJson(res, { trades });
 }
 
 function handleReportsList(req, res) {
