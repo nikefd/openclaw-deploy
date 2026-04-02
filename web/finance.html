@@ -296,7 +296,7 @@ body.dark .md-content pre{background:#0a0a12}
     <div class="tbl-wrap">
       <h3>最近推荐追踪</h3>
       <div style="overflow-x:auto">
-        <table><thead><tr><th>日期</th><th>股票</th><th>代码</th><th>策略</th><th>板块</th><th>买入价</th><th>1日收益</th><th>3日收益</th><th>5日收益</th><th>10日收益</th></tr></thead><tbody id="perfRecsBody"></tbody></table>
+        <table><thead><tr><th>日期</th><th>股票</th><th>代码</th><th>信心</th><th>买入价</th><th>信号</th><th>最大涨幅</th><th>最大回撤</th><th>结果</th></tr></thead><tbody id="perfRecsBody"></tbody></table>
       </div>
     </div>
   </div>
@@ -1070,47 +1070,53 @@ async function loadPerformance(){
   if(!d)return;
   // Summary cards
   const hitRate=d.hit_rate!=null?d.hit_rate.toFixed(1)+'%':'--';
-  const avgReturn=d.avg_return!=null?(d.avg_return>0?'+':'')+d.avg_return.toFixed(2)+'%':'--';
+  const avgGain=d.avg_max_gain!=null?(d.avg_max_gain>0?'+':'')+d.avg_max_gain.toFixed(2)+'%':'--';
+  const avgLoss=d.avg_max_loss!=null?d.avg_max_loss.toFixed(2)+'%':'--';
   const cards=[
     {label:'总推荐数',value:d.total_recommendations||0},
+    {label:'命中/亏损/观望',value:`${d.wins||0}/${d.losses||0}/${d.neutrals||0}`},
     {label:'整体命中率',value:hitRate,cls:parseFloat(hitRate)>=50?'up':'down'},
-    {label:'平均收益',value:avgReturn,cls:d.avg_return>0?'up':'down'},
-    {label:'最佳策略',value:d.best_strategy||'--'},
+    {label:'平均最大涨幅',value:avgGain,cls:'up'},
+    {label:'平均最大回撤',value:avgLoss,cls:'down'},
+    {label:'平均信心分',value:d.avg_confidence?d.avg_confidence.toFixed(1):'--'},
   ];
   document.getElementById('perfSummaryCards').innerHTML=cards.map(c=>`<div class="card"><div class="card-label">${c.label}</div><div class="card-value ${c.cls||''}">${c.value}</div></div>`).join('');
 
-  // By-strategy chart
-  const byStrategy=d.by_strategy||{};
-  const sKeys=Object.keys(byStrategy);
-  if(sKeys.length){
+  // By-strategy chart (API returns array of {strategy, total, wins, hit_rate, ...})
+  const byStrategy=Array.isArray(d.by_strategy)?d.by_strategy:[];
+  if(byStrategy.length){
     const ctx1=document.getElementById('perfByStrategyChart').getContext('2d');
     if(perfStrategyChart)perfStrategyChart.destroy();
     perfStrategyChart=new Chart(ctx1,{type:'bar',data:{
-      labels:sKeys,
-      datasets:[{label:'命中率%',data:sKeys.map(k=>byStrategy[k].hit_rate||0),backgroundColor:'#4361ee',borderRadius:6}]
-    },options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}}}}});
+      labels:byStrategy.map(s=>s.strategy||'未知'),
+      datasets:[
+        {label:'命中率%',data:byStrategy.map(s=>s.hit_rate||0),backgroundColor:'#4361ee',borderRadius:6},
+        {label:'推荐数',data:byStrategy.map(s=>s.total||0),backgroundColor:'#4361ee33',borderRadius:6}
+      ]
+    },options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}}}}});
   }
 
   // By-sector chart
-  const bySector=d.by_sector||{};
-  const secKeys=Object.keys(bySector);
-  if(secKeys.length){
+  const bySector=Array.isArray(d.by_sector)?d.by_sector:[];
+  if(bySector.length){
     const ctx2=document.getElementById('perfBySectorChart').getContext('2d');
     if(perfSectorChart)perfSectorChart.destroy();
     const colors2=['#4361ee','#e63946','#2ec4b6','#ffd166','#9b2226','#f4a261'];
     perfSectorChart=new Chart(ctx2,{type:'bar',data:{
-      labels:secKeys,
-      datasets:[{label:'命中率%',data:secKeys.map(k=>bySector[k].hit_rate||0),backgroundColor:secKeys.map((_,i)=>colors2[i%colors2.length]),borderRadius:6}]
+      labels:bySector.map(s=>s.sector||'未知'),
+      datasets:[{label:'命中率%',data:bySector.map(s=>s.hit_rate||0),backgroundColor:bySector.map((_,i)=>colors2[i%colors2.length]),borderRadius:6}]
     },options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}}}}});
   }
 
   // Recent recommendations table
-  const recs=d.recent_recommendations||[];
+  const recs=d.recent_recommendations||d.recent||[];
   document.getElementById('perfRecsBody').innerHTML=recs.map(r=>{
-    const r1=r.return_1d,r3=r.return_3d,r5=r.return_5d,r10=r.return_10d;
-    const fmtR=v=>v==null?'<span style="color:var(--sub)">--</span>':`<span class="${v>0?'up':'down'}">${v>0?'+':''}${v.toFixed(2)}%</span>`;
-    return`<tr><td>${r.date||''}</td><td>${r.name||''}</td><td>${r.symbol||''}</td><td>${r.strategy||''}</td><td>${r.sector||''}</td><td>${fmt(r.buy_price)}</td><td>${fmtR(r1)}</td><td>${fmtR(r3)}</td><td>${fmtR(r5)}</td><td>${fmtR(r10)}</td></tr>`;
-  }).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--sub)">暂无推荐记录</td></tr>';
+    const fmtV=v=>v==null?'<span style="color:var(--sub)">--</span>':`<span class="${v>0?'up':'down'}">${v>0?'+':''}${v.toFixed(2)}%</span>`;
+    const outcomeMap={'win':'<span class="up">✅ 盈利</span>','loss':'<span class="down">❌ 亏损</span>','neutral':'<span style="color:var(--sub)">⏳ 观望</span>'};
+    let signals='';
+    try{const arr=JSON.parse(r.signals||'[]');signals=arr.slice(0,3).join(', ')+(arr.length>3?' ...':'');}catch(e){signals=r.signals||'';}
+    return`<tr><td>${r.date||''}</td><td>${r.name||''}</td><td>${r.symbol||''}</td><td>${r.confidence||'--'}</td><td>${fmt(r.price||r.buy_price)}</td><td style="font-size:11px;color:var(--sub);max-width:200px">${signals}</td><td>${fmtV(r.max_gain)}</td><td>${fmtV(r.max_loss)}</td><td>${outcomeMap[r.outcome]||r.outcome||'--'}</td></tr>`;
+  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--sub)">暂无推荐记录</td></tr>';
 }
 
 // Dark Mode
