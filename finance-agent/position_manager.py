@@ -177,12 +177,17 @@ def calculate_position_size(confidence: int, sentiment_score: float,
         base_pct *= 0.7
     
     # === 连亏保护: 连续止损后自动收缩仓位 ===
+    # 设最低仓位地板: 低于2%的仓位毫无意义(手续费吃利润)，直接不开仓
     if loss_streak >= 5:
-        base_pct *= 0.3  # 连亏5次，仓位降到30%
+        base_pct *= 0.5  # 连亏5次，仓位降到50%（原30%太激进导致微仓）
     elif loss_streak >= 3:
-        base_pct *= 0.5  # 连亏3次，仓位减半
+        base_pct *= 0.6  # 连亏3次，仓位降40%
     elif loss_streak >= 2:
         base_pct *= 0.7  # 连亏2次，仓位降30%
+    
+    # 最低仓位地板: 低于2%不开仓，避免100股微仓
+    if base_pct > 0 and base_pct < 0.02:
+        return 0.0
     
     # === 回撤减仓: 组合回撤>5%时仓位减半 ===
     if dd_info.get('reduce_position'):
@@ -337,10 +342,10 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         if atr_stop is not None:
             stop_loss = max(stop_loss, atr_stop)  # max because both are negative
         
-        # 情绪再调节
+        # 情绪再调节（注意: 贪婪+熊市是陷阱信号，不放宽止损）
         if sentiment_score < 35:  # 市场恐慌时收紧止损
             stop_loss = max(stop_loss, -0.05)  # 不低于-5%
-        elif sentiment_score > 75:  # 市场乐观时放宽
+        elif sentiment_score > 75 and regime != 'bear':  # 乐观+非熊市才放宽
             stop_loss = min(stop_loss, -0.10)
         
         if pnl_pct <= stop_loss:

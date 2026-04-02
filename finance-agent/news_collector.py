@@ -25,6 +25,14 @@ HEADERS = {
 
 DB_PATH = "/home/nikefd/finance-agent/data/trading.db"
 
+# 数据源健康监控
+try:
+    from datasource_monitor import monitored
+except ImportError:
+    def monitored(name):
+        def decorator(func): return func
+        return decorator
+
 
 def retry(max_retries=2, delay=1):
     def decorator(func):
@@ -48,6 +56,7 @@ def retry(max_retries=2, delay=1):
 # 1. 东方财富 7x24 快讯
 # ============================================================
 @retry()
+@monitored("东方财富资讯")
 def get_eastmoney_express() -> list:
     """东方财富资讯中心 — A股综合新闻"""
     url = "https://newsapi.eastmoney.com/kuaixun/v1/getlist_102_ajaxResult_50_1_.html"
@@ -84,6 +93,7 @@ def get_eastmoney_express() -> list:
 # 2. 财联社电报 (通过东方财富API获取财联社新闻)
 # ============================================================
 @retry()
+@monitored("财联社电报")
 def get_cls_telegraph() -> list:
     """财联社电报 — A股最重要的实时消息源"""
     url = "https://np-anotice-stock.eastmoney.com/api/security/ann"
@@ -140,6 +150,7 @@ def get_cls_telegraph() -> list:
 # 3. 新浪财经要闻
 # ============================================================
 @retry()
+@monitored("akshare个股新闻")
 def get_sina_finance_news() -> list:
     """新浪财经要闻 — 通过akshare获取"""
     import akshare as ak
@@ -166,6 +177,7 @@ def get_sina_finance_news() -> list:
 # 4. 雪球热帖
 # ============================================================
 @retry()
+@monitored("雪球热帖")
 def get_xueqiu_hot(stock_code: str = None) -> list:
     """雪球热帖 — 散户情绪风向标"""
     session = requests.Session()
@@ -237,6 +249,7 @@ def get_xueqiu_hot(stock_code: str = None) -> list:
 # 5. 政策公告 (国务院/央行/证监会)
 # ============================================================
 @retry()
+@monitored("政策公告")
 def get_policy_news() -> list:
     """政策公告 — 从东方财富资讯中筛选政策相关"""
     news_list = []
@@ -281,6 +294,7 @@ def get_policy_news() -> list:
 # 6. 个股公告 (巨潮资讯)
 # ============================================================
 @retry()
+@monitored("巨潮公告")
 def get_stock_announcements(stock_code: str = None) -> list:
     """个股公告 — 巨潮资讯网"""
     url = "http://www.cninfo.com.cn/new/hisAnnouncement/query"
@@ -343,6 +357,7 @@ def get_stock_announcements(stock_code: str = None) -> list:
 # 7. 东方财富股吧热度
 # ============================================================
 @retry()
+@monitored("股吧热度")
 def get_guba_hot() -> list:
     """股吧热度 — 通过akshare获取人气榜"""
     import akshare as ak
