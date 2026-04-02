@@ -169,6 +169,7 @@ body.dark .md-content pre{background:#0a0a12}
   <div class="tab" data-tab="backtest">🧪 回测</div>
   <div class="tab" data-tab="performance">📈 绩效</div>
   <div class="tab" data-tab="strategy">🎯 策略</div>
+  <div class="tab" data-tab="datasources">📡 数据源</div>
 </div>
 
 <div class="content">
@@ -491,24 +492,6 @@ body.dark .md-content pre{background:#0a0a12}
       </div>
     </div>
 
-    <!-- 数据源健康监控 -->
-    <div class="section">
-      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
-        📡 数据源健康监控
-        <button class="btn" onclick="loadDatasources()" style="font-size:12px;padding:6px 14px">🔄 刷新状态</button>
-      </div>
-      <div id="dsHealthSummary" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap"></div>
-      <table style="width:100%;font-size:13px;border-collapse:collapse">
-        <thead><tr style="border-bottom:2px solid var(--border)">
-          <th style="padding:10px;text-align:left">数据源</th><th>状态</th><th>成功率</th><th>平均延迟</th><th>平均数据量</th><th>最后检查</th><th>最近错误</th>
-        </tr></thead>
-        <tbody id="dsBody"></tbody>
-      </table>
-      <div style="margin-top:12px;text-align:right">
-        <button class="btn" onclick="runHealthCheck()" style="font-size:12px;padding:6px 14px;background:var(--accent);color:#fff">🏥 运行完整健康检查</button>
-      </div>
-    </div>
-
     <!-- 实盘准入 -->
     <div class="section" style="border:2px solid #e63946">
       <div class="section-title">🚀 实盘准入状态</div>
@@ -519,6 +502,89 @@ body.dark .md-content pre{background:#0a0a12}
       </div>
     </div>
   </div>
+
+  <!-- 数据源 Tab -->
+  <div class="tab-panel" id="panel-datasources">
+    <!-- 健康概览 -->
+    <div class="section">
+      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+        📡 数据源健康监控
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="loadDatasources()" style="font-size:12px;padding:6px 14px">🔄 刷新</button>
+          <button class="btn" onclick="runHealthCheck()" style="font-size:12px;padding:6px 14px;background:var(--accent);color:#fff">🏥 全量检查</button>
+        </div>
+      </div>
+      <div id="dsHealthSummary" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap"></div>
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <thead><tr style="border-bottom:2px solid var(--border)">
+          <th style="padding:10px;text-align:left">数据源</th><th>状态</th><th>成功率</th><th>平均延迟</th><th>平均数据量</th><th>最后检查</th><th>最近错误</th>
+        </tr></thead>
+        <tbody id="dsBody"><tr><td colspan="7" style="padding:12px;color:var(--sub)">加载中...</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- 数据源架构图 -->
+    <div class="section">
+      <div class="section-title">🏗️ 数据源架构</div>
+      <p style="font-size:13px;color:var(--sub);margin-bottom:16px">选股引擎从多个数据源采集信息，经LLM解读后叠加到候选股打分中</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+        <div style="padding:16px;border-radius:12px;background:var(--hover)">
+          <div style="font-weight:600;margin-bottom:8px">📊 行情数据</div>
+          <div style="font-size:12px;color:var(--sub);line-height:1.8">
+            <div>腾讯财经 — 日K/实时行情/大盘指数</div>
+            <div>AKShare — 涨停池/炸板池/连板池</div>
+            <div>东方财富 — 板块资金流向/热门股</div>
+          </div>
+        </div>
+        <div style="padding:16px;border-radius:12px;background:var(--hover)">
+          <div style="font-weight:600;margin-bottom:8px">📰 新闻/舆情</div>
+          <div style="font-size:12px;color:var(--sub);line-height:1.8">
+            <div>东方财富资讯 — 综合财经新闻</div>
+            <div>财联社电报 — A股最快实时消息</div>
+            <div>政策公告 — 央行/证监会/国务院</div>
+            <div>股吧热度 — 散户情绪风向标</div>
+            <div style="color:var(--down)">雪球热帖 — 反爬限制中</div>
+          </div>
+        </div>
+        <div style="padding:16px;border-radius:12px;background:var(--hover)">
+          <div style="font-weight:600;margin-bottom:8px">💰 资金面</div>
+          <div style="font-size:12px;color:var(--sub);line-height:1.8">
+            <div>北向资金 — 外资净流入+个股增减持</div>
+            <div>龙虎榜 — 机构/游资真金白银</div>
+            <div>融资融券 — 杠杆资金动向</div>
+          </div>
+        </div>
+        <div style="padding:16px;border-radius:12px;background:var(--hover)">
+          <div style="font-weight:600;margin-bottom:8px">📈 基本面/宏观</div>
+          <div style="font-size:12px;color:var(--sub);line-height:1.8">
+            <div>研报评级 — 东方财富研报中心</div>
+            <div>PMI/CPI/M2/社融 — 宏观经济指标</div>
+            <div>巨潮公告 — 个股重大公告</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 待接入数据源 -->
+    <div class="section">
+      <div class="section-title">🔮 待接入数据源</div>
+      <p style="font-size:13px;color:var(--sub);margin-bottom:12px">以下数据源有价值但尚未接入，按优先级排列</p>
+      <table style="width:100%;font-size:13px;border-collapse:collapse">
+        <thead><tr style="border-bottom:2px solid var(--border)">
+          <th style="padding:10px;text-align:left">数据源</th><th>价值</th><th>难度</th><th>状态</th>
+        </tr></thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px"><b>雪球热帖</b></td><td>散户情绪反向指标</td><td>🟡 需代理绕反爬</td><td>⏳ 待解决</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px"><b>大宗交易</b></td><td>机构大额买卖信号</td><td>🟢 akshare可用</td><td>📋 计划中</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px"><b>股东增减持</b></td><td>内部人交易信号</td><td>🟢 akshare可用</td><td>📋 计划中</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px"><b>期权PCR</b></td><td>期权市场情绪指标</td><td>🟡 数据源待找</td><td>📋 计划中</td></tr>
+          <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px"><b>美股/港股联动</b></td><td>外围市场传导</td><td>🟢 akshare可用</td><td>📋 计划中</td></tr>
+          <tr><td style="padding:8px"><b>商品期货</b></td><td>周期股价格传导</td><td>🟢 akshare可用</td><td>📋 计划中</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
 </div>
 
 <!-- MODAL -->
@@ -549,7 +615,8 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   if(t.dataset.tab==='changelog')loadChangelog();
   if(t.dataset.tab==='backtest')loadBacktest();
   if(t.dataset.tab==='performance')loadPerformance();
-  if(t.dataset.tab==='strategy'){loadLiveStatus();loadDatasources();}
+  if(t.dataset.tab==='strategy'){loadLiveStatus();}
+  if(t.dataset.tab==='datasources'){loadDatasources();}
 }));
 
 // Helpers
