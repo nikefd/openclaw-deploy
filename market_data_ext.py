@@ -19,6 +19,15 @@ HEADERS = {
 }
 
 
+# 数据源健康监控
+try:
+    from datasource_monitor import monitored
+except ImportError:
+    def monitored(name):
+        def decorator(func): return func
+        return decorator
+
+
 def retry(max_retries=2, delay=1):
     def decorator(func):
         @wraps(func)
@@ -41,6 +50,7 @@ def retry(max_retries=2, delay=1):
 # 1. 北向资金 (沪深港通)
 # ============================================================
 @retry()
+@monitored("北向资金")
 def get_northbound_flow() -> dict:
     """北向资金净流入 — 最重要的外资指标
     
@@ -152,6 +162,7 @@ def get_northbound_flow() -> dict:
 # 2. 龙虎榜 — 游资和机构的真实交易
 # ============================================================
 @retry()
+@monitored("龙虎榜")
 def get_lhb_data(days: int = 3) -> dict:
     """龙虎榜数据 — 机构和游资的真金白银
     
@@ -229,6 +240,7 @@ def get_lhb_data(days: int = 3) -> dict:
 # 3. 融资融券 — 杠杆资金动向
 # ============================================================
 @retry()
+@monitored("融资融券")
 def get_margin_data() -> dict:
     """融资融券数据 — 杠杆资金情绪
     
@@ -321,6 +333,7 @@ def get_margin_data() -> dict:
 # 4. 宏观经济指标
 # ============================================================
 @retry()
+@monitored("宏观指标")
 def get_macro_indicators() -> dict:
     """宏观经济关键指标
     

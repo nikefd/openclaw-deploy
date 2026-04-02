@@ -310,19 +310,21 @@ body.dark .md-content pre{background:#0a0a12}
     <div class="section">
       <div class="section-title">📋 选股流程</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;margin-bottom:16px">
-        <span style="background:var(--accent-bg);color:var(--accent);padding:6px 14px;border-radius:20px;font-weight:600">① 多策略信号采集</span>
+        <span style="background:var(--accent-bg);color:var(--accent);padding:6px 14px;border-radius:20px;font-weight:600">① 6策略信号采集</span>
         <span style="color:var(--sub)">→</span>
         <span style="background:var(--accent-bg);color:var(--accent);padding:6px 14px;border-radius:20px;font-weight:600">② 综合打分排名</span>
         <span style="color:var(--sub)">→</span>
         <span style="background:var(--accent-bg);color:var(--accent);padding:6px 14px;border-radius:20px;font-weight:600">③ 技术面验证</span>
         <span style="color:var(--sub)">→</span>
-        <span style="background:var(--accent-bg);color:var(--accent);padding:6px 14px;border-radius:20px;font-weight:600">④ AI最终决策</span>
+        <span style="background:var(--accent-bg);color:var(--accent);padding:6px 14px;border-radius:20px;font-weight:600">④ 新闻+资金面叠加</span>
         <span style="color:var(--sub)">→</span>
-        <span style="background:var(--accent-bg);color:var(--accent);padding:6px 14px;border-radius:20px;font-weight:600">⑤ 动态仓位执行</span>
+        <span style="background:var(--accent-bg);color:var(--accent);padding:6px 14px;border-radius:20px;font-weight:600">⑤ AI最终决策</span>
+        <span style="color:var(--sub)">→</span>
+        <span style="background:var(--accent-bg);color:var(--accent);padding:6px 14px;border-radius:20px;font-weight:600">⑥ 动态仓位执行</span>
       </div>
     </div>
 
-    <!-- 4大策略 -->
+    <!-- 6大策略 -->
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:20px">
       <div class="section" style="margin:0">
         <div class="section-title">📈 策略1: 动量选股</div>
@@ -374,6 +376,34 @@ body.dark .md-content pre{background:#0a0a12}
           </ul>
           <p><b>打分:</b> 买入+12, 增持+8</p>
           <p style="margin-top:8px;padding:8px;background:var(--accent-bg);border-radius:8px"><b>逻辑:</b> 专业研究员背书，基本面有支撑</p>
+        </div>
+      </div>
+      <div class="section" style="margin:0;border:1px solid var(--accent)">
+        <div class="section-title">📰 策略5: 新闻/舆情 <span style="font-size:11px;background:var(--accent);color:#fff;padding:2px 8px;border-radius:10px;margin-left:6px">NEW</span></div>
+        <div style="font-size:13px;line-height:1.8">
+          <p><b>数据源:</b> 6源聚合</p>
+          <ul style="margin:6px 0 6px 20px;color:var(--sub)">
+            <li><b style="color:var(--text)">东方财富资讯</b> — 综合财经新闻 (~50条)</li>
+            <li><b style="color:var(--text)">财联社电报</b> — 最快A股实时消息 (~30条)</li>
+            <li><b style="color:var(--text)">政策公告</b> — 央行/证监会/国务院 (~17条)</li>
+            <li><b style="color:var(--text)">股吧热度</b> — 散户情绪风向标 (TOP20)</li>
+            <li><b style="color:var(--text)">个股新闻</b> — akshare聚合 (~10条)</li>
+          </ul>
+          <p><b>LLM解读:</b> 非结构化新闻→结构化交易信号</p>
+          <p><b>打分:</b> 利好+15, 利空-20, 板块利好+8, 板块利空-10</p>
+        </div>
+      </div>
+      <div class="section" style="margin:0;border:1px solid var(--accent)">
+        <div class="section-title">💰 策略6: 资金面 <span style="font-size:11px;background:var(--accent);color:#fff;padding:2px 8px;border-radius:10px;margin-left:6px">NEW</span></div>
+        <div style="font-size:13px;line-height:1.8">
+          <p><b>数据源:</b> 4大机构级数据</p>
+          <ul style="margin:6px 0 6px 20px;color:var(--sub)">
+            <li><b style="color:var(--text)">北向资金</b> — 外资净流入+个股增减持 (+12/-15分)</li>
+            <li><b style="color:var(--text)">龙虎榜</b> — 机构/游资真金白银 (+15/-12分)</li>
+            <li><b style="color:var(--text)">融资融券</b> — 杠杆资金动向 (+5分)</li>
+            <li><b style="color:var(--text)">宏观经济</b> — PMI/M2/社融/CPI</li>
+          </ul>
+          <p><b>综合评分:</b> 资金面0-100分，叠加到个股打分</p>
         </div>
       </div>
     </div>
@@ -461,24 +491,22 @@ body.dark .md-content pre{background:#0a0a12}
       </div>
     </div>
 
-    <!-- 数据源 -->
+    <!-- 数据源健康监控 -->
     <div class="section">
-      <div class="section-title">📡 数据源</div>
+      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center">
+        📡 数据源健康监控
+        <button class="btn" onclick="loadDatasources()" style="font-size:12px;padding:6px 14px">🔄 刷新状态</button>
+      </div>
+      <div id="dsHealthSummary" style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap"></div>
       <table style="width:100%;font-size:13px;border-collapse:collapse">
         <thead><tr style="border-bottom:2px solid var(--border)">
-          <th style="padding:10px;text-align:left">数据</th><th>来源</th><th>频率</th><th>状态</th>
+          <th style="padding:10px;text-align:left">数据源</th><th>状态</th><th>成功率</th><th>平均延迟</th><th>平均数据量</th><th>最后检查</th><th>最近错误</th>
         </tr></thead>
-        <tbody>
-          <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">实时行情/日K/指数</td><td>腾讯财经</td><td>实时</td><td>🟢 稳定</td></tr>
-          <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">涨停/炸板/连板</td><td>AKShare(东方财富)</td><td>盘后</td><td>🟢 稳定</td></tr>
-          <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">大笔买入/火箭发射</td><td>AKShare(东方财富)</td><td>盘中</td><td>🟢 稳定</td></tr>
-          <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">量价齐升/创新高</td><td>AKShare(同花顺)</td><td>盘后</td><td>🟢 稳定</td></tr>
-          <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">研报评级</td><td>东方财富研报中心</td><td>实时</td><td>🟢 稳定</td></tr>
-          <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">热门股排名</td><td>东方财富APP API</td><td>实时</td><td>🟢 稳定</td></tr>
-          <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px">财经新闻</td><td>AKShare(东方财富)</td><td>实时</td><td>🟢 稳定</td></tr>
-          <tr><td style="padding:8px">板块资金流向</td><td>东方财富push2</td><td>实时</td><td>🟡 偶尔超时</td></tr>
-        </tbody>
+        <tbody id="dsBody"></tbody>
       </table>
+      <div style="margin-top:12px;text-align:right">
+        <button class="btn" onclick="runHealthCheck()" style="font-size:12px;padding:6px 14px;background:var(--accent);color:#fff">🏥 运行完整健康检查</button>
+      </div>
     </div>
 
     <!-- 实盘准入 -->
@@ -521,7 +549,7 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   if(t.dataset.tab==='changelog')loadChangelog();
   if(t.dataset.tab==='backtest')loadBacktest();
   if(t.dataset.tab==='performance')loadPerformance();
-  if(t.dataset.tab==='strategy')loadLiveStatus();
+  if(t.dataset.tab==='strategy'){loadLiveStatus();loadDatasources();}
 }));
 
 // Helpers
@@ -652,6 +680,63 @@ async function loadDrawdownChart(){
 
 // Analysis
 // News
+// === 数据源健康监控 ===
+async function loadDatasources(){
+  const d=await api('/api/finance/datasources');
+  const sources=d?.sources||[];
+  if(!sources.length){document.getElementById('dsBody').innerHTML='<tr><td colspan="7" style="padding:12px;color:var(--sub)">暂无数据，点击"运行完整健康检查"</td></tr>';return;}
+  
+  // Summary cards
+  let ok=0,degraded=0,down=0,unknown=0;
+  sources.forEach(s=>{
+    if(s.status==='healthy')ok++;
+    else if(s.status==='degraded')degraded++;
+    else if(s.status==='down')down++;
+    else unknown++;
+  });
+  document.getElementById('dsHealthSummary').innerHTML=`
+    <div style="padding:8px 16px;border-radius:8px;background:#2ec4b622;font-size:13px"><b style="font-size:20px">${ok}</b> 🟢 正常</div>
+    <div style="padding:8px 16px;border-radius:8px;background:#f4a26122;font-size:13px"><b style="font-size:20px">${degraded}</b> 🟡 降级</div>
+    <div style="padding:8px 16px;border-radius:8px;background:#e6394622;font-size:13px"><b style="font-size:20px">${down}</b> 🔴 故障</div>
+    ${unknown?`<div style="padding:8px 16px;border-radius:8px;background:var(--hover);font-size:13px"><b style="font-size:20px">${unknown}</b> ⚪ 未知</div>`:''}
+  `;
+  
+  // Table
+  let html='';
+  const statusIcon={'healthy':'🟢','degraded':'🟡','down':'🔴','unknown':'⚪'};
+  const statusText={'healthy':'正常','degraded':'降级','down':'故障','unknown':'未监控'};
+  sources.sort((a,b)=>{
+    const order={'down':0,'degraded':1,'unknown':2,'healthy':3};
+    return (order[a.status]||2)-(order[b.status]||2);
+  });
+  sources.forEach(s=>{
+    const icon=statusIcon[s.status]||'⚪';
+    const text=statusText[s.status]||s.status;
+    const timeStr=s.last_check?new Date(s.last_check).toLocaleString('zh-CN',{hour:'2-digit',minute:'2-digit'}):'从未';
+    const latency=s.avg_latency_ms?`${s.avg_latency_ms}ms`:'—';
+    const rate=s.total_checks?`${s.success_rate}%`:'—';
+    const records=s.avg_records?s.avg_records:'—';
+    const errStyle=s.last_error?'color:var(--down);font-size:11px':'color:var(--sub)';
+    html+=`<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:8px;font-weight:500">${s.name}</td>
+      <td>${icon} ${text}</td>
+      <td style="${s.success_rate<50?'color:var(--down)':s.success_rate<80?'color:#f4a261':''}">${rate}</td>
+      <td style="${s.avg_latency_ms>5000?'color:var(--down)':''}">${latency}</td>
+      <td>${records}</td>
+      <td style="color:var(--sub);font-size:12px">${timeStr}</td>
+      <td style="${errStyle};max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.last_error||''}">${s.last_error||'—'}</td>
+    </tr>`;
+  });
+  document.getElementById('dsBody').innerHTML=html;
+}
+
+async function runHealthCheck(){
+  const d=await api('/api/finance/datasources/check',{method:'POST'});
+  if(d?.status==='running'){
+    alert('健康检查已触发，约需1-2分钟。完成后刷新状态即可看到结果。');
+  }
+}
+
 async function loadLiveStatus(){
   const d=await api('/api/finance/live-status');
   if(!d)return;

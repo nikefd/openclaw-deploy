@@ -290,6 +290,21 @@ const server = http.createServer((req, res) => {
         return sendJson(res, JSON.parse(out));
       } catch(e) { return sendJson(res, { regime: 'unknown', error: e.message }); }
     }
+    if (pathname === '/api/finance/datasources' && req.method === 'GET') {
+      try {
+        const py = `import json,sys; sys.path.insert(0,'/home/nikefd/finance-agent'); from datasource_monitor import get_health_summary; print(json.dumps(get_health_summary(24), ensure_ascii=False, default=str))`;
+        const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+        return sendJson(res, { sources: JSON.parse(out) });
+      } catch(e) { return sendJson(res, { sources: [], error: e.message }); }
+    }
+    if (pathname === '/api/finance/datasources/check' && req.method === 'POST') {
+      log('Triggering datasource health check...');
+      exec('cd /home/nikefd/finance-agent && python3 -u datasource_monitor.py >> /tmp/ds-health.log 2>&1', { timeout: 120000 }, (err) => {
+        if (err) log('Health check error: ' + err.message);
+        else log('Health check completed');
+      });
+      return sendJson(res, { status: 'running', message: '健康检查已触发' });
+    }
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);
