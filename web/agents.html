@@ -118,7 +118,8 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .learn-body pre{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:18px;overflow-x:auto;margin:16px 0;font-size:.82rem;line-height:1.6;position:relative}
 .learn-body pre code{background:none;padding:0}
 .learn-body blockquote{border-left:4px solid var(--accent);padding:12px 18px;margin:16px 0;background:var(--accent-bg);border-radius:0 12px 12px 0;font-size:.88rem}
-.learn-body .mermaid{margin:24px 0;text-align:center;padding:20px;background:var(--card);border:1px solid var(--border);border-radius:12px}
+.learn-body .mermaid{margin:24px 0;text-align:center;padding:20px;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow-x:auto;display:block;width:100%}
+.learn-body .mermaid svg{max-width:100%;height:auto}
 .learn-body table{width:100%;border-collapse:collapse;margin:16px 0;font-size:.84rem;border-radius:12px;overflow:hidden}
 .learn-body th,.learn-body td{padding:10px 14px;border:1px solid var(--border);text-align:left}
 .learn-body th{background:var(--accent-bg);font-weight:600;color:var(--accent)}
@@ -953,12 +954,27 @@ async function openGuide(id){
         </div>
       </div>
       <div class="learn-body" id="learnBody">${renderMarkdown(g.content||'')}</div>`;
-    // Render mermaid
-    setTimeout(()=>{
-      try{
-        mermaid.initialize({startOnLoad:false,theme:document.documentElement.dataset.theme==='dark'?'dark':'default',securityLevel:'loose'});
-        mermaid.init(undefined,document.querySelectorAll('#learnBody .mermaid'));
-      }catch(e){console.warn('mermaid',e)}
+    // Render mermaid (one by one, graceful fallback on error)
+    setTimeout(async()=>{
+      mermaid.initialize({startOnLoad:false,theme:document.documentElement.dataset.theme==='dark'?'dark':'default',securityLevel:'loose'});
+      const nodes=document.querySelectorAll('#learnBody .mermaid');
+      for(let i=0;i<nodes.length;i++){
+        const node=nodes[i];
+        const code=node.textContent.trim()
+          // fix missing newlines: "...]  Agent" or "...]    subgraph"
+          .replace(/([\]"\)])\s{2,}(\w)/g,'$1\n    $2')
+          // fix style on same line
+          .replace(/(["}\])])\s+(style\s)/g,'$1\n    $2')
+          // fix "end    subgraph" on same line
+          .replace(/end\s{2,}(subgraph)/g,'end\n    $1');
+        try{
+          const{svg}=await mermaid.render('mermaid-'+Date.now()+'-'+i,code);
+          node.innerHTML=svg;
+        }catch(e){
+          console.warn('mermaid render failed',e);
+          node.innerHTML='<pre style="background:var(--card);color:var(--text2);padding:12px;border-radius:8px;font-size:.8rem;white-space:pre-wrap;border:1px dashed var(--border)">'+code.replace(/</g,'&lt;')+'</pre>';
+        }
+      }
     },200);
     // Activate guide tabs if any
     el.querySelectorAll('.guide-tabs').forEach(tabs=>{
@@ -1131,25 +1147,53 @@ async function addToLearn(articleId){
    - :::pros-cons 优劣对比（用 #### ✅ 优势 和 #### ❌ 劣势）
    - :::timeline 时间线（用 #### 标题 + 描述展示发展历程）
    - :::compare 对比栏（用 #### 框架名 + 列表展示多框架对比）
-   - :::demo{title="标题" type="agent-flow"} 交互演示占位
    - 普通markdown: 代码块、表格、引用等
 3. 内容结构：Hero概述 → 核心概念卡片 → 架构图解 → 原理深入 → 代码示例 → 实际应用 → 优劣分析 → 相关对比
-4. 返回JSON: {"title":"标题","category":"分类","icon":"emoji","summary":"一句话","tags":["标签"],"content":"markdown+组件"}
+4. 不要使用 :::demo 组件
+4. 返回格式（严格遵守）：
+先输出一行JSON元数据（不含content字段）：
+\`\`\`json
+{"title":"标题","category":"分类","icon":"emoji","summary":"一句话","tags":["标签"]}
+\`\`\`
+然后输出分隔符：---CONTENT---
+最后输出完整的markdown+组件学习内容（不要包裹在JSON里）。
 
 主题: ${article.title}
 摘要: ${article.summary||''}
 ${article.url?'链接: '+article.url:''}
 
-只返回JSON，不要其他内容。`;
+严格按上述格式返回。`;
 
     const resp=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:prompt,stream:false})});
     const data=await resp.json();
     let text='';
     if(data.output){for(const item of data.output){if(item.type==='message'&&item.content){for(const c of item.content){if(c.type==='output_text')text+=c.text}}}}
     if(!text)text=data.choices?.[0]?.message?.content||'';
-    const jsonMatch=text.match(/\{[\s\S]*\}/);
-    if(!jsonMatch)throw new Error('AI未返回有效JSON');
-    const guide=JSON.parse(jsonMatch[0]);
+    let guide;
+    const sepIdx=text.indexOf('---CONTENT---');
+    if(sepIdx!==-1){
+      const metaPart=text.substring(0,sepIdx);
+      const contentPart=text.substring(sepIdx+13).trim();
+      const jsonMatch=metaPart.match(/\{[\s\S]*?\}/);
+      if(!jsonMatch)throw new Error('AI未返回有效元数据JSON');
+      guide=JSON.parse(jsonMatch[0]);
+      guide.content=contentPart;
+    }else{
+      // fallback: try parsing as single JSON
+      const jsonMatch=text.match(/\{[\s\S]*\}/);
+      if(!jsonMatch)throw new Error('AI未返回有效JSON');
+      try{guide=JSON.parse(jsonMatch[0])}catch(e2){
+        // try to extract fields manually
+        const t=jsonMatch[0];
+        const titleM=t.match(/"title"\s*:\s*"([^"]*)"/);
+        const catM=t.match(/"category"\s*:\s*"([^"]*)"/);
+        const iconM=t.match(/"icon"\s*:\s*"([^"]*)"/);
+        const sumM=t.match(/"summary"\s*:\s*"([^"]*)"/);
+        const contentM=t.match(/"content"\s*:\s*"([\s\S]*)"\s*\}$/);
+        if(!titleM)throw e2;
+        guide={title:titleM[1],category:catM?catM[1]:'AI',icon:iconM?iconM[1]:'📖',summary:sumM?sumM[1]:'',tags:[],content:contentM?contentM[1].replace(/\\n/g,'\n').replace(/\\"/g,'"'):''};
+      }
+    }
     guide.sourceArticleId=articleId;
     await fetch(API+'/ai-news/guides',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(guide)});
     btn.textContent='✅ 已加入';

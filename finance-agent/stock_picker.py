@@ -290,6 +290,10 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 adjusted_score += stock['score'] / max(len(stock['signals']), 1) * multiplier
             stock['score'] = int(adjusted_score)
 
+    # === 熊市均值回归模式 ===
+    # 熊市下追涨策略命中率低,切换为超跌反弹逻辑
+    bear_mode = (regime == 'bear')
+
     # 加技术面验证 + 板块策略路由
     print(f"  📊 验证{len(ranked)}只候选股技术面...")
     for i, stock in enumerate(ranked):
@@ -316,6 +320,10 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] += 5
                 elif rsi > 80:  # 超买风险
                     stock['score'] -= 8
+                elif rsi < 30 and bear_mode:  # 熊市超跌反弹加分
+                    stock['score'] += 12  # 熊市下RSI<30是抄底机会
+                elif rsi < 30:
+                    stock['score'] += 5
 
                 macd_sig = tech.get('macd_signal', '')
                 macd_weight = weights.get('macd_rsi', 1.0)
@@ -379,6 +387,25 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] -= 5
                 if tech.get('obv_price_diverge'):  # 价涨量缩的OBV背离
                     stock['score'] -= 7
+
+                # === Williams %R 信号 ===
+                wr = tech.get('williams_r', -50)
+                if tech.get('wr_reversal'):
+                    stock['score'] += 8  # 从超卖回升=强买入信号
+                elif wr > -20:  # 超买区
+                    stock['score'] -= 6
+                elif tech.get('wr_overbought_exit'):
+                    stock['score'] -= 4  # 从超买回落=减弱信号
+
+                # === 周线趋势过滤器 ===
+                # 日线信号必须有周线趋势确认，否则打折
+                weekly_trend = tech.get('weekly_trend', 'neutral')
+                if weekly_trend == 'down':
+                    stock['score'] = int(stock['score'] * 0.6)  # 周线下降趋势，信号大幅打折
+                    stock['weekly_downtrend'] = True
+                elif weekly_trend == 'up':
+                    stock['score'] = int(stock['score'] * 1.15)  # 周线上升趋势，加分
+                # neutral不调整
 
                 # === 换手率过滤 ===
                 # 用volume_ratio近似判断异常换手: 量比>3说明换手极高,可能是游资炒作

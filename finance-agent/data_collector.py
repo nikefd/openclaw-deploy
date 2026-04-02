@@ -567,6 +567,50 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['obv_trend'] = 0
             indicators['obv_price_diverge'] = False
 
+    # === Williams %R (14日) ===
+    # 类似RSI但更灵敏，-80以下超卖，-20以上超买
+    if len(close) >= 14:
+        try:
+            high14 = df['最高'].astype(float).rolling(14).max()
+            low14 = df['最低'].astype(float).rolling(14).min()
+            wr = (high14 - close) / (high14 - low14) * -100
+            indicators['williams_r'] = round(wr.iloc[-1], 1)
+            # Williams %R 趋势: 从超卖区回升是买入信号
+            if len(wr) >= 3:
+                wr_rising = wr.iloc[-1] > wr.iloc[-2] > wr.iloc[-3]
+                indicators['wr_reversal'] = wr.iloc[-1] > -80 and wr.iloc[-2] < -80  # 从超卖回升
+                indicators['wr_overbought_exit'] = wr.iloc[-1] < -20 and wr.iloc[-2] > -20  # 从超买回落
+            else:
+                indicators['wr_reversal'] = False
+                indicators['wr_overbought_exit'] = False
+        except:
+            indicators['williams_r'] = -50
+            indicators['wr_reversal'] = False
+            indicators['wr_overbought_exit'] = False
+
+    # === 周线趋势确认 ===
+    # 用日K模拟周线: 取最近25个交易日(约5周)判断周级别趋势
+    if len(close) >= 25:
+        try:
+            # 周级别均线: 5周≈25日, 10周≈50日
+            ma25 = close.tail(25).mean()
+            ma50 = close.tail(50).mean() if len(close) >= 50 else ma25
+            weekly_close_5w = close.iloc[-25::5]  # 每5天取一个收盘价模拟周K
+            if len(weekly_close_5w) >= 3:
+                weekly_trend_up = weekly_close_5w.iloc[-1] > weekly_close_5w.iloc[-2] > weekly_close_5w.iloc[-3]
+                weekly_trend_down = weekly_close_5w.iloc[-1] < weekly_close_5w.iloc[-2] < weekly_close_5w.iloc[-3]
+            else:
+                weekly_trend_up = False
+                weekly_trend_down = False
+            
+            indicators['weekly_ma25'] = round(ma25, 2)
+            indicators['weekly_trend'] = 'up' if (current > ma25 and weekly_trend_up) else \
+                                         'down' if (current < ma25 and weekly_trend_down) else 'neutral'
+            indicators['price_above_weekly_ma'] = current > ma25
+        except:
+            indicators['weekly_trend'] = 'neutral'
+            indicators['price_above_weekly_ma'] = True
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     if len(close) >= 10:

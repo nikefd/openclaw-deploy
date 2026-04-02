@@ -176,6 +176,24 @@ def calculate_position_size(confidence: int, sentiment_score: float,
     elif current_positions >= 5:
         base_pct *= 0.7
     
+    # === 连亏冷却期: 连亏6+次强制冷却，不只是缩仓 ===
+    if loss_streak >= 6:
+        # 检查最后一次止损距今是否超过冷却天数
+        try:
+            import sqlite3
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute("SELECT trade_date FROM trades WHERE direction='SELL' AND reason LIKE '%止损%' ORDER BY id DESC LIMIT 1")
+            row = c.fetchone()
+            conn.close()
+            if row:
+                last_stop = datetime.strptime(row[0], '%Y-%m-%d').date()
+                cool_days = min(loss_streak - 4, 5)  # 连亏6=冷却2天, 连亏7=冷却3天, 最多5天
+                if (date.today() - last_stop).days < cool_days:
+                    return 0.0  # 冷却期内完全不买
+        except:
+            pass
+    
     # === 连亏保护: 连续止损后自动收缩仓位 ===
     # 设最低仓位地板: 低于2%的仓位毫无意义(手续费吃利润)，直接不开仓
     if loss_streak >= 5:
@@ -275,6 +293,19 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                     "price": pos['current_price']
                 })
                 continue
+            # Williams %R 从超买回落 + 盈利 → 减仓
+            if (pnl_pct >= 0.05 and pos_tech.get('wr_overbought_exit')):
+                half = (pos['shares'] // 200) * 100
+                if half >= 100:
+                    actions.append({
+                        "action": "SELL",
+                        "symbol": pos['symbol'],
+                        "name": pos['name'],
+                        "reason": f"Williams%R超买回落: 盈利{pnl_pct*100:+.1f}%+%R离开超买区",
+                        "shares": half,
+                        "price": pos['current_price']
+                    })
+                    continue
         
         # === 时间止损 (Time Stop) ===
         # 持仓天数阈值根据市场状态自适应: 牛市宽松(25天)，熊市收紧(15天)

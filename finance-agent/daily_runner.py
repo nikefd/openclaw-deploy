@@ -202,8 +202,9 @@ def execute_buys(picks: list, sentiment: dict, regime: str = "", loss_streak: in
     return results
 
 
-def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict) -> list:
-    """AI最终决策 — 综合多策略结果让LLM做最后判断"""
+def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict,
+                       regime: str = "", loss_streak: int = 0) -> list:
+    """AI最终决策 — 综合多策略结果让LLM做最后判断（含市场状态+连亏+绩效上下文）"""
     candidates_text = json.dumps(candidates[:10], ensure_ascii=False, default=str)[:3000]
 
     positions = get_positions()
@@ -215,24 +216,48 @@ def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict) 
             for p in positions
         ])
 
-    prompt = f"""你是一个A股量化分析师。基于以下多策略选股结果和市场数据，选出最终要买入的3-5只股票。
+    # 获取近期绩效给AI参考
+    perf_text = ""
+    try:
+        perf = get_performance_summary()
+        if perf['total_recommendations'] > 0:
+            perf_text = f"- 历史推荐{perf['total_recommendations']}次, 命中率{perf['hit_rate']}%, 平均最大收益{perf['avg_max_gain']:+.1f}%, 平均最大亏损{perf['avg_max_loss']:.1f}%"
+            if perf.get('by_sector'):
+                sector_parts = [f"{s['sector']}命中{s['hit_rate']}%" for s in perf['by_sector']]
+                perf_text += f"\n- 板块: {' | '.join(sector_parts)}"
+    except:
+        pass
 
-## 市场情绪
-- 得分: {sentiment.get('sentiment_score', 50)}/100 ({sentiment.get('sentiment_label', '?')})
+    regime_labels = {'bull': '牛市', 'bear': '熊市', 'sideways': '震荡'}
+    regime_text = regime_labels.get(regime, '未知')
+
+    prompt = f"""你是一个A股量化分析师。基于以下多策略选股结果和市场数据，选出最终要买入的股票。
+
+## 市场状态: {regime_text}
+## 市场情绪: {sentiment.get('sentiment_score', 50)}/100 ({sentiment.get('sentiment_label', '?')})
 - 涨停: {sentiment.get('limit_up_count', 0)} 跌停: {sentiment.get('limit_down_count', 0)} 炸板: {sentiment.get('bomb_count', 0)}
+
+## ⚠️ 近期战绩
+- 连续止损次数: {loss_streak}次
+{perf_text if perf_text else '- 无历史绩效数据'}
 
 ## 当前持仓
 {positions_text or '空仓'}
 
 ## 多策略候选池（已按综合评分排序）
-每只股票包含：代码、名称、信号来源、综合评分、技术指标
+每只股票包含：代码、名称、信号来源、综合评分、技术指标（含周线趋势、Williams%R）
 {candidates_text}
 
 ## 选股要求
 1. **优先选**: 多信号叠加(量价齐升+大笔买入+MACD金叉)的品种
-2. **避开**: RSI>80严重超买的、已涨停的、与现有持仓重复的
+2. **避开**: RSI>80严重超买的、已涨停的、与现有持仓重复的、**周线下降趋势的**
 3. **注意**: 不要追已经连续涨停3天以上的（回调风险大）
 4. **分散**: 不要全选同一板块
+5. **熊市策略**: 如果市场是熊市，优先选超跌反弹(RSI<30, Williams%R从超卖回升)而非趋势追涨
+6. **连亏保护**: 连续止损{loss_streak}次，请提高选股标准——只选信心≥8的高确定性机会，宁可不买也不追高
+7. **周线确认**: 优先选周线趋势为up或neutral的，避开weekly_downtrend=True的
+
+如果没有足够好的标的(连亏期间)，可以只选1-2只甚至空仓等待。
 
 ## 输出JSON格式
 ```json
@@ -433,7 +458,7 @@ def run_daily():
     # 5. AI最终决策
     print("🤖 AI最终决策...")
     market = analyze_market()
-    final_picks = ai_final_decision(candidates, market, sentiment)
+    final_picks = ai_final_decision(candidates, market, sentiment, regime=regime, loss_streak=loss_streak)
 
     # 6. 执行买入
     print("🛒 执行买入...")
