@@ -177,12 +177,17 @@ def get_stock_daily(symbol: str, days: int = 60) -> pd.DataFrame:
 
 
 def get_realtime_quotes(symbols: list) -> dict:
-    """批量获取实时行情 — 腾讯财经源"""
+    """批量获取实时行情 — 腾讯财经源（支持A股+港股）"""
     try:
         qq_list = []
         for s in symbols:
-            prefix = 'sh' if s.startswith('6') or s.startswith('9') else 'sz'
-            qq_list.append(f'{prefix}{s}')
+            if s.startswith('0') and len(s) == 5:
+                # 港股: 5位代码，如01810
+                qq_list.append(f'hk{s}')
+            elif s.startswith('6') or s.startswith('9'):
+                qq_list.append(f'sh{s}')
+            else:
+                qq_list.append(f'sz{s}')
         url = f'https://qt.gtimg.cn/q={",".join(qq_list)}'
         r = requests.get(url, timeout=10)
         result = {}
@@ -196,7 +201,8 @@ def get_realtime_quotes(symbols: list) -> dict:
             data = parts[1].strip('"').split('~')
             if len(data) < 5:
                 continue
-            result[data[2]] = {
+            code = data[2]  # 股票代码
+            result[code] = {
                 'name': data[1],
                 'price': float(data[3]) if data[3] else 0,
                 'change_pct': float(data[32]) if len(data) > 32 and data[32] else 0,
