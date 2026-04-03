@@ -90,6 +90,9 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 @media(max-width:900px){.learn-layout{grid-template-columns:1fr;min-height:auto}}
 .learn-sidebar{background:var(--card);border-right:1px solid var(--border);padding:16px;overflow-y:auto;height:calc(100vh - 160px);position:sticky;top:80px}
 .learn-sidebar h3{font-size:.85rem;margin-bottom:12px;color:var(--text2)}
+.sort-btn{padding:4px 10px;font-size:.72rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text2);cursor:pointer;transition:all .15s}
+.sort-btn:hover{background:var(--hover)}
+.sort-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .learn-cat{margin-bottom:8px}
 .learn-cat-title{font-size:.78rem;font-weight:600;color:var(--text2);padding:6px 8px;display:flex;align-items:center;gap:6px;cursor:pointer;border-radius:6px}
 .learn-cat-title:hover{background:var(--hover)}
@@ -566,6 +569,10 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     <div class="learn-layout">
       <div class="learn-sidebar" id="learnSidebar">
         <h3>📚 学习目录</h3>
+        <div style="display:flex;gap:4px;margin-bottom:10px;padding:0 4px">
+          <button class="sort-btn active" data-sort="category" onclick="setGuideSort('category')">📁 分类</button>
+          <button class="sort-btn" data-sort="date" onclick="setGuideSort('date')">🕐 日期</button>
+        </div>
         <div id="learnCatList"><div class="news-empty" style="padding:20px;font-size:.8rem">加载中...</div></div>
       </div>
       <div class="learn-content" id="learnContent">
@@ -899,6 +906,7 @@ function getGwToken(){try{const s=sessionStorage.getItem('openclaw.control.setti
 // ─── Learning Center ───
 var allGuides=[];
 var activeGuideId=null;
+var guideSortMode='category';
 
 function switchAiTab(tab){
   const panel=document.getElementById('panel-ai-news');
@@ -917,18 +925,53 @@ async function loadGuides(){
   }catch(e){console.error('loadGuides',e)}
 }
 
+function setGuideSort(mode){
+  guideSortMode=mode;
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.toggle('active',b.dataset.sort===mode));
+  renderGuideSidebar();
+}
+window.setGuideSort=setGuideSort;
+
 function renderGuideSidebar(){
   const el=document.getElementById('learnCatList');
   if(!allGuides.length){el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text2);font-size:.8rem">暂无学习内容<br><br>在新闻动态里点击<br>「📚 加入学习」<br>生成学习指南</div>';return}
-  const cats={};
-  allGuides.forEach(g=>{const c=g.category||'未分类';if(!cats[c])cats[c]=[];cats[c].push(g)});
   let html='';
-  for(const[cat,items]of Object.entries(cats).sort()){
-    html+=`<div class="learn-cat"><div class="learn-cat-title">${items[0]?.icon||'📁'} ${esc(cat)} <span class="count">(${items.length})</span></div>`;
-    items.forEach(g=>{
-      html+=`<div class="learn-cat-item ${g.id===activeGuideId?'active':''}" onclick="openGuide('${g.id}')">${esc(g.title)}</div>`;
+  if(guideSortMode==='date'){
+    // Sort by date descending
+    const sorted=[...allGuides].sort((a,b)=>{
+      const da=a.updatedAt||a.createdAt||'';
+      const db=b.updatedAt||b.createdAt||'';
+      return db.localeCompare(da);
     });
-    html+='</div>';
+    // Group by month
+    const months={};
+    sorted.forEach(g=>{
+      const d=g.updatedAt||g.createdAt||'';
+      const month=d?d.substring(0,7):'未知日期';
+      if(!months[month])months[month]=[];
+      months[month].push(g);
+    });
+    for(const[month,items]of Object.entries(months)){
+      const label=month==='未知日期'?month:month.replace('-','年')+'月';
+      html+=`<div class="learn-cat"><div class="learn-cat-title">🗓 ${esc(label)} <span class="count">(${items.length})</span></div>`;
+      items.forEach(g=>{
+        const day=(g.updatedAt||g.createdAt||'').substring(8,10);
+        const prefix=day?day+'日 ':'';
+        html+=`<div class="learn-cat-item ${g.id===activeGuideId?'active':''}" onclick="openGuide('${g.id}')">${g.icon||''} ${prefix}${esc(g.title)}</div>`;
+      });
+      html+='</div>';
+    }
+  }else{
+    // Sort by category
+    const cats={};
+    allGuides.forEach(g=>{const c=g.category||'未分类';if(!cats[c])cats[c]=[];cats[c].push(g)});
+    for(const[cat,items]of Object.entries(cats).sort()){
+      html+=`<div class="learn-cat"><div class="learn-cat-title">${items[0]?.icon||'📁'} ${esc(cat)} <span class="count">(${items.length})</span></div>`;
+      items.forEach(g=>{
+        html+=`<div class="learn-cat-item ${g.id===activeGuideId?'active':''}" onclick="openGuide('${g.id}')">${esc(g.title)}</div>`;
+      });
+      html+='</div>';
+    }
   }
   el.innerHTML=html;
 }
@@ -960,13 +1003,7 @@ async function openGuide(id){
       const nodes=document.querySelectorAll('#learnBody .mermaid');
       for(let i=0;i<nodes.length;i++){
         const node=nodes[i];
-        const code=node.textContent.trim()
-          // fix missing newlines: "...]  Agent" or "...]    subgraph"
-          .replace(/([\]"\)])\s{2,}(\w)/g,'$1\n    $2')
-          // fix style on same line
-          .replace(/(["}\])])\s+(style\s)/g,'$1\n    $2')
-          // fix "end    subgraph" on same line
-          .replace(/end\s{2,}(subgraph)/g,'end\n    $1');
+        const code=cleanMermaid(node.textContent.trim());
         try{
           const{svg}=await mermaid.render('mermaid-'+Date.now()+'-'+i,code);
           node.innerHTML=svg;
@@ -1091,8 +1128,8 @@ function renderMarkdown(md){
     });
     return out+'</div>';
   });
-  // Mermaid blocks
-  html=html.replace(/```mermaid\n([\s\S]*?)```/g,'<div class="mermaid">$1</div>');
+  // Mermaid blocks (handle with/without trailing newline)
+  html=html.replace(/```mermaid\s*\n([\s\S]*?)```/g,'<div class="mermaid">$1</div>');
   // Code blocks
   html=html.replace(/```(\w*)\n([\s\S]*?)```/g,(m,lang,code)=>'<pre><code class="language-'+lang+'">'+esc(code)+'</code></pre>');
   // Inline code
@@ -1141,7 +1178,7 @@ async function addToLearn(articleId){
     const prompt=`请为以下AI技术主题生成一篇丰富的学习指南。要求：
 1. 用中文写，深入但易懂
 2. 用markdown格式，同时使用以下富组件语法：
-   - \`\`\`mermaid 代码块画架构图/流程图（至少2个）
+   - \`\`\`mermaid 代码块画架构图/流程图（至少2个）。注意：每条语句必须独占一行，不要把多条语句写在同一行！style 声明也必须各占一行。
    - :::info-cards 卡片组（用 #### emoji 标题 + 描述）展示核心概念
    - :::callout{type="tip/warning/info"} 提示/警告框
    - :::pros-cons 优劣对比（用 #### ✅ 优势 和 #### ❌ 劣势）
@@ -1204,6 +1241,34 @@ ${article.url?'链接: '+article.url:''}
     btn.disabled=false;btn.textContent='📚 加入学习';
     alert('生成失败: '+e.message);
   }
+}
+
+// Mermaid code cleaner – fixes common LLM output issues
+function cleanMermaid(code){
+  // Strip markdown fence if LLM wrapped it again
+  code=code.replace(/^```mermaid\s*/i,'').replace(/```\s*$/,'');
+  // Normalize line endings
+  code=code.replace(/\r\n?/g,'\n');
+  // Fix statements jammed on one line after closing brackets/quotes
+  // e.g.  "]  Agent" or "]    subgraph" or "}" followed by word
+  code=code.replace(/([\]"\)}\|])\s{2,}(\w)/g,'$1\n    $2');
+  // Fix "style" on same line as a node definition
+  code=code.replace(/(["}\])\|])\s+(style\s)/g,'$1\n    $2');
+  // Fix "end" jammed with next keyword
+  code=code.replace(/\bend\s{2,}(subgraph|style|class|click|linkStyle)/g,'end\n    $1');
+  // Fix multiple node connections on same line:  A --> B    C --> D
+  code=code.replace(/(\w+["'\])]?)\s{2,}(\w+[\[("{])/g,'$1\n    $2');
+  // Fix arrow operators jammed: A1 & A2 ... -->|text| Target    A1 & A2 ... -->|text2| Target2
+  code=code.replace(/(-->(?:\|[^|]*\|)?\s*\w+(?:\["[^"]*"\])?)\s{2,}(\w)/g,'$1\n    $2');
+  // Ensure graph/flowchart directive is on its own line
+  code=code.replace(/^(.*?)(graph\s+(?:TB|TD|LR|RL|BT)\b)/m,(m,pre,dir)=>{
+    return pre.trim()?pre.trim()+'\n'+dir:dir;
+  });
+  // Ensure each "style " line is separate
+  code=code.replace(/\n(\s*)(style\s+\w+\s+[^\n]+)\s+(style\s)/g,'\n$1$2\n    $3');
+  // Remove empty lines inside subgraphs that mermaid chokes on (optional cleanup)
+  code=code.replace(/\n{3,}/g,'\n\n');
+  return code.trim();
 }
 
 // Init mermaid
