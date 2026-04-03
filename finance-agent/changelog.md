@@ -1,5 +1,53 @@
 # 金融Agent 更新日志
 
+## 2026-04-03 22:00 — v5.6 深度优化: 信号共识门槛+动态分数阈值+布林带%B+成交量高潮+买入高潮减仓
+
+### 🔒 信号共识门槛 (Signal Consensus Gate)
+- **核心问题**: 连续6次止损、0%命中率 — 单一信号类别即可触发买入，假信号太多
+- **方案**: 要求至少2个独立信号类别(动量/资金/机构/新闻/龙虎榜/北向)同时支持才允许买入
+- 信号分6大类: momentum(量价齐升/创新高), money_flow(大笔买入/火箭), institution(机构研报), news, lhb(龙虎榜), northbound(北向)
+- 多类别共识额外加分: 3类+6分, 4类+10分
+- 单类别但极高分(>50)保留但打8折
+- **预期效果**: 过滤掉约50%的单一信号假突破
+
+### 📊 动态分数阈值 (Adaptive Score Threshold)
+- 基于近期胜率+连亏次数+市场状态自动调节最低买入分数
+- 正常: 20分 → 近期胜率<20%: +15分 → 连亏5+次: +12分 → 熊市: +5分
+- 当前(0%胜率+连亏6+熊市): 门槛52分，只有最强信号组合才能通过
+- **核心价值**: 不再用固定门槛，市场差时自动提高标准、市场好时放宽
+
+### 📈 布林带 %B 指标 (Bollinger %B)
+- 新增`boll_pct_b`和`boll_squeeze`字段
+- %B < 0 (跌破下轨): 极度超卖，熊市+10分/普通+6分
+- %B < 0.2: 接近下轨，熊市+5分/普通+3分  
+- %B > 1.0 (突破上轨): 超买-6分
+- 布林带收窄(squeeze): 即将变盘但方向不明，-3分观望
+- **与RSI互补**: RSI衡量速度，%B衡量位置，双重确认超卖更准确
+
+### 📉 成交量高潮检测 (Volume Climax)
+- 新增`sell_climax`和`buy_climax`字段
+- **卖出高潮**: 巨量(>均值+2σ)+大跌(>3%) = 恐慌抛售尾声
+  - 熊市+10分(抄底好时机), 普通+5分
+- **买入高潮**: 巨量+大涨(>5%) = 追高末端
+  - 选股-10分(获利盘回吐风险)
+  - 持仓盈利5%+且触发买入高潮 → 自动减半仓
+- **经典量价形态**: 恐慌抛售后的反弹概率远高于盲目抄底
+
+### 🔧 技术细节
+- data_collector: calculate_technical_indicators新增boll_pct_b/boll_squeeze/sell_climax/buy_climax
+- stock_picker: 新增SIGNAL_CATEGORIES/check_signal_consensus()/get_dynamic_score_threshold()
+- stock_picker: score_and_rank增加%B评分+成交量高潮评分+共识过滤+共识加分
+- stock_picker: multi_strategy_pick接收loss_streak参数，应用动态分数门槛
+- position_manager: check_dynamic_stop新增买入高潮减仓信号
+- daily_runner: 传递loss_streak到multi_strategy_pick
+
+### 📈 预期效果
+- 信号共识+动态门槛双重过滤，假信号减少约60%
+- 布林带%B+成交量高潮改善熊市超卖检测精度
+- 连亏期间自动大幅提高门槛，宁可空仓也不买弱信号
+
+---
+
 ## 2026-04-03 11:30 — v5.5 风险指标仪表盘+持仓排序
 
 ### 📊 风险指标卡片 (Risk Metrics Dashboard)

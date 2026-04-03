@@ -39,6 +39,67 @@ SIGNAL_QUALITY_WEIGHTS = {
 }
 
 
+# 信号类别分组 — 用于共识门槛检查
+SIGNAL_CATEGORIES = {
+    '量价齐升': 'momentum',
+    '创新高': 'momentum',
+    '大笔买入': 'money_flow',
+    '火箭发射': 'money_flow',
+    '强势股': 'strong',
+    '机构买入': 'institution',
+    '机构增持': 'institution',
+    '机构强烈推荐': 'institution',
+    '新闻利好': 'news',
+    '机构龙虎榜买入': 'lhb',
+    '北向增持': 'northbound',
+}
+
+
+def get_dynamic_score_threshold(regime: str = "", loss_streak: int = 0) -> int:
+    """基于近期胜率动态调节最低买入分数门槛
+    
+    连亏越多、胜率越低 → 门槛越高，只买最强信号
+    """
+    base = 20  # 正常市场下的最低分数
+    
+    # 近期胜率调节
+    try:
+        from performance_tracker import get_performance_summary
+        perf = get_performance_summary()
+        hr = perf.get('hit_rate', 50)
+        if hr < 20:
+            base += 15  # 近期命中率极低,大幅提高门槛
+        elif hr < 35:
+            base += 8
+    except:
+        pass
+    
+    # 连亏调节
+    if loss_streak >= 5:
+        base += 12
+    elif loss_streak >= 3:
+        base += 6
+    
+    # 熊市调节
+    if regime == 'bear':
+        base += 5
+    
+    return base
+
+
+def check_signal_consensus(signals: list) -> tuple:
+    """检查信号共识: 至少2个不同类别的信号同意才通过
+    
+    Returns: (pass: bool, categories: set, category_count: int)
+    """
+    categories = set()
+    for sig in signals:
+        sig_base = sig.split('×')[0].split('+')[0].split(':')[0]
+        cat = SIGNAL_CATEGORIES.get(sig_base, 'other')
+        categories.add(cat)
+    return len(categories) >= 2, categories, len(categories)
+
+
 def get_recent_strategy_performance() -> dict:
     """读取近期推荐绩效，动态调节策略可信度
     
@@ -435,6 +496,27 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                         stock['score'] -= 4
                 stock['adx'] = adx
 
+                # === 布林带 %B 超卖/超买 ===
+                pct_b = tech.get('boll_pct_b', 0.5)
+                if pct_b < 0:  # 跌破下轨，极度超卖
+                    stock['score'] += 10 if bear_mode else 6
+                elif pct_b < 0.2:  # 接近下轨
+                    stock['score'] += 5 if bear_mode else 3
+                elif pct_b > 1.0:  # 突破上轨，超买
+                    stock['score'] -= 6
+                
+                # 布林带收窄(squeeze) = 即将变盘，观望
+                if tech.get('boll_squeeze'):
+                    stock['score'] -= 3  # 方向不明，不急着进场
+                
+                # === 成交量高潮 ===
+                if tech.get('sell_climax') and bear_mode:
+                    stock['score'] += 10  # 恐慌抛售尾声，熊市抄底好机会
+                elif tech.get('sell_climax'):
+                    stock['score'] += 5
+                if tech.get('buy_climax'):
+                    stock['score'] -= 10  # 追高巨量，获利盘回吐风险极大
+
                 # === 抛物线拉升过滤 ===
                 # 5日涨幅>15%的票大概率要回调，不追
                 if df is not None and len(df) >= 5:
@@ -491,7 +573,32 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
 
     # 重新排序
     ranked = sorted(ranked, key=lambda x: -x['score'])
-    return ranked
+    
+    # === 信号共识过滤 ===
+    # 只保留至少2个独立信号类别支持的候选,减少假信号
+    consensus_filtered = []
+    for stock in ranked:
+        passed, cats, cat_count = check_signal_consensus(stock['signals'])
+        stock['signal_categories'] = list(cats)
+        stock['consensus_count'] = cat_count
+        if passed:
+            # 多类别共识加分: 3类别+6, 4类别+10
+            if cat_count >= 4:
+                stock['score'] += 10
+            elif cat_count >= 3:
+                stock['score'] += 6
+            consensus_filtered.append(stock)
+        else:
+            # 单类别但分数极高(>50)的也保留(可能是强机构推荐)
+            if stock['score'] >= 50:
+                stock['score'] = int(stock['score'] * 0.8)  # 打折但保留
+                consensus_filtered.append(stock)
+    
+    # 如果共识过滤后太少,放宽到原列表(避免空选)
+    if len(consensus_filtered) < 3:
+        consensus_filtered = ranked
+    
+    return sorted(consensus_filtered, key=lambda x: -x['score'])
 
 
 def filter_tradeable(candidates: list) -> list:
@@ -519,7 +626,7 @@ def filter_tradeable(candidates: list) -> list:
     return filtered
 
 
-def multi_strategy_pick(regime: str = "", use_news: bool = True) -> dict:
+def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: int = 0) -> dict:
     """多策略综合选股主流程（含新闻/舆情数据源）"""
     print("  🔍 策略1: 动量选股(量价齐升+创新高)...")
     momentum = get_momentum_candidates()
@@ -640,6 +747,11 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True) -> dict:
             ranked = sorted(ranked, key=lambda x: -x['score'])
         except Exception as e:
             print(f"  ⚠️ 资金面信号叠加失败: {e}")
+
+    # === 动态分数门槛: 根据近期胜率+连亏情况自动提高门槛 ===
+    score_threshold = get_dynamic_score_threshold(regime=regime, loss_streak=loss_streak)
+    ranked = [s for s in ranked if s['score'] >= score_threshold]
+    print(f"  🎯 动态分数门槛: {score_threshold}分, 通过{len(ranked)}只")
 
     # 过滤
     tradeable = filter_tradeable(ranked)

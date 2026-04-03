@@ -651,6 +651,42 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['weekly_trend'] = 'neutral'
             indicators['price_above_weekly_ma'] = True
 
+    # === 布林带 %B (Bollinger %B) ===
+    # %B = (Price - Lower) / (Upper - Lower), 0=下轨, 1=上轨, <0=极度超卖
+    if len(close) >= 20:
+        try:
+            bb_upper = sma20 + 2 * std20
+            bb_lower = sma20 - 2 * std20
+            bb_width = bb_upper - bb_lower
+            pct_b = (close - bb_lower) / bb_width.replace(0, float('nan'))
+            indicators['boll_pct_b'] = round(pct_b.iloc[-1], 3) if not pct_b.empty else 0.5
+            # 带宽收窄(squeeze) = 即将变盘
+            if len(bb_width) >= 20:
+                bw_pct = bb_width / sma20 * 100
+                indicators['boll_squeeze'] = bw_pct.iloc[-1] < bw_pct.tail(20).quantile(0.2)
+            else:
+                indicators['boll_squeeze'] = False
+        except:
+            indicators['boll_pct_b'] = 0.5
+            indicators['boll_squeeze'] = False
+
+    # === 成交量高潮检测 (Volume Climax) ===
+    # 放巨量+大跌 = 恐慌抛售尾声, 可能是反弹机会
+    if volume is not None and len(volume) >= 20 and len(close) >= 5:
+        try:
+            vol_ma20 = volume.tail(20).mean()
+            vol_std20 = volume.tail(20).std()
+            price_chg = (close.iloc[-1] - close.iloc[-2]) / close.iloc[-2] * 100 if close.iloc[-2] > 0 else 0
+            # 卖出高潮: 量>均值+2倍标准差 且 跌幅>3%
+            sell_climax = (volume.iloc[-1] > vol_ma20 + 2 * vol_std20) and price_chg < -3
+            # 买入高潮(追高危险): 量>均值+2倍标准差 且 涨幅>5%
+            buy_climax = (volume.iloc[-1] > vol_ma20 + 2 * vol_std20) and price_chg > 5
+            indicators['sell_climax'] = bool(sell_climax)
+            indicators['buy_climax'] = bool(buy_climax)
+        except:
+            indicators['sell_climax'] = False
+            indicators['buy_climax'] = False
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     if len(close) >= 10:

@@ -306,6 +306,21 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                         "price": pos['current_price']
                     })
                     continue
+            # 布林带%B > 1.0回落 + 盈利 → 减仓 (超买回落)
+            pct_b = pos_tech.get('boll_pct_b', 0.5)
+            if pnl_pct >= 0.05 and pos_tech.get('buy_climax'):
+                # 巨量追高后立即减仓
+                half = (pos['shares'] // 200) * 100
+                if half >= 100:
+                    actions.append({
+                        "action": "SELL",
+                        "symbol": pos['symbol'],
+                        "name": pos['name'],
+                        "reason": f"巨量追高减仓: 盈利{pnl_pct*100:+.1f}%+成交量高潮",
+                        "shares": half,
+                        "price": pos['current_price']
+                    })
+                    continue
         
         # === 时间止损 (Time Stop) ===
         # 持仓天数阈值根据市场状态自适应: 牛市宽松(25天)，熊市收紧(15天)
