@@ -1178,7 +1178,7 @@ async function addToLearn(articleId){
     const prompt=`请为以下AI技术主题生成一篇丰富的学习指南。要求：
 1. 用中文写，深入但易懂
 2. 用markdown格式，同时使用以下富组件语法：
-   - \`\`\`mermaid 代码块画架构图/流程图（至少2个）。注意：每条语句必须独占一行，不要把多条语句写在同一行！style 声明也必须各占一行。
+   - \`\`\`mermaid 代码块画架构图/流程图（至少2个）。**极其重要：每条mermaid语句必须独占一行！** 绝对不要把两条语句写在同一行，包括 participant、箭头连接、style、end、Note 等都必须换行。
    - :::info-cards 卡片组（用 #### emoji 标题 + 描述）展示核心概念
    - :::callout{type="tip/warning/info"} 提示/警告框
    - :::pros-cons 优劣对比（用 #### ✅ 优势 和 #### ❌ 劣势）
@@ -1249,24 +1249,38 @@ function cleanMermaid(code){
   code=code.replace(/^```mermaid\s*/i,'').replace(/```\s*$/,'');
   // Normalize line endings
   code=code.replace(/\r\n?/g,'\n');
-  // Fix statements jammed on one line after closing brackets/quotes
-  // e.g.  "]  Agent" or "]    subgraph" or "}" followed by word
+
+  // === Core fix: split jammed statements by recognizing mermaid keywords ===
+  // These keywords should always start on a new line
+  const kwPatterns=[
+    'participant\\b','Note\\s+(?:over|left|right)','par\\b','end\\b',
+    '\\w+\\s*->>','\\w+\\s*-->>','\\w+\\s*-->','\\w+\\s*---','\\w+\\s*-\\.->',
+    'subgraph\\b','style\\b','class\\b','click\\b','linkStyle\\b',
+    'loop\\b','alt\\b','else\\b','opt\\b','rect\\b','activate\\b','deactivate\\b',
+    'section\\b','title\\b'
+  ];
+  // Match 2+ spaces followed by a keyword-start (indicating jammed lines)
+  const kwRe=new RegExp('(\\S)\\s{2,}((?:'+kwPatterns.join('|')+'))','g');
+  // Apply multiple passes since replacements can reveal new matches
+  for(let pass=0;pass<5;pass++){
+    const prev=code;
+    code=code.replace(kwRe,'$1\n    $2');
+    if(code===prev)break;
+  }
+
+  // Fix "end" followed by anything with 3+ spaces
+  code=code.replace(/\bend\s{3,}(\S)/g,'end\n    $1');
+  // Fix closing bracket/quote/pipe followed by 4+ spaces then word (catches jammed flowchart lines)
+  code=code.replace(/([\]"\)}\|])\s{4,}(\w)/g,'$1\n    $2');
+  // Fix closing bracket/quote followed by 2+ spaces then word
   code=code.replace(/([\]"\)}\|])\s{2,}(\w)/g,'$1\n    $2');
-  // Fix "style" on same line as a node definition
-  code=code.replace(/(["}\])\|])\s+(style\s)/g,'$1\n    $2');
-  // Fix "end" jammed with next keyword
-  code=code.replace(/\bend\s{2,}(subgraph|style|class|click|linkStyle)/g,'end\n    $1');
-  // Fix multiple node connections on same line:  A --> B    C --> D
-  code=code.replace(/(\w+["'\])]?)\s{2,}(\w+[\[("{])/g,'$1\n    $2');
-  // Fix arrow operators jammed: A1 & A2 ... -->|text| Target    A1 & A2 ... -->|text2| Target2
-  code=code.replace(/(-->(?:\|[^|]*\|)?\s*\w+(?:\["[^"]*"\])?)\s{2,}(\w)/g,'$1\n    $2');
   // Ensure graph/flowchart directive is on its own line
-  code=code.replace(/^(.*?)(graph\s+(?:TB|TD|LR|RL|BT)\b)/m,(m,pre,dir)=>{
+  code=code.replace(/^(.*?)((?:graph|flowchart)\s+(?:TB|TD|LR|RL|BT)\b)/m,(m,pre,dir)=>{
     return pre.trim()?pre.trim()+'\n'+dir:dir;
   });
-  // Ensure each "style " line is separate
-  code=code.replace(/\n(\s*)(style\s+\w+\s+[^\n]+)\s+(style\s)/g,'\n$1$2\n    $3');
-  // Remove empty lines inside subgraphs that mermaid chokes on (optional cleanup)
+  // sequenceDiagram / classDiagram / stateDiagram on own line
+  code=code.replace(/(\S)\s{2,}(sequenceDiagram|classDiagram|stateDiagram|gantt|pie|erDiagram|journey)\b/g,'$1\n$2');
+  // Remove excessive blank lines
   code=code.replace(/\n{3,}/g,'\n\n');
   return code.trim();
 }
