@@ -231,6 +231,35 @@ textarea::placeholder{color:var(--text-sec)}
   .memory-welcome{flex:1;overflow:auto}
   .mem-back{display:none!important}
 }
+/* Skills panel */
+.skills-header{padding:14px 20px;border-bottom:1px solid var(--border);background:var(--sidebar-bg)}
+.skills-search-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.skills-search-row input{flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.85rem;outline:none}
+.skills-search-row input:focus{border-color:var(--accent)}
+.skills-counts{font-size:.75rem;color:var(--text-sec);white-space:nowrap}
+.skills-filters{display:flex;gap:6px}
+.skill-filter{padding:4px 12px;font-size:.72rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-sec);cursor:pointer;transition:all .15s;font-family:inherit}
+.skill-filter:hover{background:var(--hover)}
+.skill-filter.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.skills-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;padding:16px 20px}
+.skill-card{background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .15s}
+.skill-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.skill-card .sk-icon{font-size:1.4rem;margin-bottom:4px}
+.skill-card .sk-name{font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:4px}
+.skill-card .sk-desc{font-size:.72rem;color:var(--text-sec);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.skill-card .sk-tags{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.skill-card .sk-tag{font-size:.63rem;padding:2px 8px;border-radius:4px;background:var(--hover);color:var(--text-sec)}
+.skill-card .sk-tag.on{background:rgba(16,163,127,.12);color:var(--accent)}
+.skill-card .sk-tag.custom{background:rgba(99,102,241,.12);color:#6366f1}
+.skill-detail{position:absolute;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:10;display:flex;flex-direction:column}
+.skill-detail-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--sidebar-bg)}
+.skill-detail-header button{background:none;border:none;color:var(--accent);cursor:pointer;font-size:.85rem;font-family:inherit}
+.skill-detail-body{padding:20px;flex:1;overflow-y:auto;font-size:.82rem;line-height:1.8;color:var(--text)}
+.skill-detail-body pre{background:var(--input-bg);padding:12px;border-radius:8px;overflow-x:auto;font-size:.75rem;border:1px solid var(--border)}
+.skill-detail-body h1,.skill-detail-body h2,.skill-detail-body h3{margin:16px 0 8px}
+.skill-detail-body h1{font-size:1.1rem}.skill-detail-body h2{font-size:.95rem}.skill-detail-body h3{font-size:.85rem}
+.skill-detail-body code{background:var(--hover);padding:1px 5px;border-radius:3px;font-size:.78rem}
+.skill-detail-body ul{padding-left:20px}
 .memory-panel{display:flex;height:100%}
 .memory-sidebar{width:280px;background:var(--sidebar-bg);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0}
 .memory-sidebar h3{padding:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-sec);border-bottom:1px solid var(--border)}
@@ -394,6 +423,7 @@ textarea::placeholder{color:var(--text-sec)}
     <div class="tab" data-tab="terminal">🖥 终端</div>
     <div class="tab" data-tab="files">📁 文件</div>
     <div class="tab" data-tab="nodes">🌐 节点</div>
+    <div class="tab" data-tab="skills">🧩 技能</div>
     <div class="tab" data-tab="demos">🎪 Demo码</div>
     <div class="tab" data-tab="memory">🧠 记忆</div>
   </div>
@@ -510,6 +540,32 @@ echo '{"version":1,"defaults":{"security":"full"}}' > ~/.openclaw/exec-approvals
         <div id="demoEmpty" style="text-align:center;padding:40px;color:var(--text-sec);font-size:14px">暂无访问码</div>
       </div>
     </div>
+    <div class="panel" id="panel-skills">
+      <div style="height:100%;display:flex;flex-direction:column;overflow:hidden;position:relative">
+        <div class="skills-header">
+          <div class="skills-search-row">
+            <input type="text" id="skillSearch" placeholder="🔍 搜索技能..." oninput="filterSkills()">
+            <div class="skills-counts" id="skillsCounts"></div>
+          </div>
+          <div class="skills-filters">
+            <button class="skill-filter active" data-filter="all" onclick="setSkillFilter('all')">全部</button>
+            <button class="skill-filter" data-filter="active" onclick="setSkillFilter('active')">✅ 已启用</button>
+            <button class="skill-filter" data-filter="builtin" onclick="setSkillFilter('builtin')">📦 内置</button>
+            <button class="skill-filter" data-filter="custom" onclick="setSkillFilter('custom')">🛠 自定义</button>
+          </div>
+        </div>
+        <div class="skills-grid" id="skillsGrid" style="flex:1;overflow-y:auto">
+          <div style="padding:40px;text-align:center;color:var(--text-sec)">🔄 加载中...</div>
+        </div>
+        <div class="skill-detail" id="skillDetail" style="display:none">
+          <div class="skill-detail-header">
+            <button onclick="closeSkillDetail()">← 返回列表</button>
+            <span id="skillDetailTitle" style="font-weight:600"></span>
+          </div>
+          <div class="skill-detail-body" id="skillDetailBody"></div>
+        </div>
+      </div>
+    </div>
     <div class="panel" id="panel-memory">
       <div class="memory-panel">
         <div class="memory-sidebar"></div>
@@ -611,12 +667,95 @@ document.querySelectorAll('.tab').forEach(tab=>{
     }
     if(tab.dataset.tab==='files'&&!filesLoaded){if(currentNode==='local')loadFiles();else loadRemoteFiles();}
     if(tab.dataset.tab==='memory'&&!memoryLoaded) loadMemoryPanel();
+    if(tab.dataset.tab==='skills'&&!skillsLoaded) loadSkillsPanel();
     if(tab.dataset.tab==='nodes'){if(!nodesLoaded)loadNodes();startNodesAutoRefresh();}
     else{stopNodesAutoRefresh();}
   });
 });
 
 // === MEMORY PANEL ===
+// === Skills Panel ===
+let skillsData=[], skillFilter='all', skillsLoaded=false;
+const SK_ICONS={'discord':'💬','github':'🐙','gh-issues':'🐛','weather':'🌤','tmux':'🖥','video-frames':'🎬','healthcheck':'🛡','skill-creator':'✨','node-connect':'🔗','coding-agent':'🤖','himalaya':'📧','slack':'💼','spotify-player':'🎵','voice-call':'📞','sag':'🔊','camsnap':'📷','notion':'📓','obsidian':'💎','trello':'📋','1password':'🔐','gog':'📬','xurl':'🐦','summarize':'📝','nano-pdf':'📄','oracle':'🔮','sonoscli':'🔈','openhue':'💡','peekaboo':'👀','gemini':'♊','clawhub':'🦞','web-dev-rules':'🚧','mermaid-fix':'🧜','memory-ops':'🧠'};
+const ACTIVE_SKILLS=new Set(['discord','gh-issues','github','healthcheck','skill-creator','node-connect','tmux','video-frames','weather']);
+
+async function loadSkillsPanel(){
+  if(skillsLoaded)return;skillsLoaded=true;
+  const builtinPath='/home/nikefd/.npm-global/lib/node_modules/openclaw/skills';
+  const customPath='/home/nikefd/.openclaw/workspace/skills';
+  const WORKSPACE='/home/nikefd/.openclaw/workspace';
+  async function scanDir(basePath,isBuiltin){
+    try{
+      const r=await fetch('/api/files/list?path='+encodeURIComponent(basePath));
+      const d=await r.json();
+      if(!d.entries)return;
+      for(const e of d.entries){
+        if(e.type!=='directory')continue;
+        let desc='';
+        try{
+          const sr=await fetch('/api/files/read?path='+encodeURIComponent(e.path+'/SKILL.md'));
+          const sd=await sr.json();
+          if(sd.content){const m=sd.content.match(/description:\s*["']?(.+?)["']?\s*$/m)||sd.content.match(/^#\s*(.+)/m);if(m)desc=m[1].substring(0,150);}
+        }catch(x){}
+        skillsData.push({name:e.name,description:desc||'暂无描述',active:isBuiltin?ACTIVE_SKILLS.has(e.name):true,builtin:isBuiltin,icon:SK_ICONS[e.name]||'🧩'});
+      }
+    }catch(e){}
+  }
+  await Promise.all([scanDir(builtinPath,true),scanDir(customPath,false)]);
+  skillsData.sort((a,b)=>(b.active-a.active)||(a.builtin-b.builtin)||a.name.localeCompare(b.name));
+  renderSkillsGrid();
+}
+
+function setSkillFilter(f){skillFilter=f;document.querySelectorAll('#panel-skills .skill-filter').forEach(b=>b.classList.toggle('active',b.dataset.filter===f));renderSkillsGrid();}
+function filterSkills(){renderSkillsGrid();}
+window.setSkillFilter=setSkillFilter;window.filterSkills=filterSkills;
+
+function getVisibleSkills(){
+  const q=(document.getElementById('skillSearch')?.value||'').toLowerCase();
+  return skillsData.filter(s=>{
+    if(q&&!s.name.includes(q)&&!s.description.toLowerCase().includes(q))return false;
+    if(skillFilter==='active')return s.active;
+    if(skillFilter==='builtin')return s.builtin;
+    if(skillFilter==='custom')return !s.builtin;
+    return true;
+  });
+}
+
+function escH(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function renderSkillsGrid(){
+  const grid=document.getElementById('skillsGrid');
+  const vis=getVisibleSkills();
+  const ct=document.getElementById('skillsCounts');
+  if(ct)ct.textContent=skillsData.length+' 个技能 · '+skillsData.filter(s=>s.active).length+' 已启用 · '+skillsData.filter(s=>!s.builtin).length+' 自定义';
+  if(!vis.length){grid.innerHTML='<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--text-sec)">🔍 没有匹配的技能</div>';return}
+  grid.innerHTML=vis.map(s=>'<div class="skill-card" onclick="openSkill(\''+s.name+'\')"><div class="sk-icon">'+s.icon+'</div><div class="sk-name">'+escH(s.name)+'</div><div class="sk-desc">'+escH(s.description)+'</div><div class="sk-tags">'+(s.active?'<span class="sk-tag on">✅ 已启用</span>':'<span class="sk-tag">未启用</span>')+(s.builtin?'<span class="sk-tag">📦 内置</span>':'<span class="sk-tag custom">🛠 自定义</span>')+'</div></div>').join('');
+}
+
+async function openSkill(name){
+  const detail=document.getElementById('skillDetail');
+  detail.style.display='flex';
+  document.getElementById('skillDetailTitle').textContent=name;
+  const body=document.getElementById('skillDetailBody');
+  body.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-sec)">🔄 加载中...</div>';
+  const paths=['/home/nikefd/.openclaw/workspace/skills/'+name+'/SKILL.md','/home/nikefd/.npm-global/lib/node_modules/openclaw/skills/'+name+'/SKILL.md'];
+  let content='';
+  for(const p of paths){try{const r=await fetch('/api/files/read?path='+encodeURIComponent(p));const d=await r.json();if(d.content){content=d.content;break;}}catch(e){}}
+  if(!content){body.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-sec)">📄 SKILL.md 未找到</div>';return}
+  let h=escH(content);
+  h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(m,l,c)=>'<pre><code>'+c+'</code></pre>');
+  h=h.replace(/^### (.+)$/gm,'<h3>$1</h3>');h=h.replace(/^## (.+)$/gm,'<h2>$1</h2>');h=h.replace(/^# (.+)$/gm,'<h1>$1</h1>');
+  h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');h=h.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
+  h=h.replace(/^- (.+)$/gm,'<li>$1</li>');
+  h=h.replace(/\n\n/g,'<br><br>');
+  body.innerHTML=h;
+}
+window.openSkill=openSkill;
+
+function closeSkillDetail(){document.getElementById('skillDetail').style.display='none';}
+window.closeSkillDetail=closeSkillDetail;
+
 let memoryLoaded=false, memoryEditing=false, currentMemFile=null;
 const WORKSPACE='/home/nikefd/.openclaw/workspace';
 const MEMORY_FILES={
