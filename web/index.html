@@ -640,7 +640,7 @@ async function loadMemoryPanel(){
     const r2=await fetch('/api/files/list?path='+encodeURIComponent(WORKSPACE+'/memory/projects'));
     const data2=await r2.json();
     const projFiles=(data2.entries||[]).filter(e=>e.type==='file'&&e.name.endsWith('.md')).sort((a,b)=>a.name.localeCompare(b.name));
-    const projIcons={'finance':'🚨','climbing':'🧗','interview':'💼','village':'🏘'};
+    const projIcons={'finance':'🚨','climbing':'🧗','interview':'💼','village':'🏘','ai-frontier':'🔭'};
     MEMORY_FILES.projects=projFiles.map(f=>{const base=f.name.replace('.md','');return{name:f.name,path:f.path,icon:projIcons[base]||'📂',size:f.size};});
   }catch(e){MEMORY_FILES.projects=[];}
   renderMemorySidebar();
