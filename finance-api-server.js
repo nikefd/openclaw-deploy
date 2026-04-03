@@ -186,6 +186,59 @@ function handleChart(req, res) {
   sendJson(res, { dates, values, returns });
 }
 
+function handleRiskMetrics(req, res) {
+  // Calculate key risk metrics from snapshots and trades
+  const snapshots = querySqlite('SELECT date, total_value FROM daily_snapshots ORDER BY date ASC');
+  const trades = querySqlite("SELECT * FROM trades WHERE direction='SELL'");
+
+  // Max drawdown
+  let peak = 0, maxDD = 0;
+  const vals = snapshots.map(s => s.total_value);
+  for (const v of vals) { if (v > peak) peak = v; const dd = (peak - v) / peak * 100; if (dd > maxDD) maxDD = dd; }
+
+  // Daily returns for Sharpe
+  const dailyRets = [];
+  for (let i = 1; i < vals.length; i++) { dailyRets.push((vals[i] - vals[i-1]) / vals[i-1]); }
+  const avgRet = dailyRets.length ? dailyRets.reduce((a, b) => a + b, 0) / dailyRets.length : 0;
+  const stdRet = dailyRets.length > 1 ? Math.sqrt(dailyRets.reduce((s, r) => s + (r - avgRet) ** 2, 0) / (dailyRets.length - 1)) : 1;
+  const sharpe = stdRet > 0 ? (avgRet / stdRet * Math.sqrt(252)) : 0;
+
+  // Win rate from sells
+  let wins = 0, losses = 0;
+  const allTrades = querySqlite('SELECT * FROM trades ORDER BY trade_date ASC, id ASC');
+  const buyMap = {};
+  allTrades.forEach(t => { if (t.direction === 'BUY') { if (!buyMap[t.symbol]) buyMap[t.symbol] = []; buyMap[t.symbol].push(t); }});
+  const avgCosts = {};
+  Object.keys(buyMap).forEach(sym => { const buys = buyMap[sym]; const ts = buys.reduce((s, b) => s + b.shares, 0); const tc = buys.reduce((s, b) => s + b.price * b.shares, 0); avgCosts[sym] = ts > 0 ? tc / ts : 0; });
+  trades.forEach(t => { const cost = avgCosts[t.symbol] || 0; if (cost > 0) { if (t.price > cost) wins++; else losses++; }});
+  const totalSells = wins + losses;
+  const winRate = totalSells > 0 ? (wins / totalSells * 100) : 0;
+
+  // Trading days & total return
+  const totalDays = snapshots.length;
+  const totalReturn = vals.length ? ((vals[vals.length-1] - INITIAL_CAPITAL) / INITIAL_CAPITAL * 100) : 0;
+
+  // Consecutive losses (current streak)
+  const recentSells = querySqlite("SELECT * FROM trades WHERE direction='SELL' ORDER BY trade_date DESC, id DESC LIMIT 20");
+  let lossStreak = 0;
+  for (const t of recentSells) {
+    const cost = avgCosts[t.symbol] || 0;
+    if (cost > 0 && t.price < cost) lossStreak++; else break;
+  }
+
+  sendJson(res, {
+    max_drawdown: Math.round(maxDD * 100) / 100,
+    sharpe_ratio: Math.round(sharpe * 100) / 100,
+    win_rate: Math.round(winRate * 10) / 10,
+    total_trades: totalSells,
+    wins, losses,
+    loss_streak: lossStreak,
+    trading_days: totalDays,
+    total_return: Math.round(totalReturn * 100) / 100,
+    daily_volatility: Math.round(stdRet * 10000) / 100, // as percentage
+  });
+}
+
 let runState = { status: 'idle', log: '', startTime: null };
 const RUN_LOG_FILE = '/tmp/finance-runner.log';
 
@@ -396,6 +449,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
       });
       return;
     }
+
+    if (pathname === '/api/finance/risk-metrics' && req.method === 'GET') return handleRiskMetrics(req, res);
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);

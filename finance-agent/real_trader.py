@@ -240,10 +240,31 @@ def generate_daily_actions() -> dict:
     print(f"📋 生成{today}操作建议...")
     print(f"  持仓: {len(positions)}只, 资金: {account.get('total_capital', 0):.0f}")
     
-    # --- 1. 检查现有持仓 ---
+    # --- 1. 检查现有持仓(多维度综合评估) ---
     if positions:
         codes = [p['symbol'] for p in positions]
         quotes = get_realtime_quotes(codes)
+        
+        # 获取新闻信号和资金面(复用，避免重复调用)
+        news_signals = None
+        money_overview = None
+        try:
+            from news_collector import collect_and_analyze, get_news_score_for_stock
+            print("  📰 采集新闻信号(用于持仓评估)...")
+            news_result = collect_and_analyze()
+            news_signals = news_result.get('signals', {})
+        except Exception as e:
+            print(f"  ⚠️ 新闻采集跳过: {e}")
+        
+        try:
+            from market_data_ext import get_money_flow_overview, get_stock_money_signals
+            print("  💰 采集资金面(用于持仓评估)...")
+            money_overview = get_money_flow_overview()
+        except Exception as e:
+            print(f"  ⚠️ 资金面采集跳过: {e}")
+        
+        sentiment = get_market_sentiment()
+        sentiment_score = sentiment.get('sentiment_score', 50)
         
         for pos in positions:
             symbol = pos['symbol']
@@ -257,49 +278,225 @@ def generate_daily_actions() -> dict:
             
             pnl_pct = (current_price - avg_cost) / avg_cost * 100
             
-            # 技术面
-            df = get_stock_daily(symbol, 30)
+            # === 收集多维度信号 ===
+            sell_score = 0   # 正数=越该卖
+            hold_score = 0   # 正数=越该拿
+            signals_list = []
+            reasons = []
+            
+            # --- A. 盈亏维度 ---
+            if pnl_pct <= -12:
+                sell_score += 40
+                signals_list.append('深度亏损')
+                reasons.append(f'⚠️ 亏损{pnl_pct:.1f}%，深度套牢')
+            elif pnl_pct <= -8:
+                sell_score += 25
+                signals_list.append('破止损线')
+                reasons.append(f'⚠️ 亏损{pnl_pct:.1f}%，已破-8%止损线')
+            elif pnl_pct <= -5:
+                sell_score += 10
+                signals_list.append('接近止损')
+            elif pnl_pct >= 30:
+                sell_score += 30
+                signals_list.append('大幅盈利')
+                reasons.append(f'🎯 盈利{pnl_pct:.1f}%，建议止盈全部')
+            elif pnl_pct >= 20:
+                sell_score += 15
+                signals_list.append('止盈区间')
+                reasons.append(f'🎯 盈利{pnl_pct:.1f}%，建议卖出一半锁利')
+            elif pnl_pct > 5:
+                hold_score += 10  # 小幅盈利，没必要卖
+            
+            # --- B. 技术面维度 ---
+            df = get_stock_daily(symbol, 60)
             tech = calculate_technical_indicators(df) if df is not None and not df.empty else {}
             
-            # 止损判断
-            if pnl_pct <= -8:
-                actions.append({
-                    'action_type': 'sell', 'symbol': symbol, 'name': name,
-                    'price': current_price,
-                    'reason': f'⚠️ 止损! 亏损{pnl_pct:.1f}%，超过-8%止损线',
-                    'signals': ['止损触发'],
-                    'confidence': 9,
-                })
-            # 止盈判断
-            elif pnl_pct >= 20:
-                actions.append({
-                    'action_type': 'sell', 'symbol': symbol, 'name': name,
-                    'price': current_price,
-                    'reason': f'🎯 止盈! 盈利{pnl_pct:.1f}%，建议至少卖出一半锁定利润',
-                    'signals': ['止盈触发'],
-                    'confidence': 8,
-                })
-            # 技术面恶化
-            elif tech.get('macd_signal') == 'death_cross' and pnl_pct < 0:
-                actions.append({
-                    'action_type': 'sell', 'symbol': symbol, 'name': name,
-                    'price': current_price,
-                    'reason': f'📉 MACD死叉+亏损{pnl_pct:.1f}%，趋势转弱建议减仓',
-                    'signals': ['MACD死叉', f'亏损{pnl_pct:.1f}%'],
-                    'confidence': 7,
-                })
-            else:
-                # 持有
-                trend = tech.get('trend', '')
-                rsi = tech.get('rsi14', 50)
+            # MACD
+            macd_sig = tech.get('macd_signal', '')
+            if macd_sig == 'death_cross':
+                sell_score += 20
+                signals_list.append('MACD死叉')
+            elif macd_sig == 'golden_cross':
+                hold_score += 20
+                signals_list.append('MACD金叉')
+            elif macd_sig == 'bearish':
+                sell_score += 5
+            elif macd_sig == 'bullish':
+                hold_score += 10
+            
+            # 趋势
+            trend = tech.get('trend', '')
+            if '空头' in trend or '弱势' in trend:
+                sell_score += 15
+                signals_list.append('空头排列')
+            elif '多头' in trend or '强势' in trend:
+                hold_score += 15
+                signals_list.append('多头排列')
+            
+            # RSI
+            rsi = tech.get('rsi14', 50)
+            if rsi > 80:
+                sell_score += 10
+                signals_list.append(f'RSI超买({rsi:.0f})')
+            elif rsi < 30:
+                hold_score += 10  # 超卖反而不该卖
+                signals_list.append(f'RSI超卖({rsi:.0f})')
+            
+            # RSI背离
+            if tech.get('rsi_divergence') == 'bearish':
+                sell_score += 15
+                signals_list.append('RSI顶背离')
+            elif tech.get('rsi_divergence') == 'bullish':
+                hold_score += 15
+                signals_list.append('RSI底背离')
+            
+            # KDJ
+            kdj_sig = tech.get('kdj_signal', '')
+            if kdj_sig == 'death_cross':
+                sell_score += 8
+                signals_list.append('KDJ死叉')
+            elif kdj_sig == 'golden_cross':
+                hold_score += 8
+            elif kdj_sig == 'overbought':
+                sell_score += 5
+            
+            # 动量衰减
+            if tech.get('momentum_decay'):
+                sell_score += 10
+                signals_list.append('动量衰减')
+            if tech.get('volume_price_diverge'):
+                sell_score += 8
+                signals_list.append('量价背离')
+            if tech.get('obv_price_diverge'):
+                sell_score += 8
+                signals_list.append('OBV背离')
+            
+            # 跳空缺口
+            if tech.get('gap_down'):
+                sell_score += 12
+                signals_list.append('向下跳空')
+            if tech.get('gap_up'):
+                hold_score += 8
+            
+            # 均线支撑/破位
+            price = current_price
+            ma20 = tech.get('ma20', 0)
+            ma60 = tech.get('ma60', 0)
+            if ma60 and price < ma60 * 0.97:  # 跌破60日均线3%
+                sell_score += 12
+                signals_list.append('破MA60')
+            elif ma20 and price < ma20 * 0.97:
+                sell_score += 6
+                signals_list.append('破MA20')
+            
+            # 布林带
+            boll_lower = tech.get('boll_lower', 0)
+            boll_upper = tech.get('boll_upper', 0)
+            if boll_lower and price < boll_lower:
+                sell_score += 10
+                signals_list.append('破布林下轨')
+            elif boll_upper and price > boll_upper:
+                sell_score += 5  # 超买区间
+            
+            # ATR波动
+            atr_pct = tech.get('atr_pct', 0)
+            if atr_pct > 5:
+                sell_score += 5  # 高波动风险加大
+            
+            # --- C. 新闻/消息面 ---
+            if news_signals:
+                try:
+                    news_score = get_news_score_for_stock(symbol, name, news_signals)
+                    if news_score['score_delta'] < -10:
+                        sell_score += 15
+                        signals_list.append('新闻利空')
+                        if news_score['reasons']:
+                            reasons.append(news_score['reasons'][0])
+                    elif news_score['score_delta'] > 10:
+                        hold_score += 10
+                        signals_list.append('新闻利好')
+                    elif news_score['score_delta'] < 0:
+                        sell_score += 5
+                    elif news_score['score_delta'] > 0:
+                        hold_score += 5
+                except:
+                    pass
+            
+            # --- D. 资金面 ---
+            if money_overview:
+                try:
+                    money_sig = get_stock_money_signals(symbol, name, money_overview)
+                    if money_sig['score_delta'] < -10:
+                        sell_score += 15
+                        signals_list.append('资金撤退')
+                        if money_sig['reasons']:
+                            reasons.append(money_sig['reasons'][0])
+                    elif money_sig['score_delta'] > 10:
+                        hold_score += 12
+                        signals_list.append('资金支撑')
+                        if money_sig['reasons']:
+                            reasons.append(money_sig['reasons'][0])
+                    # 北向减持是强信号
+                    if money_sig.get('northbound_hold') == False:
+                        for r in money_sig.get('reasons', []):
+                            if '减持' in r:
+                                sell_score += 10
+                                signals_list.append('北向减持')
+                                break
+                except:
+                    pass
+            
+            # --- E. 市场情绪调节 ---
+            if sentiment_score < 30:  # 恐慌市场
+                sell_score += 8  # 恐慌时更倾向防守
+            elif sentiment_score > 75:
+                hold_score += 5  # 乐观时可以多拿
+            
+            # === 综合判断 ===
+            net_score = sell_score - hold_score  # 正数=该卖，负数=该拿
+            
+            print(f"  📊 {name}({symbol}): 盈亏{pnl_pct:+.1f}% | "
+                  f"卖出分{sell_score} vs 持有分{hold_score} | "
+                  f"净分{net_score} | 信号:{','.join(signals_list[:5])}")
+            
+            if net_score >= 35:
+                # 强烈建议卖出
+                action_type = 'sell'
+                confidence = min(9, 6 + net_score // 15)
+                if not reasons:
+                    reasons.append(f'综合评估: 卖出信号({sell_score}分) >> 持有信号({hold_score}分)')
+                reasons.append(f'触发: {", ".join(signals_list[:4])}')
+            elif net_score >= 20:
+                # 建议减仓
+                action_type = 'sell'
+                confidence = 6
+                if not reasons:
+                    reasons.append(f'多项指标转弱，建议减仓一半')
+                reasons.append(f'触发: {", ".join(signals_list[:4])}')
+            elif net_score <= -15:
+                # 明确持有
+                action_type = 'hold'
+                confidence = 7
                 hold_reason = f"盈亏{pnl_pct:+.1f}% | {trend} | RSI:{rsi:.0f}"
-                actions.append({
-                    'action_type': 'hold', 'symbol': symbol, 'name': name,
-                    'price': current_price,
-                    'reason': hold_reason,
-                    'signals': [trend, f'RSI:{rsi:.0f}'],
-                    'confidence': 5,
-                })
+                if signals_list:
+                    hold_reason += f" | 利好: {', '.join([s for s in signals_list if '金叉' in s or '多头' in s or '利好' in s or '支撑' in s or '底背离' in s][:2]) or '基本面稳定'}"
+                reasons = [hold_reason]
+            else:
+                # 中性持有，密切观察
+                action_type = 'hold'
+                confidence = 5
+                hold_reason = f"盈亏{pnl_pct:+.1f}% | {trend} | RSI:{rsi:.0f} | ⚠️密切观察"
+                reasons = [hold_reason]
+            
+            actions.append({
+                'action_type': action_type,
+                'symbol': symbol,
+                'name': name,
+                'price': current_price,
+                'reason': ' | '.join(reasons[:3]),
+                'signals': signals_list[:6],
+                'confidence': confidence,
+            })
     
     # --- 2. 检查是否有买入机会 ---
     try:
