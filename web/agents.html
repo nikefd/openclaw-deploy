@@ -1270,10 +1270,10 @@ function cleanMermaid(code){
 
   // Fix "end" followed by anything with 3+ spaces
   code=code.replace(/\bend\s{3,}(\S)/g,'end\n    $1');
-  // Fix closing bracket/quote/pipe followed by 4+ spaces then word (catches jammed flowchart lines)
-  code=code.replace(/([\]"\)}\|])\s{4,}(\w)/g,'$1\n    $2');
-  // Fix closing bracket/quote followed by 2+ spaces then word
-  code=code.replace(/([\]"\)}\|])\s{2,}(\w)/g,'$1\n    $2');
+  // Universal fix: 4+ spaces in the middle of a line is almost certainly jammed statements
+  code=code.replace(/(\S)\s{4,}(\S)/g,'$1\n    $2');
+  // Fix closing bracket/quote followed by 2-3 spaces then word
+  code=code.replace(/([\]"\)}\|])\s{2,3}(\w)/g,'$1\n    $2');
   // Ensure graph/flowchart directive is on its own line
   code=code.replace(/^(.*?)((?:graph|flowchart)\s+(?:TB|TD|LR|RL|BT)\b)/m,(m,pre,dir)=>{
     return pre.trim()?pre.trim()+'\n'+dir:dir;
