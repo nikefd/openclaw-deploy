@@ -503,6 +503,46 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['atr14'] = 0
             indicators['atr_pct'] = 0
 
+    # === ADX (Average Directional Index) — 趋势强度指标 ===
+    # ADX>25=强趋势(信任趋势信号), ADX<20=无方向(避免趋势策略), 25附近=弱趋势
+    if len(close) >= 30:
+        try:
+            high = df['最高'].astype(float)
+            low = df['最低'].astype(float)
+            prev_high = high.shift(1)
+            prev_low = low.shift(1)
+            prev_close = close.shift(1)
+            # +DM / -DM
+            plus_dm = high - prev_high
+            minus_dm = prev_low - low
+            plus_dm = plus_dm.where((plus_dm > minus_dm) & (plus_dm > 0), 0)
+            minus_dm = minus_dm.where((minus_dm > plus_dm) & (minus_dm > 0), 0)
+            # True Range
+            tr1 = high - low
+            tr2 = (high - prev_close).abs()
+            tr3 = (low - prev_close).abs()
+            tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+            # Smoothed (Wilder's 14-period)
+            atr_s = tr.ewm(alpha=1/14, adjust=False).mean()
+            plus_di = 100 * (plus_dm.ewm(alpha=1/14, adjust=False).mean() / atr_s)
+            minus_di = 100 * (minus_dm.ewm(alpha=1/14, adjust=False).mean() / atr_s)
+            dx = 100 * ((plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, float('nan')))
+            adx = dx.ewm(alpha=1/14, adjust=False).mean()
+            indicators['adx'] = round(adx.iloc[-1], 1)
+            indicators['plus_di'] = round(plus_di.iloc[-1], 1)
+            indicators['minus_di'] = round(minus_di.iloc[-1], 1)
+            # 趋势强度标签
+            adx_val = indicators['adx']
+            if adx_val >= 25:
+                indicators['trend_strength'] = 'strong'
+            elif adx_val >= 20:
+                indicators['trend_strength'] = 'moderate'
+            else:
+                indicators['trend_strength'] = 'weak'  # 无方向，区间震荡
+        except:
+            indicators['adx'] = 0
+            indicators['trend_strength'] = 'unknown'
+
     # === VWAP (Volume Weighted Average Price) ===
     # 近20日VWAP，用于判断入场时机: 低于VWAP买入更安全
     if volume is not None and len(close) >= 20:

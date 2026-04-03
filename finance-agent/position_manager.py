@@ -342,8 +342,15 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         trail_activation = 1.06 if regime == 'bear' else 1.10  # 熊市6%即激活追踪止损
         if peak_price > pos['avg_cost'] * trail_activation:
             trail_drawdown = (peak_price - pos['current_price']) / peak_price
-            # 熊市收紧追踪止损：4%回撤即卖出（默认5%）
-            trail_threshold = 0.04 if regime == 'bear' else 0.05
+            # ATR自适应追踪止损: 用1.5×ATR%代替固定百分比
+            # 低波动股追踪更紧(锁利润)，高波动股追踪更松(避免被正常波动洗出)
+            trail_threshold = 0.05  # 默认5%
+            if pos_tech:
+                pos_atr_pct = pos_tech.get('atr_pct', 0)
+                if pos_atr_pct > 0:
+                    trail_threshold = max(0.03, min(pos_atr_pct * 1.5 / 100, 0.10))
+            if regime == 'bear':
+                trail_threshold = min(trail_threshold, 0.04)  # 熊市上限4%
             if trail_drawdown >= trail_threshold:  # 从高点回撤
                 actions.append({
                     "action": "SELL",

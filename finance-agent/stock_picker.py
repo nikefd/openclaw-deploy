@@ -421,6 +421,20 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] -= 3
                 stock['atr_pct'] = atr_pct
 
+                # === ADX趋势强度调节 ===
+                # ADX>25=强趋势: 趋势信号可信; ADX<20=弱趋势: 趋势信号打折
+                adx = tech.get('adx', 0)
+                trend_strength = tech.get('trend_strength', 'unknown')
+                if trend_strength == 'strong':
+                    # 强趋势下，多头排列/MACD金叉更可信，额外加分
+                    if '多头' in trend or macd_sig in ('golden_cross', 'bullish'):
+                        stock['score'] += 6
+                elif trend_strength == 'weak':
+                    # 无方向市场，趋势信号不可信，扣分避免假突破
+                    if '多头' in trend or macd_sig in ('golden_cross', 'bullish'):
+                        stock['score'] -= 4
+                stock['adx'] = adx
+
                 # === 抛物线拉升过滤 ===
                 # 5日涨幅>15%的票大概率要回调，不追
                 if df is not None and len(df) >= 5:
