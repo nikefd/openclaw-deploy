@@ -188,7 +188,7 @@ def calculate_position_size(confidence: int, sentiment_score: float,
             conn.close()
             if row:
                 last_stop = datetime.strptime(row[0], '%Y-%m-%d').date()
-                cool_days = min(loss_streak - 4, 5)  # 连亏6=冷却2天, 连亏7=冷却3天, 最多5天
+                cool_days = min(loss_streak - 3, 5)  # 连亏6=冷却3天, 连亏7=冷却4天, 最多5天
                 if (date.today() - last_stop).days < cool_days:
                     return 0.0  # 冷却期内完全不买
         except:
@@ -339,7 +339,7 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         if pos['current_price'] > peak_price:
             peak_price = pos['current_price']
         
-        trail_activation = 1.06 if regime == 'bear' else 1.10  # 熊市6%即激活追踪止损
+        trail_activation = 1.04 if regime == 'bear' else 1.10  # 熊市4%即激活追踪止损(原6%太晚)
         if peak_price > pos['avg_cost'] * trail_activation:
             trail_drawdown = (peak_price - pos['current_price']) / peak_price
             # ATR自适应追踪止损: 用1.5×ATR%代替固定百分比
