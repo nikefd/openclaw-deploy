@@ -193,6 +193,67 @@ def get_regime_stop_loss(regime: str) -> float:
     return REGIME_STOP_LOSS.get(regime, -0.08)
 
 
+def get_market_breadth() -> dict:
+    """市场宽度指标 — 个股涨跌比辨别真假行情
+    
+    即使大盘指数涨，如果多数个股下跌，说明是权重股拉升的假行情
+    Returns: {advance_count, decline_count, breadth_ratio, breadth_signal}
+    """
+    try:
+        import requests
+        # 用东方财富全A股涨跌统计
+        url = "https://push2.eastmoney.com/api/qt/clist/get"
+        params = {
+            'fid': 'f3', 'po': 1, 'pz': 1, 'pn': 1, 'np': 1, 'fltt': 2,
+            'invt': 2, 'fs': 'm:0+t:6+f:!2,m:0+t:13+f:!2,m:0+t:80+f:!2,m:1+t:2+f:!2,m:1+t:23+f:!2,m:0+t:7+f:!2,m:1+t:3+f:!2',
+            'fields': 'f2,f3',  # 最新价,涨跌幅
+        }
+        r = requests.get(url, params=params, timeout=10)
+        data = r.json()
+        total = data.get('data', {}).get('total', 0)
+        
+        # 简化: 用板块涨跌家数近似
+        # 或者直接用涨停/跌停比来判断
+        # 这里用一个更可靠的方法: 上证/深证成分股涨跌比
+        url2 = 'https://qt.gtimg.cn/q=sh000001,sz399001'
+        r2 = requests.get(url2, timeout=10)
+        advance = 0
+        decline = 0
+        for line in r2.text.strip().split(';'):
+            line = line.strip()
+            if not line or '=' not in line:
+                continue
+            data = line.split('=')[1].strip('"').split('~')
+            if len(data) > 40:
+                try:
+                    advance += int(data[37]) if data[37] else 0  # 上涨家数
+                    decline += int(data[38]) if data[38] else 0  # 下跌家数
+                except:
+                    pass
+        
+        if advance + decline > 0:
+            ratio = advance / (advance + decline)
+        else:
+            ratio = 0.5
+        
+        if ratio > 0.65:
+            signal = 'strong'  # 普涨, 真行情
+        elif ratio > 0.5:
+            signal = 'neutral'
+        elif ratio > 0.35:
+            signal = 'weak'    # 多数下跌, 谨慎
+        else:
+            signal = 'very_weak'  # 普跌, 不宜做多
+        
+        return {
+            'advance': advance, 'decline': decline,
+            'breadth_ratio': round(ratio, 3),
+            'breadth_signal': signal,
+        }
+    except Exception as e:
+        return {'advance': 0, 'decline': 0, 'breadth_ratio': 0.5, 'breadth_signal': 'neutral'}
+
+
 if __name__ == "__main__":
     print("=== 市场状态检测 ===")
     result = detect_market_regime()

@@ -11,7 +11,7 @@ from data_collector import (
     get_market_indices, get_sector_fund_flow, calculate_technical_indicators
 )
 from performance_tracker import classify_sector, record_recommendation
-from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier, kelly_position_size
+from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier, kelly_position_size, get_stop_loss_blacklist
 
 
 # 各信号源对应的策略key（用于市场状态调节权重）
@@ -517,6 +517,12 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 if tech.get('buy_climax'):
                     stock['score'] -= 10  # 追高巨量，获利盘回吐风险极大
 
+                # === 价格结构: Higher Low 确认底部 ===
+                if tech.get('higher_low'):
+                    stock['score'] += 8 if bear_mode else 5  # 底部抬升=筑底成功
+                if tech.get('lower_low'):
+                    stock['score'] -= 8  # 下降通道，不抄底
+
                 # === 抛物线拉升过滤 ===
                 # 5日涨幅>15%的票大概率要回调，不追
                 if df is not None and len(df) >= 5:
@@ -753,6 +759,32 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
     ranked = [s for s in ranked if s['score'] >= score_threshold]
     print(f"  🎯 动态分数门槛: {score_threshold}分, 通过{len(ranked)}只")
 
+    # === 止损黑名单: 近期止损过的股票不再买回 ===
+    blacklist = get_stop_loss_blacklist()
+    if blacklist:
+        before = len(ranked)
+        ranked = [s for s in ranked if s['code'] not in blacklist]
+        blocked = before - len(ranked)
+        if blocked > 0:
+            print(f"  🚫 止损黑名单过滤: 排除{blocked}只近期止损股")
+
+    # === 市场宽度检查: 普跌行情进一步提高门槛 ===
+    breadth_info = {}
+    try:
+        from market_regime import get_market_breadth
+        breadth_info = get_market_breadth()
+        breadth_sig = breadth_info.get('breadth_signal', 'neutral')
+        print(f"  📊 市场宽度: 涨{breadth_info.get('advance',0)}跌{breadth_info.get('decline',0)} "
+              f"({breadth_info.get('breadth_ratio',0.5):.1%}) → {breadth_sig}")
+        if breadth_sig == 'very_weak':
+            # 普跌行情，只保留最强的2只
+            ranked = ranked[:2]
+            print(f"  ⚠️ 市场普跌，候选缩减至{len(ranked)}只")
+        elif breadth_sig == 'weak':
+            ranked = ranked[:4]
+    except Exception as e:
+        print(f"  ⚠️ 市场宽度检查失败: {e}")
+
     # 过滤
     tradeable = filter_tradeable(ranked)
 
@@ -760,6 +792,7 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
         'candidates': tradeable,
         'news_signals': news_signals,
         'money_overview': money_overview,
+        'breadth': breadth_info,
         'stats': {
             'momentum_count': len(momentum),
             'money_flow_count': len(money),

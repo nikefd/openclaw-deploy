@@ -687,6 +687,21 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['sell_climax'] = False
             indicators['buy_climax'] = False
 
+    # === 价格结构: Higher Low 检测 ===
+    # 近期低点是否在抬升 — 确认底部形成，过滤下降通道中的假反弹
+    if len(close) >= 20:
+        try:
+            # 找近20日的两个局部低点
+            lows = df['最低'].astype(float).tail(20)
+            # 简化: 比较前10日最低 vs 后10日最低
+            first_half_low = lows.iloc[:10].min()
+            second_half_low = lows.iloc[10:].min()
+            indicators['higher_low'] = second_half_low > first_half_low * 1.005  # 后半段低点更高
+            indicators['lower_low'] = second_half_low < first_half_low * 0.995   # 后半段低点更低(下降通道)
+        except:
+            indicators['higher_low'] = False
+            indicators['lower_low'] = False
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     if len(close) >= 10:

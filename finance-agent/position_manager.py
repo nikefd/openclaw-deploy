@@ -1,7 +1,27 @@
-"""仓位管理器 — 动态仓位+风控+止盈止损+追踪止损+板块策略路由+时间止损+市场状态+回撤熔断+风险平价"""
+"""仓位管理器 — 动态仓位+风控+止盈止损+追踪止损+板块策略路由+时间止损+市场状态+回撤熔断+风险平价+止损黑名单"""
 
 from datetime import datetime, date, timedelta
 from config import *
+
+
+# === 止损黑名单: 近期止损过的股票短期内不再买入 ===
+STOP_LOSS_BLACKLIST_DAYS = 10  # 止损后10个交易日内不买回
+
+
+def get_stop_loss_blacklist() -> set:
+    """获取近期止损过的股票代码集合"""
+    try:
+        import sqlite3
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        cutoff = (date.today() - timedelta(days=STOP_LOSS_BLACKLIST_DAYS)).isoformat()
+        c.execute("""SELECT DISTINCT symbol FROM trades 
+                     WHERE direction='SELL' AND reason LIKE '%止损%' AND trade_date >= ?""", (cutoff,))
+        blacklist = {row[0] for row in c.fetchall()}
+        conn.close()
+        return blacklist
+    except:
+        return set()
 
 
 # 板块策略权重 — 来自回测数据验证
@@ -413,35 +433,46 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
             })
             continue
         
-        # === 阶梯止盈 (三档渐进) ===
-        if pnl_pct >= 0.30:  # 赚30%+，止盈全部
+        # === 阶梯止盈 (ATR自适应) ===
+        # 根据个股波动率动态设定止盈档位，而非固定12%/20%/30%
+        tp1, tp2, tp3 = 0.12, 0.20, 0.30  # 默认档位
+        if pos_tech:
+            pos_atr = pos_tech.get('atr_pct', 0)
+            if pos_atr > 0:
+                # 低波股(ATR<2%): 8%/15%/25% — 更早锁利
+                # 高波股(ATR>4%): 15%/25%/40% — 给更多空间
+                tp1 = max(0.06, min(pos_atr * 4 / 100, 0.15))
+                tp2 = max(0.12, min(pos_atr * 7 / 100, 0.30))
+                tp3 = max(0.20, min(pos_atr * 10 / 100, 0.45))
+        
+        if pnl_pct >= tp3:  # 最高档，止盈全部
             actions.append({
                 "action": "SELL",
                 "symbol": pos['symbol'],
                 "name": pos['name'],
-                "reason": f"止盈: 盈利{pnl_pct*100:.1f}% ≥30%",
+                "reason": f"止盈: 盈利{pnl_pct*100:.1f}% ≥{tp3*100:.0f}%",
                 "shares": pos['shares'],
                 "price": pos['current_price']
             })
-        elif pnl_pct >= 0.20:  # 赚20%+，止盈一半
-            half = (pos['shares'] // 200) * 100  # 取整到100
+        elif pnl_pct >= tp2:  # 中档，止盈一半
+            half = (pos['shares'] // 200) * 100
             if half >= 100:
                 actions.append({
                     "action": "SELL",
                     "symbol": pos['symbol'],
                     "name": pos['name'],
-                    "reason": f"阶梯止盈: 盈利{pnl_pct*100:.1f}% ≥20%, 卖出一半",
+                    "reason": f"阶梯止盈: 盈利{pnl_pct*100:.1f}% ≥{tp2*100:.0f}%, 卖出一半",
                     "shares": half,
                     "price": pos['current_price']
                 })
-        elif pnl_pct >= 0.12:  # 赚12%+，止盈1/3
+        elif pnl_pct >= tp1:  # 低档，止盈1/3
             third = (pos['shares'] // 300) * 100
             if third >= 100:
                 actions.append({
                     "action": "SELL",
                     "symbol": pos['symbol'],
                     "name": pos['name'],
-                    "reason": f"阶梯止盈: 盈利{pnl_pct*100:.1f}% ≥12%, 卖出1/3",
+                    "reason": f"阶梯止盈: 盈利{pnl_pct*100:.1f}% ≥{tp1*100:.0f}%, 卖出1/3",
                     "shares": third,
                     "price": pos['current_price']
                 })

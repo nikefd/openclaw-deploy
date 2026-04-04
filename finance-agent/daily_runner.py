@@ -5,7 +5,7 @@ import sys
 from datetime import datetime, date
 from ai_analyst import analyze_market, call_llm
 from stock_picker import multi_strategy_pick
-from position_manager import calculate_position_size, check_dynamic_stop, portfolio_risk_check, check_portfolio_drawdown
+from position_manager import calculate_position_size, check_dynamic_stop, portfolio_risk_check, check_portfolio_drawdown, get_stop_loss_blacklist
 from trading_engine import (
     get_account, get_positions, buy_stock, sell_stock,
     save_daily_snapshot, init_db
@@ -101,6 +101,11 @@ def execute_buys(picks: list, sentiment: dict, regime: str = "", loss_streak: in
     available_cash = account['cash']
     current_count = len(positions)
     held_symbols = {p['symbol'] for p in positions}
+    
+    # 止损黑名单
+    blacklist = get_stop_loss_blacklist()
+    if blacklist:
+        print(f"  🚫 止损黑名单: {len(blacklist)}只股票近期止损，不买回")
 
     for pick in picks:
         if current_count >= MAX_POSITIONS:
@@ -108,6 +113,9 @@ def execute_buys(picks: list, sentiment: dict, regime: str = "", loss_streak: in
 
         symbol = pick.get('symbol', '')
         if not symbol or symbol in held_symbols:
+            continue
+        if symbol in blacklist:
+            print(f"  ⏭️ 跳过{pick.get('name','')}({symbol}) — 近期止损过，黑名单期内")
             continue
 
         confidence = pick.get('confidence', 5)
@@ -454,6 +462,7 @@ def run_daily():
     pick_result = multi_strategy_pick(regime=regime, loss_streak=loss_streak)
     candidates = pick_result['candidates']
     pick_stats = pick_result['stats']
+    breadth_info = pick_result.get('breadth', {})
 
     # 5. AI最终决策
     print("🤖 AI最终决策...")
