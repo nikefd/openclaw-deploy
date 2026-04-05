@@ -265,6 +265,9 @@ def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict,
 6. **连亏保护**: 连续止损{loss_streak}次，请提高选股标准——只选信心≥8的高确定性机会，宁可不买也不追高
 7. **周线确认**: 优先选周线趋势为up或neutral的，避开weekly_downtrend=True的
 
+7. **底部信号**: 优先选有缩量企稳(volume_dryup)+均线收敛突破(ma_converge_breakout)的品种
+8. **相对强度**: 避开近10日大幅跑输大盘(rs_10d<-5%)的弱势股
+
 如果没有足够好的标的(连亏期间)，可以只选1-2只甚至空仓等待。
 
 ## 输出JSON格式

@@ -39,6 +39,62 @@ SIGNAL_QUALITY_WEIGHTS = {
 }
 
 
+def get_learned_signal_weights() -> dict:
+    """从实际交易结果动态学习信号可靠性权重
+    
+    分析历史买入信号 vs 实际盈亏，自动调低失败信号的权重
+    """
+    try:
+        import sqlite3
+        conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
+        c = conn.cursor()
+        # 获取最近30天的买入交易及其最终盈亏
+        c.execute("""
+            SELECT b.reason, 
+                   CASE WHEN s.reason LIKE '%止损%' THEN 'loss'
+                        WHEN s.reason LIKE '%止盈%' THEN 'win'
+                        ELSE 'unknown' END as outcome
+            FROM trades b
+            LEFT JOIN trades s ON b.symbol = s.symbol AND s.direction = 'SELL' AND s.id > b.id
+            WHERE b.direction = 'BUY' AND b.trade_date >= date('now', '-30 days')
+        """)
+        rows = c.fetchall()
+        conn.close()
+        
+        if len(rows) < 5:
+            return {}  # 样本太少不学习
+        
+        signal_stats = {}  # signal -> {wins, losses}
+        for reason, outcome in rows:
+            if not reason:
+                continue
+            # 解析买入理由中的信号
+            for sig_name in SIGNAL_QUALITY_WEIGHTS:
+                if sig_name in reason:
+                    if sig_name not in signal_stats:
+                        signal_stats[sig_name] = {'wins': 0, 'losses': 0}
+                    if outcome == 'win':
+                        signal_stats[sig_name]['wins'] += 1
+                    elif outcome == 'loss':
+                        signal_stats[sig_name]['losses'] += 1
+        
+        # 计算学习后的权重调节
+        adjustments = {}
+        for sig, stats in signal_stats.items():
+            total = stats['wins'] + stats['losses']
+            if total >= 3:  # 至少3次才有统计意义
+                win_rate = stats['wins'] / total
+                if win_rate < 0.25:
+                    adjustments[sig] = 0.5   # 胜率<25%大幅降权
+                elif win_rate < 0.4:
+                    adjustments[sig] = 0.7   # 胜率<40%适度降权
+                elif win_rate > 0.6:
+                    adjustments[sig] = 1.3   # 胜率>60%提权
+        return adjustments
+    except:
+        return {}
+
+
 # 信号类别分组 — 用于共识门槛检查
 SIGNAL_CATEGORIES = {
     '量价齐升': 'momentum',
@@ -52,6 +108,8 @@ SIGNAL_CATEGORIES = {
     '新闻利好': 'news',
     '机构龙虎榜买入': 'lhb',
     '北向增持': 'northbound',
+    '缩量企稳': 'technical',
+    '均线收敛突破': 'technical',
 }
 
 
@@ -316,7 +374,8 @@ def get_sector_momentum() -> dict:
 
 def score_and_rank(all_candidates: list, regime: str = "") -> list:
     """综合打分+技术面验证+板块策略路由+市场状态调节+排名"""
-    # 合并同一股票的信号（按信号质量加权）
+    # 合并同一股票的信号（按信号质量加权 + 动态学习调整）
+    learned_adj = get_learned_signal_weights()
     merged = {}
     for c in all_candidates:
         code = c['code']
@@ -324,6 +383,9 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
             continue
         sig_base = c['signal'].split('×')[0].split('+')[0]
         quality_w = SIGNAL_QUALITY_WEIGHTS.get(sig_base, 1.0)
+        # 应用学习调整: 实盘验证后的信号权重覆盖默认值
+        if sig_base in learned_adj:
+            quality_w *= learned_adj[sig_base]
         weighted_score = int(c['score'] * quality_w)
         if code in merged:
             merged[code]['signals'].append(c['signal'])
@@ -516,6 +578,34 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] += 5
                 if tech.get('buy_climax'):
                     stock['score'] -= 10  # 追高巨量，获利盘回吐风险极大
+
+                # === 相对强度评级 (RS vs 大盘) ===
+                # 比大盘弱的股票不买，只选强于大盘的
+                stock_ret_10d = tech.get('stock_ret_10d', 0)
+                stock_ret_20d = tech.get('stock_ret_20d', 0)
+                try:
+                    from data_collector import get_market_indices
+                    _idx = get_market_indices()
+                    idx_chg = _idx.get('上证指数', {}).get('change_pct', 0) if _idx else 0
+                    # 近10日RS: 个股涨幅 - 大盘涨幅 (简化，用当日指数变化近似)
+                    rs_10d = stock_ret_10d  # 绝对收益当RS
+                    if rs_10d < -5:
+                        stock['score'] -= 8  # 近10日大跌>5%，弱势
+                    elif rs_10d > 5:
+                        stock['score'] += 5  # 近10日涨>5%，强势
+                    stock['rs_10d'] = rs_10d
+                except:
+                    pass
+
+                # === 缩量企稳(Volume Dry-up) ===
+                if tech.get('volume_dryup'):
+                    stock['score'] += 10 if bear_mode else 6  # 卖方耗尽=底部信号
+                    stock['volume_dryup'] = True
+
+                # === 均线密集收敛突破 ===
+                if tech.get('ma_converge_breakout'):
+                    stock['score'] += 12  # MA收敛后突破=强启动信号
+                    stock['ma_breakout'] = True
 
                 # === 价格结构: Higher Low 确认底部 ===
                 if tech.get('higher_low'):

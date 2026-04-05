@@ -702,6 +702,60 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['higher_low'] = False
             indicators['lower_low'] = False
 
+    # === 相对强度评级 (RS Rating vs 大盘) ===
+    # 只买比大盘强的股票，弱于大盘的不碰
+    if len(close) >= 20:
+        try:
+            stock_ret_10d = (close.iloc[-1] - close.iloc[-10]) / close.iloc[-10] * 100
+            stock_ret_20d = (close.iloc[-1] - close.iloc[-20]) / close.iloc[-20] * 100
+            indicators['stock_ret_10d'] = round(stock_ret_10d, 2)
+            indicators['stock_ret_20d'] = round(stock_ret_20d, 2)
+            # RS rating will be computed in stock_picker with index data
+            indicators['_needs_rs'] = True
+        except:
+            indicators['stock_ret_10d'] = 0
+            indicators['stock_ret_20d'] = 0
+
+    # === 缩量企稳 (Volume Dry-up Bottom) ===
+    # 下跌后成交量萎缩到极低水平 = 卖方耗尽，底部信号
+    if volume is not None and len(volume) >= 20 and len(close) >= 20:
+        try:
+            vol_ma20 = volume.tail(20).mean()
+            vol_recent3 = volume.tail(3).mean()
+            price_down_10d = close.iloc[-1] < close.iloc[-10]  # 近10日下跌
+            vol_ratio_dry = vol_recent3 / vol_ma20 if vol_ma20 > 0 else 1
+            # 缩量企稳: 近3日量<均量50% + 价格跌幅收窄(近3日振幅<2%)
+            price_range_3d = (close.tail(3).max() - close.tail(3).min()) / close.tail(3).mean() * 100
+            indicators['volume_dryup'] = bool(
+                price_down_10d and vol_ratio_dry < 0.5 and price_range_3d < 2.0
+            )
+            indicators['vol_dryup_ratio'] = round(vol_ratio_dry, 2)
+        except:
+            indicators['volume_dryup'] = False
+            indicators['vol_dryup_ratio'] = 1.0
+
+    # === 均线密集收敛突破 (MA Convergence Breakout) ===
+    # MA5/MA10/MA20三线收敛后价格突破 = 强启动信号
+    if len(close) >= 20:
+        try:
+            ma5 = indicators.get('ma5', 0)
+            ma10 = indicators.get('ma10', 0)
+            ma20 = indicators.get('ma20', 0)
+            if ma20 > 0:
+                # 三线之间的最大偏差百分比
+                ma_spread = (max(ma5, ma10, ma20) - min(ma5, ma10, ma20)) / ma20 * 100
+                indicators['ma_spread'] = round(ma_spread, 2)
+                # 收敛: 偏差<2% + 今日收盘突破三线
+                indicators['ma_converge_breakout'] = bool(
+                    ma_spread < 2.0 and current > max(ma5, ma10, ma20)
+                )
+            else:
+                indicators['ma_spread'] = 99
+                indicators['ma_converge_breakout'] = False
+        except:
+            indicators['ma_spread'] = 99
+            indicators['ma_converge_breakout'] = False
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     if len(close) >= 10:
