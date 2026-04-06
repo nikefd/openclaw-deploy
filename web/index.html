@@ -396,7 +396,7 @@ textarea::placeholder{color:var(--text-sec)}
 <div class="overlay" id="overlay"></div>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header"><button class="new-chat-btn" id="newChatBtn"><span>＋</span><span>新建对话</span></button></div>
-  <div class="agent-section"><label>Agent</label><div class="agent-grid" id="agentGrid"></div></div>
+
   <div class="chat-list" id="chatList"></div>
   <div class="sidebar-footer">
     <button class="sidebar-footer-btn" id="themeBtn"><span class="emoji">🌙</span><span>深色模式</span></button>
@@ -1074,20 +1074,7 @@ function getChat(id){return chats.find(c=>c.id===id);}
 function getAgent(id){return AGENTS.find(a=>a.id===id)||AGENTS[0];}
 
 // === AGENTS ===
-function renderAgents(){agentGrid.innerHTML=AGENTS.map(a=>`<div class="agent-chip ${a.id===selectedAgent?'active':''}" data-agent="${a.id}"><span class="emoji">${a.emoji}</span><span>${a.name}</span></div>`).join('');}
-agentGrid.addEventListener('click',e=>{const c=e.target.closest('.agent-chip');if(!c)return;
-  const ag=AGENTS.find(a=>a.id===c.dataset.agent);
-  if(ag&&ag.mention){
-    // Insert @mention into input
-    const inp=document.getElementById('input');
-    inp.value=ag.mention+' '+inp.value;
-    inp.focus();
-    inp.setSelectionRange(inp.value.length,inp.value.length);
-    closeSidebar();
-  }else{
-    selectedAgent=c.dataset.agent;localStorage.setItem(AGENT_KEY,selectedAgent);renderAgents();
-  }
-});
+// Agent selection removed - use @mention in chat instead
 
 // === SIDEBAR ===
 function renderSidebar(){
@@ -1135,7 +1122,7 @@ function startEditTopTitle(){
 }
 topTitle.addEventListener('dblclick',startEditTopTitle);
 // --- end title editing ---
-function newChat(){const c={id:'chat_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),title:'新对话',agentId:selectedAgent,messages:[],createdAt:Date.now(),updatedAt:Date.now()};chats.unshift(c);save();switchChat(c.id);}
+function newChat(){const c={id:'chat_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),title:'新对话',agentId:'main',messages:[],createdAt:Date.now(),updatedAt:Date.now()};chats.unshift(c);save();switchChat(c.id);}
 function switchChat(id){currentId=id;closeSidebar();renderChat();renderSidebar();input.focus();}
 function renderChat(){
   const c=getChat(currentId);
@@ -1146,10 +1133,11 @@ function renderChat(){
   messagesEl.scrollTop=messagesEl.scrollHeight;
 }
 function renderWelcome(){
-  const a=currentId?getAgent(getChat(currentId)?.agentId):getAgent(selectedAgent);
-  messagesEl.innerHTML=`<div class="welcome"><div class="logo">${a.emoji}</div><h2>${a.name}</h2><p>${a.desc}</p><div class="agents-hint">${AGENTS.map(x=>`<span onclick="quickAgent('${x.id}')">${x.emoji} ${x.name}</span>`).join('')}</div></div>`;
+  const a=getAgent('main');
+  const mentions=AGENTS.filter(x=>x.mention).map(x=>`<span onclick="insertMention('${x.mention}')">${x.emoji} ${x.mention}</span>`).join('');
+  messagesEl.innerHTML=`<div class="welcome"><div class="logo">${a.emoji}</div><h2>${a.name}</h2><p>${a.desc}</p>${mentions?`<p style="font-size:13px;color:var(--text-sec);margin-top:12px">输入 @ 切换角色</p><div class="agents-hint">${mentions}</div>`:''}</div>`;
 }
-function quickAgent(id){selectedAgent=id;localStorage.setItem(AGENT_KEY,selectedAgent);renderAgents();if(!currentId)renderWelcome();}
+function insertMention(mention){const inp=document.getElementById('input');inp.value=mention+' ';inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);closeSidebar();}
 window.quickAgent=quickAgent;
 
 function appendMsg(role,content,agent,withTTS,images){
@@ -1307,7 +1295,7 @@ overlay.addEventListener('click',closeSidebar);
 function closeSidebar(){if(window.innerWidth<=768){sidebar.classList.add('hidden');overlay.classList.remove('show');}}
 $('newChatBtn').addEventListener('click',newChat);
 
-renderAgents();renderSidebar();renderWelcome();
+renderSidebar();renderWelcome();
 if(window.innerWidth<=768)sidebar.classList.add('hidden');
 
 // === IMAGE UPLOAD ===
