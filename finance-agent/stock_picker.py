@@ -48,14 +48,15 @@ def get_learned_signal_weights() -> dict:
         import sqlite3
         conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
         c = conn.cursor()
-        # 获取最近30天的买入交易及其最终盈亏
+        # 获取最近30天的买入交易及其最近一次卖出结果
         c.execute("""
             SELECT b.reason, 
                    CASE WHEN s.reason LIKE '%止损%' THEN 'loss'
                         WHEN s.reason LIKE '%止盈%' THEN 'win'
                         ELSE 'unknown' END as outcome
             FROM trades b
-            LEFT JOIN trades s ON b.symbol = s.symbol AND s.direction = 'SELL' AND s.id > b.id
+            LEFT JOIN trades s ON b.symbol = s.symbol AND s.direction = 'SELL' 
+                AND s.id = (SELECT MIN(s2.id) FROM trades s2 WHERE s2.symbol = b.symbol AND s2.direction = 'SELL' AND s2.id > b.id)
             WHERE b.direction = 'BUY' AND b.trade_date >= date('now', '-30 days')
         """)
         rows = c.fetchall()
@@ -457,6 +458,12 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 elif macd_sig == 'death_cross':
                     stock['score'] -= 12
 
+                # === MACD零轴突破: DIF上穿零轴=趋势空翻多，比金叉更强 ===
+                if tech.get('macd_zero_cross_up'):
+                    stock['score'] += int(10 * macd_weight)  # 强趋势反转信号
+                elif tech.get('macd_zero_cross_down'):
+                    stock['score'] -= 8  # DIF跌穿零轴=趋势转空
+
                 vol_ratio = tech.get('volume_ratio', 1)
                 if vol_ratio > 1.5:  # 放量
                     stock['score'] += 5
@@ -583,19 +590,12 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 # 比大盘弱的股票不买，只选强于大盘的
                 stock_ret_10d = tech.get('stock_ret_10d', 0)
                 stock_ret_20d = tech.get('stock_ret_20d', 0)
-                try:
-                    from data_collector import get_market_indices
-                    _idx = get_market_indices()
-                    idx_chg = _idx.get('上证指数', {}).get('change_pct', 0) if _idx else 0
-                    # 近10日RS: 个股涨幅 - 大盘涨幅 (简化，用当日指数变化近似)
-                    rs_10d = stock_ret_10d  # 绝对收益当RS
-                    if rs_10d < -5:
-                        stock['score'] -= 8  # 近10日大跌>5%，弱势
-                    elif rs_10d > 5:
-                        stock['score'] += 5  # 近10日涨>5%，强势
-                    stock['rs_10d'] = rs_10d
-                except:
-                    pass
+                rs_10d = stock_ret_10d  # 绝对收益当RS
+                if rs_10d < -5:
+                    stock['score'] -= 8  # 近10日大跌>5%，弱势
+                elif rs_10d > 5:
+                    stock['score'] += 5  # 近10日涨>5%，强势
+                stock['rs_10d'] = rs_10d
 
                 # === 缩量企稳(Volume Dry-up) ===
                 if tech.get('volume_dryup'):

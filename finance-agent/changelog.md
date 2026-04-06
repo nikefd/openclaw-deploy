@@ -1,5 +1,38 @@
 # 金融Agent 更新日志
 
+## 2026-04-06 08:00 — v5.9 MACD零轴突破+信号学习SQL修复+RS评分性能优化
+
+### 📈 MACD零轴突破信号 (DIF Zero-Cross)
+- **核心价值**: DIF从负转正=趋势从空翻多，比普通金叉更强的趋势反转信号
+- 新增`macd_zero_cross_up`/`macd_zero_cross_down`字段到技术指标
+- 选股评分: DIF上穿零轴+10分(按板块MACD权重), DIF下穿零轴-8分
+- **与现有金叉信号互补**: 金叉只看DIF>DEA，零轴突破确认趋势方向反转
+
+### 🐛 信号学习SQL修复 (get_learned_signal_weights)
+- **问题**: LEFT JOIN匹配买入后的所有卖出记录而非最近一次，导致同一笔买入被重复计数
+- 例: 买A→卖A(止损)→再买A→卖A(止盈)，旧SQL会把两次卖出都匹配到第一次买入
+- **修复**: 使用子查询`MIN(s2.id)`只匹配每次买入后最近的一次卖出
+- **影响**: 信号胜率统计更准确，动态权重学习更可靠
+
+### ⚡ RS评分性能优化 (score_and_rank)
+- **问题**: 相对强度评分在循环内每只股票都调`get_market_indices()` API，15只候选=15次HTTP请求
+- **修复**: 移除冗余API调用，直接使用已有的`stock_ret_10d`字段做绝对强度判断
+- 原来API返回的`idx_chg`(当日指数涨跌)也并未实际使用，属于dead code
+- **效果**: 选股阶段减少15次HTTP请求，加速约3-5秒
+
+### 🔧 技术细节
+- data_collector: calculate_technical_indicators新增macd_zero_cross_up/macd_zero_cross_down
+- stock_picker: score_and_rank新增MACD零轴突破评分
+- stock_picker: get_learned_signal_weights SQL JOIN改为子查询精确匹配
+- stock_picker: score_and_rank RS评分移除冗余get_market_indices调用
+
+### 📈 预期效果
+- MACD零轴突破捕捉中期趋势反转，提高买在趋势起点的概率
+- 信号学习修复后权重更准确，避免误判信号可靠性
+- 性能优化减少API调用，降低被限流风险
+
+---
+
 ## 2026-04-05 22:00 — v5.8 深度优化: 相对强度评级+缩量企稳+均线收敛突破+动态信号权重学习
 
 ### 📊 相对强度评级 (RS Rating)

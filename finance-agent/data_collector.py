@@ -406,6 +406,9 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     indicators['macd_signal'] = 'golden_cross' if dif.iloc[-1] > dea.iloc[-1] and dif.iloc[-2] <= dea.iloc[-2] else \
                                  'death_cross' if dif.iloc[-1] < dea.iloc[-1] and dif.iloc[-2] >= dea.iloc[-2] else \
                                  'bullish' if dif.iloc[-1] > dea.iloc[-1] else 'bearish'
+    # MACD零轴突破: DIF从负转正，比普通金叉更强(趋势从空翻多)
+    indicators['macd_zero_cross_up'] = bool(dif.iloc[-1] > 0 and dif.iloc[-2] <= 0)
+    indicators['macd_zero_cross_down'] = bool(dif.iloc[-1] < 0 and dif.iloc[-2] >= 0)
 
     # 布林带 (20日)
     sma20 = close.rolling(20).mean()
