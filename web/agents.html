@@ -470,6 +470,17 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   .climb-bottom-body{flex-direction:column}
   .climb-bottom-input{width:100%;border-left:none;border-top:1px solid var(--border);flex-direction:row;padding:8px 10px}
 }
+.sources-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.source-card{background:var(--card);border-radius:10px;padding:14px 16px;border:1px solid rgba(255,255,255,.06);transition:border-color .2s}
+.source-card:hover{border-color:var(--accent)}
+.source-card .sc-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.source-card .sc-icon{font-size:1.4rem;width:32px;text-align:center}
+.source-card .sc-name{font-weight:600;font-size:.9rem;color:var(--text1)}
+.source-card .sc-type{font-size:.65rem;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.06);color:var(--text2)}
+.source-card .sc-desc{font-size:.78rem;color:var(--text2);line-height:1.5;margin-bottom:8px}
+.source-card .sc-url{font-size:.7rem;color:var(--accent);text-decoration:none;opacity:.7}
+.source-card .sc-url:hover{opacity:1}
+.source-card .sc-count{float:right;font-size:.7rem;color:var(--text2);background:var(--bg);padding:1px 8px;border-radius:4px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
@@ -531,6 +542,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   <!-- Tab Switcher -->
   <div class="ai-tabs">
     <button class="ai-tab active" data-tab="news" onclick="switchAiTab('news')">📰 新闻动态</button>
+    <button class="ai-tab" data-tab="sources" onclick="switchAiTab('sources')">📡 数据来源</button>
     <button class="ai-tab" data-tab="learn" onclick="switchAiTab('learn')">📚 学习中心</button>
   </div>
 
@@ -561,12 +573,20 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     <span class="chip" data-filter="tool">工具</span>
     <span class="chip" data-filter="github">🔥 GitHub</span>
   </div>
-  <div class="news-sources" id="newsSources" style="display:none;padding:8px 12px;margin:8px 0;background:var(--card);border-radius:8px;font-size:.75rem;color:var(--text2);line-height:1.8">
-    <span style="color:var(--text1);font-weight:600">📡 数据来源：</span>
-    <span id="newsSourcesList"></span>
-  </div>
   <div class="news-list" id="newsList"><div class="news-empty">🔄 加载中...</div></div>
   </div><!-- /aiTabNews -->
+
+  <!-- Sources Tab -->
+  <div id="aiTabSources" style="display:none">
+    <div style="padding:8px 0">
+      <p style="font-size:.85rem;color:var(--text2);margin-bottom:16px">AI 前沿追踪从以下渠道搜索和抓取最新资讯。每次点击「搜索最新」时，狗蛋会遍历这些来源寻找有价值的内容。</p>
+      <div class="sources-grid" id="sourcesGrid"></div>
+      <div style="margin-top:20px;padding:12px;background:var(--card);border-radius:8px">
+        <h4 style="margin:0 0 8px;font-size:.85rem">📊 当前文章来源分布</h4>
+        <div id="sourcesStats" style="font-size:.8rem;color:var(--text2)"></div>
+      </div>
+    </div>
+  </div><!-- /aiTabSources -->
 
   <!-- Learn Tab -->
   <div id="aiTabLearn" style="display:none">
@@ -856,11 +876,6 @@ function renderNews(){
   else if(newsFilter!=='all')items=items.filter(a=>a.tag===newsFilter);
   if(activeTrackFilter)items=items.filter(a=>(a.tracks||[]).includes(activeTrackFilter));
   items.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  // Render sources bar
-  const srcBox=document.getElementById('newsSources'),srcList=document.getElementById('newsSourcesList');
-  const srcMap={};allNews.forEach(a=>{if(a.url){try{const h=new URL(a.url).hostname.replace(/^www\./,'');srcMap[h]=(srcMap[h]||0)+1}catch{}}});
-  const srcs=Object.entries(srcMap).sort((a,b)=>b[1]-a[1]);
-  if(srcs.length){srcBox.style.display='';srcList.innerHTML=srcs.map(([h,c])=>`<span style="display:inline-block;background:var(--bg);padding:2px 8px;border-radius:4px;margin:2px 4px">${h} <span style="opacity:.5">×${c}</span></span>`).join('')}else{srcBox.style.display='none'}
   if(!items.length){list.innerHTML='<div class="news-empty">暂无内容'+(newsFilter!=='all'||activeTrackFilter?'（当前筛选）':'，点击「搜索最新」获取')+'</div>';return}
 
   list.innerHTML=items.map(a=>{
@@ -923,11 +938,69 @@ function switchAiTab(tab){
   const panel=document.getElementById('panel-ai-news');
   document.querySelectorAll('.ai-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
   document.getElementById('aiTabNews').style.display=tab==='news'?'':'none';
+  document.getElementById('aiTabSources').style.display=tab==='sources'?'':'none';
   document.getElementById('aiTabLearn').style.display=tab==='learn'?'':'none';
   // Full-width mode for learn tab
   if(tab==='learn'){panel.classList.add('learn-mode');loadGuides()}
   else{panel.classList.remove('learn-mode')}
+  if(tab==='sources'){renderSources()}
+}
 
+const KNOWN_SOURCES=[
+  {host:'github.com',icon:'🐙',name:'GitHub Trending',type:'开源项目',url:'https://github.com/trending',desc:'GitHub 热门趋势项目，追踪最火的 AI/ML 开源库、框架和工具。每天更新，是发现新工具的第一站。'},
+  {host:'arxiv.org',icon:'📄',name:'arXiv',type:'学术论文',url:'https://arxiv.org/list/cs.AI/recent',desc:'预印本论文平台，AI/ML 领域最前沿的研究成果首发地。顶会论文几乎都先发 arXiv。'},
+  {host:'dev.to',icon:'👩‍💻',name:'DEV Community',type:'技术社区',url:'https://dev.to/t/ai',desc:'开发者社区，有大量 AI 实战教程、经验分享和趋势分析文章，偏实践应用。'},
+  {host:'arstechnica.com',icon:'🔬',name:'Ars Technica',type:'科技媒体',url:'https://arstechnica.com/ai/',desc:'老牌科技媒体，AI 报道深入且专业，注重技术细节和行业影响分析。'},
+  {host:'marktechpost.com',icon:'🤖',name:'MarkTechPost',type:'AI 媒体',url:'https://www.marktechpost.com',desc:'专注 AI/ML 的技术媒体，论文解读和新模型评测做得很好，更新频繁。'},
+  {host:'news.crunchbase.com',icon:'💰',name:'Crunchbase News',type:'创投媒体',url:'https://news.crunchbase.com',desc:'关注 AI 创业公司融资、并购动态，了解资本流向和商业化趋势。'},
+  {host:'fortune.com',icon:'📰',name:'Fortune',type:'商业媒体',url:'https://fortune.com/tag/artificial-intelligence/',desc:'顶级商业杂志，关注 AI 对商业和经济的宏观影响。'},
+  {host:'techstartups.com',icon:'🚀',name:'TechStartups',type:'创业媒体',url:'https://techstartups.com',desc:'报道科技创业动态，聚焦 AI 初创公司和产品发布。'},
+  {host:'digitalapplied.com',icon:'📊',name:'Digital Applied',type:'技术博客',url:'https://www.digitalapplied.com',desc:'AI 技术应用分析博客，对开源模型生态（Gemma、Qwen、Llama）有持续跟踪。'},
+  {host:'af.net',icon:'⚡',name:'AF.net',type:'AI 快讯',url:'https://af.net',desc:'AI 新闻聚合站，实时追踪 AI 领域重大发展和突发事件。'},
+  {host:'computingforgeeks.com',icon:'🖥️',name:'ComputingForGeeks',type:'技术指南',url:'https://computingforgeeks.com',desc:'技术教程站点，涵盖 AI 工具部署、配置等实操内容。'},
+  {host:'whatllm.org',icon:'🧪',name:'WhatLLM',type:'模型评测',url:'https://whatllm.org',desc:'LLM 模型对比评测平台，追踪各大模型性能和排名变化。'},
+  {host:'qwen.ai',icon:'🔮',name:'Qwen (通义千问)',type:'官方博客',url:'https://qwen.ai',desc:'阿里通义千问官方，发布模型更新、技术报告和 benchmark 结果。'},
+  {host:'letsdatascience.com',icon:'📈',name:"Let's Data Science",type:'数据科学',url:'https://letsdatascience.com',desc:'数据科学和 ML 教程平台，有不少实用的入门到进阶内容。'},
+];
+
+function renderSources(){
+  const grid=document.getElementById('sourcesGrid');
+  const stats=document.getElementById('sourcesStats');
+  // Count articles per host
+  const hostCount={};allNews.forEach(a=>{if(a.url){try{const h=new URL(a.url).hostname.replace(/^www\./,'');hostCount[h]=(hostCount[h]||0)+1}catch{}}});
+  // Render known sources + any unknown ones
+  const rendered=new Set();
+  let html=KNOWN_SOURCES.map(s=>{
+    rendered.add(s.host);
+    const cnt=hostCount[s.host]||0;
+    return `<div class="source-card">
+      <div class="sc-header">
+        <span class="sc-icon">${s.icon}</span>
+        <span class="sc-name">${esc(s.name)}</span>
+        <span class="sc-type">${esc(s.type)}</span>
+        ${cnt?`<span class="sc-count">${cnt} 篇</span>`:''}
+      </div>
+      <div class="sc-desc">${esc(s.desc)}</div>
+      <a class="sc-url" href="${esc(s.url)}" target="_blank">${esc(s.host)} ↗</a>
+    </div>`}).join('');
+  // Unknown sources from actual data
+  Object.entries(hostCount).filter(([h])=>!rendered.has(h)).sort((a,b)=>b[1]-a[1]).forEach(([h,c])=>{
+    html+=`<div class="source-card">
+      <div class="sc-header">
+        <span class="sc-icon">🌐</span>
+        <span class="sc-name">${esc(h)}</span>
+        <span class="sc-type">其他</span>
+        <span class="sc-count">${c} 篇</span>
+      </div>
+      <div class="sc-desc">通过搜索发现的来源站点。</div>
+      <a class="sc-url" href="https://${esc(h)}" target="_blank">${esc(h)} ↗</a>
+    </div>`});
+  grid.innerHTML=html;
+  // Stats summary
+  const total=allNews.length;
+  const hostArr=Object.entries(hostCount).sort((a,b)=>b[1]-a[1]);
+  stats.innerHTML=`共 <b>${total}</b> 篇文章，来自 <b>${hostArr.length}</b> 个不同来源。`
+    +(hostArr.length?` 最多：${hostArr.slice(0,3).map(([h,c])=>`${h} (${c}篇)`).join('、')}。`:'');
 }
 
 async function loadGuides(){
