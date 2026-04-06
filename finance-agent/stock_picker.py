@@ -114,6 +114,113 @@ SIGNAL_CATEGORIES = {
 }
 
 
+def get_trade_review_insights() -> dict:
+    """交易复盘学习 — 分析历史赢/亏交易的技术条件，学习什么情况买入更容易赢
+    
+    Returns: {
+        'win_patterns': {'near_support': 0.7, 'rsi_low': 0.6, ...},  # 赢的交易中该信号出现率
+        'loss_patterns': {'near_resistance': 0.8, 'rsi_high': 0.5, ...},
+        'score_adjustments': {'near_support': +8, 'near_resistance': -6, ...}
+    }
+    """
+    try:
+        import sqlite3
+        conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
+        c = conn.cursor()
+        # 获取近60天所有完整交易(买入+卖出)
+        c.execute("""
+            SELECT b.symbol, b.price as buy_price, b.trade_date as buy_date,
+                   s.price as sell_price, s.reason as sell_reason
+            FROM trades b
+            JOIN trades s ON b.symbol = s.symbol AND s.direction = 'SELL'
+                AND s.id = (SELECT MIN(s2.id) FROM trades s2 WHERE s2.symbol = b.symbol AND s2.direction = 'SELL' AND s2.id > b.id)
+            WHERE b.direction = 'BUY' AND b.trade_date >= date('now', '-60 days')
+        """)
+        trades = c.fetchall()
+        conn.close()
+        
+        if len(trades) < 5:
+            return {}
+        
+        from data_collector import get_stock_daily, calculate_technical_indicators
+        
+        win_conditions = {'near_support': 0, 'strong_support': 0, 'z_under_neg1': 0, 
+                         'higher_low': 0, 'volume_dryup': 0, 'weekly_up': 0, 'adx_strong': 0}
+        loss_conditions = dict(win_conditions)
+        win_count = 0
+        loss_count = 0
+        
+        for symbol, buy_price, buy_date, sell_price, sell_reason in trades:
+            is_win = sell_price > buy_price or '止盈' in (sell_reason or '')
+            is_loss = '止损' in (sell_reason or '')
+            
+            if not is_win and not is_loss:
+                continue
+            
+            # 回溯买入时的技术条件(用买入日前60天数据)
+            try:
+                df = get_stock_daily(symbol, 80)
+                if df is None or df.empty:
+                    continue
+                # 截取到买入日附近的数据
+                if '日期' in df.columns:
+                    mask = df['日期'] <= buy_date
+                    df_before = df[mask]
+                    if len(df_before) < 20:
+                        continue
+                    tech = calculate_technical_indicators(df_before)
+                else:
+                    tech = calculate_technical_indicators(df)
+                
+                if not tech:
+                    continue
+                
+                conds = win_conditions if is_win else loss_conditions
+                if is_win:
+                    win_count += 1
+                else:
+                    loss_count += 1
+                
+                if tech.get('near_support'):
+                    conds['near_support'] += 1
+                if tech.get('strong_support'):
+                    conds['strong_support'] += 1
+                if tech.get('price_z_score', 0) < -1:
+                    conds['z_under_neg1'] += 1
+                if tech.get('higher_low'):
+                    conds['higher_low'] += 1
+                if tech.get('volume_dryup'):
+                    conds['volume_dryup'] += 1
+                if tech.get('weekly_trend') == 'up':
+                    conds['weekly_up'] += 1
+                if tech.get('trend_strength') == 'strong':
+                    conds['adx_strong'] += 1
+            except:
+                continue
+        
+        if win_count < 2 and loss_count < 2:
+            return {}
+        
+        # 计算分数调整: 赢家交易中高频出现的条件加分，输家交易中高频的条件扣分
+        adjustments = {}
+        for cond in win_conditions:
+            win_rate = win_conditions[cond] / max(win_count, 1)
+            loss_rate = loss_conditions[cond] / max(loss_count, 1)
+            diff = win_rate - loss_rate
+            if diff > 0.2:
+                adjustments[cond] = int(diff * 15)  # 赢家信号，加分
+            elif diff < -0.2:
+                adjustments[cond] = int(diff * 12)  # 输家信号，扣分
+        
+        return {
+            'win_count': win_count,
+            'loss_count': loss_count,
+            'adjustments': adjustments,
+        }
+    except:
+        return {}
+
+
 def get_dynamic_score_threshold(regime: str = "", loss_streak: int = 0) -> int:
     """基于近期胜率动态调节最低买入分数门槛
     
@@ -613,6 +720,25 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 if tech.get('lower_low'):
                     stock['score'] -= 8  # 下降通道，不抄底
 
+                # === 支撑阻力位评分 ===
+                if tech.get('near_support'):
+                    stock['score'] += 8  # 接近支撑位，好的买入位置
+                    if tech.get('strong_support'):
+                        stock['score'] += 5  # 多次验证的强支撑更可靠
+                if tech.get('near_resistance'):
+                    stock['score'] -= 6  # 接近阻力位，上涨空间有限
+
+                # === 价格Z-Score均值回归 ===
+                z_score = tech.get('price_z_score', 0)
+                if z_score < -2:
+                    stock['score'] += 10 if bear_mode else 6  # 统计极度超卖
+                elif z_score < -1:
+                    stock['score'] += 5 if bear_mode else 3
+                elif z_score > 2:
+                    stock['score'] -= 8  # 统计极度超买
+                elif z_score > 1.5:
+                    stock['score'] -= 4
+
                 # === 抛物线拉升过滤 ===
                 # 5日涨幅>15%的票大概率要回调，不追
                 if df is not None and len(df) >= 5:
@@ -636,6 +762,28 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     perf_mult = get_recent_strategy_performance()
                     sector_adj = perf_mult.get('sector', {}).get(sector, 1.0)
                     stock['score'] = int(stock['score'] * sector_adj)
+                except:
+                    pass
+
+                # === 交易复盘学习调整 ===
+                try:
+                    review = get_trade_review_insights()
+                    if review and review.get('adjustments'):
+                        adj = review['adjustments']
+                        if 'near_support' in adj and tech.get('near_support'):
+                            stock['score'] += adj['near_support']
+                        if 'strong_support' in adj and tech.get('strong_support'):
+                            stock['score'] += adj.get('strong_support', 0)
+                        if 'z_under_neg1' in adj and tech.get('price_z_score', 0) < -1:
+                            stock['score'] += adj['z_under_neg1']
+                        if 'higher_low' in adj and tech.get('higher_low'):
+                            stock['score'] += adj.get('higher_low', 0)
+                        if 'volume_dryup' in adj and tech.get('volume_dryup'):
+                            stock['score'] += adj.get('volume_dryup', 0)
+                        if 'weekly_up' in adj and tech.get('weekly_trend') == 'up':
+                            stock['score'] += adj.get('weekly_up', 0)
+                        if 'adx_strong' in adj and tech.get('trend_strength') == 'strong':
+                            stock['score'] += adj.get('adx_strong', 0)
                 except:
                     pass
 

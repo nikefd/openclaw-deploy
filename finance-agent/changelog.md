@@ -1,5 +1,59 @@
 # 金融Agent 更新日志
 
+## 2026-04-06 22:00 — v5.11 深度优化: 支撑阻力位检测+Z-Score均值回归+交易复盘学习+支撑破位止损
+
+### 📊 支撑阻力位检测 (Support/Resistance Levels)
+- **核心价值**: 买在支撑位附近成功率远高于随机位置买入，之前系统完全没有价格结构分析
+- **实现**: 扫描近30日K线的局部极值(5点模式)，识别支撑位和阻力位
+- **选股评分**:
+  - 接近支撑位(距离<2%): +8分 — 下跌空间有限，风险低
+  - 强支撑(同一价位多次验证): 额外+5分 — 多次测试不破的支撑更可靠
+  - 接近阻力位(距离<1.5%): -6分 — 上涨空间受限
+- **持仓管理**: 跌破关键支撑位(亏损>2%且在支撑下方) → 立即止损，不等止损线
+- **新增字段**: nearest_support/nearest_resistance/support_distance_pct/near_support/strong_support/near_resistance
+
+### 📈 价格Z-Score均值回归
+- **核心价值**: 比RSI更精确的超卖超买量化指标，基于统计学标准差
+- **Z-Score = (当前价 - 20日均值) / 20日标准差**
+  - Z < -2: 统计极度超卖(仅5%概率), 熊市+10分/普通+6分
+  - Z < -1: 超卖, 熊市+5分/普通+3分
+  - Z > 2: 统计极度超买, -8分
+  - Z > 1.5: 超买, -4分
+- **与RSI互补**: RSI基于涨跌速度，Z-Score基于价格偏离度，两者角度不同
+
+### 🧠 交易复盘学习系统 (Trade Review Learning)
+- **核心价值**: 分析近60天所有完整交易(买入→卖出)，统计赢/亏交易各自的技术条件出现率
+- **学习维度**: near_support/strong_support/z_under_neg1/higher_low/volume_dryup/weekly_up/adx_strong
+- **自动调权**: 赢家交易中高频出现的条件加分(最多+15)，输家高频条件扣分(最多-12)
+- **例**: 如果历史赢的交易70%在支撑位附近，而输的只有20%，则near_support自动额外+7分
+- **意义**: 系统不仅从信号层面学习(get_learned_signal_weights)，还从技术条件层面学习
+
+### 🛡️ 支撑破位止损 (Support Break Stop)
+- **场景**: 股价跌破关键支撑位，技术面破位
+- **条件**: 亏损>2% + 当前价低于最近支撑位0.5%以上
+- **动作**: 立即全仓卖出，不等ATR/市场状态止损线
+- **原理**: 支撑位跌破后往往加速下跌，及时止损比等更大亏损好
+
+### 🤖 AI决策增强
+- AI最终决策prompt新增: 支撑位/阻力位/Z-Score指引
+- 优先选near_support+strong_support的品种(支撑位买入)
+- 避开near_resistance的品种(阻力位限制上涨空间)
+- 优先选price_z_score < -1.5的统计超卖品种
+
+### 🔧 技术细节
+- data_collector: calculate_technical_indicators新增支撑阻力位检测(局部极值法)+Z-Score计算
+- stock_picker: 新增get_trade_review_insights()交易复盘学习+score_and_rank新增支撑阻力位/Z-Score评分+复盘学习调整
+- position_manager: check_dynamic_stop新增支撑破位止损信号
+- daily_runner: AI决策prompt新增支撑位/阻力位/Z-Score指引
+
+### 📈 预期效果
+- 支撑位买入提高建仓成功率(买在关键价位vs随机位置)
+- Z-Score精确识别统计超卖，与RSI/Williams%R/布林带%B多重确认
+- 交易复盘学习让系统从自己的完整交易历史中发现规律
+- 支撑破位止损提前出局，避免破位后加速下跌扩大亏损
+
+---
+
 ## 2026-04-06 11:30 — v5.10 UI优化: 持仓仓位占比+盈亏分布图
 
 ### 📊 持仓表增强 — 仓位占比列+汇总行

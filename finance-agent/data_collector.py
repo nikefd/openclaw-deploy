@@ -759,6 +759,84 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['ma_spread'] = 99
             indicators['ma_converge_breakout'] = False
 
+    # === 支撑阻力位检测 (Support/Resistance) ===
+    # 识别近期关键价位，买在支撑位附近成功率更高
+    if len(close) >= 30:
+        try:
+            high_col = df['最高'].astype(float)
+            low_col = df['最低'].astype(float)
+            # 找近30日的局部极值作为支撑/阻力
+            supports = []
+            resistances = []
+            for i in range(2, min(len(close)-2, 28)):
+                # 局部低点 = 支撑
+                if low_col.iloc[i] <= low_col.iloc[i-1] and low_col.iloc[i] <= low_col.iloc[i-2] and \
+                   low_col.iloc[i] <= low_col.iloc[i+1] and low_col.iloc[i] <= low_col.iloc[i+2]:
+                    supports.append(float(low_col.iloc[i]))
+                # 局部高点 = 阻力
+                if high_col.iloc[i] >= high_col.iloc[i-1] and high_col.iloc[i] >= high_col.iloc[i-2] and \
+                   high_col.iloc[i] >= high_col.iloc[i+1] and high_col.iloc[i] >= high_col.iloc[i+2]:
+                    resistances.append(float(high_col.iloc[i]))
+            
+            # 最近的支撑位和阻力位
+            current_p = float(close.iloc[-1])
+            nearby_supports = sorted([s for s in supports if s < current_p], reverse=True)
+            nearby_resistances = sorted([r for r in resistances if r > current_p])
+            
+            if nearby_supports:
+                nearest_support = nearby_supports[0]
+                support_distance = (current_p - nearest_support) / current_p * 100
+                indicators['nearest_support'] = round(nearest_support, 2)
+                indicators['support_distance_pct'] = round(support_distance, 2)
+                # 接近支撑位(距离<2%) = 好的买入位置
+                indicators['near_support'] = support_distance < 2.0
+            else:
+                indicators['near_support'] = False
+                indicators['support_distance_pct'] = 99
+            
+            if nearby_resistances:
+                nearest_resistance = nearby_resistances[0]
+                resistance_distance = (nearest_resistance - current_p) / current_p * 100
+                indicators['nearest_resistance'] = round(nearest_resistance, 2)
+                indicators['resistance_distance_pct'] = round(resistance_distance, 2)
+                # 接近阻力位(距离<1.5%) = 不好的买入位置
+                indicators['near_resistance'] = resistance_distance < 1.5
+            else:
+                indicators['near_resistance'] = False
+                indicators['resistance_distance_pct'] = 99
+            
+            # 支撑/阻力密度: 同一价位附近多次出现的支撑更强
+            if nearby_supports:
+                strong_support = False
+                for s in nearby_supports[:3]:
+                    count = sum(1 for ss in supports if abs(ss - s) / s < 0.01)  # 1%内算同一支撑
+                    if count >= 2:
+                        strong_support = True
+                        break
+                indicators['strong_support'] = strong_support
+            else:
+                indicators['strong_support'] = False
+        except:
+            indicators['near_support'] = False
+            indicators['near_resistance'] = False
+            indicators['strong_support'] = False
+            indicators['support_distance_pct'] = 99
+            indicators['resistance_distance_pct'] = 99
+
+    # === 价格Z-Score (均值回归检测) ===
+    # 比RSI更精确: Z-Score < -2 = 统计意义上的极度超卖
+    if len(close) >= 20:
+        try:
+            mean_20 = close.tail(20).mean()
+            std_20 = close.tail(20).std()
+            if std_20 > 0:
+                z_score = (float(close.iloc[-1]) - mean_20) / std_20
+                indicators['price_z_score'] = round(z_score, 2)
+            else:
+                indicators['price_z_score'] = 0
+        except:
+            indicators['price_z_score'] = 0
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     if len(close) >= 10:

@@ -347,6 +347,23 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                         "price": pos['current_price']
                     })
                     continue
+            
+            # === 支撑位跌破加速止损 ===
+            # 跌破关键支撑位 = 技术面破位，不等止损线直接卖
+            if pnl_pct < -0.02 and pos_tech.get('support_distance_pct', 99) < 0.5:
+                # 已跌破支撑位(距离<0.5%说明已在支撑位下方)
+                # 检查是否真的跌破: 当前价 < 最近支撑
+                nearest_sup = pos_tech.get('nearest_support', 0)
+                if nearest_sup > 0 and pos['current_price'] < nearest_sup * 0.995:
+                    actions.append({
+                        "action": "SELL",
+                        "symbol": pos['symbol'],
+                        "name": pos['name'],
+                        "reason": f"支撑破位止损: 跌破支撑{nearest_sup:.2f}, 亏损{pnl_pct*100:+.1f}%",
+                        "shares": pos['shares'],
+                        "price": pos['current_price']
+                    })
+                    continue
         
         # === 时间止损 (Time Stop) ===
         # 持仓天数阈值根据市场状态自适应: 牛市宽松(25天)，熊市收紧(15天)

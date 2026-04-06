@@ -267,6 +267,9 @@ def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict,
 
 7. **底部信号**: 优先选有缩量企稳(volume_dryup)+均线收敛突破(ma_converge_breakout)的品种
 8. **相对强度**: 避开近10日大幅跑输大盘(rs_10d<-5%)的弱势股
+9. **支撑位买入**: 优先选near_support=True且strong_support=True的品种（接近关键支撑位买入风险更低）
+10. **避开阻力位**: near_resistance=True的品种上涨空间受限，谨慎选择
+11. **Z-Score**: price_z_score < -1.5 的品种统计意义上超卖，适合均值回归策略
 
 如果没有足够好的标的(连亏期间)，可以只选1-2只甚至空仓等待。
 
