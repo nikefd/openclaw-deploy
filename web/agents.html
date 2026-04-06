@@ -561,6 +561,10 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     <span class="chip" data-filter="tool">工具</span>
     <span class="chip" data-filter="github">🔥 GitHub</span>
   </div>
+  <div class="news-sources" id="newsSources" style="display:none;padding:8px 12px;margin:8px 0;background:var(--card);border-radius:8px;font-size:.75rem;color:var(--text2);line-height:1.8">
+    <span style="color:var(--text1);font-weight:600">📡 数据来源：</span>
+    <span id="newsSourcesList"></span>
+  </div>
   <div class="news-list" id="newsList"><div class="news-empty">🔄 加载中...</div></div>
   </div><!-- /aiTabNews -->
 
@@ -852,6 +856,11 @@ function renderNews(){
   else if(newsFilter!=='all')items=items.filter(a=>a.tag===newsFilter);
   if(activeTrackFilter)items=items.filter(a=>(a.tracks||[]).includes(activeTrackFilter));
   items.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  // Render sources bar
+  const srcBox=document.getElementById('newsSources'),srcList=document.getElementById('newsSourcesList');
+  const srcMap={};allNews.forEach(a=>{if(a.url){try{const h=new URL(a.url).hostname.replace(/^www\./,'');srcMap[h]=(srcMap[h]||0)+1}catch{}}});
+  const srcs=Object.entries(srcMap).sort((a,b)=>b[1]-a[1]);
+  if(srcs.length){srcBox.style.display='';srcList.innerHTML=srcs.map(([h,c])=>`<span style="display:inline-block;background:var(--bg);padding:2px 8px;border-radius:4px;margin:2px 4px">${h} <span style="opacity:.5">×${c}</span></span>`).join('')}else{srcBox.style.display='none'}
   if(!items.length){list.innerHTML='<div class="news-empty">暂无内容'+(newsFilter!=='all'||activeTrackFilter?'（当前筛选）':'，点击「搜索最新」获取')+'</div>';return}
 
   list.innerHTML=items.map(a=>{
@@ -862,6 +871,7 @@ function renderNews(){
         ${a.tag?'<span class="tag">'+a.tag+'</span>':''}
         ${(a.tracks||[]).map(tid=>{const tr=allTracks.find(x=>x.id===tid);return'<span class="track-tag">'+(tr?esc(tr.icon+' '+tr.name):esc(tid))+'</span>'}).join('')}
         ${hasReader?'<span class="tag" style="background:rgba(46,196,182,.12);color:var(--green)">✅ 已解读</span>':''}
+        ${a.url?`<span class="tag" style="background:rgba(255,255,255,.05);font-size:.65rem">${(()=>{try{return new URL(a.url).hostname.replace(/^www\\./,'')}catch{return''}})()}</span>`:''}
         <span class="date">${a.date||''}</span>
         ${a.pinned?'<span style="color:var(--orange);font-size:.7rem">📌</span>':''}
       </div>
