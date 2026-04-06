@@ -912,7 +912,7 @@ async function triggerNewsScan(){
   const oldCount=allNews.length;
   try{
     // Fire-and-forget: don't await the full response
-    fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:'请立即执行一次AI前沿新闻搜索。先读取学习路径 curl -s http://127.0.0.1:7685/api/agents/ai-news/tracks，然后搜索最新AI进展。同时也去 GitHub Trending (https://github.com/trending) 抓取当前热门AI/ML相关项目（tag设为github）。每条要包含 actionable（动手试试）字段和 tracks（关联学习路径）字段。搜完后 POST 到 http://127.0.0.1:7685/api/agents/ai-news/articles，格式 {"articles":[...],"mode":"append"}。每条: {id,title,summary,url,tag,date,actionable,tracks}',stream:false})}).catch(()=>{});
+    fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:'请立即执行一次AI前沿新闻搜索。先读取学习路径 curl -s http://127.0.0.1:7685/api/agents/ai-news/tracks，然后搜索最新AI进展。\n\n请依次从以下来源搜索（每个来源搜1-3条高质量内容）：\n1. GitHub Trending (https://github.com/trending) — 热门AI/ML项目，tag设为github\n2. Hacker News (site:news.ycombinator.com) — AI相关热帖，tag设为community\n3. Reddit r/MachineLearning + r/LocalLLaMA (site:reddit.com) — 热门讨论，tag设为community\n4. Hugging Face (site:huggingface.co) — trending models/papers/spaces，tag设为model\n5. Papers With Code (site:paperswithcode.com) — 最新SOTA论文，tag设为research\n6. TechCrunch AI (site:techcrunch.com AI) — 产品发布融资，tag设为product\n7. The Verge AI (site:theverge.com AI) — AI新闻，tag设为product\n8. VentureBeat AI (site:venturebeat.com AI) — 企业AI，tag设为product\n9. MIT Technology Review (site:technologyreview.com AI) — 深度分析，tag设为research\n10. arXiv (site:arxiv.org cs.AI OR cs.LG) — 最新论文，tag设为research\n11. OpenAI Blog (site:openai.com/blog) — 官方发布，tag设为model\n12. Anthropic (site:anthropic.com) — 研究发布，tag设为model\n13. Google DeepMind (site:deepmind.google) — 前沿研究，tag设为research\n14. Meta AI (site:ai.meta.com) — 开源模型发布，tag设为model\n15. Import AI Newsletter (site:importai.net) — AI周报，tag设为research\n16. The Batch / DeepLearning.AI (site:deeplearning.ai) — 吴恩达AI周刊，tag设为research\n17. Ars Technica (site:arstechnica.com AI) — 深度报道，tag设为product\n18. MarkTechPost (site:marktechpost.com) — 论文解读，tag设为research\n\n每条要包含 actionable（动手试试）字段和 tracks（关联学习路径）字段。只收录最近7天内的内容，跳过已有文章（对比url去重）。搜完后 POST 到 http://127.0.0.1:7685/api/agents/ai-news/articles，格式 {"articles":[...],"mode":"append"}。每条: {id,title,summary,url,tag,date,actionable,tracks}',stream:false})}).catch(()=>{});
     // Poll for new articles every 8s, up to 3 minutes
     let elapsed=0;const interval=8000;const maxWait=180000;
     const poll=setInterval(async()=>{
@@ -947,19 +947,39 @@ function switchAiTab(tab){
 }
 
 const KNOWN_SOURCES=[
+  // 🔥 核心来源
   {host:'github.com',icon:'🐙',name:'GitHub Trending',type:'开源项目',url:'https://github.com/trending',desc:'GitHub 热门趋势项目，追踪最火的 AI/ML 开源库、框架和工具。每天更新，是发现新工具的第一站。'},
-  {host:'arxiv.org',icon:'📄',name:'arXiv',type:'学术论文',url:'https://arxiv.org/list/cs.AI/recent',desc:'预印本论文平台，AI/ML 领域最前沿的研究成果首发地。顶会论文几乎都先发 arXiv。'},
-  {host:'dev.to',icon:'👩‍💻',name:'DEV Community',type:'技术社区',url:'https://dev.to/t/ai',desc:'开发者社区，有大量 AI 实战教程、经验分享和趋势分析文章，偏实践应用。'},
+  {host:'news.ycombinator.com',icon:'🟧',name:'Hacker News',type:'技术社区',url:'https://news.ycombinator.com',desc:'硅谷技术圈最活跃的社区，AI 重大消息几乎第一时间出现，评论区含金量极高。'},
+  {host:'reddit.com',icon:'🔴',name:'Reddit ML/LocalLLaMA',type:'技术社区',url:'https://www.reddit.com/r/MachineLearning/',desc:'r/MachineLearning 和 r/LocalLLaMA 是 ML 学术圈和开源 LLM 社区的核心阵地，论文讨论、模型评测第一手。'},
+  {host:'huggingface.co',icon:'🤗',name:'Hugging Face',type:'模型平台',url:'https://huggingface.co',desc:'最大的 AI 模型 Hub，trending models/papers/spaces 一目了然，新模型发布必经之地。'},
+  {host:'paperswithcode.com',icon:'📑',name:'Papers With Code',type:'论文+代码',url:'https://paperswithcode.com',desc:'论文+代码+benchmark 一站式平台，追踪各领域 SOTA 最好用，有排行榜。'},
+  // 📰 主流AI媒体
+  {host:'techcrunch.com',icon:'💚',name:'TechCrunch',type:'科技媒体',url:'https://techcrunch.com/category/artificial-intelligence/',desc:'产品发布、融资消息最快的科技媒体，AI 创业生态必看。'},
+  {host:'theverge.com',icon:'🔷',name:'The Verge',type:'科技媒体',url:'https://www.theverge.com/ai-artificial-intelligence',desc:'主流科技媒体中 AI 报道质量最高之一，兼顾深度和可读性。'},
+  {host:'venturebeat.com',icon:'📡',name:'VentureBeat',type:'企业AI',url:'https://venturebeat.com/category/ai/',desc:'偏企业级 AI 应用报道，关注 AI 商业化、企业采购和部署趋势。'},
+  {host:'technologyreview.com',icon:'🎓',name:'MIT Technology Review',type:'深度分析',url:'https://www.technologyreview.com/topic/artificial-intelligence/',desc:'MIT 出品的深度技术分析，质量极高，关注 AI 伦理、社会影响和前沿突破。'},
   {host:'arstechnica.com',icon:'🔬',name:'Ars Technica',type:'科技媒体',url:'https://arstechnica.com/ai/',desc:'老牌科技媒体，AI 报道深入且专业，注重技术细节和行业影响分析。'},
   {host:'marktechpost.com',icon:'🤖',name:'MarkTechPost',type:'AI 媒体',url:'https://www.marktechpost.com',desc:'专注 AI/ML 的技术媒体，论文解读和新模型评测做得很好，更新频繁。'},
+  // 📄 学术论文
+  {host:'arxiv.org',icon:'📄',name:'arXiv',type:'学术论文',url:'https://arxiv.org/list/cs.AI/recent',desc:'预印本论文平台，AI/ML 领域最前沿的研究成果首发地。顶会论文几乎都先发 arXiv。'},
+  // 🏠 官方博客
+  {host:'openai.com',icon:'🟢',name:'OpenAI Blog',type:'官方博客',url:'https://openai.com/blog',desc:'GPT 系列模型更新、研究论文发布、产品公告的官方来源。'},
+  {host:'anthropic.com',icon:'🔵',name:'Anthropic',type:'官方博客',url:'https://www.anthropic.com/research',desc:'Claude 系列模型、AI 安全研究、Constitutional AI 等前沿研究的官方发布。'},
+  {host:'deepmind.google',icon:'💎',name:'Google DeepMind',type:'官方博客',url:'https://deepmind.google/research/',desc:'Gemini、AlphaFold、AlphaCode 等顶级研究成果发布地，学术影响力最大。'},
+  {host:'ai.meta.com',icon:'🔷',name:'Meta AI',type:'官方博客',url:'https://ai.meta.com/blog/',desc:'LLaMA 系列开源模型、FAIR 实验室研究发布，开源生态的重要推动者。'},
+  // 📬 Newsletter
+  {host:'importai.net',icon:'📬',name:'Import AI',type:'周报',url:'https://importai.net',desc:'Jack Clark（前 OpenAI 联合创始人）的 AI 周报，最老牌、最有深度的 AI Newsletter。'},
+  {host:'deeplearning.ai',icon:'📧',name:'The Batch (吴恩达)',type:'周报',url:'https://www.deeplearning.ai/the-batch/',desc:'吴恩达的 AI 周刊，适合快速了解一周全局，兼顾学术和产业。'},
+  // 其他已收录来源
+  {host:'dev.to',icon:'👩‍💻',name:'DEV Community',type:'技术社区',url:'https://dev.to/t/ai',desc:'开发者社区，有大量 AI 实战教程、经验分享和趋势分析文章，偏实践应用。'},
   {host:'news.crunchbase.com',icon:'💰',name:'Crunchbase News',type:'创投媒体',url:'https://news.crunchbase.com',desc:'关注 AI 创业公司融资、并购动态，了解资本流向和商业化趋势。'},
-  {host:'fortune.com',icon:'📰',name:'Fortune',type:'商业媒体',url:'https://fortune.com/tag/artificial-intelligence/',desc:'顶级商业杂志，关注 AI 对商业和经济的宏观影响。'},
-  {host:'techstartups.com',icon:'🚀',name:'TechStartups',type:'创业媒体',url:'https://techstartups.com',desc:'报道科技创业动态，聚焦 AI 初创公司和产品发布。'},
   {host:'digitalapplied.com',icon:'📊',name:'Digital Applied',type:'技术博客',url:'https://www.digitalapplied.com',desc:'AI 技术应用分析博客，对开源模型生态（Gemma、Qwen、Llama）有持续跟踪。'},
   {host:'af.net',icon:'⚡',name:'AF.net',type:'AI 快讯',url:'https://af.net',desc:'AI 新闻聚合站，实时追踪 AI 领域重大发展和突发事件。'},
   {host:'computingforgeeks.com',icon:'🖥️',name:'ComputingForGeeks',type:'技术指南',url:'https://computingforgeeks.com',desc:'技术教程站点，涵盖 AI 工具部署、配置等实操内容。'},
   {host:'whatllm.org',icon:'🧪',name:'WhatLLM',type:'模型评测',url:'https://whatllm.org',desc:'LLM 模型对比评测平台，追踪各大模型性能和排名变化。'},
   {host:'qwen.ai',icon:'🔮',name:'Qwen (通义千问)',type:'官方博客',url:'https://qwen.ai',desc:'阿里通义千问官方，发布模型更新、技术报告和 benchmark 结果。'},
+  {host:'fortune.com',icon:'📰',name:'Fortune',type:'商业媒体',url:'https://fortune.com/tag/artificial-intelligence/',desc:'顶级商业杂志，关注 AI 对商业和经济的宏观影响。'},
+  {host:'techstartups.com',icon:'🚀',name:'TechStartups',type:'创业媒体',url:'https://techstartups.com',desc:'报道科技创业动态，聚焦 AI 初创公司和产品发布。'},
   {host:'letsdatascience.com',icon:'📈',name:"Let's Data Science",type:'数据科学',url:'https://letsdatascience.com',desc:'数据科学和 ML 教程平台，有不少实用的入门到进阶内容。'},
 ];
 
