@@ -525,6 +525,25 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     # 熊市下追涨策略命中率低,切换为超跌反弹逻辑
     bear_mode = (regime == 'bear')
 
+    # === 预计算: 循环外一次性获取，避免每只股票重复调用 ===
+    _review_insights = None
+    try:
+        _review_insights = get_trade_review_insights()
+    except:
+        pass
+    
+    _perf_mult = {'strategy': {}, 'sector': {}}
+    try:
+        _perf_mult = get_recent_strategy_performance()
+    except:
+        pass
+    
+    _sector_mom = {}
+    try:
+        _sector_mom = get_sector_momentum()
+    except:
+        pass
+
     # 加技术面验证 + 板块策略路由
     print(f"  📊 验证{len(ranked)}只候选股技术面...")
     for i, stock in enumerate(ranked):
@@ -757,17 +776,15 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 stock['score'] = int(stock['score'] * get_sector_score_multiplier(sector))
 
                 # === 近期绩效自适应 ===
-                # 根据近期实际推荐表现动态调节分数
                 try:
-                    perf_mult = get_recent_strategy_performance()
-                    sector_adj = perf_mult.get('sector', {}).get(sector, 1.0)
+                    sector_adj = _perf_mult.get('sector', {}).get(sector, 1.0)
                     stock['score'] = int(stock['score'] * sector_adj)
                 except:
                     pass
 
                 # === 交易复盘学习调整 ===
                 try:
-                    review = get_trade_review_insights()
+                    review = _review_insights
                     if review and review.get('adjustments'):
                         adj = review['adjustments']
                         if 'near_support' in adj and tech.get('near_support'):
@@ -789,7 +806,7 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
 
                 # === 板块动量轮动加分 ===
                 try:
-                    sector_mom = get_sector_momentum()
+                    sector_mom = _sector_mom
                     # 用板块名称关键词匹配: 科技→半导体/软件/芯片, 新能源→光伏/锂电/风电 等
                     SECTOR_KEYWORDS = {
                         '科技成长': ['半导体', '软件', '芯片', '计算机', '电子', '通信', '互联网', '人工智能', 'AI'],

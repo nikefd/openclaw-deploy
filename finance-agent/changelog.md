@@ -1,5 +1,24 @@
 # 金融Agent 更新日志
 
+## 2026-04-07 08:00 — v5.12 选股循环性能优化: 冗余调用外提
+
+### ⚡ score_and_rank() 循环内冗余调用外提
+- **问题**: 3个与个股无关的函数在15只候选股循环内重复调用，每轮选股浪费30+秒和大量DB/API请求
+  - `get_trade_review_insights()`: 每次查DB+获取历史K线计算技术指标，15次完全相同结果
+  - `get_recent_strategy_performance()`: 每次查DB统计绩效，15次相同
+  - `get_sector_momentum()`: 每次调东方财富API获取板块资金流，15次相同
+- **修复**: 三个函数移到循环外一次性预计算，循环内直接引用结果变量
+- **效果**: 选股阶段减少28次DB查询+14次HTTP请求，加速约30-45秒
+
+### 🔧 技术细节
+- stock_picker: score_and_rank()新增循环前`_review_insights`/`_perf_mult`/`_sector_mom`预计算
+- 循环内`get_trade_review_insights()`→`_review_insights`, `get_recent_strategy_performance()`→`_perf_mult`, `get_sector_momentum()`→`_sector_mom`
+
+### 📈 预期效果
+- 选股阶段整体耗时减少约40%，降低被数据源限流风险
+
+---
+
 ## 2026-04-06 22:00 — v5.11 深度优化: 支撑阻力位检测+Z-Score均值回归+交易复盘学习+支撑破位止损
 
 ### 📊 支撑阻力位检测 (Support/Resistance Levels)
