@@ -1014,11 +1014,9 @@ window.switchTab=switchTab;window.closeTab=closeTab;
 function downloadCurrentFile(){
   const tab=openTabs.find(t=>t.path===activeTab);
   if(!tab)return;
-  const blob=new Blob([tab.content],{type:'application/octet-stream'});
-  const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=url;a.download=tab.name;a.click();
-  URL.revokeObjectURL(url);
+  a.href='/api/files/download?path='+encodeURIComponent(tab.path);
+  a.download=tab.name;a.click();
 }
 
 function renderFileContent(tab){
