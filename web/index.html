@@ -473,6 +473,7 @@ textarea::placeholder{color:var(--text-sec)}
             <span id="fileInfoLines">📏 0 行</span>
             <span id="fileInfoSize">💾 0 B</span>
             <span id="fileInfoPath" style="flex:1;justify-content:end;opacity:.6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+            <button onclick="downloadCurrentFile()" title="下载文件" style="background:none;border:1px solid var(--border);color:var(--text-sec);cursor:pointer;font-size:11px;padding:2px 8px;border-radius:4px;display:flex;align-items:center;gap:4px;transition:all .15s;white-space:nowrap" onmouseover="this.style.background='var(--hover)';this.style.color='var(--accent)'" onmouseout="this.style.background='none';this.style.color='var(--text-sec)'">⬇ 下载</button>
           </div>
         </div>
       </div>
@@ -1009,6 +1010,16 @@ function closeTab(fp){
   highlightActiveFile();
 }
 window.switchTab=switchTab;window.closeTab=closeTab;
+
+function downloadCurrentFile(){
+  const tab=openTabs.find(t=>t.path===activeTab);
+  if(!tab)return;
+  const blob=new Blob([tab.content],{type:'application/octet-stream'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=tab.name;a.click();
+  URL.revokeObjectURL(url);
+}
 
 function renderFileContent(tab){
   const lines=tab.content.split('\n');
