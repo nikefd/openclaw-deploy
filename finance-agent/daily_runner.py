@@ -5,7 +5,7 @@ import sys
 from datetime import datetime, date
 from ai_analyst import analyze_market, call_llm
 from stock_picker import multi_strategy_pick
-from position_manager import calculate_position_size, check_dynamic_stop, portfolio_risk_check, check_portfolio_drawdown, get_stop_loss_blacklist
+from position_manager import calculate_position_size, check_dynamic_stop, portfolio_risk_check, check_portfolio_drawdown, get_stop_loss_blacklist, check_correlation_with_portfolio
 from trading_engine import (
     get_account, get_positions, buy_stock, sell_stock,
     save_daily_snapshot, init_db
@@ -146,6 +146,13 @@ def execute_buys(picks: list, sentiment: dict, regime: str = "", loss_streak: in
             print(f"  ⏭️ 跳过{pick.get('name','')}({symbol}) — {sector}已有{same_sector_count}只持仓")
             continue
 
+        # === 持仓相关性检查: 与现有持仓高度相关(>0.8)的跳过 ===
+        if len(positions) >= 2:
+            corr = check_correlation_with_portfolio(symbol, positions)
+            if corr > 0.8:
+                print(f"  ⏭️ 跳过{pick.get('name','')}({symbol}) — 与现有持仓相关性过高({corr:.2f})")
+                continue
+
         # 动态仓位（含板块+市场状态+连亏保护+风险平价）
         # 获取ATR用于风险平价
         stock_atr = 0
@@ -211,7 +218,7 @@ def execute_buys(picks: list, sentiment: dict, regime: str = "", loss_streak: in
 
 
 def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict,
-                       regime: str = "", loss_streak: int = 0) -> list:
+                       regime: str = "", loss_streak: int = 0, regime_info: dict = None) -> list:
     """AI最终决策 — 综合多策略结果让LLM做最后判断（含市场状态+连亏+绩效上下文）"""
     candidates_text = json.dumps(candidates[:10], ensure_ascii=False, default=str)[:3000]
 
@@ -239,9 +246,17 @@ def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict,
     regime_labels = {'bull': '牛市', 'bear': '熊市', 'sideways': '震荡'}
     regime_text = regime_labels.get(regime, '未知')
 
+    # 转换期信息
+    transition = ""
+    if hasattr(regime_info, 'get') or isinstance(regime_info, dict):
+        trans = regime_info.get('transition', 'none') if isinstance(regime_info, dict) else 'none'
+        if trans and trans != 'none':
+            transition = f"\n## ⚡ 市场转换期: {trans}\n- {regime_info.get('transition_details', '')}"
+
     prompt = f"""你是一个A股量化分析师。基于以下多策略选股结果和市场数据，选出最终要买入的股票。
 
 ## 市场状态: {regime_text}
+{transition}
 ## 市场情绪: {sentiment.get('sentiment_score', 50)}/100 ({sentiment.get('sentiment_label', '?')})
 - 涨停: {sentiment.get('limit_up_count', 0)} 跌停: {sentiment.get('limit_down_count', 0)} 炸板: {sentiment.get('bomb_count', 0)}
 
@@ -270,6 +285,8 @@ def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict,
 9. **支撑位买入**: 优先选near_support=True且strong_support=True的品种（接近关键支撑位买入风险更低）
 10. **避开阻力位**: near_resistance=True的品种上涨空间受限，谨慎选择
 11. **Z-Score**: price_z_score < -1.5 的品种统计意义上超卖，适合均值回归策略
+12. **K线形态**: 优先选有锤子线(hammer)/看涨吞没(bullish_engulf)/早晨之星(morning_star)的品种，这些是经典底部反转信号
+13. **转换期机会**: 如果市场处于bear_to_sideways转换期，可适当放宽选股标准，提前布局反弹
 
 如果没有足够好的标的(连亏期间)，可以只选1-2只甚至空仓等待。
 
@@ -349,7 +366,14 @@ def generate_daily_report(market_analysis: dict, sell_results: list, buy_results
 
 📡 **市场状态**: {regime_label} (信心{regime_conf:.0%})
 - {regime_details}
+"""
+    # 转换期信息
+    transition = regime_info.get('transition', 'none') if regime_info else 'none'
+    if transition and transition != 'none':
+        trans_labels = {'bear_to_sideways': '🔄 熊→震荡过渡期', 'sideways_to_bull': '🔄 震荡→牛市过渡期'}
+        report += f"- {trans_labels.get(transition, transition)}: {regime_info.get('transition_details', '')}\n"
 
+    report += f"""
 📈 **当前持仓** ({len(positions)}只)
 {chr(10).join(pos_details) if pos_details else '  空仓'}
 
@@ -446,9 +470,12 @@ def run_daily():
     print("📡 检测市场状态...")
     regime_info = detect_market_regime()
     regime = regime_info.get('regime', 'sideways')
+    transition = regime_info.get('transition', 'none')
     regime_labels = {'bull': '🐂 牛市', 'bear': '🐻 熊市', 'sideways': '↔️ 震荡'}
     print(f"  状态: {regime_labels.get(regime, regime)} (信心{regime_info.get('confidence', 0):.0%})")
     print(f"  依据: {regime_info.get('details', '')}")
+    if transition and transition != 'none':
+        print(f"  🔄 转换期: {transition} — {regime_info.get('transition_details', '')}")
 
     # 3. 风控检查 & 执行卖出
     print("🛡️ 风控检查...")
@@ -473,7 +500,7 @@ def run_daily():
     # 5. AI最终决策
     print("🤖 AI最终决策...")
     market = analyze_market()
-    final_picks = ai_final_decision(candidates, market, sentiment, regime=regime, loss_streak=loss_streak)
+    final_picks = ai_final_decision(candidates, market, sentiment, regime=regime, loss_streak=loss_streak, regime_info=regime_info)
 
     # 6. 执行买入
     print("🛒 执行买入...")

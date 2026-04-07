@@ -66,7 +66,9 @@ def detect_market_regime() -> dict:
     - MA20 < MA60 且 MACD < 0 → 熊市
     - 其他 → 震荡
     
-    返回: {regime, confidence, details}
+    新增: 转换期检测(bear→sideways / bear→bull 过渡)
+    
+    返回: {regime, confidence, details, transition}
     """
     # 用上证指数判断大盘状态
     # 上证指数代码: 000001 (需要特殊处理，用sh000001)
@@ -163,13 +165,54 @@ def detect_market_regime() -> dict:
             regime = REGIME_SIDEWAYS
             confidence = 1 - abs(bull_score - bear_score) / (total + 1)
         
+        # === 转换期检测 ===
+        # 熊市→震荡/牛市的过渡期: MACD柱线由负转正趋势+DIF向上穿DEA
+        transition = 'none'
+        transition_details = []
+        if regime == REGIME_BEAR:
+            # 检查是否在底部企稳过渡
+            macd_val = tech.get('macd', 0)
+            macd_dif = tech.get('macd_dif', 0)
+            macd_dea = tech.get('macd_dea', 0)
+            rsi_val = tech.get('rsi14', 50)
+            
+            # MACD柱线虽然还为负但在收窄(DIF在向DEA靠拢)
+            dif_rising = macd_dif > macd_dea * 0.8 if macd_dea < 0 else False
+            # RSI从超低区回升
+            rsi_recovering = 35 < rsi_val < 55
+            # 近5日涨幅转正
+            if len(close) >= 5:
+                ret_5d = (close.iloc[-1] - close.iloc[-5]) / close.iloc[-5] * 100
+                short_bounce = ret_5d > 1
+            else:
+                short_bounce = False
+            
+            signals = sum([dif_rising, rsi_recovering, short_bounce])
+            if signals >= 2:
+                transition = 'bear_to_sideways'
+                transition_details.append('熊市企稳过渡期')
+                if dif_rising:
+                    transition_details.append('MACD收窄')
+                if rsi_recovering:
+                    transition_details.append(f'RSI回升({rsi_val:.0f})')
+                if short_bounce:
+                    transition_details.append(f'短期反弹{ret_5d:.1f}%')
+        
+        elif regime == REGIME_SIDEWAYS:
+            # 震荡→牛市过渡
+            if bull_score > bear_score and tech.get('macd_signal') in ('golden_cross', 'bullish'):
+                transition = 'sideways_to_bull'
+                transition_details.append('震荡向上突破倾向')
+        
         return {
             'regime': regime,
             'confidence': round(confidence, 2),
             'bull_score': round(bull_score, 1),
             'bear_score': round(bear_score, 1),
             'details': ' | '.join(details),
-            'tech': {k: v for k, v in tech.items() if k in ['ma20', 'ma60', 'macd', 'rsi14', 'trend']},
+            'transition': transition,
+            'transition_details': ' | '.join(transition_details) if transition_details else '',
+            'tech': {k: v for k, v in tech.items() if k in ['ma20', 'ma60', 'macd', 'rsi14', 'trend', 'macd_dif', 'macd_dea']},
         }
     
     except Exception as e:

@@ -837,6 +837,72 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
         except:
             indicators['price_z_score'] = 0
 
+    # === K线形态识别 (Candlestick Patterns) ===
+    # 经典反转形态: 锤子线/吞没形态/十字星，提高入场时机精准度
+    if len(close) >= 5:
+        try:
+            open_col = df['开盘'].astype(float)
+            high_col_k = df['最高'].astype(float)
+            low_col_k = df['最低'].astype(float)
+            
+            # 取最近3根K线
+            o1, c1, h1, l1 = open_col.iloc[-1], close.iloc[-1], high_col_k.iloc[-1], low_col_k.iloc[-1]
+            o2, c2, h2, l2 = open_col.iloc[-2], close.iloc[-2], high_col_k.iloc[-2], low_col_k.iloc[-2]
+            o3, c3, h3, l3 = open_col.iloc[-3], close.iloc[-3], high_col_k.iloc[-3], low_col_k.iloc[-3]
+            
+            body1 = abs(c1 - o1)
+            body2 = abs(c2 - o2)
+            range1 = h1 - l1 if h1 > l1 else 0.001
+            range2 = h2 - l2 if h2 > l2 else 0.001
+            upper_shadow1 = h1 - max(o1, c1)
+            lower_shadow1 = min(o1, c1) - l1
+            
+            # 锤子线 (Hammer): 下影线>实体2倍 + 上影线很小 + 出现在下跌后
+            hammer = (lower_shadow1 > body1 * 2 and 
+                      upper_shadow1 < body1 * 0.3 and
+                      c2 < o2 and c3 < o3)  # 前两根是阴线(下跌中)
+            
+            # 看涨吞没 (Bullish Engulfing): 阳线实体完全吞没前一根阴线
+            bullish_engulf = (c2 < o2 and c1 > o1 and  # 前阴后阳
+                              c1 > o2 and o1 < c2 and  # 阳线实体包含阴线
+                              body1 > body2 * 1.3)     # 阳线明显更大
+            
+            # 看跌吞没 (Bearish Engulfing): 阴线实体完全吞没前一根阳线
+            bearish_engulf = (c2 > o2 and c1 < o1 and  # 前阳后阴
+                              o1 > c2 and c1 < o2 and  # 阴线实体包含阳线
+                              body1 > body2 * 1.3)
+            
+            # 十字星 (Doji): 实体极小 + 上下影线长
+            doji = (body1 < range1 * 0.1 and  # 实体<振幅10%
+                    upper_shadow1 > body1 * 2 and 
+                    lower_shadow1 > body1 * 2)
+            
+            # 早晨之星 (Morning Star): 阴线→十字星→阳线 (三根K线的底部反转)
+            body3 = abs(c3 - o3)
+            range3 = h3 - l3 if h3 > l3 else 0.001
+            doji_middle = abs(c2 - o2) < range2 * 0.15  # 中间是十字星
+            morning_star = (c3 < o3 and body3 > range3 * 0.5 and  # 第1根大阴线
+                           doji_middle and  # 第2根十字星
+                           c1 > o1 and body1 > range1 * 0.5 and  # 第3根大阳线
+                           c1 > (o3 + c3) / 2)  # 阳线收盘超过阴线中点
+            
+            indicators['hammer'] = bool(hammer)
+            indicators['bullish_engulf'] = bool(bullish_engulf)
+            indicators['bearish_engulf'] = bool(bearish_engulf)
+            indicators['doji'] = bool(doji)
+            indicators['morning_star'] = bool(morning_star)
+            # 综合看涨形态标记
+            indicators['bullish_candle'] = bool(hammer or bullish_engulf or morning_star)
+            indicators['bearish_candle'] = bool(bearish_engulf)
+        except:
+            indicators['hammer'] = False
+            indicators['bullish_engulf'] = False
+            indicators['bearish_engulf'] = False
+            indicators['doji'] = False
+            indicators['morning_star'] = False
+            indicators['bullish_candle'] = False
+            indicators['bearish_candle'] = False
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     if len(close) >= 10:

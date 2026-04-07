@@ -42,22 +42,23 @@ SIGNAL_QUALITY_WEIGHTS = {
 def get_learned_signal_weights() -> dict:
     """从实际交易结果动态学习信号可靠性权重
     
-    分析历史买入信号 vs 实际盈亏，自动调低失败信号的权重
+    使用指数衰减加权: 近期交易权重更大，快速适应市场变化
     """
     try:
         import sqlite3
+        from datetime import datetime as dt
         conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
         c = conn.cursor()
-        # 获取最近30天的买入交易及其最近一次卖出结果
+        # 获取最近45天的买入交易及其最近一次卖出结果
         c.execute("""
-            SELECT b.reason, 
+            SELECT b.reason, b.trade_date,
                    CASE WHEN s.reason LIKE '%止损%' THEN 'loss'
                         WHEN s.reason LIKE '%止盈%' THEN 'win'
                         ELSE 'unknown' END as outcome
             FROM trades b
             LEFT JOIN trades s ON b.symbol = s.symbol AND s.direction = 'SELL' 
                 AND s.id = (SELECT MIN(s2.id) FROM trades s2 WHERE s2.symbol = b.symbol AND s2.direction = 'SELL' AND s2.id > b.id)
-            WHERE b.direction = 'BUY' AND b.trade_date >= date('now', '-30 days')
+            WHERE b.direction = 'BUY' AND b.trade_date >= date('now', '-45 days')
         """)
         rows = c.fetchall()
         conn.close()
@@ -65,32 +66,41 @@ def get_learned_signal_weights() -> dict:
         if len(rows) < 5:
             return {}  # 样本太少不学习
         
-        signal_stats = {}  # signal -> {wins, losses}
-        for reason, outcome in rows:
+        today = dt.now()
+        signal_stats = {}  # signal -> {weighted_wins, weighted_losses, total_weight}
+        for reason, trade_date, outcome in rows:
             if not reason:
                 continue
-            # 解析买入理由中的信号
+            # 指数衰减: 半衰期7天，越近的交易权重越大
+            try:
+                td = dt.strptime(trade_date, '%Y-%m-%d')
+                days_ago = (today - td).days
+                weight = 0.5 ** (days_ago / 7)  # 7天前权重0.5，14天前权重0.25
+            except:
+                weight = 0.1
+            
             for sig_name in SIGNAL_QUALITY_WEIGHTS:
                 if sig_name in reason:
                     if sig_name not in signal_stats:
-                        signal_stats[sig_name] = {'wins': 0, 'losses': 0}
+                        signal_stats[sig_name] = {'weighted_wins': 0, 'weighted_losses': 0, 'total_weight': 0}
+                    signal_stats[sig_name]['total_weight'] += weight
                     if outcome == 'win':
-                        signal_stats[sig_name]['wins'] += 1
+                        signal_stats[sig_name]['weighted_wins'] += weight
                     elif outcome == 'loss':
-                        signal_stats[sig_name]['losses'] += 1
+                        signal_stats[sig_name]['weighted_losses'] += weight
         
         # 计算学习后的权重调节
         adjustments = {}
         for sig, stats in signal_stats.items():
-            total = stats['wins'] + stats['losses']
-            if total >= 3:  # 至少3次才有统计意义
-                win_rate = stats['wins'] / total
+            total = stats['weighted_wins'] + stats['weighted_losses']
+            if total >= 1.5:  # 加权总量够
+                win_rate = stats['weighted_wins'] / total
                 if win_rate < 0.25:
-                    adjustments[sig] = 0.5   # 胜率<25%大幅降权
+                    adjustments[sig] = 0.4   # 近期胜率极低，大幅降权
                 elif win_rate < 0.4:
-                    adjustments[sig] = 0.7   # 胜率<40%适度降权
+                    adjustments[sig] = 0.65  # 近期胜率低，适度降权
                 elif win_rate > 0.6:
-                    adjustments[sig] = 1.3   # 胜率>60%提权
+                    adjustments[sig] = 1.35  # 近期胜率高，提权
         return adjustments
     except:
         return {}
@@ -757,6 +767,21 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] -= 8  # 统计极度超买
                 elif z_score > 1.5:
                     stock['score'] -= 4
+
+                # === K线形态信号 ===
+                if tech.get('bullish_candle'):
+                    candle_bonus = 10 if bear_mode else 6
+                    stock['score'] += candle_bonus
+                    stock['bullish_candle'] = True
+                    if tech.get('hammer'):
+                        stock['candle_pattern'] = '锤子线'
+                    elif tech.get('bullish_engulf'):
+                        stock['candle_pattern'] = '看涨吞没'
+                    elif tech.get('morning_star'):
+                        stock['candle_pattern'] = '早晨之星'
+                if tech.get('bearish_candle'):
+                    stock['score'] -= 8
+                    stock['bearish_candle'] = True
 
                 # === 抛物线拉升过滤 ===
                 # 5日涨幅>15%的票大概率要回调，不追

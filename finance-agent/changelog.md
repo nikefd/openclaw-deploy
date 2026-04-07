@@ -1,5 +1,38 @@
 # 金融Agent 更新日志
 
+## 2026-04-07 22:00 — v5.14 深度优化: K线形态识别+市场转换期检测+信号指数衰减学习+持仓相关性检查
+
+### 🕯️ K线形态识别 (Candlestick Patterns)
+- **核心价值**: 之前系统只看指标不看K线本身，错过经典反转形态信号
+- **新增5种形态检测**: 锤子线(Hammer)/看涨吞没(Bullish Engulfing)/看跌吞没(Bearish Engulfing)/十字星(Doji)/早晨之星(Morning Star)
+- **选股评分**: 看涨形态熊市+10分/普通+6分; 看跌形态-8分
+- **新增字段**: hammer/bullish_engulf/bearish_engulf/doji/morning_star/bullish_candle/bearish_candle
+
+### 🔄 市场状态转换期检测 (Regime Transition)
+- **bear_to_sideways**: MACD柱线收窄+RSI回升(35-55)+短期反弹>1% → 熊市企稳
+- **sideways_to_bull**: 震荡期bull_score>bear_score+MACD看多 → 向上突破
+- **AI决策增强**: 转换期适当放宽选股标准提前布局反弹
+- **日报增强**: 显示转换期状态和详情
+
+### ⚡ 信号权重指数衰减学习 (Exponential Decay Learning)
+- **改进**: 半衰期7天指数衰减加权(昨天1.0/7天前0.5/14天前0.25)
+- **效果**: 近期市场变化反应更快，不被2-3周前历史拖慢
+- **阈值优化**: 降权0.5→0.4, 提权1.3→1.35; 窗口30天→45天
+
+### 📊 持仓相关性检查 (Portfolio Correlation)
+- **新增**: check_correlation_with_portfolio() — 20日收益率相关系数
+- **门槛**: 相关性>0.8时跳过候选股
+- **效果**: 避免跨板块但走势一致的"假分散"
+
+### 🔧 技术细节
+- data_collector: calculate_technical_indicators新增5种K线形态检测
+- stock_picker: score_and_rank新增K线形态评分+指数衰减信号学习
+- market_regime: detect_market_regime新增transition字段
+- position_manager: 新增check_correlation_with_portfolio()
+- daily_runner: 新增相关性检查+转换期prompt+日报转换期显示
+
+---
+
 ## 2026-04-07 11:30 — v5.13 UI优化: 周期收益卡片+交易统计增强
 
 ### 📊 仪表盘新增周期收益卡片

@@ -4,6 +4,46 @@ from datetime import datetime, date, timedelta
 from config import *
 
 
+def check_correlation_with_portfolio(symbol: str, positions: list) -> float:
+    """检查候选股与现有持仓的价格相关性
+    
+    避免买入高度相关的股票(同涨同跌=没有分散风险)
+    Returns: 与现有持仓的最大相关系数 (0~1)
+    """
+    if not positions:
+        return 0.0
+    try:
+        from data_collector import get_stock_daily
+        import pandas as pd
+        
+        # 获取候选股近20日收益率
+        df_new = get_stock_daily(symbol, 25)
+        if df_new is None or len(df_new) < 15:
+            return 0.0
+        ret_new = df_new['收盘'].astype(float).pct_change().dropna()
+        
+        max_corr = 0.0
+        for pos in positions[:5]:  # 只查前5只避免太慢
+            try:
+                df_pos = get_stock_daily(pos['symbol'], 25)
+                if df_pos is None or len(df_pos) < 15:
+                    continue
+                ret_pos = df_pos['收盘'].astype(float).pct_change().dropna()
+                # 对齐长度
+                min_len = min(len(ret_new), len(ret_pos))
+                if min_len < 10:
+                    continue
+                corr = ret_new.tail(min_len).reset_index(drop=True).corr(
+                    ret_pos.tail(min_len).reset_index(drop=True))
+                if abs(corr) > max_corr:
+                    max_corr = abs(corr)
+            except:
+                continue
+        return round(max_corr, 3)
+    except:
+        return 0.0
+
+
 # === 止损黑名单: 近期止损过的股票短期内不再买入 ===
 STOP_LOSS_BLACKLIST_DAYS = 10  # 止损后10个交易日内不买回
 
