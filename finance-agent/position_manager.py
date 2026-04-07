@@ -252,7 +252,7 @@ def calculate_position_size(confidence: int, sentiment_score: float,
     return round(base_pct, 4)
 
 
-def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = "") -> list:
+def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = "", loss_streak: int = 0) -> list:
     """动态止损止盈 — 追踪止损+情绪调节+阶梯止盈+时间止损+动量衰减卖出"""
     actions = []
     for pos in positions:
@@ -365,6 +365,21 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                     })
                     continue
         
+        # === 连亏锁利润 (Loss Streak Profit Lock) ===
+        # 连亏>=5次时，+5%即卖半仓锁定利润，帮助重置连亏计数器
+        if loss_streak >= 5 and pnl_pct >= 0.05:
+            half = (pos['shares'] // 200) * 100
+            sell_shares = half if half >= 100 else pos['shares']
+            actions.append({
+                "action": "SELL",
+                "symbol": pos['symbol'],
+                "name": pos['name'],
+                "reason": f"连亏锁利润: 连亏{loss_streak}次,盈利{pnl_pct*100:+.1f}%主动锁利",
+                "shares": sell_shares,
+                "price": pos['current_price']
+            })
+            continue
+        
         # === 时间止损 (Time Stop) ===
         # 持仓天数阈值根据市场状态自适应: 牛市宽松(25天)，熊市收紧(15天)
         time_stop_days = 20  # 默认震荡市
@@ -373,11 +388,14 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         elif regime == 'bear':
             time_stop_days = 12  # 熊市快速止损换票（加速换仓）
         
+        # 熊市时间止损扩大亏损容忍: 小亏(-5%以内)也清掉，别死扛
+        time_stop_loss_floor = -0.05 if regime == 'bear' else -0.03
+        
         if buy_date:
             try:
                 buy_dt = datetime.strptime(buy_date, '%Y-%m-%d').date()
                 hold_days = (date.today() - buy_dt).days
-                if hold_days >= time_stop_days and -0.03 <= pnl_pct <= 0.03:
+                if hold_days >= time_stop_days and time_stop_loss_floor <= pnl_pct <= 0.03:
                     actions.append({
                         "action": "SELL",
                         "symbol": pos['symbol'],

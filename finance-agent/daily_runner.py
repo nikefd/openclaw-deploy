@@ -60,11 +60,11 @@ def update_positions_price():
     conn.close()
 
 
-def execute_sells(sentiment_score: float, regime: str = "") -> list:
+def execute_sells(sentiment_score: float, regime: str = "", loss_streak: int = 0) -> list:
     """执行卖出（止损止盈）"""
     results = []
     positions = get_positions()
-    actions = check_dynamic_stop(positions, sentiment_score, regime=regime)
+    actions = check_dynamic_stop(positions, sentiment_score, regime=regime, loss_streak=loss_streak)
 
     for action in actions:
         r = sell_stock(action['symbol'], action['price'], action['shares'], action['reason'])
@@ -461,7 +461,7 @@ def run_daily():
             print(f"  ⚠️ {w}")
 
     print("💸 执行止损止盈...")
-    sell_results = execute_sells(sentiment.get('sentiment_score', 50), regime=regime)
+    sell_results = execute_sells(sentiment.get('sentiment_score', 50), regime=regime, loss_streak=loss_streak)
 
     # 4. 多策略选股（传入市场状态）
     print("🔍 多策略选股中...")
