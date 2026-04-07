@@ -182,6 +182,7 @@ body.dark .md-content pre{background:#0a0a12}
   <!-- DASHBOARD -->
   <div class="tab-panel active" id="panel-dashboard">
     <div class="cards" id="summaryCards"></div>
+    <div class="cards" id="periodCards" style="margin-bottom:0"></div>
     <div class="cards" id="riskCards" style="margin-bottom:24px"></div>
     <div class="chart-row">
       <div class="chart-box">
@@ -1311,16 +1312,43 @@ function renderTradeStats(trades){
   const totalAmount=trades.reduce((s,t)=>s+(t.amount||0),0);
   const totalCommission=trades.reduce((s,t)=>s+(t.commission||0),0);
   // Win/loss from sells with pnl info
-  const wins=sells.filter(t=>(t.pnl||0)>0).length;
-  const losses=sells.filter(t=>(t.pnl||0)<0).length;
-  const winRate=sells.length?((wins/sells.length)*100).toFixed(1)+'%':'--';
+  const wins=sells.filter(t=>(t.pnl||0)>0);
+  const losses=sells.filter(t=>(t.pnl||0)<0);
+  const winRate=sells.length?((wins.length/sells.length)*100).toFixed(1)+'%':'--';
+  // Average win/loss amounts
+  const avgWin=wins.length?(wins.reduce((s,t)=>s+t.pnl,0)/wins.length):0;
+  const avgLoss=losses.length?(losses.reduce((s,t)=>s+Math.abs(t.pnl),0)/losses.length):0;
+  const profitRatio=avgLoss>0?(avgWin/avgLoss).toFixed(2):'--';
+  // Holding days analysis (match buy→sell by symbol)
+  const buyDates={};
+  trades.filter(t=>t.direction==='BUY').forEach(t=>{
+    if(!buyDates[t.symbol])buyDates[t.symbol]=[];
+    buyDates[t.symbol].push(t.trade_date);
+  });
+  let winDays=[],lossDays=[];
+  sells.forEach(t=>{
+    const bd=buyDates[t.symbol];
+    if(!bd||!bd.length)return;
+    const buyDate=bd[0]; // earliest buy
+    const days=Math.round((new Date(t.trade_date)-new Date(buyDate))/86400000);
+    if(days>=0){
+      if((t.pnl||0)>0)winDays.push(days);
+      else lossDays.push(days);
+    }
+  });
+  const avgWinDays=winDays.length?(winDays.reduce((a,b)=>a+b,0)/winDays.length).toFixed(1):'--';
+  const avgLossDays=lossDays.length?(lossDays.reduce((a,b)=>a+b,0)/lossDays.length).toFixed(1):'--';
+
   const cards=[
     {label:'总交易次数',value:trades.length},
     {label:'买入/卖出',value:`${buys.length} / ${sells.length}`},
     {label:'总交易额',value:'¥'+Math.round(totalAmount).toLocaleString()},
+    {label:'胜率',value:winRate,cls:parseFloat(winRate)>=50?'up':'down'},
+    {label:'盈亏比',value:profitRatio,cls:parseFloat(profitRatio)>=1?'up':'down'},
+    {label:'赢单均持/亏单均持',value:`${avgWinDays}天 / ${avgLossDays}天`},
     {label:'总佣金',value:'¥'+fmt(totalCommission)},
   ];
-  document.getElementById('tradeStatsCards').innerHTML=cards.map(c=>`<div class="card"><div class="card-label">${c.label}</div><div class="card-value" style="font-size:20px">${c.value}</div></div>`).join('');
+  document.getElementById('tradeStatsCards').innerHTML=cards.map(c=>`<div class="card"><div class="card-label">${c.label}</div><div class="card-value ${c.cls||''}" style="font-size:20px">${c.value}</div></div>`).join('');
 }
 
 // Risk Metrics
@@ -1389,7 +1417,25 @@ function renderPosRows(positions){
 setupPosSort();
 
 async function refreshAll(){
-  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics()]);
+  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics(),loadPeriodReturns()]);
+}
+
+// Period Returns
+async function loadPeriodReturns(){
+  const d=await api('/api/finance/period-returns');
+  if(!d)return;
+  const items=[
+    {label:'近一周',value:d.week},
+    {label:'近一月',value:d.month},
+    {label:'近一季',value:d.quarter},
+    {label:'年初至今',value:d.ytd},
+  ];
+  document.getElementById('periodCards').innerHTML=items.map(c=>{
+    const v=c.value;
+    const cls=v>0?'up':v<0?'down':'';
+    const sign=v>0?'+':'';
+    return`<div class="card"><div class="card-label">${c.label}</div><div class="card-value ${cls}" style="font-size:20px">${sign}${fmt(v)}%</div></div>`;
+  }).join('');
 }
 
 // Market Regime

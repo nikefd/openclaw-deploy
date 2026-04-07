@@ -239,6 +239,49 @@ function handleRiskMetrics(req, res) {
   });
 }
 
+function handlePeriodReturns(req, res) {
+  const snapshots = querySqlite('SELECT date, total_value FROM daily_snapshots ORDER BY date ASC');
+  if (!snapshots.length) return sendJson(res, {});
+  const latest = snapshots[snapshots.length - 1];
+  const latestDate = latest.date; // YYYY-MM-DD
+  const latestVal = latest.total_value;
+
+  function findValBefore(targetDate) {
+    // find the last snapshot on or before targetDate
+    let val = null;
+    for (const s of snapshots) {
+      if (s.date <= targetDate) val = s.total_value;
+      else break;
+    }
+    return val;
+  }
+
+  function daysAgo(n) {
+    const d = new Date(latestDate);
+    d.setDate(d.getDate() - n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // Week: 7 days ago
+  const weekAgoVal = findValBefore(daysAgo(7)) || INITIAL_CAPITAL;
+  // Month: 30 days ago
+  const monthAgoVal = findValBefore(daysAgo(30)) || INITIAL_CAPITAL;
+  // Quarter: 90 days ago
+  const quarterAgoVal = findValBefore(daysAgo(90)) || INITIAL_CAPITAL;
+  // Year start
+  const yearStart = latestDate.slice(0, 4) + '-01-01';
+  const yearStartVal = findValBefore(yearStart) || INITIAL_CAPITAL;
+
+  const calc = (from, to) => Math.round((to - from) / from * 10000) / 100;
+
+  sendJson(res, {
+    week: calc(weekAgoVal, latestVal),
+    month: calc(monthAgoVal, latestVal),
+    quarter: calc(quarterAgoVal, latestVal),
+    ytd: calc(yearStartVal, latestVal),
+  });
+}
+
 let runState = { status: 'idle', log: '', startTime: null };
 const RUN_LOG_FILE = '/tmp/finance-runner.log';
 
@@ -450,6 +493,7 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
       return;
     }
 
+    if (pathname === '/api/finance/period-returns' && req.method === 'GET') return handlePeriodReturns(req, res);
     if (pathname === '/api/finance/risk-metrics' && req.method === 'GET') return handleRiskMetrics(req, res);
 
     // /api/finance/reports/:date
