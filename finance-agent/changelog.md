@@ -1,5 +1,25 @@
 # 金融Agent 更新日志
 
+## 2026-04-08 11:30 — v5.16 UI优化: 月度收益柱状图+交易CSV导出
+
+### 📊 月度收益对比柱状图
+- **仪表盘新增**: 回撤曲线下方增加月度收益柱状图
+- **数据源**: 从daily_snapshots按月聚合，计算每月首尾净值变化
+- **展示**: 红色=盈利月/绿色=亏损月，直观对比各月表现
+- **API**: 新增`/api/finance/monthly-returns`端点
+
+### 📥 交易记录CSV导出
+- **交易页面**: 筛选栏新增"导出CSV"按钮
+- **格式**: UTF-8 BOM编码，Excel直接打开不乱码
+- **内容**: 日期/方向/股票/代码/价格/数量/金额/佣金/原因
+- **价值**: 方便用户在Excel中做进一步分析和记录
+
+### 🔧 技术细节
+- finance-api-server.js: 新增handleMonthlyReturns()，按月聚合snapshot数据
+- finance.html: 新增monthlyReturnChart + loadMonthlyReturns() + exportTradesCSV()
+
+---
+
 ## 2026-04-08 08:00 — v5.15 支撑破位止损修复+连续K线形态+智能止损黑名单
 
 ### 🐛 支撑破位止损Bug修复 (Critical)

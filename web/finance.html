@@ -223,6 +223,11 @@ body.dark .md-content pre{background:#0a0a12}
       <h3>📉 回撤曲线</h3>
       <canvas id="drawdownChart" style="max-height:180px"></canvas>
     </div>
+    <!-- Monthly Returns Chart -->
+    <div class="chart-box" style="margin-bottom:24px">
+      <h3>📅 月度收益对比</h3>
+      <canvas id="monthlyReturnChart" style="max-height:200px"></canvas>
+    </div>
     <!-- Position PnL Bar Chart -->
     <div class="chart-box" style="margin-bottom:24px">
       <h3>📊 持仓盈亏对比</h3>
@@ -272,6 +277,7 @@ body.dark .md-content pre{background:#0a0a12}
       <select id="filterDir"><option value="">全部方向</option><option value="BUY">买入</option><option value="SELL">卖出</option></select>
       <input type="date" id="filterDate">
       <button class="btn" onclick="renderTrades()">筛选</button>
+      <button class="btn" onclick="exportTradesCSV()" title="导出CSV">📥 导出CSV</button>
     </div>
     <div class="tbl-wrap">
       <div style="overflow-x:auto">
@@ -1417,7 +1423,7 @@ function renderPosRows(positions){
 setupPosSort();
 
 async function refreshAll(){
-  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics(),loadPeriodReturns()]);
+  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadMonthlyReturns(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics(),loadPeriodReturns()]);
 }
 
 // Period Returns
@@ -1550,6 +1556,37 @@ async function loadHeatmap(){
       <span class="ret">${c.ret>0?'+':''}${c.ret.toFixed(2)}%</span>
     </div>`;
   }).join('');
+}
+
+// Monthly Returns Chart
+let monthlyRetChartInst=null;
+async function loadMonthlyReturns(){
+  const d=await api('/api/finance/monthly-returns');
+  if(!d||!d.months||!d.months.length)return;
+  const ctx=document.getElementById('monthlyReturnChart');
+  if(!ctx)return;
+  if(monthlyRetChartInst)monthlyRetChartInst.destroy();
+  const labels=d.months.map(m=>m.month);
+  const data=d.months.map(m=>m.return_pct);
+  const bgColors=data.map(v=>v>=0?'rgba(230,57,70,0.7)':'rgba(46,196,182,0.7)');
+  monthlyRetChartInst=new Chart(ctx,{type:'bar',data:{
+    labels,datasets:[{label:'月收益%',data,backgroundColor:bgColors,borderRadius:6,barThickness:28}]
+  },options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>(c.raw>0?'+':'')+c.raw.toFixed(2)+'%'}}},
+    scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#e5e5ea'},ticks:{font:{size:11},callback:v=>v+'%'}}}}});
+}
+
+// CSV Export
+function exportTradesCSV(){
+  if(!tradesData.length){alert('暂无交易数据');return;}
+  const headers=['日期','方向','股票','代码','价格','数量','金额','佣金','原因'];
+  const rows=tradesData.map(t=>[t.trade_date,t.direction==='BUY'?'买入':'卖出',t.name,t.symbol,t.price,t.shares,t.amount,t.commission,(t.reason||'').replace(/,/g,'，')]);
+  const csv='\uFEFF'+[headers,...rows].map(r=>r.join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`trades_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // Init

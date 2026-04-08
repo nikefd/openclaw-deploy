@@ -239,6 +239,30 @@ function handleRiskMetrics(req, res) {
   });
 }
 
+function handleMonthlyReturns(req, res) {
+  const snapshots = querySqlite('SELECT date, total_value FROM daily_snapshots ORDER BY date ASC');
+  if (!snapshots.length) return sendJson(res, { months: [] });
+
+  // Group by month, take first and last value of each month
+  const monthMap = {}; // 'YYYY-MM' -> {first, last, firstDate, lastDate}
+  snapshots.forEach(s => {
+    const month = s.date.slice(0, 7);
+    if (!monthMap[month]) monthMap[month] = { first: s.total_value, last: s.total_value, firstDate: s.date, lastDate: s.date };
+    else { monthMap[month].last = s.total_value; monthMap[month].lastDate = s.date; }
+  });
+
+  const months = Object.keys(monthMap).sort();
+  const result = months.map((m, i) => {
+    const cur = monthMap[m];
+    // Use previous month's last value as baseline, or initial capital for first month
+    const baseline = i > 0 ? monthMap[months[i - 1]].last : INITIAL_CAPITAL;
+    const ret = Math.round((cur.last - baseline) / baseline * 10000) / 100;
+    return { month: m, return_pct: ret };
+  });
+
+  sendJson(res, { months: result });
+}
+
 function handlePeriodReturns(req, res) {
   const snapshots = querySqlite('SELECT date, total_value FROM daily_snapshots ORDER BY date ASC');
   if (!snapshots.length) return sendJson(res, {});
@@ -493,6 +517,7 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
       return;
     }
 
+    if (pathname === '/api/finance/monthly-returns' && req.method === 'GET') return handleMonthlyReturns(req, res);
     if (pathname === '/api/finance/period-returns' && req.method === 'GET') return handlePeriodReturns(req, res);
     if (pathname === '/api/finance/risk-metrics' && req.method === 'GET') return handleRiskMetrics(req, res);
 
