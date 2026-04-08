@@ -1,5 +1,37 @@
 # 金融Agent 更新日志
 
+## 2026-04-08 22:00 — v5.18 深度优化: 超跌反弹候选池+Fibonacci回撤位+评分质量归一化
+
+### 🐻 超跌反弹候选池 (Oversold Reversal Scanner) — 熊市专用
+- **核心问题**: 连亏8次、命中率0%的根因 — 候选池全来自动量/突破/强势信号，这些在熊市恰恰最容易反转
+- **方案**: 新增`get_oversold_reversal_candidates()` — 熊市时主动扫描连续下跌5-15天、累计跌8-25%的股票
+- **二次筛选**: 必须有≥2个企稳信号(RSI<30/缩量企稳/底部抬升/看涨K线/Z-Score超卖/WR回升/Fib支撑/MACD转多)
+- **逻辑**: 不追涨(动量策略)，反其道寻找卖方耗尽+底部形态的反转机会
+- **signal category**: 归入'technical'类别，与缩量企稳/均线收敛等技术信号互补
+
+### 📐 Fibonacci回撤位 (Fibonacci Retracement)
+- **核心价值**: 比局部极值法更可靠的支撑阻力体系，0.236/0.382/0.5/0.618四档回撤位广泛被机构使用
+- **实现**: 基于近60日高低点计算四档Fib回撤位，找当前价最近的Fib支撑和阻力
+- **新增字段**: fib_236/fib_382/fib_500/fib_618/fib_high/fib_low/fib_support/fib_support_dist_pct/near_fib_support/fib_resistance/fib_resistance_dist_pct
+- **选股评分**: near_fib_support(距离<2%)+7分; 接近Fib阻力(<1.5%)-5分
+- **AI决策增强**: prompt新增Fibonacci支撑指引+超跌反弹策略指引
+
+### ⚖️ 评分质量归一化 (Score Quality Normalization)
+- **核心问题**: 多信号叠加导致分数膨胀 — 5个弱信号堆出50分，可能不如1个强信号的30分可靠
+- **方案**: `quality_mult = (1 + log2(类别数)) / sqrt(信号总数)` — 多类别加成(质量好)，但纯信号堆叠会被压缩
+- **效果**: 单一强信号(如强机构推荐)不被噪音信号淹没，多类别共识(真共识)获得合理加成
+
+### 🔧 技术细节
+- data_collector: calculate_technical_indicators新增Fibonacci回撤位计算(4档+支撑阻力判断)
+- stock_picker: 新增get_oversold_reversal_candidates()熊市超跌反弹扫描器+score_and_rank新增Fib评分+评分质量归一化
+- daily_runner: AI prompt新增Fibonacci支撑+超跌反弹策略指引
+- multi_strategy_pick: 熊市时自动启用超跌反弹候选池
+
+### 📈 预期效果
+- 熊市候选池从纯动量/突破切换到超跌反弹+企稳确认，匹配市场环境
+- Fibonacci回撤位提供机构级支撑阻力参考，提高入场精准度
+- 评分归一化消除信号数量膨胀，按质量而非数量排名
+
 ## 2026-04-08 15:30 — v5.17 盘后分析+选股门槛优化
 
 ### 📊 盘后分析

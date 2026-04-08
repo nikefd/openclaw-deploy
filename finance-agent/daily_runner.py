@@ -287,6 +287,8 @@ def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict,
 11. **Z-Score**: price_z_score < -1.5 的品种统计意义上超卖，适合均值回归策略
 12. **K线形态**: 优先选有锤子线(hammer)/看涨吞没(bullish_engulf)/早晨之星(morning_star)的品种，这些是经典底部反转信号
 13. **转换期机会**: 如果市场处于bear_to_sideways转换期，可适当放宽选股标准，提前布局反弹
+14. **Fibonacci支撑**: 优先选near_fib_support=True的品种(接近关键Fibonacci回撤位，历史有效的支撑)
+15. **超跌反弹**: 熊市中有'超跌'信号+多个企稳信号(缩量企稳/底部抬升/RSI低位)的品种，是当前最佳策略
 
 如果没有足够好的标的(连亏期间)，可以只选1-2只甚至空仓等待。
 

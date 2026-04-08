@@ -951,6 +951,52 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['broken_support'] = 0
             indicators['broken_support_pct'] = 0
 
+    # === Fibonacci 回撤位 (Fibonacci Retracement) ===
+    # 比局部极值更可靠的支撑阻力: 用近60日高低点计算0.236/0.382/0.5/0.618回撤位
+    if len(close) >= 30:
+        try:
+            lookback = min(len(close), 60)
+            high_val = float(df['最高'].astype(float).tail(lookback).max())
+            low_val = float(df['最低'].astype(float).tail(lookback).min())
+            diff = high_val - low_val
+            if diff > 0:
+                fib_levels = {
+                    'fib_236': round(high_val - diff * 0.236, 2),
+                    'fib_382': round(high_val - diff * 0.382, 2),
+                    'fib_500': round(high_val - diff * 0.500, 2),
+                    'fib_618': round(high_val - diff * 0.618, 2),
+                }
+                indicators.update(fib_levels)
+                indicators['fib_high'] = round(high_val, 2)
+                indicators['fib_low'] = round(low_val, 2)
+                # 找当前价最近的Fib支撑和阻力
+                curr = float(close.iloc[-1])
+                fib_values = sorted(fib_levels.values())
+                fib_supports = [f for f in fib_values if f < curr]
+                fib_resistances = [f for f in fib_values if f > curr]
+                if fib_supports:
+                    nearest_fib_sup = fib_supports[-1]
+                    indicators['fib_support'] = nearest_fib_sup
+                    indicators['fib_support_dist_pct'] = round((curr - nearest_fib_sup) / curr * 100, 2)
+                    indicators['near_fib_support'] = (curr - nearest_fib_sup) / curr * 100 < 2.0
+                else:
+                    indicators['near_fib_support'] = False
+                    indicators['fib_support_dist_pct'] = 99
+                if fib_resistances:
+                    nearest_fib_res = fib_resistances[0]
+                    indicators['fib_resistance'] = nearest_fib_res
+                    indicators['fib_resistance_dist_pct'] = round((nearest_fib_res - curr) / curr * 100, 2)
+                else:
+                    indicators['fib_resistance_dist_pct'] = 99
+            else:
+                indicators['near_fib_support'] = False
+                indicators['fib_support_dist_pct'] = 99
+                indicators['fib_resistance_dist_pct'] = 99
+        except:
+            indicators['near_fib_support'] = False
+            indicators['fib_support_dist_pct'] = 99
+            indicators['fib_resistance_dist_pct'] = 99
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     if len(close) >= 10:

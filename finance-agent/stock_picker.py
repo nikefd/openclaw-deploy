@@ -311,6 +311,100 @@ def get_recent_strategy_performance() -> dict:
         return {'strategy': {}, 'sector': {}}
 
 
+def get_oversold_reversal_candidates() -> list:
+    """策略7: 超跌反弹候选池 — 熊市专用
+    
+    主动扫描近期跌幅大但技术面出现企稳信号的股票
+    不依赖动量/突破信号，而是寻找卖方耗尽+底部形态
+    """
+    candidates = []
+    try:
+        # 获取连续下跌的股票(同花顺连续下跌排行)
+        try:
+            df = ak.stock_rank_ljqd_ths()
+            for _, row in df.head(40).iterrows():
+                code = str(row.get('股票代码', ''))
+                days_down = int(row.get('连续下跌天数', 0) or 0)
+                cum_drop = float(row.get('累计跌幅', 0) or 0)
+                # 筛选: 连跌5-15天、累计跌幅-8%~-25%(不要跌太多的雷股)
+                if 5 <= days_down <= 15 and -25 <= cum_drop <= -8:
+                    candidates.append({
+                        'code': code,
+                        'name': row.get('股票简称', ''),
+                        'signal': f'超跌{days_down}天跌{cum_drop:.1f}%',
+                        'score': min(abs(cum_drop), 20),  # 跌得越多基础分越高(有限度)
+                        'days_down': days_down,
+                        'cum_drop': cum_drop,
+                    })
+        except Exception as e:
+            print(f"  超跌排行获取失败: {e}")
+        
+        # 二次筛选: 加载技术指标，只保留有企稳信号的
+        filtered = []
+        for c in candidates[:20]:
+            try:
+                df_k = get_stock_daily(c['code'], 60)
+                if df_k is None or df_k.empty or len(df_k) < 20:
+                    continue
+                tech = calculate_technical_indicators(df_k)
+                if not tech:
+                    continue
+                
+                # 企稳信号检查: 至少满足2个
+                reversal_signals = 0
+                reasons = []
+                
+                rsi = tech.get('rsi14', 50)
+                if rsi < 30:
+                    reversal_signals += 1
+                    reasons.append(f'RSI{rsi:.0f}')
+                
+                if tech.get('volume_dryup'):
+                    reversal_signals += 1
+                    reasons.append('缩量企稳')
+                
+                if tech.get('higher_low'):
+                    reversal_signals += 1
+                    reasons.append('底部抬升')
+                
+                if tech.get('bullish_candle'):
+                    reversal_signals += 1
+                    reasons.append('看涨K线')
+                
+                z = tech.get('price_z_score', 0)
+                if z < -1.5:
+                    reversal_signals += 1
+                    reasons.append(f'Z{z:.1f}')
+                
+                wr = tech.get('williams_r', -50)
+                if tech.get('wr_reversal'):
+                    reversal_signals += 1
+                    reasons.append('WR回升')
+                
+                if tech.get('near_fib_support'):
+                    reversal_signals += 1
+                    reasons.append('Fib支撑')
+                
+                if tech.get('macd_zero_cross_up') or tech.get('macd_signal') == 'golden_cross':
+                    reversal_signals += 1
+                    reasons.append('MACD转多')
+                
+                if reversal_signals >= 2:
+                    c['signal'] += '+' + '+'.join(reasons[:3])
+                    c['score'] += reversal_signals * 5
+                    c['reversal_count'] = reversal_signals
+                    filtered.append(c)
+                
+                time.sleep(0.2)
+            except:
+                continue
+        
+        return sorted(filtered, key=lambda x: -x['score'])[:15]
+    except Exception as e:
+        print(f"  超跌反弹扫描失败: {e}")
+        return []
+
+
 def get_momentum_candidates() -> list:
     """策略1: 动量策略 — 量价齐升+创新高"""
     candidates = []
@@ -757,6 +851,13 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 if tech.get('near_resistance'):
                     stock['score'] -= 6  # 接近阻力位，上涨空间有限
 
+                # === Fibonacci 回撤位评分 ===
+                if tech.get('near_fib_support'):
+                    stock['score'] += 7  # 接近Fib支撑位=关键价位买入
+                fib_res_dist = tech.get('fib_resistance_dist_pct', 99)
+                if fib_res_dist < 1.5:
+                    stock['score'] -= 5  # 接近Fib阻力位,上涨空间有限
+
                 # === 价格Z-Score均值回归 ===
                 z_score = tech.get('price_z_score', 0)
                 if z_score < -2:
@@ -894,6 +995,18 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     if len(consensus_filtered) < 3:
         consensus_filtered = ranked
     
+    # === 评分质量归一化 ===
+    # 防止多信号堆叠导致分数膨胀 — 计算每个信号类别的平均分
+    for stock in consensus_filtered:
+        n_cats = max(stock.get('consensus_count', 1), 1)
+        n_sigs = max(len(stock.get('signals', [])), 1)
+        # 质量分 = 总分 × (1 + log2(信号类别数)) / sqrt(信号总数)
+        # 多类别加成(质量好)，但单纯多信号不等比膨胀
+        import math
+        quality_mult = (1 + math.log2(n_cats)) / math.sqrt(n_sigs) if n_sigs > 1 else 1.0
+        stock['raw_score'] = stock['score']
+        stock['score'] = int(stock['score'] * min(quality_mult, 1.5))
+    
     return sorted(consensus_filtered, key=lambda x: -x['score'])
 
 
@@ -1000,8 +1113,15 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
     except Exception as e:
         print(f"  ⚠️ 资金面数据采集失败(不影响其他策略): {e}")
 
+    # === 策略7: 超跌反弹(熊市专用) ===
+    oversold_candidates = []
+    if regime == 'bear':
+        print("  🐻 策略7: 超跌反弹扫描(熊市专用)...")
+        oversold_candidates = get_oversold_reversal_candidates()
+        print(f"    → {len(oversold_candidates)}只超跌企稳候选")
+
     # 合并所有候选
-    all_candidates = momentum + money + strong + institution + news_candidates + money_candidates
+    all_candidates = momentum + money + strong + institution + news_candidates + money_candidates + oversold_candidates
     print(f"  📊 共{len(all_candidates)}条信号，开始综合打分...")
 
     # 打分排名（含市场状态调节）
@@ -1090,6 +1210,7 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
             'institution_count': len(institution),
             'news_count': len(news_candidates),
             'money_data_count': len(money_candidates),
+            'oversold_count': len(oversold_candidates),
             'total_signals': len(all_candidates),
             'final_count': len(tradeable),
             'money_flow_score': money_overview.get('money_flow_score', 0) if money_overview else 0,
