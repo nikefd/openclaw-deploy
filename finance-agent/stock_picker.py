@@ -236,7 +236,7 @@ def get_dynamic_score_threshold(regime: str = "", loss_streak: int = 0) -> int:
     
     连亏越多、胜率越低 → 门槛越高，只买最强信号
     """
-    base = 20  # 正常市场下的最低分数
+    base = 25  # 正常市场下的最低分数(从20提高,减少弱信号入场)
     
     # 近期胜率调节
     try:

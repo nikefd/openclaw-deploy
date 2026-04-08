@@ -45,7 +45,7 @@ def check_correlation_with_portfolio(symbol: str, positions: list) -> float:
 
 
 # === 止损黑名单: 近期止损过的股票短期内不再买入 ===
-STOP_LOSS_BLACKLIST_DAYS = 10  # 止损后10个交易日内不买回
+STOP_LOSS_BLACKLIST_DAYS = 15  # 止损后15个交易日内不买回(从10提高,连亏期更长冷却)
 
 
 def get_stop_loss_blacklist() -> set:
@@ -429,7 +429,7 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                     "shares": pos['shares'],
                     "price": pos['current_price']
                 })
-                    continue
+                continue
         
         # === 连亏锁利润 (Loss Streak Profit Lock) ===
         # 连亏>=5次时，+5%即卖半仓锁定利润，帮助重置连亏计数器
