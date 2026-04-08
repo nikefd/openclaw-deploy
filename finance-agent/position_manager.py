@@ -49,15 +49,43 @@ STOP_LOSS_BLACKLIST_DAYS = 10  # 止损后10个交易日内不买回
 
 
 def get_stop_loss_blacklist() -> set:
-    """获取近期止损过的股票代码集合"""
+    """获取近期止损过的股票代码集合
+    
+    动态冷却: 小亏(-3%以内)冷却7天, 中亏(-3%~-8%)冷却10天, 大亏(-8%+)冷却15天
+    """
     try:
         import sqlite3
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        cutoff = (date.today() - timedelta(days=STOP_LOSS_BLACKLIST_DAYS)).isoformat()
-        c.execute("""SELECT DISTINCT symbol FROM trades 
+        # 获取近15天所有止损卖出记录(含价格和成本信息)
+        cutoff = (date.today() - timedelta(days=15)).isoformat()
+        c.execute("""SELECT symbol, trade_date, price FROM trades 
                      WHERE direction='SELL' AND reason LIKE '%止损%' AND trade_date >= ?""", (cutoff,))
-        blacklist = {row[0] for row in c.fetchall()}
+        blacklist = set()
+        for symbol, trade_date, sell_price in c.fetchall():
+            # 查这只股票的买入成本
+            c.execute("""SELECT price FROM trades WHERE symbol=? AND direction='BUY' AND id < 
+                        (SELECT id FROM trades WHERE symbol=? AND direction='SELL' AND trade_date=? LIMIT 1)
+                        ORDER BY id DESC LIMIT 1""", (symbol, symbol, trade_date))
+            buy_row = c.fetchone()
+            loss_pct = 0
+            if buy_row and buy_row[0] > 0:
+                loss_pct = (sell_price - buy_row[0]) / buy_row[0] * 100
+            
+            # 根据亏损幅度决定冷却天数
+            if loss_pct <= -8:
+                cool_days = 15  # 大亏冷却15天
+            elif loss_pct <= -3:
+                cool_days = 10  # 中亏冷却10天
+            else:
+                cool_days = 7   # 小亏冷却7天
+            
+            try:
+                stop_date = datetime.strptime(trade_date, '%Y-%m-%d').date()
+                if (date.today() - stop_date).days < cool_days:
+                    blacklist.add(symbol)
+            except:
+                blacklist.add(symbol)  # 解析失败保守处理
         conn.close()
         return blacklist
     except:
@@ -390,19 +418,17 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
             
             # === 支撑位跌破加速止损 ===
             # 跌破关键支撑位 = 技术面破位，不等止损线直接卖
-            if pnl_pct < -0.02 and pos_tech.get('support_distance_pct', 99) < 0.5:
-                # 已跌破支撑位(距离<0.5%说明已在支撑位下方)
-                # 检查是否真的跌破: 当前价 < 最近支撑
-                nearest_sup = pos_tech.get('nearest_support', 0)
-                if nearest_sup > 0 and pos['current_price'] < nearest_sup * 0.995:
-                    actions.append({
-                        "action": "SELL",
-                        "symbol": pos['symbol'],
-                        "name": pos['name'],
-                        "reason": f"支撑破位止损: 跌破支撑{nearest_sup:.2f}, 亏损{pnl_pct*100:+.1f}%",
-                        "shares": pos['shares'],
-                        "price": pos['current_price']
-                    })
+            broken_sup = pos_tech.get('broken_support', 0)
+            if pnl_pct < -0.02 and broken_sup > 0:
+                # broken_support > 0 说明有刚跌破的支撑位
+                actions.append({
+                    "action": "SELL",
+                    "symbol": pos['symbol'],
+                    "name": pos['name'],
+                    "reason": f"支撑破位止损: 跌破支撑{broken_sup:.2f}, 亏损{pnl_pct*100:+.1f}%",
+                    "shares": pos['shares'],
+                    "price": pos['current_price']
+                })
                     continue
         
         # === 连亏锁利润 (Loss Streak Profit Lock) ===

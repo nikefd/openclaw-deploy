@@ -903,6 +903,54 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['bullish_candle'] = False
             indicators['bearish_candle'] = False
 
+    # === 连续阳线/阴线检测 (Consecutive Candles) ===
+    # 连续3+阳线在超卖区=强反转信号; 连续3+阴线=趋势衰弱
+    if len(close) >= 5:
+        try:
+            open_col_cc = df['开盘'].astype(float)
+            consec_bull = 0
+            consec_bear = 0
+            for idx in range(-1, -6, -1):
+                if close.iloc[idx] > open_col_cc.iloc[idx]:
+                    if consec_bear > 0:
+                        break
+                    consec_bull += 1
+                elif close.iloc[idx] < open_col_cc.iloc[idx]:
+                    if consec_bull > 0:
+                        break
+                    consec_bear += 1
+                else:
+                    break
+            indicators['consec_bull_candles'] = consec_bull
+            indicators['consec_bear_candles'] = consec_bear
+        except:
+            indicators['consec_bull_candles'] = 0
+            indicators['consec_bear_candles'] = 0
+
+    # === 支撑位跟踪(含近期跌破的支撑) ===
+    # 记录略高于当前价的支撑位(可能是刚跌破的)，供止损使用
+    if len(close) >= 30:
+        try:
+            high_col_sr = df['最高'].astype(float)
+            low_col_sr = df['最低'].astype(float)
+            all_supports = []
+            for i in range(2, min(len(close)-2, 28)):
+                if (low_col_sr.iloc[i] <= low_col_sr.iloc[i-1] and low_col_sr.iloc[i] <= low_col_sr.iloc[i-2] and
+                    low_col_sr.iloc[i] <= low_col_sr.iloc[i+1] and low_col_sr.iloc[i] <= low_col_sr.iloc[i+2]):
+                    all_supports.append(float(low_col_sr.iloc[i]))
+            # 刚跌破的支撑: 在当前价上方3%以内的支撑位
+            current_p = float(close.iloc[-1])
+            broken_supports = sorted([s for s in all_supports if current_p < s <= current_p * 1.03], reverse=False)
+            if broken_supports:
+                indicators['broken_support'] = round(broken_supports[0], 2)
+                indicators['broken_support_pct'] = round((broken_supports[0] - current_p) / current_p * 100, 2)
+            else:
+                indicators['broken_support'] = 0
+                indicators['broken_support_pct'] = 0
+        except:
+            indicators['broken_support'] = 0
+            indicators['broken_support_pct'] = 0
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     if len(close) >= 10:

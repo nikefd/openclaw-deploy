@@ -783,6 +783,16 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] -= 8
                     stock['bearish_candle'] = True
 
+                # === 连续阳线/阴线信号 ===
+                consec_bull = tech.get('consec_bull_candles', 0)
+                consec_bear = tech.get('consec_bear_candles', 0)
+                if consec_bull >= 3 and rsi < 45:  # 超卖区连续阳线=强反转
+                    stock['score'] += 8 if bear_mode else 5
+                elif consec_bull >= 3 and rsi > 65:  # 高位连续阳线=可能见顶
+                    stock['score'] -= 3
+                if consec_bear >= 3:
+                    stock['score'] -= 6  # 连续阴线=趋势衰弱
+
                 # === 抛物线拉升过滤 ===
                 # 5日涨幅>15%的票大概率要回调，不追
                 if df is not None and len(df) >= 5:
