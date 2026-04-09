@@ -58,7 +58,19 @@ function handleDashboard(req, res) {
   const posData = positions.map(p => {
     const pnl = (p.current_price - p.avg_cost) * p.shares;
     const pnl_pct = p.avg_cost ? ((p.current_price - p.avg_cost) / p.avg_cost * 100) : 0;
-    return { ...p, pnl: Math.round(pnl * 100) / 100, pnl_pct: Math.round(pnl_pct * 100) / 100 };
+    // Holding days
+    let holding_days = null;
+    if (p.buy_date) {
+      const buyDate = new Date(p.buy_date);
+      const now = new Date();
+      holding_days = Math.round((now - buyDate) / 86400000);
+    }
+    // Peak drawdown from peak_price
+    let peak_drawdown = null;
+    if (p.peak_price && p.peak_price > 0 && p.current_price) {
+      peak_drawdown = Math.round((p.current_price - p.peak_price) / p.peak_price * 10000) / 100;
+    }
+    return { ...p, pnl: Math.round(pnl * 100) / 100, pnl_pct: Math.round(pnl_pct * 100) / 100, holding_days, peak_drawdown };
   });
 
   const today = snapshots[0];
@@ -261,6 +273,32 @@ function handleMonthlyReturns(req, res) {
   });
 
   sendJson(res, { months: result });
+}
+
+function handleWeeklyReturns(req, res) {
+  const snapshots = querySqlite('SELECT date, total_value FROM daily_snapshots ORDER BY date ASC');
+  if (!snapshots.length) return sendJson(res, { weeks: [] });
+
+  // Group by ISO week
+  const weekMap = {}; // 'YYYY-Wnn' -> {first, last}
+  snapshots.forEach(s => {
+    const d = new Date(s.date);
+    const jan1 = new Date(d.getFullYear(), 0, 1);
+    const weekNum = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+    const key = `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+    if (!weekMap[key]) weekMap[key] = { first: s.total_value, last: s.total_value, startDate: s.date, endDate: s.date };
+    else { weekMap[key].last = s.total_value; weekMap[key].endDate = s.date; }
+  });
+
+  const weeks = Object.keys(weekMap).sort().slice(-12);
+  const result = weeks.map((w, i) => {
+    const cur = weekMap[w];
+    const baseline = i > 0 ? weekMap[weeks[i - 1]]?.last || INITIAL_CAPITAL : INITIAL_CAPITAL;
+    const ret = Math.round((cur.last - baseline) / baseline * 10000) / 100;
+    return { week: w, label: weekMap[w].startDate.slice(5) + '~' + weekMap[w].endDate.slice(5), return_pct: ret };
+  });
+
+  sendJson(res, { weeks: result });
 }
 
 function handlePeriodReturns(req, res) {
@@ -518,6 +556,7 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     }
 
     if (pathname === '/api/finance/monthly-returns' && req.method === 'GET') return handleMonthlyReturns(req, res);
+    if (pathname === '/api/finance/weekly-returns' && req.method === 'GET') return handleWeeklyReturns(req, res);
     if (pathname === '/api/finance/period-returns' && req.method === 'GET') return handlePeriodReturns(req, res);
     if (pathname === '/api/finance/risk-metrics' && req.method === 'GET') return handleRiskMetrics(req, res);
 

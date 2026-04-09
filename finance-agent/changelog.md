@@ -1,5 +1,21 @@
 # 金融Agent 更新日志
 
+## 2026-04-09 11:30 — v5.20 周度收益趋势图+持仓详情增强
+
+### 📆 周度收益趋势图
+- **仪表盘新增**: 月度收益下方增加近12周收益柱状图
+- **价值**: 比月度图更细粒度，快速发现近几周盈亏趋势
+- **API**: 新增`/api/finance/weekly-returns`端点，按ISO周聚合snapshot数据
+
+### 📋 持仓明细增强
+- **新增列: 持仓天数** — 从buy_date计算至今天数，直观看持仓周期
+- **新增列: 距高点** — 当前价vs历史最高价的回撤百分比，辅助判断是否需要止盈/止损
+- **表头可排序**: 两列均支持点击排序
+
+### 🔧 技术细节
+- finance-api-server.js: handleDashboard新增holding_days/peak_drawdown字段; 新增handleWeeklyReturns()
+- finance.html: 新增weeklyReturnChart+loadWeeklyReturns(); posTable新增持仓天数/距高点列
+
 ## 2026-04-09 08:00 — v5.19 CMF资金流+板块止损冷却+盘中追涨过滤
 
 ### 📊 CMF (Chaikin Money Flow) 20日资金流向指标

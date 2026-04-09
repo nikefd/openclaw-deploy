@@ -228,6 +228,11 @@ body.dark .md-content pre{background:#0a0a12}
       <h3>📅 月度收益对比</h3>
       <canvas id="monthlyReturnChart" style="max-height:200px"></canvas>
     </div>
+    <!-- Weekly Returns Chart -->
+    <div class="chart-box" style="margin-bottom:24px">
+      <h3>📆 周度收益趋势 (近12周)</h3>
+      <canvas id="weeklyReturnChart" style="max-height:200px"></canvas>
+    </div>
     <!-- Position PnL Bar Chart -->
     <div class="chart-box" style="margin-bottom:24px">
       <h3>📊 持仓盈亏对比</h3>
@@ -236,7 +241,7 @@ body.dark .md-content pre{background:#0a0a12}
     <div class="tbl-wrap">
       <h3>持仓明细</h3>
       <div style="overflow-x:auto">
-        <table id="posTable"><thead><tr><th class="sortable" data-col="name" data-type="str">股票</th><th>代码</th><th class="sortable" data-col="shares" data-type="num">数量</th><th class="sortable" data-col="avg_cost" data-type="num">成本价</th><th class="sortable" data-col="current_price" data-type="num">现价</th><th class="sortable" data-col="pnl" data-type="num">盈亏</th><th class="sortable" data-col="pnl_pct" data-type="num">盈亏%</th><th class="sortable" data-col="weight" data-type="num">仓位%</th></tr></thead><tbody id="posBody"></tbody></table>
+        <table id="posTable"><thead><tr><th class="sortable" data-col="name" data-type="str">股票</th><th>代码</th><th class="sortable" data-col="shares" data-type="num">数量</th><th class="sortable" data-col="avg_cost" data-type="num">成本价</th><th class="sortable" data-col="current_price" data-type="num">现价</th><th class="sortable" data-col="pnl" data-type="num">盈亏</th><th class="sortable" data-col="pnl_pct" data-type="num">盈亏%</th><th class="sortable" data-col="holding_days" data-type="num">持仓天数</th><th class="sortable" data-col="peak_drawdown" data-type="num">距高点</th><th class="sortable" data-col="weight" data-type="num">仓位%</th></tr></thead><tbody id="posBody"></tbody></table>
       </div>
     </div>
   </div>
@@ -1409,21 +1414,22 @@ function renderPosRows(positions){
     <td>${fmt(p.avg_cost)}</td><td>${fmt(p.current_price)}</td>
     <td class="${pnlClass(p.pnl)}">${pnlSign(p.pnl)}${fmt(p.pnl)}</td>
     <td class="${pnlClass(p.pnl_pct)}">${pnlSign(p.pnl_pct)}${fmt(p.pnl_pct)}%</td>
+    <td style="color:var(--sub)">${p.holding_days!=null?p.holding_days+'天':'--'}</td>
+    <td class="${p.peak_drawdown!=null&&p.peak_drawdown<0?'down':''}">${p.peak_drawdown!=null?p.peak_drawdown.toFixed(1)+'%':'--'}</td>
     <td><div style="display:flex;align-items:center;gap:6px"><div style="width:${Math.min(weight,100)*0.6}px;height:12px;background:var(--accent);border-radius:3px;min-width:2px"></div>${weight.toFixed(1)}%</div></td>
   </tr>`;
   });
   const totalWeight=(sumValue/totalValue*100).toFixed(1);
   const footer=positions.length?`<tr style="border-top:2px solid var(--border);font-weight:600">
-    <td style="padding:12px" colspan="5">合计</td>
-    <td class="${pnlClass(sumPnl)}">${pnlSign(sumPnl)}${fmt(sumPnl)}</td>
-    <td></td><td>${totalWeight}%</td>
+    <td style="padding:12px" colspan="7">合计</td>
+    <td></td><td></td><td>${totalWeight}%</td>
   </tr>`:'';
   pb.innerHTML=(rows.join('')+footer)||'<tr><td colspan="8" style="text-align:center;color:var(--sub)">暂无持仓</td></tr>';
 }
 setupPosSort();
 
 async function refreshAll(){
-  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadMonthlyReturns(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics(),loadPeriodReturns()]);
+  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadMonthlyReturns(),loadWeeklyReturns(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics(),loadPeriodReturns()]);
 }
 
 // Period Returns
@@ -1573,6 +1579,23 @@ async function loadMonthlyReturns(){
     labels,datasets:[{label:'月收益%',data,backgroundColor:bgColors,borderRadius:6,barThickness:28}]
   },options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>(c.raw>0?'+':'')+c.raw.toFixed(2)+'%'}}},
     scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#e5e5ea'},ticks:{font:{size:11},callback:v=>v+'%'}}}}});
+}
+
+// Weekly Returns Chart
+let weeklyRetChartInst=null;
+async function loadWeeklyReturns(){
+  const d=await api('/api/finance/weekly-returns');
+  if(!d||!d.weeks||!d.weeks.length)return;
+  const ctx=document.getElementById('weeklyReturnChart');
+  if(!ctx)return;
+  if(weeklyRetChartInst)weeklyRetChartInst.destroy();
+  const labels=d.weeks.map(w=>w.label||w.week);
+  const data=d.weeks.map(w=>w.return_pct);
+  const bgColors=data.map(v=>v>=0?'rgba(230,57,70,0.7)':'rgba(46,196,182,0.7)');
+  weeklyRetChartInst=new Chart(ctx,{type:'bar',data:{
+    labels,datasets:[{label:'周收益%',data,backgroundColor:bgColors,borderRadius:6,barThickness:22}]
+  },options:{responsive:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>(c.raw>0?'+':'')+c.raw.toFixed(2)+'%'}}},
+    scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#e5e5ea'},ticks:{font:{size:11},callback:v=>v+'%'}}}}});
 }
 
 // CSV Export
