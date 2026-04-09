@@ -640,7 +640,7 @@ const AGENTS=[
 
 let chats=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'),currentId=null;
 // Load from server if local is empty
-(async()=>{try{const r=await fetch('/api/chats');if(r.ok){const d=await r.json();if(d.length>0){const merged=mergeChats(chats,d);chats=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));renderSidebar();if(currentId){const cur=chats.find(c=>c.id===currentId);if(cur)switchChat(cur.id);}}}}catch{}})();
+(async()=>{try{const r=await fetch('/api/chats');if(r.ok){const d=await r.json();if(d.length>0){const merged=mergeChats(chats,d);chats=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));renderSidebar();if(currentId){const cur=chats.find(c=>c.id===currentId);if(cur)switchChat(cur.id);}else if(chats.length>0){switchChat(chats[0].id);}}}}catch{}})();
 function mergeChats(local,remote){const map=new Map();remote.forEach(c=>map.set(c.id,c));local.forEach(c=>{const existing=map.get(c.id);if(!existing||c.updatedAt>existing.updatedAt)map.set(c.id,c);});return[...map.values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));}
 let selectedAgent=localStorage.getItem(AGENT_KEY)||'main',streamingChats=new Set();
 let currentTheme=localStorage.getItem(THEME_KEY)||'dark';
