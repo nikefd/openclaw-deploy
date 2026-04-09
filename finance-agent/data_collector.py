@@ -997,6 +997,36 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['fib_support_dist_pct'] = 99
             indicators['fib_resistance_dist_pct'] = 99
 
+    # === CMF (Chaikin Money Flow) 20日资金流向 ===
+    # 比OBV更精确: 考虑收盘价在高低区间的位置，衡量真实资金流入/流出强度
+    # CMF>0.1=资金强流入(确认上涨), CMF<-0.1=资金流出(警示下跌)
+    if volume is not None and len(close) >= 20:
+        try:
+            high_cmf = df['最高'].astype(float)
+            low_cmf = df['最低'].astype(float)
+            hl_range = high_cmf - low_cmf
+            # Money Flow Multiplier = ((Close - Low) - (High - Close)) / (High - Low)
+            mfm = ((close - low_cmf) - (high_cmf - close)) / hl_range.replace(0, float('nan'))
+            mfm = mfm.fillna(0)
+            # Money Flow Volume = MFM × Volume
+            mfv = mfm * volume
+            # CMF = sum(MFV, 20) / sum(Volume, 20)
+            cmf_20 = mfv.rolling(20).sum() / volume.rolling(20).sum().replace(0, float('nan'))
+            indicators['cmf_20'] = round(float(cmf_20.iloc[-1]), 4) if not cmf_20.empty else 0
+            # CMF趋势: 近5日CMF vs 前5日CMF
+            if len(cmf_20.dropna()) >= 10:
+                cmf_recent = cmf_20.iloc[-5:].mean()
+                cmf_prev = cmf_20.iloc[-10:-5].mean()
+                indicators['cmf_rising'] = bool(cmf_recent > cmf_prev + 0.02)
+                indicators['cmf_falling'] = bool(cmf_recent < cmf_prev - 0.02)
+            else:
+                indicators['cmf_rising'] = False
+                indicators['cmf_falling'] = False
+        except:
+            indicators['cmf_20'] = 0
+            indicators['cmf_rising'] = False
+            indicators['cmf_falling'] = False
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     if len(close) >= 10:

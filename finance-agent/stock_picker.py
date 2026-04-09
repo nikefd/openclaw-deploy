@@ -11,7 +11,7 @@ from data_collector import (
     get_market_indices, get_sector_fund_flow, calculate_technical_indicators
 )
 from performance_tracker import classify_sector, record_recommendation
-from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier, kelly_position_size, get_stop_loss_blacklist
+from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier, kelly_position_size, get_stop_loss_blacklist, get_sector_stop_loss_penalty
 
 
 # 各信号源对应的策略key（用于市场状态调节权重）
@@ -648,6 +648,13 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     except:
         pass
 
+    # === 板块级止损冷却: 同板块近期多次止损扣分 ===
+    _sector_penalties = {}
+    try:
+        _sector_penalties = get_sector_stop_loss_penalty()
+    except:
+        pass
+
     # 加技术面验证 + 板块策略路由
     print(f"  📊 验证{len(ranked)}只候选股技术面...")
     for i, stock in enumerate(ranked):
@@ -738,6 +745,22 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] += 6  # 向上跳空缺口=强势突破
                 if tech.get('gap_down'):
                     stock['score'] -= 8  # 向下跳空缺口=破位风险
+
+                # === CMF (Chaikin Money Flow) 资金流向 ===
+                cmf = tech.get('cmf_20', 0)
+                if cmf > 0.15:  # 强资金流入
+                    stock['score'] += 8
+                elif cmf > 0.05:
+                    stock['score'] += 4
+                elif cmf < -0.15:  # 强资金流出
+                    stock['score'] -= 8
+                elif cmf < -0.05:
+                    stock['score'] -= 4
+                # CMF趋势变化
+                if tech.get('cmf_rising'):
+                    stock['score'] += 3  # 资金流入趋势加速
+                if tech.get('cmf_falling'):
+                    stock['score'] -= 3  # 资金流出趋势加速
 
                 # === OBV能量潮确认 ===
                 obv_trend = tech.get('obv_trend', 0)
@@ -964,6 +987,11 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 except:
                     pass
 
+                # === 板块级止损冷却惩罚 ===
+                if sector in _sector_penalties:
+                    stock['score'] += _sector_penalties[sector]
+                    stock['sector_cooldown'] = True
+
             time.sleep(0.3)
         except Exception as e:
             print(f"  ⚠️ {stock['code']}技术面验证失败: {e}")
@@ -1028,6 +1056,10 @@ def filter_tradeable(candidates: list) -> list:
                 continue
             if abs(change) >= 9.8:  # 涨跌停，大概率买不进
                 c['at_limit'] = True
+            # 盘中已涨>5%不追高: 早上选出来评分高，但盘中已大涨就别追了
+            if change >= 5.0:
+                c['score'] = int(c.get('score', 0) * 0.6)  # 打6折
+                c['intraday_chase'] = True
             c['realtime_price'] = price
             c['change_pct'] = change
         filtered.append(c)

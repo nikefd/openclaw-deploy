@@ -1,5 +1,35 @@
 # 金融Agent 更新日志
 
+## 2026-04-09 08:00 — v5.19 CMF资金流+板块止损冷却+盘中追涨过滤
+
+### 📊 CMF (Chaikin Money Flow) 20日资金流向指标
+- **核心价值**: 比OBV更精确的资金流向衡量 — 考虑收盘价在高低区间的位置，量化真实买卖力道
+- **实现**: MFM=((Close-Low)-(High-Close))/(High-Low), CMF=sum(MFM×Vol,20)/sum(Vol,20)
+- **选股评分**: CMF>0.15加8分(强资金流入), CMF>0.05加4分, CMF<-0.15扣8分(资金出逃), CMF<-0.05扣4分
+- **CMF趋势**: 近5日CMF vs 前5日CMF，加速流入+3分，加速流出-3分
+- **与OBV互补**: OBV只看量的方向，CMF考虑价格位置，两者结合更准确
+
+### 🚫 板块级止损冷却 (Sector Stop-Loss Cooldown)
+- **核心问题**: 个股黑名单只挡同一只票，但同板块连续止损说明板块系统性不行
+- **方案**: 统计近20天各板块止损次数，同板块≥3次止损全板块扣12分，≥2次扣6分
+- **当前生效**: 主板-12, 科技成长-12, 新能源-6 — 自动规避近期亏损集中的板块
+- **新增函数**: `position_manager.get_sector_stop_loss_penalty()`
+
+### 🏃 盘中追涨过滤 (Intraday Chase Filter)
+- **核心问题**: 盘前选出高分候选，但盘中已涨5%+再追入等于追高接盘
+- **方案**: `filter_tradeable`中盘中涨幅≥5%的候选股评分打6折
+- **效果**: 分数高但盘中已暴涨的票排名自动下降，优先买入尚未启动的
+
+### 🔧 技术细节
+- data_collector: calculate_technical_indicators新增CMF计算(cmf_20/cmf_rising/cmf_falling)
+- stock_picker: score_and_rank新增CMF评分+板块止损冷却扣分; filter_tradeable新增盘中涨幅打折
+- position_manager: 新增get_sector_stop_loss_penalty()板块级止损统计
+
+### 📈 预期效果
+- CMF双重确认资金流向(CMF+OBV)，减少假突破误判
+- 板块冷却避免反复在同一板块踩雷(如近期主板连续止损12分惩罚)
+- 盘中追涨过滤减少高位接盘风险
+
 ## 2026-04-08 22:00 — v5.18 深度优化: 超跌反弹候选池+Fibonacci回撤位+评分质量归一化
 
 ### 🐻 超跌反弹候选池 (Oversold Reversal Scanner) — 熊市专用

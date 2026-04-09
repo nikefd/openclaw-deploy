@@ -92,6 +92,39 @@ def get_stop_loss_blacklist() -> set:
         return set()
 
 
+def get_sector_stop_loss_penalty() -> dict:
+    """板块级止损冷却 — 同板块近期多次止损则整体扣分
+    
+    Returns: {sector: penalty_score} 负数=扣分
+    """
+    try:
+        import sqlite3
+        from performance_tracker import classify_sector
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        cutoff = (date.today() - timedelta(days=20)).isoformat()
+        c.execute("""SELECT b.symbol, b.reason as buy_reason
+                     FROM trades s
+                     JOIN trades b ON b.symbol = s.symbol AND b.direction = 'BUY'
+                         AND b.id = (SELECT MAX(b2.id) FROM trades b2 WHERE b2.symbol = s.symbol AND b2.direction = 'BUY' AND b2.id < s.id)
+                     WHERE s.direction='SELL' AND s.reason LIKE '%止损%' AND s.trade_date >= ?""", (cutoff,))
+        sector_stops = {}
+        for symbol, buy_reason in c.fetchall():
+            sec = classify_sector(symbol, buy_reason or '')
+            sector_stops[sec] = sector_stops.get(sec, 0) + 1
+        conn.close()
+        
+        penalties = {}
+        for sec, count in sector_stops.items():
+            if count >= 3:
+                penalties[sec] = -12  # 同板块3次止损，大扣
+            elif count >= 2:
+                penalties[sec] = -6   # 2次止损，中扣
+        return penalties
+    except:
+        return {}
+
+
 # 板块策略权重 — 来自回测数据验证
 # MACD+RSI在科技+新能源最强，TREND_FOLLOW在消费白马最稳
 SECTOR_STRATEGY_WEIGHTS = {
