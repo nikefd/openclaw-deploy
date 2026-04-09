@@ -508,24 +508,38 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                 pass
         
         # === 追踪止损 (Trailing Stop) ===
-        # 当盈利超过10%后，启用追踪止损：从最高点回撤5%即卖出
-        # 这能锁住大部分利润，避免"坐过山车"
+        # 当盈利超过一定比例后，启用追踪止损：从最高点回撤即卖出
         peak_price = pos.get('peak_price', pos['avg_cost'])
         if pos['current_price'] > peak_price:
             peak_price = pos['current_price']
         
-        trail_activation = 1.04 if regime == 'bear' else 1.10  # 熊市4%即激活追踪止损(原6%太晚)
+        trail_activation = 1.04 if regime == 'bear' else 1.10  # 熊市4%即激活追踪止损
         if peak_price > pos['avg_cost'] * trail_activation:
             trail_drawdown = (peak_price - pos['current_price']) / peak_price
             # ATR自适应追踪止损: 用1.5×ATR%代替固定百分比
-            # 低波动股追踪更紧(锁利润)，高波动股追踪更松(避免被正常波动洗出)
+            # 上限从10%降到7%，避免高波动股利润大幅回吐
             trail_threshold = 0.05  # 默认5%
             if pos_tech:
                 pos_atr_pct = pos_tech.get('atr_pct', 0)
                 if pos_atr_pct > 0:
-                    trail_threshold = max(0.03, min(pos_atr_pct * 1.5 / 100, 0.10))
+                    trail_threshold = max(0.03, min(pos_atr_pct * 1.5 / 100, 0.07))
             if regime == 'bear':
                 trail_threshold = min(trail_threshold, 0.04)  # 熊市上限4%
+            
+            # 保本兜底: 如果从峰值利润回撤到接近成本(当前盈利<2%)，强制止损
+            # 防止"坐过山车"从大赚变回原点
+            peak_gain = (peak_price - pos['avg_cost']) / pos['avg_cost']
+            if peak_gain >= 0.08 and pnl_pct < 0.02:
+                actions.append({
+                    "action": "SELL",
+                    "symbol": pos['symbol'],
+                    "name": pos['name'],
+                    "reason": f"保本止损: 峰值盈利{peak_gain*100:+.1f}%回撤至{pnl_pct*100:+.1f}%",
+                    "shares": pos['shares'],
+                    "price": pos['current_price']
+                })
+                continue
+            
             if trail_drawdown >= trail_threshold:  # 从高点回撤
                 actions.append({
                     "action": "SELL",
