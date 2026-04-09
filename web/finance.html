@@ -318,6 +318,10 @@ body.dark .md-content pre{background:#0a0a12}
       <div class="chart-box"><h3>按策略命中率</h3><canvas id="perfByStrategyChart"></canvas></div>
       <div class="chart-box"><h3>按板块命中率</h3><canvas id="perfBySectorChart"></canvas></div>
     </div>
+    <div class="chart-box" style="margin-bottom:24px">
+      <h3>📊 信号有效性分析 (近60天)</h3>
+      <div id="signalAnalysisGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:12px"></div>
+    </div>
     <div class="tbl-wrap">
       <h3>最近推荐追踪</h3>
       <div style="overflow-x:auto">
@@ -1520,6 +1524,28 @@ async function loadPerformance(){
     try{const arr=JSON.parse(r.signals||'[]');signals=arr.slice(0,3).join(', ')+(arr.length>3?' ...':'');}catch(e){signals=r.signals||'';}
     return`<tr><td>${r.date||''}</td><td>${r.name||''}</td><td>${r.symbol||''}</td><td>${r.confidence||'--'}</td><td>${fmt(r.price||r.buy_price)}</td><td style="font-size:11px;color:var(--sub);max-width:200px">${signals}</td><td>${fmtV(r.max_gain)}</td><td>${fmtV(r.max_loss)}</td><td>${outcomeMap[r.outcome]||r.outcome||'--'}</td></tr>`;
   }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--sub)">暂无推荐记录</td></tr>';
+
+  // Signal effectiveness analysis
+  loadSignalAnalysis();
+}
+
+async function loadSignalAnalysis(){
+  const d=await api('/api/finance/signal-analysis');
+  if(!d||!d.signals)return;
+  const grid=document.getElementById('signalAnalysisGrid');
+  const entries=Object.entries(d.signals).sort((a,b)=>b[1].total-a[1].total);
+  if(!entries.length){grid.innerHTML='<div style="color:var(--sub);grid-column:1/-1;text-align:center">交易数据不足，暂无分析</div>';return;}
+  grid.innerHTML=entries.map(([name,s])=>{
+    const bg=s.status==='effective'?'rgba(46,196,182,0.15)':s.status==='toxic'?'rgba(230,57,70,0.15)':'rgba(255,209,102,0.15)';
+    const border=s.status==='effective'?'#2ec4b6':s.status==='toxic'?'#e63946':'#ffd166';
+    const icon=s.status==='effective'?'✅':s.status==='toxic'?'☠️':'⚠️';
+    return`<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:12px;text-align:center">
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px">${icon} ${name}</div>
+      <div style="font-size:22px;font-weight:700;color:${border}">${s.winRate}%</div>
+      <div style="font-size:11px;color:var(--sub)">胜率 (${s.wins}胜/${s.losses}负)</div>
+      <div style="font-size:12px;margin-top:4px;color:${s.avgPnl>=0?'var(--up)':'var(--down)'}">均盈亏 ${s.avgPnl>=0?'+':''}${s.avgPnl}%</div>
+    </div>`;
+  }).join('');
 }
 
 // Dark Mode

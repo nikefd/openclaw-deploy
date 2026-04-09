@@ -11,7 +11,7 @@ from data_collector import (
     get_market_indices, get_sector_fund_flow, calculate_technical_indicators
 )
 from performance_tracker import classify_sector, record_recommendation
-from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier, kelly_position_size
+from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier, kelly_position_size, get_stop_loss_blacklist, get_sector_stop_loss_penalty
 
 
 # 各信号源对应的策略key（用于市场状态调节权重）
@@ -37,6 +37,317 @@ SIGNAL_QUALITY_WEIGHTS = {
     '机构增持': 1.2,
     '机构强烈推荐': 1.4,
 }
+
+
+def get_learned_signal_weights() -> dict:
+    """从实际交易结果动态学习信号可靠性权重
+    
+    使用指数衰减加权: 近期交易权重更大，快速适应市场变化
+    """
+    try:
+        import sqlite3
+        from datetime import datetime as dt
+        conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
+        c = conn.cursor()
+        # 获取最近45天的买入交易及其最近一次卖出结果
+        c.execute("""
+            SELECT b.reason, b.trade_date,
+                   CASE WHEN s.reason LIKE '%止损%' THEN 'loss'
+                        WHEN s.reason LIKE '%止盈%' THEN 'win'
+                        ELSE 'unknown' END as outcome
+            FROM trades b
+            LEFT JOIN trades s ON b.symbol = s.symbol AND s.direction = 'SELL' 
+                AND s.id = (SELECT MIN(s2.id) FROM trades s2 WHERE s2.symbol = b.symbol AND s2.direction = 'SELL' AND s2.id > b.id)
+            WHERE b.direction = 'BUY' AND b.trade_date >= date('now', '-45 days')
+        """)
+        rows = c.fetchall()
+        conn.close()
+        
+        if len(rows) < 5:
+            return {}  # 样本太少不学习
+        
+        today = dt.now()
+        signal_stats = {}  # signal -> {weighted_wins, weighted_losses, total_weight}
+        for reason, trade_date, outcome in rows:
+            if not reason:
+                continue
+            # 指数衰减: 半衰期7天，越近的交易权重越大
+            try:
+                td = dt.strptime(trade_date, '%Y-%m-%d')
+                days_ago = (today - td).days
+                weight = 0.5 ** (days_ago / 7)  # 7天前权重0.5，14天前权重0.25
+            except:
+                weight = 0.1
+            
+            for sig_name in SIGNAL_QUALITY_WEIGHTS:
+                if sig_name in reason:
+                    if sig_name not in signal_stats:
+                        signal_stats[sig_name] = {'weighted_wins': 0, 'weighted_losses': 0, 'total_weight': 0}
+                    signal_stats[sig_name]['total_weight'] += weight
+                    if outcome == 'win':
+                        signal_stats[sig_name]['weighted_wins'] += weight
+                    elif outcome == 'loss':
+                        signal_stats[sig_name]['weighted_losses'] += weight
+        
+        # 计算学习后的权重调节
+        adjustments = {}
+        for sig, stats in signal_stats.items():
+            total = stats['weighted_wins'] + stats['weighted_losses']
+            if total >= 1.5:  # 加权总量够
+                win_rate = stats['weighted_wins'] / total
+                if win_rate < 0.25:
+                    adjustments[sig] = 0.4   # 近期胜率极低，大幅降权
+                elif win_rate < 0.4:
+                    adjustments[sig] = 0.65  # 近期胜率低，适度降权
+                elif win_rate > 0.6:
+                    adjustments[sig] = 1.35  # 近期胜率高，提权
+        return adjustments
+    except:
+        return {}
+
+
+# 信号类别分组 — 用于共识门槛检查
+SIGNAL_CATEGORIES = {
+    '量价齐升': 'momentum',
+    '创新高': 'momentum',
+    '大笔买入': 'money_flow',
+    '火箭发射': 'money_flow',
+    '强势股': 'strong',
+    '机构买入': 'institution',
+    '机构增持': 'institution',
+    '机构强烈推荐': 'institution',
+    '新闻利好': 'news',
+    '机构龙虎榜买入': 'lhb',
+    '北向增持': 'northbound',
+    '缩量企稳': 'technical',
+    '均线收敛突破': 'technical',
+}
+
+
+def get_trade_review_insights() -> dict:
+    """交易复盘学习 — 分析历史赢/亏交易的技术条件，学习什么情况买入更容易赢
+    
+    Returns: {
+        'win_patterns': {'near_support': 0.7, 'rsi_low': 0.6, ...},  # 赢的交易中该信号出现率
+        'loss_patterns': {'near_resistance': 0.8, 'rsi_high': 0.5, ...},
+        'score_adjustments': {'near_support': +8, 'near_resistance': -6, ...}
+    }
+    """
+    try:
+        import sqlite3
+        conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
+        c = conn.cursor()
+        # 获取近60天所有完整交易(买入+卖出)
+        c.execute("""
+            SELECT b.symbol, b.price as buy_price, b.trade_date as buy_date,
+                   s.price as sell_price, s.reason as sell_reason
+            FROM trades b
+            JOIN trades s ON b.symbol = s.symbol AND s.direction = 'SELL'
+                AND s.id = (SELECT MIN(s2.id) FROM trades s2 WHERE s2.symbol = b.symbol AND s2.direction = 'SELL' AND s2.id > b.id)
+            WHERE b.direction = 'BUY' AND b.trade_date >= date('now', '-60 days')
+        """)
+        trades = c.fetchall()
+        conn.close()
+        
+        if len(trades) < 5:
+            return {}
+        
+        from data_collector import get_stock_daily, calculate_technical_indicators
+        
+        win_conditions = {'near_support': 0, 'strong_support': 0, 'z_under_neg1': 0, 
+                         'higher_low': 0, 'volume_dryup': 0, 'weekly_up': 0, 'adx_strong': 0}
+        loss_conditions = dict(win_conditions)
+        win_count = 0
+        loss_count = 0
+        
+        for symbol, buy_price, buy_date, sell_price, sell_reason in trades:
+            is_win = sell_price > buy_price or '止盈' in (sell_reason or '')
+            is_loss = '止损' in (sell_reason or '')
+            
+            if not is_win and not is_loss:
+                continue
+            
+            # 回溯买入时的技术条件(用买入日前60天数据)
+            try:
+                df = get_stock_daily(symbol, 80)
+                if df is None or df.empty:
+                    continue
+                # 截取到买入日附近的数据
+                if '日期' in df.columns:
+                    mask = df['日期'] <= buy_date
+                    df_before = df[mask]
+                    if len(df_before) < 20:
+                        continue
+                    tech = calculate_technical_indicators(df_before)
+                else:
+                    tech = calculate_technical_indicators(df)
+                
+                if not tech:
+                    continue
+                
+                conds = win_conditions if is_win else loss_conditions
+                if is_win:
+                    win_count += 1
+                else:
+                    loss_count += 1
+                
+                if tech.get('near_support'):
+                    conds['near_support'] += 1
+                if tech.get('strong_support'):
+                    conds['strong_support'] += 1
+                if tech.get('price_z_score', 0) < -1:
+                    conds['z_under_neg1'] += 1
+                if tech.get('higher_low'):
+                    conds['higher_low'] += 1
+                if tech.get('volume_dryup'):
+                    conds['volume_dryup'] += 1
+                if tech.get('weekly_trend') == 'up':
+                    conds['weekly_up'] += 1
+                if tech.get('trend_strength') == 'strong':
+                    conds['adx_strong'] += 1
+            except:
+                continue
+        
+        if win_count < 2 and loss_count < 2:
+            return {}
+        
+        # 计算分数调整: 赢家交易中高频出现的条件加分，输家交易中高频的条件扣分
+        adjustments = {}
+        for cond in win_conditions:
+            win_rate = win_conditions[cond] / max(win_count, 1)
+            loss_rate = loss_conditions[cond] / max(loss_count, 1)
+            diff = win_rate - loss_rate
+            if diff > 0.2:
+                adjustments[cond] = int(diff * 15)  # 赢家信号，加分
+            elif diff < -0.2:
+                adjustments[cond] = int(diff * 12)  # 输家信号，扣分
+        
+        return {
+            'win_count': win_count,
+            'loss_count': loss_count,
+            'adjustments': adjustments,
+        }
+    except:
+        return {}
+
+
+def get_toxic_signal_combos() -> dict:
+    """信号毒性检测 — 分析近期亏损交易的信号组合模式
+    
+    找出哪些信号组合总是亏钱(毒信号)，自动扣分
+    Returns: {signal_combo_key: penalty_score}
+    """
+    try:
+        import sqlite3
+        conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
+        c = conn.cursor()
+        # 获取近30天买入→止损的交易对
+        c.execute("""
+            SELECT b.reason, b.trade_date, s.reason as sell_reason,
+                   (s.price - b.price) / b.price * 100 as loss_pct
+            FROM trades b
+            JOIN trades s ON b.symbol = s.symbol AND s.direction = 'SELL'
+                AND s.id = (SELECT MIN(s2.id) FROM trades s2 WHERE s2.symbol = b.symbol AND s2.direction = 'SELL' AND s2.id > b.id)
+            WHERE b.direction = 'BUY' AND b.trade_date >= date('now', '-30 days')
+                AND s.reason LIKE '%止损%'
+        """)
+        losses = c.fetchall()
+        
+        # 统计买入→赢的交易作为对照
+        c.execute("""
+            SELECT b.reason
+            FROM trades b
+            JOIN trades s ON b.symbol = s.symbol AND s.direction = 'SELL'
+                AND s.id = (SELECT MIN(s2.id) FROM trades s2 WHERE s2.symbol = b.symbol AND s2.direction = 'SELL' AND s2.id > b.id)
+            WHERE b.direction = 'BUY' AND b.trade_date >= date('now', '-30 days')
+                AND s.reason LIKE '%止盈%'
+        """)
+        wins = c.fetchall()
+        conn.close()
+        
+        if len(losses) < 3:
+            return {}
+        
+        # 提取亏损交易中频繁出现的信号关键词
+        loss_signals = {}
+        for reason, _, _, loss_pct in losses:
+            if not reason:
+                continue
+            for keyword in ['量价齐升', '创新高', '大笔买入', '火箭', '强势股', '机构', 
+                           '超跌', '北向', '龙虎榜', '新闻利好']:
+                if keyword in reason:
+                    loss_signals[keyword] = loss_signals.get(keyword, 0) + 1
+        
+        # 赢的交易中的信号
+        win_signals = {}
+        for (reason,) in wins:
+            if not reason:
+                continue
+            for keyword in loss_signals:
+                if keyword in reason:
+                    win_signals[keyword] = win_signals.get(keyword, 0) + 1
+        
+        # 计算毒性: 亏损出现率 >> 盈利出现率 的信号
+        toxic = {}
+        total_losses = len(losses)
+        total_wins = max(len(wins), 1)
+        for sig, loss_count in loss_signals.items():
+            loss_rate = loss_count / total_losses
+            win_rate = win_signals.get(sig, 0) / total_wins
+            # 亏损交易中出现率>50%且盈利交易中出现率<20% = 毒信号
+            if loss_rate > 0.5 and win_rate < 0.2:
+                toxic[sig] = -15  # 重扣
+            elif loss_rate > 0.4 and loss_rate > win_rate * 2:
+                toxic[sig] = -8   # 中扣
+        
+        return toxic
+    except:
+        return {}
+
+
+def get_dynamic_score_threshold(regime: str = "", loss_streak: int = 0) -> int:
+    """基于近期胜率动态调节最低买入分数门槛
+    
+    连亏越多、胜率越低 → 门槛越高，只买最强信号
+    """
+    base = 25  # 正常市场下的最低分数(从20提高,减少弱信号入场)
+    
+    # 近期胜率调节
+    try:
+        from performance_tracker import get_performance_summary
+        perf = get_performance_summary()
+        hr = perf.get('hit_rate', 50)
+        if hr < 20:
+            base += 15  # 近期命中率极低,大幅提高门槛
+        elif hr < 35:
+            base += 8
+    except:
+        pass
+    
+    # 连亏调节
+    if loss_streak >= 5:
+        base += 12
+    elif loss_streak >= 3:
+        base += 6
+    
+    # 熊市调节
+    if regime == 'bear':
+        base += 5
+    
+    return base
+
+
+def check_signal_consensus(signals: list) -> tuple:
+    """检查信号共识: 至少2个不同类别的信号同意才通过
+    
+    Returns: (pass: bool, categories: set, category_count: int)
+    """
+    categories = set()
+    for sig in signals:
+        sig_base = sig.split('×')[0].split('+')[0].split(':')[0]
+        cat = SIGNAL_CATEGORIES.get(sig_base, 'other')
+        categories.add(cat)
+    return len(categories) >= 2, categories, len(categories)
 
 
 def get_recent_strategy_performance() -> dict:
@@ -72,6 +383,100 @@ def get_recent_strategy_performance() -> dict:
         return {'strategy': strategy_mult, 'sector': sector_mult}
     except:
         return {'strategy': {}, 'sector': {}}
+
+
+def get_oversold_reversal_candidates() -> list:
+    """策略7: 超跌反弹候选池 — 熊市专用
+    
+    主动扫描近期跌幅大但技术面出现企稳信号的股票
+    不依赖动量/突破信号，而是寻找卖方耗尽+底部形态
+    """
+    candidates = []
+    try:
+        # 获取连续下跌的股票(同花顺连续下跌排行)
+        try:
+            df = ak.stock_rank_ljqd_ths()
+            for _, row in df.head(40).iterrows():
+                code = str(row.get('股票代码', ''))
+                days_down = int(row.get('连续下跌天数', 0) or 0)
+                cum_drop = float(row.get('累计跌幅', 0) or 0)
+                # 筛选: 连跌5-15天、累计跌幅-8%~-25%(不要跌太多的雷股)
+                if 5 <= days_down <= 15 and -25 <= cum_drop <= -8:
+                    candidates.append({
+                        'code': code,
+                        'name': row.get('股票简称', ''),
+                        'signal': f'超跌{days_down}天跌{cum_drop:.1f}%',
+                        'score': min(abs(cum_drop), 20),  # 跌得越多基础分越高(有限度)
+                        'days_down': days_down,
+                        'cum_drop': cum_drop,
+                    })
+        except Exception as e:
+            print(f"  超跌排行获取失败: {e}")
+        
+        # 二次筛选: 加载技术指标，只保留有企稳信号的
+        filtered = []
+        for c in candidates[:20]:
+            try:
+                df_k = get_stock_daily(c['code'], 60)
+                if df_k is None or df_k.empty or len(df_k) < 20:
+                    continue
+                tech = calculate_technical_indicators(df_k)
+                if not tech:
+                    continue
+                
+                # 企稳信号检查: 至少满足2个
+                reversal_signals = 0
+                reasons = []
+                
+                rsi = tech.get('rsi14', 50)
+                if rsi < 30:
+                    reversal_signals += 1
+                    reasons.append(f'RSI{rsi:.0f}')
+                
+                if tech.get('volume_dryup'):
+                    reversal_signals += 1
+                    reasons.append('缩量企稳')
+                
+                if tech.get('higher_low'):
+                    reversal_signals += 1
+                    reasons.append('底部抬升')
+                
+                if tech.get('bullish_candle'):
+                    reversal_signals += 1
+                    reasons.append('看涨K线')
+                
+                z = tech.get('price_z_score', 0)
+                if z < -1.5:
+                    reversal_signals += 1
+                    reasons.append(f'Z{z:.1f}')
+                
+                wr = tech.get('williams_r', -50)
+                if tech.get('wr_reversal'):
+                    reversal_signals += 1
+                    reasons.append('WR回升')
+                
+                if tech.get('near_fib_support'):
+                    reversal_signals += 1
+                    reasons.append('Fib支撑')
+                
+                if tech.get('macd_zero_cross_up') or tech.get('macd_signal') == 'golden_cross':
+                    reversal_signals += 1
+                    reasons.append('MACD转多')
+                
+                if reversal_signals >= 2:
+                    c['signal'] += '+' + '+'.join(reasons[:3])
+                    c['score'] += reversal_signals * 5
+                    c['reversal_count'] = reversal_signals
+                    filtered.append(c)
+                
+                time.sleep(0.2)
+            except:
+                continue
+        
+        return sorted(filtered, key=lambda x: -x['score'])[:15]
+    except Exception as e:
+        print(f"  超跌反弹扫描失败: {e}")
+        return []
 
 
 def get_momentum_candidates() -> list:
@@ -255,7 +660,8 @@ def get_sector_momentum() -> dict:
 
 def score_and_rank(all_candidates: list, regime: str = "") -> list:
     """综合打分+技术面验证+板块策略路由+市场状态调节+排名"""
-    # 合并同一股票的信号（按信号质量加权）
+    # 合并同一股票的信号（按信号质量加权 + 动态学习调整）
+    learned_adj = get_learned_signal_weights()
     merged = {}
     for c in all_candidates:
         code = c['code']
@@ -263,6 +669,9 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
             continue
         sig_base = c['signal'].split('×')[0].split('+')[0]
         quality_w = SIGNAL_QUALITY_WEIGHTS.get(sig_base, 1.0)
+        # 应用学习调整: 实盘验证后的信号权重覆盖默认值
+        if sig_base in learned_adj:
+            quality_w *= learned_adj[sig_base]
         weighted_score = int(c['score'] * quality_w)
         if code in merged:
             merged[code]['signals'].append(c['signal'])
@@ -290,6 +699,45 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 adjusted_score += stock['score'] / max(len(stock['signals']), 1) * multiplier
             stock['score'] = int(adjusted_score)
 
+    # === 熊市均值回归模式 ===
+    # 熊市下追涨策略命中率低,切换为超跌反弹逻辑
+    bear_mode = (regime == 'bear')
+
+    # === 预计算: 循环外一次性获取，避免每只股票重复调用 ===
+    _review_insights = None
+    try:
+        _review_insights = get_trade_review_insights()
+    except:
+        pass
+    
+    _perf_mult = {'strategy': {}, 'sector': {}}
+    try:
+        _perf_mult = get_recent_strategy_performance()
+    except:
+        pass
+    
+    _sector_mom = {}
+    try:
+        _sector_mom = get_sector_momentum()
+    except:
+        pass
+
+    # === 板块级止损冷却: 同板块近期多次止损扣分 ===
+    _sector_penalties = {}
+    try:
+        _sector_penalties = get_sector_stop_loss_penalty()
+    except:
+        pass
+
+    # === 信号毒性检测: 近期总亏钱的信号组合自动扣分 ===
+    _toxic_signals = {}
+    try:
+        _toxic_signals = get_toxic_signal_combos()
+        if _toxic_signals:
+            print(f"  ☠️ 毒信号检测: {_toxic_signals}")
+    except:
+        pass
+
     # 加技术面验证 + 板块策略路由
     print(f"  📊 验证{len(ranked)}只候选股技术面...")
     for i, stock in enumerate(ranked):
@@ -316,6 +764,10 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] += 5
                 elif rsi > 80:  # 超买风险
                     stock['score'] -= 8
+                elif rsi < 30 and bear_mode:  # 熊市超跌反弹加分
+                    stock['score'] += 12  # 熊市下RSI<30是抄底机会
+                elif rsi < 30:
+                    stock['score'] += 5
 
                 macd_sig = tech.get('macd_signal', '')
                 macd_weight = weights.get('macd_rsi', 1.0)
@@ -325,6 +777,12 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] += int(5 * macd_weight)
                 elif macd_sig == 'death_cross':
                     stock['score'] -= 12
+
+                # === MACD零轴突破: DIF上穿零轴=趋势空翻多，比金叉更强 ===
+                if tech.get('macd_zero_cross_up'):
+                    stock['score'] += int(10 * macd_weight)  # 强趋势反转信号
+                elif tech.get('macd_zero_cross_down'):
+                    stock['score'] -= 8  # DIF跌穿零轴=趋势转空
 
                 vol_ratio = tech.get('volume_ratio', 1)
                 if vol_ratio > 1.5:  # 放量
@@ -371,6 +829,22 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 if tech.get('gap_down'):
                     stock['score'] -= 8  # 向下跳空缺口=破位风险
 
+                # === CMF (Chaikin Money Flow) 资金流向 ===
+                cmf = tech.get('cmf_20', 0)
+                if cmf > 0.15:  # 强资金流入
+                    stock['score'] += 8
+                elif cmf > 0.05:
+                    stock['score'] += 4
+                elif cmf < -0.15:  # 强资金流出
+                    stock['score'] -= 8
+                elif cmf < -0.05:
+                    stock['score'] -= 4
+                # CMF趋势变化
+                if tech.get('cmf_rising'):
+                    stock['score'] += 3  # 资金流入趋势加速
+                if tech.get('cmf_falling'):
+                    stock['score'] -= 3  # 资金流出趋势加速
+
                 # === OBV能量潮确认 ===
                 obv_trend = tech.get('obv_trend', 0)
                 if obv_trend > 0.15:  # OBV明显上升，量价配合
@@ -379,6 +853,25 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] -= 5
                 if tech.get('obv_price_diverge'):  # 价涨量缩的OBV背离
                     stock['score'] -= 7
+
+                # === Williams %R 信号 ===
+                wr = tech.get('williams_r', -50)
+                if tech.get('wr_reversal'):
+                    stock['score'] += 8  # 从超卖回升=强买入信号
+                elif wr > -20:  # 超买区
+                    stock['score'] -= 6
+                elif tech.get('wr_overbought_exit'):
+                    stock['score'] -= 4  # 从超买回落=减弱信号
+
+                # === 周线趋势过滤器 ===
+                # 日线信号必须有周线趋势确认，否则打折
+                weekly_trend = tech.get('weekly_trend', 'neutral')
+                if weekly_trend == 'down':
+                    stock['score'] = int(stock['score'] * 0.6)  # 周线下降趋势，信号大幅打折
+                    stock['weekly_downtrend'] = True
+                elif weekly_trend == 'up':
+                    stock['score'] = int(stock['score'] * 1.15)  # 周线上升趋势，加分
+                # neutral不调整
 
                 # === 换手率过滤 ===
                 # 用volume_ratio近似判断异常换手: 量比>3说明换手极高,可能是游资炒作
@@ -394,6 +887,119 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] -= 3
                 stock['atr_pct'] = atr_pct
 
+                # === ADX趋势强度调节 ===
+                # ADX>25=强趋势: 趋势信号可信; ADX<20=弱趋势: 趋势信号打折
+                adx = tech.get('adx', 0)
+                trend_strength = tech.get('trend_strength', 'unknown')
+                if trend_strength == 'strong':
+                    # 强趋势下，多头排列/MACD金叉更可信，额外加分
+                    if '多头' in trend or macd_sig in ('golden_cross', 'bullish'):
+                        stock['score'] += 6
+                elif trend_strength == 'weak':
+                    # 无方向市场，趋势信号不可信，扣分避免假突破
+                    if '多头' in trend or macd_sig in ('golden_cross', 'bullish'):
+                        stock['score'] -= 4
+                stock['adx'] = adx
+
+                # === 布林带 %B 超卖/超买 ===
+                pct_b = tech.get('boll_pct_b', 0.5)
+                if pct_b < 0:  # 跌破下轨，极度超卖
+                    stock['score'] += 10 if bear_mode else 6
+                elif pct_b < 0.2:  # 接近下轨
+                    stock['score'] += 5 if bear_mode else 3
+                elif pct_b > 1.0:  # 突破上轨，超买
+                    stock['score'] -= 6
+                
+                # 布林带收窄(squeeze) = 即将变盘，观望
+                if tech.get('boll_squeeze'):
+                    stock['score'] -= 3  # 方向不明，不急着进场
+                
+                # === 成交量高潮 ===
+                if tech.get('sell_climax') and bear_mode:
+                    stock['score'] += 10  # 恐慌抛售尾声，熊市抄底好机会
+                elif tech.get('sell_climax'):
+                    stock['score'] += 5
+                if tech.get('buy_climax'):
+                    stock['score'] -= 10  # 追高巨量，获利盘回吐风险极大
+
+                # === 相对强度评级 (RS vs 大盘) ===
+                # 比大盘弱的股票不买，只选强于大盘的
+                stock_ret_10d = tech.get('stock_ret_10d', 0)
+                stock_ret_20d = tech.get('stock_ret_20d', 0)
+                rs_10d = stock_ret_10d  # 绝对收益当RS
+                if rs_10d < -5:
+                    stock['score'] -= 8  # 近10日大跌>5%，弱势
+                elif rs_10d > 5:
+                    stock['score'] += 5  # 近10日涨>5%，强势
+                stock['rs_10d'] = rs_10d
+
+                # === 缩量企稳(Volume Dry-up) ===
+                if tech.get('volume_dryup'):
+                    stock['score'] += 10 if bear_mode else 6  # 卖方耗尽=底部信号
+                    stock['volume_dryup'] = True
+
+                # === 均线密集收敛突破 ===
+                if tech.get('ma_converge_breakout'):
+                    stock['score'] += 12  # MA收敛后突破=强启动信号
+                    stock['ma_breakout'] = True
+
+                # === 价格结构: Higher Low 确认底部 ===
+                if tech.get('higher_low'):
+                    stock['score'] += 8 if bear_mode else 5  # 底部抬升=筑底成功
+                if tech.get('lower_low'):
+                    stock['score'] -= 8  # 下降通道，不抄底
+
+                # === 支撑阻力位评分 ===
+                if tech.get('near_support'):
+                    stock['score'] += 8  # 接近支撑位，好的买入位置
+                    if tech.get('strong_support'):
+                        stock['score'] += 5  # 多次验证的强支撑更可靠
+                if tech.get('near_resistance'):
+                    stock['score'] -= 6  # 接近阻力位，上涨空间有限
+
+                # === Fibonacci 回撤位评分 ===
+                if tech.get('near_fib_support'):
+                    stock['score'] += 7  # 接近Fib支撑位=关键价位买入
+                fib_res_dist = tech.get('fib_resistance_dist_pct', 99)
+                if fib_res_dist < 1.5:
+                    stock['score'] -= 5  # 接近Fib阻力位,上涨空间有限
+
+                # === 价格Z-Score均值回归 ===
+                z_score = tech.get('price_z_score', 0)
+                if z_score < -2:
+                    stock['score'] += 10 if bear_mode else 6  # 统计极度超卖
+                elif z_score < -1:
+                    stock['score'] += 5 if bear_mode else 3
+                elif z_score > 2:
+                    stock['score'] -= 8  # 统计极度超买
+                elif z_score > 1.5:
+                    stock['score'] -= 4
+
+                # === K线形态信号 ===
+                if tech.get('bullish_candle'):
+                    candle_bonus = 10 if bear_mode else 6
+                    stock['score'] += candle_bonus
+                    stock['bullish_candle'] = True
+                    if tech.get('hammer'):
+                        stock['candle_pattern'] = '锤子线'
+                    elif tech.get('bullish_engulf'):
+                        stock['candle_pattern'] = '看涨吞没'
+                    elif tech.get('morning_star'):
+                        stock['candle_pattern'] = '早晨之星'
+                if tech.get('bearish_candle'):
+                    stock['score'] -= 8
+                    stock['bearish_candle'] = True
+
+                # === 连续阳线/阴线信号 ===
+                consec_bull = tech.get('consec_bull_candles', 0)
+                consec_bear = tech.get('consec_bear_candles', 0)
+                if consec_bull >= 3 and rsi < 45:  # 超卖区连续阳线=强反转
+                    stock['score'] += 8 if bear_mode else 5
+                elif consec_bull >= 3 and rsi > 65:  # 高位连续阳线=可能见顶
+                    stock['score'] -= 3
+                if consec_bear >= 3:
+                    stock['score'] -= 6  # 连续阴线=趋势衰弱
+
                 # === 抛物线拉升过滤 ===
                 # 5日涨幅>15%的票大概率要回调，不追
                 if df is not None and len(df) >= 5:
@@ -408,21 +1014,49 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     except:
                         pass
 
+                # === 信号毒性扣分 ===
+                if _toxic_signals:
+                    for sig in stock['signals']:
+                        for toxic_kw, penalty in _toxic_signals.items():
+                            if toxic_kw in sig:
+                                stock['score'] += penalty
+                                stock['toxic_signal'] = True
+
                 # 板块整体乘数（回测验证好的板块加成）
                 stock['score'] = int(stock['score'] * get_sector_score_multiplier(sector))
 
                 # === 近期绩效自适应 ===
-                # 根据近期实际推荐表现动态调节分数
                 try:
-                    perf_mult = get_recent_strategy_performance()
-                    sector_adj = perf_mult.get('sector', {}).get(sector, 1.0)
+                    sector_adj = _perf_mult.get('sector', {}).get(sector, 1.0)
                     stock['score'] = int(stock['score'] * sector_adj)
+                except:
+                    pass
+
+                # === 交易复盘学习调整 ===
+                try:
+                    review = _review_insights
+                    if review and review.get('adjustments'):
+                        adj = review['adjustments']
+                        if 'near_support' in adj and tech.get('near_support'):
+                            stock['score'] += adj['near_support']
+                        if 'strong_support' in adj and tech.get('strong_support'):
+                            stock['score'] += adj.get('strong_support', 0)
+                        if 'z_under_neg1' in adj and tech.get('price_z_score', 0) < -1:
+                            stock['score'] += adj['z_under_neg1']
+                        if 'higher_low' in adj and tech.get('higher_low'):
+                            stock['score'] += adj.get('higher_low', 0)
+                        if 'volume_dryup' in adj and tech.get('volume_dryup'):
+                            stock['score'] += adj.get('volume_dryup', 0)
+                        if 'weekly_up' in adj and tech.get('weekly_trend') == 'up':
+                            stock['score'] += adj.get('weekly_up', 0)
+                        if 'adx_strong' in adj and tech.get('trend_strength') == 'strong':
+                            stock['score'] += adj.get('adx_strong', 0)
                 except:
                     pass
 
                 # === 板块动量轮动加分 ===
                 try:
-                    sector_mom = get_sector_momentum()
+                    sector_mom = _sector_mom
                     # 用板块名称关键词匹配: 科技→半导体/软件/芯片, 新能源→光伏/锂电/风电 等
                     SECTOR_KEYWORDS = {
                         '科技成长': ['半导体', '软件', '芯片', '计算机', '电子', '通信', '互联网', '人工智能', 'AI'],
@@ -444,13 +1078,55 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 except:
                     pass
 
+                # === 板块级止损冷却惩罚 ===
+                if sector in _sector_penalties:
+                    stock['score'] += _sector_penalties[sector]
+                    stock['sector_cooldown'] = True
+
             time.sleep(0.3)
         except Exception as e:
             print(f"  ⚠️ {stock['code']}技术面验证失败: {e}")
 
     # 重新排序
     ranked = sorted(ranked, key=lambda x: -x['score'])
-    return ranked
+    
+    # === 信号共识过滤 ===
+    # 只保留至少2个独立信号类别支持的候选,减少假信号
+    consensus_filtered = []
+    for stock in ranked:
+        passed, cats, cat_count = check_signal_consensus(stock['signals'])
+        stock['signal_categories'] = list(cats)
+        stock['consensus_count'] = cat_count
+        if passed:
+            # 多类别共识加分: 3类别+6, 4类别+10
+            if cat_count >= 4:
+                stock['score'] += 10
+            elif cat_count >= 3:
+                stock['score'] += 6
+            consensus_filtered.append(stock)
+        else:
+            # 单类别但分数极高(>50)的也保留(可能是强机构推荐)
+            if stock['score'] >= 50:
+                stock['score'] = int(stock['score'] * 0.8)  # 打折但保留
+                consensus_filtered.append(stock)
+    
+    # 如果共识过滤后太少,放宽到原列表(避免空选)
+    if len(consensus_filtered) < 3:
+        consensus_filtered = ranked
+    
+    # === 评分质量归一化 ===
+    # 防止多信号堆叠导致分数膨胀 — 计算每个信号类别的平均分
+    for stock in consensus_filtered:
+        n_cats = max(stock.get('consensus_count', 1), 1)
+        n_sigs = max(len(stock.get('signals', [])), 1)
+        # 质量分 = 总分 × (1 + log2(信号类别数)) / sqrt(信号总数)
+        # 多类别加成(质量好)，但单纯多信号不等比膨胀
+        import math
+        quality_mult = (1 + math.log2(n_cats)) / math.sqrt(n_sigs) if n_sigs > 1 else 1.0
+        stock['raw_score'] = stock['score']
+        stock['score'] = int(stock['score'] * min(quality_mult, 1.5))
+    
+    return sorted(consensus_filtered, key=lambda x: -x['score'])
 
 
 def filter_tradeable(candidates: list) -> list:
@@ -471,6 +1147,10 @@ def filter_tradeable(candidates: list) -> list:
                 continue
             if abs(change) >= 9.8:  # 涨跌停，大概率买不进
                 c['at_limit'] = True
+            # 盘中已涨>5%不追高: 早上选出来评分高，但盘中已大涨就别追了
+            if change >= 5.0:
+                c['score'] = int(c.get('score', 0) * 0.6)  # 打6折
+                c['intraday_chase'] = True
             c['realtime_price'] = price
             c['change_pct'] = change
         filtered.append(c)
@@ -478,7 +1158,7 @@ def filter_tradeable(candidates: list) -> list:
     return filtered
 
 
-def multi_strategy_pick(regime: str = "", use_news: bool = True) -> dict:
+def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: int = 0) -> dict:
     """多策略综合选股主流程（含新闻/舆情数据源）"""
     print("  🔍 策略1: 动量选股(量价齐升+创新高)...")
     momentum = get_momentum_candidates()
@@ -556,8 +1236,15 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True) -> dict:
     except Exception as e:
         print(f"  ⚠️ 资金面数据采集失败(不影响其他策略): {e}")
 
+    # === 策略7: 超跌反弹(熊市专用) ===
+    oversold_candidates = []
+    if regime == 'bear':
+        print("  🐻 策略7: 超跌反弹扫描(熊市专用)...")
+        oversold_candidates = get_oversold_reversal_candidates()
+        print(f"    → {len(oversold_candidates)}只超跌企稳候选")
+
     # 合并所有候选
-    all_candidates = momentum + money + strong + institution + news_candidates + money_candidates
+    all_candidates = momentum + money + strong + institution + news_candidates + money_candidates + oversold_candidates
     print(f"  📊 共{len(all_candidates)}条信号，开始综合打分...")
 
     # 打分排名（含市场状态调节）
@@ -600,6 +1287,37 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True) -> dict:
         except Exception as e:
             print(f"  ⚠️ 资金面信号叠加失败: {e}")
 
+    # === 动态分数门槛: 根据近期胜率+连亏情况自动提高门槛 ===
+    score_threshold = get_dynamic_score_threshold(regime=regime, loss_streak=loss_streak)
+    ranked = [s for s in ranked if s['score'] >= score_threshold]
+    print(f"  🎯 动态分数门槛: {score_threshold}分, 通过{len(ranked)}只")
+
+    # === 止损黑名单: 近期止损过的股票不再买回 ===
+    blacklist = get_stop_loss_blacklist()
+    if blacklist:
+        before = len(ranked)
+        ranked = [s for s in ranked if s['code'] not in blacklist]
+        blocked = before - len(ranked)
+        if blocked > 0:
+            print(f"  🚫 止损黑名单过滤: 排除{blocked}只近期止损股")
+
+    # === 市场宽度检查: 普跌行情进一步提高门槛 ===
+    breadth_info = {}
+    try:
+        from market_regime import get_market_breadth
+        breadth_info = get_market_breadth()
+        breadth_sig = breadth_info.get('breadth_signal', 'neutral')
+        print(f"  📊 市场宽度: 涨{breadth_info.get('advance',0)}跌{breadth_info.get('decline',0)} "
+              f"({breadth_info.get('breadth_ratio',0.5):.1%}) → {breadth_sig}")
+        if breadth_sig == 'very_weak':
+            # 普跌行情，只保留最强的2只
+            ranked = ranked[:2]
+            print(f"  ⚠️ 市场普跌，候选缩减至{len(ranked)}只")
+        elif breadth_sig == 'weak':
+            ranked = ranked[:4]
+    except Exception as e:
+        print(f"  ⚠️ 市场宽度检查失败: {e}")
+
     # 过滤
     tradeable = filter_tradeable(ranked)
 
@@ -607,6 +1325,7 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True) -> dict:
         'candidates': tradeable,
         'news_signals': news_signals,
         'money_overview': money_overview,
+        'breadth': breadth_info,
         'stats': {
             'momentum_count': len(momentum),
             'money_flow_count': len(money),
@@ -614,6 +1333,7 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True) -> dict:
             'institution_count': len(institution),
             'news_count': len(news_candidates),
             'money_data_count': len(money_candidates),
+            'oversold_count': len(oversold_candidates),
             'total_signals': len(all_candidates),
             'final_count': len(tradeable),
             'money_flow_score': money_overview.get('money_flow_score', 0) if money_overview else 0,

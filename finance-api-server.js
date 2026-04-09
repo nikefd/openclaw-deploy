@@ -344,6 +344,43 @@ function handlePeriodReturns(req, res) {
   });
 }
 
+function handleSignalAnalysis(req, res) {
+  const db = getDb();
+  try {
+    // Get all buy-sell pairs from last 60 days
+    const trades = db.prepare(`
+      SELECT b.reason as buy_reason, b.trade_date as buy_date, b.price as buy_price,
+             s.price as sell_price, s.reason as sell_reason,
+             CASE WHEN s.reason LIKE '%止盈%' OR s.price > b.price THEN 'win' ELSE 'loss' END as outcome
+      FROM trades b
+      JOIN trades s ON b.symbol = s.symbol AND s.direction = 'SELL'
+        AND s.id = (SELECT MIN(s2.id) FROM trades s2 WHERE s2.symbol = b.symbol AND s2.direction = 'SELL' AND s2.id > b.id)
+      WHERE b.direction = 'BUY' AND b.trade_date >= date('now', '-60 days')
+    `).all();
+    
+    const signals = ['量价齐升', '创新高', '大笔买入', '火箭', '强势股', '机构买入', '机构增持',
+                     '超跌', '北向', '龙虎榜', '新闻利好', '缩量企稳', '均线收敛'];
+    const analysis = {};
+    for (const sig of signals) {
+      const matched = trades.filter(t => t.buy_reason && t.buy_reason.includes(sig));
+      if (matched.length === 0) continue;
+      const wins = matched.filter(t => t.outcome === 'win').length;
+      const losses = matched.filter(t => t.outcome === 'loss').length;
+      const avgPnl = matched.reduce((sum, t) => sum + (t.sell_price - t.buy_price) / t.buy_price * 100, 0) / matched.length;
+      analysis[sig] = {
+        total: matched.length, wins, losses,
+        winRate: matched.length > 0 ? Math.round(wins / matched.length * 100) : 0,
+        avgPnl: Math.round(avgPnl * 100) / 100,
+        status: wins / Math.max(matched.length, 1) >= 0.5 ? 'effective' :
+                wins / Math.max(matched.length, 1) >= 0.3 ? 'neutral' : 'toxic'
+      };
+    }
+    sendJson(res, { signals: analysis, totalTrades: trades.length });
+  } catch (e) {
+    sendJson(res, { signals: {}, totalTrades: 0 });
+  }
+}
+
 let runState = { status: 'idle', log: '', startTime: null };
 const RUN_LOG_FILE = '/tmp/finance-runner.log';
 
@@ -559,6 +596,7 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/weekly-returns' && req.method === 'GET') return handleWeeklyReturns(req, res);
     if (pathname === '/api/finance/period-returns' && req.method === 'GET') return handlePeriodReturns(req, res);
     if (pathname === '/api/finance/risk-metrics' && req.method === 'GET') return handleRiskMetrics(req, res);
+    if (pathname === '/api/finance/signal-analysis' && req.method === 'GET') return handleSignalAnalysis(req, res);
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);
