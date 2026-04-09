@@ -1297,6 +1297,33 @@ async function sendMessage(){
   sendBtn.disabled=!input.value.trim();input.focus();
 }
 
+// Recover interrupted streams when user returns to page (e.g. mobile app switch)
+document.addEventListener('visibilitychange',async()=>{
+  if(document.hidden||!currentId||!streamingChats.has(currentId))return;
+  const chat=chats.find(c=>c.id===currentId);if(!chat)return;
+  // Wait a moment to see if stream naturally resumes
+  await new Promise(r=>setTimeout(r,2000));
+  if(!streamingChats.has(currentId))return; // stream finished normally
+  // Still "streaming" after 2s — likely dead. Try recover from backend.
+  try{
+    const rr=await fetch(`/v1/sessions/${encodeURIComponent(currentId)}/history?limit=2`,{headers:{'Authorization':`Bearer ${TOKEN}`}});
+    if(!rr.ok)return;
+    const hd=await rr.json();
+    const last=hd.messages?.filter(m=>m.role==='assistant').pop();
+    if(last?.content){
+      removeTyping(currentId);
+      // Remove partial assistant message if any
+      const lastMsg=chat.messages[chat.messages.length-1];
+      if(lastMsg?.role==='assistant')chat.messages.pop();
+      chat.messages.push({role:'assistant',content:last.content});
+      streamingChats.delete(currentId);
+      chat.updatedAt=Date.now();save();renderSidebar();
+      streamBadge.classList.remove('show');
+      renderChat();
+    }
+  }catch{}
+});
+
 input.addEventListener('input',()=>{updateSendBtn();});
 input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){if(mentionPopup.classList.contains('show'))return;e.preventDefault();sendMessage();}});
 sendBtn.addEventListener('click',sendMessage);
