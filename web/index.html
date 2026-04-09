@@ -1367,7 +1367,7 @@ async function _pollSync(){
     }
   }catch{}
 }
-function _startSync(){if(!_syncInterval)_syncInterval=setInterval(_pollSync,5000);}
+function _startSync(){if(!_syncInterval)_syncInterval=setInterval(_pollSync,2000);}
 function _stopSync(){if(_syncInterval){clearInterval(_syncInterval);_syncInterval=null;}}
 document.addEventListener('visibilitychange',()=>{document.hidden?_stopSync():_startSync();});
 _startSync();
