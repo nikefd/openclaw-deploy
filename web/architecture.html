@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>系统架构文档</title>
+<style>
+:root{--bg:#f5f5f7;--card:#fff;--text:#1a1a2e;--text2:#6c757d;--border:#e5e5ea;--accent:#4361ee;--accent-bg:rgba(67,97,238,.08);--hover:#f0f0f5;--green:#2ec4b6;--orange:#ff6b35;--red:#e63946;--radius:14px;--code-bg:#f0f0f5}
+[data-theme=dark]{--bg:#1a1a2e;--card:#232340;--text:#e8e8f0;--text2:#8e8ea0;--border:#33334d;--accent:#6c8cff;--accent-bg:rgba(108,140,255,.12);--hover:#2a2a45;--green:#3dd9c4;--orange:#ff8c5a;--red:#ff5a6a;--code-bg:#2a2a45}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;line-height:1.7}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+
+.topnav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+.topnav h1{font-size:1.1rem;flex:1}
+.topnav a{font-size:.85rem;color:var(--text2)}
+.topnav .theme-btn{background:none;border:none;font-size:1.2rem;cursor:pointer}
+
+.container{max-width:900px;margin:0 auto;padding:24px 20px 80px}
+h2{font-size:1.3rem;margin:32px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--accent);display:inline-block}
+h3{font-size:1.05rem;margin:20px 0 8px;color:var(--accent)}
+h4{font-size:.9rem;margin:14px 0 6px;color:var(--text2)}
+p,li{font-size:.88rem;color:var(--text);margin-bottom:6px}
+ul,ol{padding-left:20px;margin-bottom:12px}
+code{background:var(--code-bg);padding:2px 6px;border-radius:4px;font-size:.82rem;font-family:'SF Mono',Monaco,Consolas,monospace}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:10px;padding:14px 18px;overflow-x:auto;margin:10px 0 16px;font-size:.8rem;line-height:1.6}
+pre code{background:none;padding:0}
+table{width:100%;border-collapse:collapse;margin:12px 0 20px;font-size:.82rem}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border)}
+th{background:var(--accent-bg);font-weight:600;color:var(--accent);font-size:.78rem;text-transform:uppercase;letter-spacing:.5px}
+tr:hover{background:var(--hover)}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin:16px 0}
+.badge{display:inline-block;font-size:.7rem;padding:3px 8px;border-radius:10px;font-weight:600}
+.badge.green{background:rgba(46,196,182,.15);color:var(--green)}
+.badge.orange{background:rgba(255,107,53,.15);color:var(--orange)}
+.badge.blue{background:var(--accent-bg);color:var(--accent)}
+
+.toc{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin:20px 0}
+.toc h3{margin:0 0 10px;font-size:.9rem;color:var(--text)}
+.toc ul{list-style:none;padding:0}
+.toc li{padding:4px 0}
+.toc a{font-size:.84rem}
+
+.arch-diagram{background:var(--code-bg);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin:16px 0;overflow-x:auto;font-family:'SF Mono',Monaco,Consolas,monospace;font-size:.75rem;line-height:1.5;white-space:pre}
+
+.version-badge{background:var(--accent);color:#fff;padding:4px 12px;border-radius:8px;font-size:.8rem;font-weight:600}
+.updated{font-size:.75rem;color:var(--text2);margin-top:4px}
+
+@media(max-width:600px){
+  .container{padding:16px 14px 60px}
+  .topnav{padding:10px 14px}
+  h2{font-size:1.1rem}
+  table{font-size:.75rem}
+  th,td{padding:7px 8px}
+  .arch-diagram{font-size:.65rem;padding:12px}
+}
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <h1>📐 系统架构文档</h1>
+  <a href="/">💬 聊天</a>
+  <a href="/agents/">🤖 Agents</a>
+  <a href="/usage.html">📊 用量</a>
+  <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+</div>
+
+<div class="container">
+
+<!-- Header -->
+<div style="margin-bottom:24px">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <span class="version-badge">OpenClaw v2026.3.23-1</span>
+    <span class="badge green">● 运行中</span>
+  </div>
+  <p class="updated">文档最后更新：2025-04-12 | 域名：zhangyangbin.com | 环境：Azure VPS (Ubuntu)</p>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <h3>📑 目录</h3>
+  <ul>
+    <li><a href="#overview">1. 总体概览</a></li>
+    <li><a href="#openclaw">2. OpenClaw 框架</a></li>
+    <li><a href="#architecture">3. 系统架构图</a></li>
+    <li><a href="#services">4. 服务清单</a></li>
+    <li><a href="#frontend">5. 前端（自建聊天界面）</a></li>
+    <li><a href="#agents">6. 独立 Agent 模块</a></li>
+    <li><a href="#nginx">7. Nginx 路由</a></li>
+    <li><a href="#data">8. 数据存储</a></li>
+    <li><a href="#auth">9. 认证系统</a></li>
+    <li><a href="#deploy">10. 部署与运维</a></li>
+    <li><a href="#changelog">11. 架构变更日志</a></li>
+  </ul>
+</div>
+
+<!-- 1. Overview -->
+<h2 id="overview">1. 总体概览</h2>
+<p>本系统是一个以 <strong>OpenClaw</strong> 为核心 AI Agent 框架，搭配自建前端和多个独立 Agent 模块的个人 AI 助手平台。部署在 Azure VPS 上，通过 <code>zhangyangbin.com</code> 提供服务。</p>
+
+<div class="card">
+  <h4>核心组成</h4>
+  <ul>
+    <li><strong>OpenClaw Gateway</strong> — AI Agent 运行时 & 多通道消息网关</li>
+    <li><strong>自建 ChatGPT 风格前端</strong> — 替代 OpenClaw 原版 dashboard</li>
+    <li><strong>独立 Agent 服务</strong> — 金融、攀岩、AI资讯等专业 Agent</li>
+    <li><strong>Nginx 反向代理</strong> — 统一入口 + SSL + 认证</li>
+    <li><strong>PostgreSQL</strong> — 数据持久化</li>
+  </ul>
+</div>
+
+<!-- 2. OpenClaw -->
+<h2 id="openclaw">2. OpenClaw 框架</h2>
+<p>OpenClaw 是一个<strong>多通道 AI 网关</strong>（Multi-channel AI Gateway），不只是 Agent 框架，更是一个完整的 AI 基础设施：</p>
+
+<div class="card">
+  <h4>核心能力</h4>
+  <ul>
+    <li><strong>Agent 运行时</strong> — 管理 AI Agent 的生命周期、会话、记忆（MEMORY.md）、人格（SOUL.md）</li>
+    <li><strong>多通道接入</strong> — 支持 Discord、Telegram、Signal、WhatsApp、Web 等渠道接入同一个 Agent</li>
+    <li><strong>工具系统（Skills）</strong> — 可扩展的技能插件，Agent 通过 SKILL.md 获取工具使用说明</li>
+    <li><strong>Cron 调度</strong> — 内置定时任务，支持定时提醒、周期巡检等</li>
+    <li><strong>心跳机制</strong> — 通过 HEARTBEAT.md 实现主动巡检</li>
+    <li><strong>子 Agent 编排</strong> — 可 spawn 隔离子会话，支持 ACP 协议接入 Codex 等外部 Agent</li>
+    <li><strong>OpenAI 兼容 API</strong> — 对外暴露 <code>/v1/</code> 接口，兼容 OpenAI API 格式</li>
+  </ul>
+
+  <h4>关键文件（Workspace）</h4>
+  <table>
+    <tr><th>文件</th><th>用途</th></tr>
+    <tr><td><code>SOUL.md</code></td><td>Agent 人格定义 — "灵魂"</td></tr>
+    <tr><td><code>IDENTITY.md</code></td><td>Agent 身份信息（名字、形象）</td></tr>
+    <tr><td><code>USER.md</code></td><td>用户档案（称呼、时区、偏好）</td></tr>
+    <tr><td><code>AGENTS.md</code></td><td>Agent 行为准则 & 工作指南</td></tr>
+    <tr><td><code>MEMORY.md</code></td><td>长期记忆（持久化的知识库）</td></tr>
+    <tr><td><code>HEARTBEAT.md</code></td><td>心跳巡检任务清单</td></tr>
+    <tr><td><code>TOOLS.md</code></td><td>本地环境 specific 配置</td></tr>
+    <tr><td><code>memory/*.md</code></td><td>每日记录（日记式原始记忆）</td></tr>
+  </table>
+
+  <h4>技术细节</h4>
+  <ul>
+    <li><strong>版本：</strong> <code>2026.3.23-1</code></li>
+    <li><strong>安装路径：</strong> <code>~/.npm-global/lib/node_modules/openclaw/</code></li>
+    <li><strong>Gateway 端口：</strong> <code>18789</code></li>
+    <li><strong>运行方式：</strong> systemd user service (<code>openclaw-gateway.service</code>)</li>
+    <li><strong>模型：</strong> 通过 GitHub Copilot API（<code>github-copilot/claude-opus-4.6</code>）</li>
+  </ul>
+</div>
+
+<!-- 3. Architecture -->
+<h2 id="architecture">3. 系统架构图</h2>
+
+<div class="arch-diagram">
+                         ┌─────────────────────────────────────┐
+                         │          zhangyangbin.com            │
+                         │         (Nginx :443 SSL)             │
+                         └──────────────┬──────────────────────┘
+                                        │
+               ┌────────────────────────┼────────────────────────┐
+               │                        │                        │
+    ┌──────────▼──────────┐  ┌──────────▼──────────┐  ┌──────────▼──────────┐
+    │   / (主聊天界面)      │  │  /v1/ (API)          │  │  /agents/ /finance  │
+    │   /var/www/chat/     │  │  /dashboard/         │  │  /terminal /usage   │
+    │   index.html         │  │                      │  │                     │
+    └──────────┬───────────┘  └──────────┬───────────┘  └──────────┬──────────┘
+               │                         │                         │
+               │              ┌──────────▼──────────┐              │
+               │              │   OpenClaw Gateway   │              │
+               │              │     :18789           │              │
+               │              │  ┌───────────────┐   │              │
+               │              │  │ Agent Runtime  │   │              │
+               │              │  │ 狗蛋 (main)    │   │              │
+               │              │  │ Skills/Cron    │   │              │
+               │              │  │ Memory System  │   │              │
+               │              │  └───────────────┘   │              │
+               │              └──────────────────────┘              │
+               │                                                    │
+    ┌──────────▼──────────────────────────────────────▼──────────────┐
+    │                     Backend Services                           │
+    │                                                                │
+    │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │
+    │  │Auth :7683│ │File :7682│ │Agent:7685│ │ Usage :7686      │  │
+    │  │ Server   │ │ API      │ │ API      │ │ API              │  │
+    │  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘  │
+    │                                                                │
+    │  ┌──────────┐ ┌──────────┐ ┌──────────────────────────────┐   │
+    │  │Finance   │ │ Village  │ │ ttyd (Web Terminal)           │   │
+    │  │API :7684 │ │ API:3100 │ │ :7681                        │   │
+    │  └──────────┘ └──────────┘ └──────────────────────────────┘   │
+    └────────────────────────────────────────────────────────────────┘
+               │
+    ┌──────────▼──────────┐
+    │  PostgreSQL :5432   │
+    │  (16-main)          │
+    └─────────────────────┘
+</div>
+
+<!-- 4. Services -->
+<h2 id="services">4. 服务清单</h2>
+
+<table>
+  <tr><th>服务</th><th>端口</th><th>进程管理</th><th>源码</th><th>说明</th></tr>
+  <tr>
+    <td><strong>OpenClaw Gateway</strong></td>
+    <td>18789</td>
+    <td>systemd user</td>
+    <td><code>openclaw (npm)</code></td>
+    <td>核心 AI Gateway，Agent 运行时</td>
+  </tr>
+  <tr>
+    <td><strong>Auth Server</strong></td>
+    <td>7683</td>
+    <td>systemd user</td>
+    <td><code>~/auth-server.js</code></td>
+    <td>Cookie 认证，登录/验证</td>
+  </tr>
+  <tr>
+    <td><strong>File API</strong></td>
+    <td>7682</td>
+    <td>手动 nohup</td>
+    <td><code>~/file-api-server.js</code></td>
+    <td>文件管理、聊天记录、设备管理等</td>
+  </tr>
+  <tr>
+    <td><strong>Agents API</strong></td>
+    <td>7685</td>
+    <td>手动 nohup</td>
+    <td><code>~/agents-api.js</code></td>
+    <td>Agent 管理面板后端（攀岩等）</td>
+  </tr>
+  <tr>
+    <td><strong>Usage API</strong></td>
+    <td>7686</td>
+    <td>手动 nohup</td>
+    <td><code>~/usage-api.js</code></td>
+    <td>Token 用量统计</td>
+  </tr>
+  <tr>
+    <td><strong>Finance API</strong></td>
+    <td>7684</td>
+    <td>systemd system</td>
+    <td><code>~/finance-api-server.js</code></td>
+    <td>金融 Agent 后端（A股分析）</td>
+  </tr>
+  <tr>
+    <td><strong>Village API</strong></td>
+    <td>3100</td>
+    <td>systemd system</td>
+    <td><code>~/agent-village/</code></td>
+    <td>Agent Village 演示</td>
+  </tr>
+  <tr>
+    <td><strong>ttyd</strong></td>
+    <td>7681</td>
+    <td>systemd system</td>
+    <td>—</td>
+    <td>Web 终端</td>
+  </tr>
+  <tr>
+    <td><strong>Nginx</strong></td>
+    <td>80/443</td>
+    <td>systemd system</td>
+    <td>—</td>
+    <td>反向代理 + SSL + 认证网关</td>
+  </tr>
+  <tr>
+    <td><strong>PostgreSQL</strong></td>
+    <td>5432</td>
+    <td>systemd system</td>
+    <td>—</td>
+    <td>数据持久化（16-main）</td>
+  </tr>
+</table>
+
+<!-- 5. Frontend -->
+<h2 id="frontend">5. 前端（自建聊天界面）</h2>
+
+<div class="card">
+  <p>⚠️ <strong>重要：</strong>我们使用的是<strong>自建 ChatGPT 风格前端</strong>，不是 OpenClaw 原版 dashboard。原版 dashboard 通过 <code>/dashboard/</code> 路径仍可访问，但主界面完全自建。</p>
+
+  <h4>页面清单</h4>
+  <table>
+    <tr><th>路径</th><th>文件</th><th>说明</th></tr>
+    <tr><td><code>/</code></td><td><code>/var/www/chat/index.html</code></td><td>主聊天界面（类 ChatGPT）</td></tr>
+    <tr><td><code>/login</code></td><td><code>login.html</code></td><td>登录页</td></tr>
+    <tr><td><code>/agents/</code></td><td><code>agents.html</code></td><td>Agent 管理面板</td></tr>
+    <tr><td><code>/finance</code></td><td><code>finance.html</code></td><td>金融 Agent 面板</td></tr>
+    <tr><td><code>/usage.html</code></td><td><code>usage.html</code></td><td>Token 用量仪表盘</td></tr>
+    <tr><td><code>/architecture</code></td><td><code>architecture.html</code></td><td>本页面 — 架构文档</td></tr>
+  </table>
+
+  <h4>技术栈</h4>
+  <ul>
+    <li>纯 HTML/CSS/JS，无构建工具，单文件架构</li>
+    <li>SSE (Server-Sent Events) 实时流式响应</li>
+    <li>暗色/亮色主题切换（localStorage 持久化）</li>
+    <li>移动端适配</li>
+  </ul>
+
+  <h4>部署同步</h4>
+  <p>修改 <code>/var/www/chat/</code> 下文件后，需同步到 <code>~/openclaw-deploy/web/</code> 并 git push。</p>
+</div>
+
+<!-- 6. Agents -->
+<h2 id="agents">6. 独立 Agent 模块</h2>
+
+<div class="card">
+  <h3>🐶 狗蛋（主 Agent）</h3>
+  <p>OpenClaw 的核心 Agent，通过 Gateway 运行。支持多通道（Web、Discord 等）。</p>
+  <ul>
+    <li><strong>人格：</strong>随和、直接、偶尔贱兮兮</li>
+    <li><strong>记忆系统：</strong>MEMORY.md（长期）+ memory/*.md（每日）</li>
+    <li><strong>@mention 路由：</strong>通过 @攀岩教练、@金融Agent 切换角色</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>🧗 攀岩教练 Agent</h3>
+  <ul>
+    <li><strong>触发方式：</strong>@攀岩教练 mention</li>
+    <li><strong>后端 API：</strong>Agents API (:7685)</li>
+    <li><strong>数据源：</strong><code>~/agent-data/fitness/sessions.json</code></li>
+    <li><strong>功能：</strong>训练记录、瓶颈分析、训练计划制定</li>
+    <li><strong>面板：</strong><code>/agents/</code> → 攀岩教练 tab</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>💰 金融 Agent（A股）</h3>
+  <ul>
+    <li><strong>触发方式：</strong>@金融Agent mention / <code>/finance</code> 页面</li>
+    <li><strong>后端 API：</strong>Finance API (:7684)</li>
+    <li><strong>功能：</strong>A股分析、回测、策略推荐</li>
+    <li><strong>面板：</strong><code>/finance</code></li>
+    <li><strong>状态：</strong><span class="badge orange">🔥 最高优先级开发中</span></li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>📰 AI 前沿追踪 Agent</h3>
+  <ul>
+    <li><strong>数据源：</strong><code>~/agent-data/ai-news/</code></li>
+    <li><strong>功能：</strong>AI 领域资讯聚合、分 track 追踪</li>
+    <li><strong>面板：</strong><code>/agents/</code> → AI 前沿追踪 tab</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>💼 面试准备 Agent</h3>
+  <ul>
+    <li><strong>数据源：</strong><code>~/agent-data/interview/</code></li>
+    <li><strong>功能：</strong>面试题库、SQL 练习、知识点整理</li>
+    <li><strong>面板：</strong><code>/agents/</code> → 面试准备 tab</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>🏘 Agent Village（演示项目）</h3>
+  <ul>
+    <li><strong>路径：</strong><code>/demos/village/</code></li>
+    <li><strong>后端：</strong>Village API (:3100)</li>
+    <li><strong>功能：</strong>多 Agent 协作演示</li>
+    <li><strong>状态：</strong><span class="badge green">✅ 已完成</span></li>
+    <li><strong>认证：</strong>独立的 demo access code 认证</li>
+  </ul>
+</div>
+
+<!-- 7. Nginx -->
+<h2 id="nginx">7. Nginx 路由</h2>
+
+<table>
+  <tr><th>路径</th><th>目标</th><th>认证</th></tr>
+  <tr><td><code>/</code></td><td>自建聊天界面 (<code>/var/www/chat/</code>)</td><td>Cookie (auth_request)</td></tr>
+  <tr><td><code>/login</code></td><td>登录页</td><td>无</td></tr>
+  <tr><td><code>/auth/</code></td><td>Auth Server :7683</td><td>无</td></tr>
+  <tr><td><code>/v1/</code></td><td>Gateway :18789 (OpenAI API)</td><td>Bearer Token</td></tr>
+  <tr><td><code>/v1/responses</code></td><td>Gateway :18789 (自动注入 Token)</td><td>Cookie</td></tr>
+  <tr><td><code>/agents/</code></td><td>agents.html</td><td>Cookie</td></tr>
+  <tr><td><code>/finance</code></td><td>finance.html</td><td>Cookie</td></tr>
+  <tr><td><code>/terminal</code></td><td>ttyd :7681</td><td>Cookie</td></tr>
+  <tr><td><code>/api/chats</code></td><td>File API :7682</td><td>Cookie</td></tr>
+  <tr><td><code>/api/files/</code></td><td>File API :7682</td><td>Cookie</td></tr>
+  <tr><td><code>/api/agents/</code></td><td>Agents API :7685</td><td>Cookie</td></tr>
+  <tr><td><code>/api/finance/</code></td><td>Finance API :7684</td><td>Cookie</td></tr>
+  <tr><td><code>/api/usage/</code></td><td>Usage API :7686</td><td>Cookie</td></tr>
+  <tr><td><code>/api/nodes/</code></td><td>File API :7682</td><td>Cookie</td></tr>
+  <tr><td><code>/api/devices/</code></td><td>File API :7682</td><td>Cookie</td></tr>
+  <tr><td><code>/api/gateway/</code></td><td>File API :7682</td><td>Cookie</td></tr>
+  <tr><td><code>/dashboard/</code></td><td>Gateway :18789 (原版 UI)</td><td>Cookie</td></tr>
+  <tr><td><code>/demos/village/</code></td><td>Village 静态 + API :3100</td><td>Demo Cookie</td></tr>
+  <tr><td><code>/llm/</code></td><td>LLM Gateway :18888</td><td>Cookie</td></tr>
+  <tr><td>WebSocket <code>/</code></td><td>Gateway :18789 (升级)</td><td>无（WS 协议）</td></tr>
+</table>
+
+<p>⚠️ <strong>关键规则：</strong><code>/</code> 必须指向 <code>/var/www/chat/</code>，不要改成 Gateway。</p>
+
+<!-- 8. Data -->
+<h2 id="data">8. 数据存储</h2>
+
+<table>
+  <tr><th>数据</th><th>存储位置</th><th>格式</th></tr>
+  <tr><td>Agent 记忆</td><td><code>~/.openclaw/workspace/</code></td><td>Markdown (.md)</td></tr>
+  <tr><td>聊天记录</td><td>File API (服务端持久化)</td><td>JSON</td></tr>
+  <tr><td>攀岩训练数据</td><td><code>~/agent-data/fitness/</code></td><td>JSON</td></tr>
+  <tr><td>AI 资讯</td><td><code>~/agent-data/ai-news/</code></td><td>JSON</td></tr>
+  <tr><td>面试资料</td><td><code>~/agent-data/interview/</code></td><td>JSON</td></tr>
+  <tr><td>金融数据</td><td>Finance API / PostgreSQL</td><td>DB + JSON</td></tr>
+  <tr><td>前端代码备份</td><td><code>~/openclaw-deploy/</code></td><td>Git repo</td></tr>
+</table>
+
+<!-- 9. Auth -->
+<h2 id="auth">9. 认证系统</h2>
+
+<div class="card">
+  <h4>主站认证</h4>
+  <ul>
+    <li>Auth Server (<code>:7683</code>) 负责登录验证</li>
+    <li>登录后设置 Cookie</li>
+    <li>Nginx 通过 <code>auth_request</code> 对每个请求做 Cookie 校验</li>
+    <li>未认证自动跳转 <code>/login</code></li>
+  </ul>
+
+  <h4>Demo 认证（独立）</h4>
+  <ul>
+    <li>独立的 demo access code 机制</li>
+    <li>通过 <code>/_internal_demo_auth</code> 校验</li>
+    <li>仅用于 <code>/demos/</code> 路径</li>
+  </ul>
+
+  <h4>API 认证</h4>
+  <ul>
+    <li><code>/v1/</code> 接口支持 Bearer Token 认证</li>
+    <li><code>/v1/responses</code> 特殊处理：Cookie 认证 + 自动注入 Token</li>
+  </ul>
+</div>
+
+<!-- 10. Deploy -->
+<h2 id="deploy">10. 部署与运维</h2>
+
+<div class="card">
+  <h4>环境</h4>
+  <ul>
+    <li><strong>服务器：</strong>Azure VPS (Ubuntu, Linux 6.17.0)</li>
+    <li><strong>Node.js：</strong>v22.22.0</li>
+    <li><strong>SSL：</strong>Let's Encrypt (certbot 自动续期)</li>
+  </ul>
+
+  <h4>服务管理</h4>
+  <pre><code># OpenClaw Gateway
+systemctl --user status openclaw-gateway
+openclaw gateway restart
+
+# 系统级服务
+sudo systemctl status finance-api
+sudo systemctl status agent-village-api
+sudo systemctl status nginx
+
+# 手动管理的服务 (file-api, agents-api, usage-api)
+# 通过 nohup 启动，需手动重启</code></pre>
+
+  <h4>前端部署流程</h4>
+  <pre><code># 1. 修改前端文件
+vim /var/www/chat/index.html
+
+# 2. 同步到 deploy repo
+cp /var/www/chat/*.html ~/openclaw-deploy/web/
+
+# 3. 提交推送
+cd ~/openclaw-deploy && git add -A && git commit -m "update" && git push</code></pre>
+
+  <h4>OpenClaw 更新</h4>
+  <pre><code># 更新 OpenClaw
+npm update -g openclaw
+
+# ⚠️ npm update 会覆盖 dist，需重新应用 patches
+openclaw gateway restart</code></pre>
+</div>
+
+<!-- 11. Changelog -->
+<h2 id="changelog">11. 架构变更日志</h2>
+
+<table>
+  <tr><th>日期</th><th>变更</th></tr>
+  <tr><td>2025-04-12</td><td>📐 创建架构设计文档页面</td></tr>
+  <tr><td>2026-04-02</td><td>记忆系统层级化重构</td></tr>
+  <tr><td>2026-03-28</td><td>攀岩教练面板改造；面试工具加 SQL</td></tr>
+  <tr><td>2026-03-27</td><td>聊天记录同步修复；金融 Agent 回测</td></tr>
+  <tr><td>2026-03-26</td><td>金融 Agent 启动（Finance API :7684）</td></tr>
+  <tr><td>2026-03-24</td><td>OpenClaw 更新到 2026.3.23-1；面试 Agent 加入</td></tr>
+  <tr><td>2026-03-22~23</td><td>Agent Village 完成 (Village API :3100)</td></tr>
+  <tr><td>2026-03-21</td><td>系统初始搭建，自建前端上线</td></tr>
+</table>
+
+<div style="margin-top:40px;padding:20px;text-align:center;color:var(--text2);font-size:.8rem;border-top:1px solid var(--border)">
+  <p>🐶 由狗蛋维护 | 架构有变动时请更新此文档</p>
+  <p>路径：<code>/var/www/chat/architecture.html</code></p>
+</div>
+
+</div>
+
+<script>
+function toggleTheme(){
+  const d=document.documentElement;
+  const t=d.getAttribute('data-theme')==='dark'?'light':'dark';
+  d.setAttribute('data-theme',t);
+  localStorage.setItem('theme',t);
+  document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙';
+}
+(function(){
+  const t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙';
+})();
+</script>
+
+</body>
+</html>
