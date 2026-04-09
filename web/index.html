@@ -1077,7 +1077,7 @@ function save(chatId){
     clearTimeout(_saveTimers[id]);
     _saveTimers[id]=setTimeout(()=>{
       const chat=chats.find(c=>c.id===id);
-      if(chat){fetch('/api/chats/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat)}).catch(()=>{});}
+      if(chat){fetch('/api/chats/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat)}).then(()=>{chat._lastSaved=chat.updatedAt;}).catch(()=>{});}
       delete _saveTimers[id];
     },300);
   }
@@ -1304,8 +1304,18 @@ async function sendMessage(){
 }
 
 // Recover interrupted streams when user returns to page (e.g. mobile app switch)
-// Save on page unload to prevent data loss
-window.addEventListener('beforeunload',()=>{if(currentId){const chat=getChat(currentId);if(chat){chat.updatedAt=Date.now();save(currentId);}}});
+// Save on page unload using sendBeacon (survives page close)
+window.addEventListener('beforeunload',()=>{
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));
+  localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));
+  if(currentNode==='local'){
+    for(const chat of chats){
+      if(chat.updatedAt>((chat._lastSaved)||0)){
+        navigator.sendBeacon('/api/chats/'+encodeURIComponent(chat.id),new Blob([JSON.stringify(chat)],{type:'application/json'}));
+      }
+    }
+  }
+});
 document.addEventListener('visibilitychange',async()=>{
   if(document.hidden||!currentId||!streamingChats.has(currentId))return;
   const chat=chats.find(c=>c.id===currentId);if(!chat)return;
