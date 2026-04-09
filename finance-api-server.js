@@ -345,27 +345,21 @@ function handlePeriodReturns(req, res) {
 }
 
 function handleSignalAnalysis(req, res) {
-  const db = getDb();
   try {
-    // Get all buy-sell pairs from last 60 days
-    const trades = db.prepare(`
-      SELECT b.reason as buy_reason, b.trade_date as buy_date, b.price as buy_price,
-             s.price as sell_price, s.reason as sell_reason,
-             CASE WHEN s.reason LIKE '%止盈%' OR s.price > b.price THEN 'win' ELSE 'loss' END as outcome
-      FROM trades b
-      JOIN trades s ON b.symbol = s.symbol AND s.direction = 'SELL'
-        AND s.id = (SELECT MIN(s2.id) FROM trades s2 WHERE s2.symbol = b.symbol AND s2.direction = 'SELL' AND s2.id > b.id)
-      WHERE b.direction = 'BUY' AND b.trade_date >= date('now', '-60 days')
-    `).all();
-    
+    let trades = [];
+    try {
+      const out = execSync('python3 /home/nikefd/finance-agent/signal_analysis.py', { timeout: 10000 }).toString().trim();
+      trades = JSON.parse(out || '[]');
+    } catch(e) { log('signal-analysis py error: ' + e.message); }
+
     const signals = ['量价齐升', '创新高', '大笔买入', '火箭', '强势股', '机构买入', '机构增持',
                      '超跌', '北向', '龙虎榜', '新闻利好', '缩量企稳', '均线收敛'];
     const analysis = {};
     for (const sig of signals) {
       const matched = trades.filter(t => t.buy_reason && t.buy_reason.includes(sig));
       if (matched.length === 0) continue;
-      const wins = matched.filter(t => t.outcome === 'win').length;
-      const losses = matched.filter(t => t.outcome === 'loss').length;
+      const wins = matched.filter(t => (t.sell_reason || '').includes('止盈') || t.sell_price > t.buy_price).length;
+      const losses = matched.filter(t => (t.sell_reason || '').includes('止损')).length;
       const avgPnl = matched.reduce((sum, t) => sum + (t.sell_price - t.buy_price) / t.buy_price * 100, 0) / matched.length;
       analysis[sig] = {
         total: matched.length, wins, losses,
