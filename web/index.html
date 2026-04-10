@@ -1354,35 +1354,6 @@ document.addEventListener('visibilitychange',async()=>{
   }catch{}
 });
 
-// === CROSS-DEVICE SYNC: poll server every 5s when page is visible ===
-let _syncInterval=null;
-async function _pollSync(){
-  if(currentNode!=='local')return;
-  try{
-    const r=await fetch('/api/chats');
-    if(!r.ok)return;
-    const remote=await r.json();
-    if(!remote.length)return;
-    const merged=mergeChats(chats,remote);
-    // Check if anything actually changed
-    const oldJson=JSON.stringify(chats.map(c=>({id:c.id,u:c.updatedAt,n:c.messages.length})));
-    const newJson=JSON.stringify(merged.map(c=>({id:c.id,u:c.updatedAt,n:c.messages.length})));
-    if(oldJson===newJson)return;
-    chats=merged;
-    localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));
-    localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));
-    renderSidebar();
-    // If current chat was updated, re-render it (but not if we're streaming)
-    if(currentId&&!streamingChats.has(currentId)){
-      const cur=chats.find(c=>c.id===currentId);
-      if(cur)renderChat();
-    }
-  }catch{}
-}
-function _startSync(){if(!_syncInterval)_syncInterval=setInterval(_pollSync,2000);}
-function _stopSync(){if(_syncInterval){clearInterval(_syncInterval);_syncInterval=null;}}
-document.addEventListener('visibilitychange',()=>{document.hidden?_stopSync():_startSync();});
-_startSync();
 
 input.addEventListener('input',()=>{updateSendBtn();});
 input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){if(mentionPopup.classList.contains('show'))return;e.preventDefault();sendMessage();}});
