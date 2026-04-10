@@ -134,6 +134,14 @@ body.dark .md-content pre{background:#0a0a12}
 .heatmap-cell .ret{font-size:10px;margin-top:1px}
 
 /* RESPONSIVE */
+.pos-expand-row td{padding:0!important;border-bottom:1px solid var(--border)}
+.pos-expand-content{padding:12px 20px;background:var(--hover);font-size:12px;line-height:1.8;display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.pos-expand-content .col-label{color:var(--sub);font-size:11px}
+.pos-expand-content .col-value{font-weight:600}
+tr.pos-row{cursor:pointer;transition:background .15s}
+tr.pos-row:hover{background:var(--hover)}
+tr.pos-row.expanded{background:var(--hover)}
+
 @media(max-width:768px){
   .chart-row{grid-template-columns:1fr}
   .cards{grid-template-columns:repeat(2,1fr)}
@@ -182,6 +190,15 @@ body.dark .md-content pre{background:#0a0a12}
   <!-- DASHBOARD -->
   <div class="tab-panel active" id="panel-dashboard">
     <div class="cards" id="summaryCards"></div>
+    <!-- Health Score -->
+    <div id="healthScoreWrap" style="display:grid;grid-template-columns:120px 1fr;gap:16px;margin-bottom:20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;align-items:center">
+      <div style="text-align:center">
+        <div id="healthEmoji" style="font-size:36px">--</div>
+        <div id="healthScoreVal" style="font-size:40px;font-weight:800;line-height:1">--</div>
+        <div id="healthStatus" style="font-size:12px;color:var(--sub);margin-top:2px">组合健康度</div>
+      </div>
+      <div id="healthBars" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px"></div>
+    </div>
     <div class="cards" id="periodCards" style="margin-bottom:0"></div>
     <div class="cards" id="riskCards" style="margin-bottom:24px"></div>
     <div class="chart-row">
@@ -1413,7 +1430,7 @@ function renderPosRows(positions){
     p.weight=Math.round(weight*100)/100;
     sumPnl+=(p.pnl||0);
     sumValue+=mv;
-    return`<tr>
+    return`<tr class="pos-row" onclick="togglePosExpand('${p.symbol}',this)">
     <td>${p.name}</td><td>${p.symbol}</td><td>${p.shares}</td>
     <td>${fmt(p.avg_cost)}</td><td>${fmt(p.current_price)}</td>
     <td class="${pnlClass(p.pnl)}">${pnlSign(p.pnl)}${fmt(p.pnl)}</td>
@@ -1433,7 +1450,7 @@ function renderPosRows(positions){
 setupPosSort();
 
 async function refreshAll(){
-  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadMonthlyReturns(),loadWeeklyReturns(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics(),loadPeriodReturns()]);
+  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadMonthlyReturns(),loadWeeklyReturns(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics(),loadPeriodReturns(),loadHealthScore()]);
 }
 
 // Period Returns
@@ -1636,6 +1653,59 @@ function exportTradesCSV(){
   a.href=url;a.download=`trades_${new Date().toISOString().slice(0,10)}.csv`;
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// Health Score
+async function loadHealthScore(){
+  const d=await api('/api/finance/health-score');
+  if(!d)return;
+  document.getElementById('healthEmoji').textContent=d.emoji||'--';
+  document.getElementById('healthScoreVal').textContent=d.score;
+  document.getElementById('healthScoreVal').style.color=d.color||'var(--text)';
+  document.getElementById('healthStatus').textContent=({healthy:'健康',moderate:'一般',warning:'注意',critical:'危险'})[d.status]||'--';
+  const comps=d.components||{};
+  const labels={drawdown:'回撤控制',win_rate:'胜率表现',diversification:'分散度',momentum:'近期动量'};
+  document.getElementById('healthBars').innerHTML=Object.entries(comps).map(([k,v])=>{
+    const pct=v.max>0?(v.score/v.max*100):0;
+    const barColor=pct>=70?'#2ec4b6':pct>=40?'#ffd166':'#e63946';
+    return`<div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>${labels[k]||k}</span><span style="color:var(--sub)">${v.score}/${v.max}</span></div>
+      <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width .5s"></div></div>
+      <div style="color:var(--sub);font-size:10px;margin-top:1px">${v.detail||''}</div>
+    </div>`;
+  }).join('')+(d.penalties?.loss_streak?.value>0?`<div style="grid-column:1/-1;color:#e63946;font-size:11px;margin-top:4px">⚠️ 连亏${d.penalties.loss_streak.value}次，健康度-${d.penalties.loss_streak.penalty}分</div>`:'');
+}
+
+// Position expand
+let expandedSymbol=null;
+async function togglePosExpand(symbol, row){
+  // Close existing
+  document.querySelectorAll('.pos-expand-row').forEach(r=>r.remove());
+  document.querySelectorAll('tr.pos-row.expanded').forEach(r=>r.classList.remove('expanded'));
+  if(expandedSymbol===symbol){expandedSymbol=null;return;}
+  expandedSymbol=symbol;
+  row.classList.add('expanded');
+  const d=await api('/api/finance/position-details?symbol='+symbol);
+  if(!d)return;
+  const tr=document.createElement('tr');
+  tr.className='pos-expand-row';
+  const holdDays=d.buy_date?Math.round((Date.now()-new Date(d.buy_date).getTime())/86400000):'--';
+  tr.innerHTML=`<td colspan="10"><div class="pos-expand-content">
+    <div>
+      <div class="col-label">板块</div><div class="col-value">${d.sector}</div>
+      <div class="col-label" style="margin-top:6px">买入日期</div><div class="col-value">${d.buy_date||'--'} (${holdDays}天)</div>
+      <div class="col-label" style="margin-top:6px">追踪止损</div><div class="col-value">${d.trailing_stop_active?'✅ 已激活':'❌ 未激活'}</div>
+    </div>
+    <div>
+      <div class="col-label">历史最高价</div><div class="col-value">¥${d.peak_price?.toFixed(2)||'--'}</div>
+      <div class="col-label" style="margin-top:6px">距高点回撤</div><div class="col-value" style="color:${d.peak_drawdown<-3?'var(--down)':'var(--sub)'}">${d.peak_drawdown?.toFixed(1)||'--'}%</div>
+      <div class="col-label" style="margin-top:6px">当前盈亏</div><div class="col-value ${d.pnl_pct>=0?'up':'down'}">${d.pnl_pct>=0?'+':''}${d.pnl_pct?.toFixed(2)}%</div>
+    </div>
+    <div>
+      <div class="col-label">买入原因</div><div class="col-value" style="font-weight:400;font-size:11px;line-height:1.5">${d.buy_reason||'无记录'}</div>
+    </div>
+  </div></td>`;
+  row.after(tr);
 }
 
 // Init

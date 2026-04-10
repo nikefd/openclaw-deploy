@@ -375,6 +375,122 @@ function handleSignalAnalysis(req, res) {
   }
 }
 
+function handleHealthScore(req, res) {
+  // Composite portfolio health score 0-100
+  const snapshots = querySqlite('SELECT date, total_value, sentiment_score FROM daily_snapshots ORDER BY date ASC');
+  const positions = querySqlite('SELECT * FROM positions');
+  const trades = querySqlite("SELECT * FROM trades WHERE direction='SELL' ORDER BY trade_date DESC, id DESC LIMIT 30");
+
+  // 1. Drawdown component (0-25): lower drawdown = higher score
+  const vals = snapshots.map(s => s.total_value);
+  let peak = 0, maxDD = 0, currentDD = 0;
+  for (const v of vals) { if (v > peak) peak = v; const dd = (peak - v) / peak * 100; if (dd > maxDD) maxDD = dd; }
+  if (vals.length && peak > 0) currentDD = (peak - vals[vals.length - 1]) / peak * 100;
+  const ddScore = Math.max(0, 25 - currentDD * 3); // 0% dd=25, 8%+ dd=0
+
+  // 2. Win rate component (0-25)
+  const allTrades = querySqlite('SELECT * FROM trades ORDER BY trade_date ASC, id ASC');
+  const buyMap2 = {}; allTrades.forEach(t => { if (t.direction === 'BUY') { if (!buyMap2[t.symbol]) buyMap2[t.symbol] = []; buyMap2[t.symbol].push(t); }});
+  const avgCosts2 = {}; Object.keys(buyMap2).forEach(sym => { const buys = buyMap2[sym]; const ts = buys.reduce((s, b) => s + b.shares, 0); const tc = buys.reduce((s, b) => s + b.price * b.shares, 0); avgCosts2[sym] = ts > 0 ? tc / ts : 0; });
+  let wins = 0, total = 0;
+  trades.forEach(t => { const cost = avgCosts2[t.symbol] || 0; if (cost > 0) { total++; if (t.price > cost) wins++; }});
+  const winRate = total > 0 ? wins / total : 0.5;
+  const wrScore = winRate * 25;
+
+  // 3. Diversification component (0-25): sector spread + cash ratio
+  const cash = snapshots.length ? (querySqlite('SELECT cash FROM account ORDER BY id DESC LIMIT 1')[0]?.cash || 0) : 0;
+  const totalVal = vals.length ? vals[vals.length - 1] : 1000000;
+  const cashRatio = totalVal > 0 ? cash / totalVal : 1;
+  const sectors = new Set(positions.map(p => p.sector || '未分类'));
+  const posCount = positions.length;
+  // Good: 3-6 positions across 2+ sectors, 30-70% cash
+  let divScore = 10;
+  if (sectors.size >= 2) divScore += 5;
+  if (posCount >= 2 && posCount <= 8) divScore += 5;
+  if (cashRatio >= 0.2 && cashRatio <= 0.8) divScore += 5;
+
+  // 4. Momentum component (0-25): recent returns trend
+  const recentVals = vals.slice(-10);
+  let momScore = 12.5;
+  if (recentVals.length >= 2) {
+    const recentRet = (recentVals[recentVals.length - 1] - recentVals[0]) / recentVals[0] * 100;
+    momScore = Math.max(0, Math.min(25, 12.5 + recentRet * 2.5));
+  }
+
+  // Loss streak penalty
+  let lossStreak = 0;
+  for (const t of trades) { const cost = avgCosts2[t.symbol] || 0; if (cost > 0 && t.price < cost) lossStreak++; else break; }
+  const streakPenalty = Math.min(lossStreak * 3, 20);
+
+  const raw = ddScore + wrScore + divScore + momScore - streakPenalty;
+  const score = Math.max(0, Math.min(100, Math.round(raw)));
+
+  let status = 'healthy', color = '#2ec4b6', emoji = '💚';
+  if (score < 30) { status = 'critical'; color = '#e63946'; emoji = '🔴'; }
+  else if (score < 50) { status = 'warning'; color = '#f4a261'; emoji = '🟡'; }
+  else if (score < 70) { status = 'moderate'; color = '#ffd166'; emoji = '🟠'; }
+  else { status = 'healthy'; color = '#2ec4b6'; emoji = '💚'; }
+
+  sendJson(res, {
+    score, status, color, emoji,
+    components: {
+      drawdown: { score: Math.round(ddScore), max: 25, detail: `当前回撤${currentDD.toFixed(1)}%，最大${maxDD.toFixed(1)}%` },
+      win_rate: { score: Math.round(wrScore), max: 25, detail: `近期胜率${(winRate * 100).toFixed(0)}% (${wins}/${total})` },
+      diversification: { score: Math.round(divScore), max: 25, detail: `${posCount}只持仓，${sectors.size}个板块，现金${(cashRatio * 100).toFixed(0)}%` },
+      momentum: { score: Math.round(momScore), max: 25, detail: `近10日趋势` },
+    },
+    penalties: { loss_streak: { value: lossStreak, penalty: streakPenalty } },
+  });
+}
+
+function handlePositionDetails(req, res, params) {
+  const symbol = params.symbol;
+  if (!symbol) return sendError(res, 'symbol required', 400);
+  const cleanSym = symbol.replace(/[^0-9]/g, '');
+  if (!cleanSym) return sendError(res, 'invalid symbol', 400);
+
+  try {
+    const pyScript = `
+import sqlite3, json
+c = sqlite3.connect("${DB_PATH}")
+c.row_factory = sqlite3.Row
+pos = c.execute("SELECT * FROM positions WHERE symbol=?", ["${cleanSym}"]).fetchall()
+if not pos:
+    print(json.dumps({"error": "not found"}))
+else:
+    buys = c.execute("SELECT * FROM trades WHERE symbol=? AND direction='BUY' ORDER BY trade_date DESC LIMIT 5", ["${cleanSym}"]).fetchall()
+    sells = c.execute("SELECT * FROM trades WHERE symbol=? AND direction='SELL' ORDER BY trade_date DESC LIMIT 5", ["${cleanSym}"]).fetchall()
+    print(json.dumps({"pos": dict(pos[0]), "buys": [dict(x) for x in buys], "sells": [dict(x) for x in sells]}))
+`;
+    const tmpFile = '/tmp/pos_detail_query.py';
+    fs.writeFileSync(tmpFile, pyScript);
+    const out = execSync(`python3 ${tmpFile}`, { timeout: 5000 }).toString().trim();
+    const data = JSON.parse(out || '{}');
+    if (data.error) return sendError(res, data.error, 404);
+
+    const pos = data.pos;
+    const pnl_pct = pos.avg_cost ? ((pos.current_price - pos.avg_cost) / pos.avg_cost * 100) : 0;
+    const peak_dd = pos.peak_price && pos.peak_price > 0 ? ((pos.current_price - pos.peak_price) / pos.peak_price * 100) : 0;
+    const trailingActive = pos.peak_price && pos.peak_price > pos.avg_cost * 1.04;
+
+    sendJson(res, {
+      symbol: pos.symbol, name: pos.name, shares: pos.shares,
+      avg_cost: pos.avg_cost, current_price: pos.current_price,
+      peak_price: pos.peak_price, buy_date: pos.buy_date,
+      sector: pos.sector || '未分类',
+      pnl_pct: Math.round(pnl_pct * 100) / 100,
+      peak_drawdown: Math.round(peak_dd * 100) / 100,
+      trailing_stop_active: trailingActive,
+      buy_reason: data.buys[0]?.reason || '',
+      recent_buys: data.buys,
+      recent_sells: data.sells,
+    });
+  } catch (e) {
+    log('Position details error: ' + e.message);
+    sendError(res, e.message);
+  }
+}
+
 let runState = { status: 'idle', log: '', startTime: null };
 const RUN_LOG_FILE = '/tmp/finance-runner.log';
 
@@ -586,6 +702,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
       return;
     }
 
+    if (pathname === '/api/finance/health-score' && req.method === 'GET') return handleHealthScore(req, res);
+    if (pathname === '/api/finance/position-details' && req.method === 'GET') return handlePositionDetails(req, res, params);
     if (pathname === '/api/finance/monthly-returns' && req.method === 'GET') return handleMonthlyReturns(req, res);
     if (pathname === '/api/finance/weekly-returns' && req.method === 'GET') return handleWeeklyReturns(req, res);
     if (pathname === '/api/finance/period-returns' && req.method === 'GET') return handlePeriodReturns(req, res);
