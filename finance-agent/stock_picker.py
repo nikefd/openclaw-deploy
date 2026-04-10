@@ -324,11 +324,11 @@ def get_dynamic_score_threshold(regime: str = "", loss_streak: int = 0) -> int:
     except:
         pass
     
-    # 连亏调节
+    # 连亏调节（从12/6降到8/4，避免门槛过高导致长期空仓）
     if loss_streak >= 5:
-        base += 12
+        base += 8
     elif loss_streak >= 3:
-        base += 6
+        base += 4
     
     # 熊市调节
     if regime == 'bear':

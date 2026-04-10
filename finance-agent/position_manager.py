@@ -576,10 +576,10 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
             if regime == 'bear':
                 trail_threshold = min(trail_threshold, 0.04)  # 熊市上限4%
             
-            # 保本兜底: 如果从峰值利润回撤到接近成本(当前盈利<2%)，强制止损
-            # 防止"坐过山车"从大赚变回原点
+            # 保本兜底: 如果从峰值利润回撤到盈利<5%，强制止损
+            # 防止"坐过山车"从大赚变回原点（之前2%太晚，中利集团+10%全吐）
             peak_gain = (peak_price - pos['avg_cost']) / pos['avg_cost']
-            if peak_gain >= 0.08 and pnl_pct < 0.02:
+            if peak_gain >= 0.08 and pnl_pct < 0.05:
                 actions.append({
                     "action": "SELL",
                     "symbol": pos['symbol'],
