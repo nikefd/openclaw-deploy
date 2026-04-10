@@ -120,9 +120,12 @@ def execute_buys(picks: list, sentiment: dict, regime: str = "", loss_streak: in
 
         confidence = pick.get('confidence', 5)
         # 熊市/连亏时提高信心门槛，减少低质量开仓
+        # v5.25: 连亏8+时降低门槛到7(狙击手模式,允许适度交易重置连亏)
         min_confidence = 7 if regime == 'bear' else 6
-        if loss_streak >= 3:
-            min_confidence = max(min_confidence, 8)  # 连亏3+次，要求信心>=8
+        if loss_streak >= 8:
+            min_confidence = 7  # 狙击手模式:只需7分信心
+        elif loss_streak >= 3:
+            min_confidence = max(min_confidence, 8)  # 连亏3-7次，要求信心>=8
         if confidence < min_confidence:
             continue
 
@@ -291,6 +294,13 @@ def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict,
 15. **超跌反弹**: 熊市中有'超跌'信号+多个企稳信号(缩量企稳/底部抬升/RSI低位)的品种，是当前最佳策略
 
 如果没有足够好的标的(连亏期间)，可以只选1-2只甚至空仓等待。
+**但注意**: 不能永远空仓，需要适度交易来重置连亏计数器。
+
+## 入场质量评估
+每只候选股包含entry_quality(0-100入场质量评分)和rr_info(风险回报比)。
+- 优先选entry_quality>50的(趋势+位置+量价+R:R综合好)
+- R:R(rr_ratio)>=2的优先，<1.5的不选
+- pullback_info.entry_quality为'excellent'或'good'的优先
 
 ## 输出JSON格式
 ```json

@@ -280,8 +280,8 @@ def calculate_position_size(confidence: int, sentiment_score: float,
     # 情绪调节：市场过热时减仓，恐慌时加仓（逆向思维）
     if sentiment_score > 90:  # 极度贪婪 → 禁止新开仓
         return 0.0
-    elif sentiment_score > 80 and regime == 'bear':  # 熊市+贪婪 → 禁止开仓（情绪背离陷阱）
-        return 0.0
+    elif sentiment_score > 80 and regime == 'bear':  # 熊市+贪婪 → 大幅减仓(不完全禁止)
+        base_pct *= 0.2
     elif sentiment_score > 85:  # 贪婪 → 大幅减仓
         base_pct *= 0.4
     elif sentiment_score > 70:  # 乐观 → 微减
@@ -299,9 +299,11 @@ def calculate_position_size(confidence: int, sentiment_score: float,
     elif current_positions >= 5:
         base_pct *= 0.7
     
-    # === 连亏8+次: 完全暂停买入，等待市场环境改善 ===
+    # === 连亏8+次: 狙击手模式 — 不完全停手,但极度保守 ===
+    # v5.25: 从完全停手改为极小仓位(2-3%),只买最高质量信号
+    # 原因: 完全停手→连亏无法重置→永远停手,陷入死循环
     if loss_streak >= 8:
-        return 0.0  # 连亏8次说明当前策略完全不适应市场，强制停手
+        base_pct = 0.025  # 固定2.5%微仓,足够重置连亏但不冒大风险
     
     # === 连亏冷却期: 连亏6+次强制冷却，不只是缩仓 ===
     if loss_streak >= 6:

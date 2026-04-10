@@ -309,8 +309,9 @@ def get_dynamic_score_threshold(regime: str = "", loss_streak: int = 0) -> int:
     """基于近期胜率动态调节最低买入分数门槛
     
     连亏越多、胜率越低 → 门槛越高，只买最强信号
+    v5.25: 连亏加码进一步减弱，避免永远空仓
     """
-    base = 25  # 正常市场下的最低分数(从20提高,减少弱信号入场)
+    base = 25  # 正常市场下的最低分数
     
     # 近期胜率调节
     try:
@@ -318,23 +319,239 @@ def get_dynamic_score_threshold(regime: str = "", loss_streak: int = 0) -> int:
         perf = get_performance_summary()
         hr = perf.get('hit_rate', 50)
         if hr < 20:
-            base += 15  # 近期命中率极低,大幅提高门槛
+            base += 10  # 从15降到10，别锁太死
         elif hr < 35:
-            base += 8
+            base += 5
     except:
         pass
     
-    # 连亏调节（从12/6降到8/4，避免门槛过高导致长期空仓）
+    # 连亏调节 — 进一步放宽，让系统有机会交易
     if loss_streak >= 5:
-        base += 8
+        base += 5   # 从8降到5
     elif loss_streak >= 3:
-        base += 4
+        base += 3   # 从4降到3
     
     # 熊市调节
     if regime == 'bear':
-        base += 5
+        base += 3   # 从5降到3
     
     return base
+
+
+def check_risk_reward_ratio(tech: dict, regime: str = "") -> dict:
+    """风险回报比门控 (Risk-Reward Ratio Gate)
+    
+    计算买入后的预期回报 vs 预期风险:
+    - 回报 = 距最近阻力位/Fib阻力位的距离
+    - 风险 = 距止损位(ATR止损或支撑破位)的距离
+    - R:R >= 2.0 才值得买入
+    
+    Returns: {rr_ratio, reward_pct, risk_pct, pass}
+    """
+    if not tech:
+        return {'rr_ratio': 0, 'pass': False}
+    
+    current = tech.get('current_price', 0)
+    if current <= 0:
+        return {'rr_ratio': 0, 'pass': False}
+    
+    # 预期风险: ATR止损距离
+    atr_pct = tech.get('atr_pct', 3)
+    risk_pct = max(atr_pct * 2, 3.0)  # 至少3%风险
+    risk_pct = min(risk_pct, 10.0)    # 最多10%风险
+    
+    # 预期回报: 多种方式估算，取最保守
+    reward_estimates = []
+    
+    # 方法1: 距最近阻力位
+    res_dist = tech.get('resistance_distance_pct', 99)
+    if res_dist < 30:
+        reward_estimates.append(res_dist)
+    
+    # 方法2: 距Fib阻力位
+    fib_res_dist = tech.get('fib_resistance_dist_pct', 99)
+    if fib_res_dist < 30:
+        reward_estimates.append(fib_res_dist)
+    
+    # 方法3: 基于ATR的合理目标(3x ATR)
+    reward_estimates.append(atr_pct * 3)
+    
+    # 取最保守的回报估算
+    reward_pct = min(reward_estimates) if reward_estimates else atr_pct * 2
+    
+    rr_ratio = reward_pct / risk_pct if risk_pct > 0 else 0
+    
+    # 熊市要求更高R:R
+    min_rr = 2.5 if regime == 'bear' else 1.8
+    
+    return {
+        'rr_ratio': round(rr_ratio, 2),
+        'reward_pct': round(reward_pct, 2),
+        'risk_pct': round(risk_pct, 2),
+        'pass': rr_ratio >= min_rr,
+        'min_rr': min_rr,
+    }
+
+
+def check_pullback_entry(tech: dict) -> dict:
+    """回调入场过滤 (Pullback Entry Filter)
+    
+    避免在连涨后追高。理想入场:
+    - 近期趋势向上(10日涨) + 近1-2日回调(当日跌或收在日内低位)
+    - 或处于支撑位附近
+    
+    Returns: {is_pullback, entry_quality, reason}
+    """
+    if not tech:
+        return {'is_pullback': True, 'entry_quality': 'neutral', 'reason': '无数据'}
+    
+    daily_chg = tech.get('daily_change_pct', 0)
+    ret_10d = tech.get('stock_ret_10d', 0)
+    rsi = tech.get('rsi14', 50)
+    near_support = tech.get('near_support', False)
+    near_fib_support = tech.get('near_fib_support', False)
+    pct_b = tech.get('boll_pct_b', 0.5)
+    z_score = tech.get('price_z_score', 0)
+    
+    # 最佳入场: 上升趋势中的回调
+    if ret_10d > 2 and daily_chg < 0:
+        return {'is_pullback': True, 'entry_quality': 'excellent', 
+                'reason': f'上升趋势回调(10d+{ret_10d:.1f}%,今日{daily_chg:.1f}%)', 'bonus': 8}
+    
+    # 好的入场: 在支撑位附近
+    if near_support or near_fib_support:
+        return {'is_pullback': True, 'entry_quality': 'good',
+                'reason': '支撑位入场', 'bonus': 5}
+    
+    # 好的入场: 超卖区域
+    if z_score < -1.5 or pct_b < 0.1 or rsi < 35:
+        return {'is_pullback': True, 'entry_quality': 'good',
+                'reason': f'超卖区(Z={z_score:.1f},RSI={rsi:.0f})', 'bonus': 5}
+    
+    # 中性: 横盘或微涨
+    if -1 < daily_chg < 2 and ret_10d < 5:
+        return {'is_pullback': True, 'entry_quality': 'neutral',
+                'reason': '常规入场', 'bonus': 0}
+    
+    # 差的入场: 连涨后追高
+    if daily_chg > 3 or (ret_10d > 8 and daily_chg > 0):
+        return {'is_pullback': False, 'entry_quality': 'poor',
+                'reason': f'追涨入场(10d+{ret_10d:.1f}%,今日+{daily_chg:.1f}%)', 'bonus': -10}
+    
+    return {'is_pullback': True, 'entry_quality': 'neutral', 'reason': '一般', 'bonus': 0}
+
+
+def calculate_entry_quality_score(tech: dict, signals: list, regime: str = "") -> int:
+    """入场质量综合评分 (Entry Quality Score)
+    
+    独立于现有score系统，评估"这个入场时机好不好"(而非"这个股票好不好")
+    满分100，低于40不入场
+    
+    维度:
+    - 趋势对齐(0-25): 日线/周线/MACD方向一致
+    - 位置优势(0-25): 在支撑位/超卖区/回调中
+    - 量价确认(0-25): OBV/CMF/量比配合
+    - 风险回报(0-25): R:R比合理
+    """
+    if not tech:
+        return 0
+    
+    score = 0
+    
+    # === 趋势对齐 (0-25) ===
+    trend_score = 0
+    weekly = tech.get('weekly_trend', 'neutral')
+    macd_sig = tech.get('macd_signal', '')
+    trend = tech.get('trend', '')
+    adx = tech.get('adx', 0)
+    
+    if weekly == 'up':
+        trend_score += 8
+    elif weekly == 'neutral':
+        trend_score += 4
+    
+    if macd_sig in ('golden_cross', 'bullish'):
+        trend_score += 8
+    elif macd_sig == 'golden_cross':
+        trend_score += 10
+    
+    if '多头' in trend:
+        trend_score += 5
+    elif '震荡' in trend:
+        trend_score += 2
+    
+    if adx > 25:
+        trend_score += 4  # 强趋势确认
+    
+    score += min(trend_score, 25)
+    
+    # === 位置优势 (0-25) ===
+    pos_score = 0
+    if tech.get('near_support'):
+        pos_score += 8
+    if tech.get('near_fib_support'):
+        pos_score += 6
+    if tech.get('strong_support'):
+        pos_score += 5
+    
+    z = tech.get('price_z_score', 0)
+    if z < -2:
+        pos_score += 8
+    elif z < -1:
+        pos_score += 5
+    elif z > 1.5:
+        pos_score -= 5
+    
+    pct_b = tech.get('boll_pct_b', 0.5)
+    if pct_b < 0.1:
+        pos_score += 6
+    elif pct_b < 0.3:
+        pos_score += 3
+    
+    score += max(min(pos_score, 25), 0)
+    
+    # === 量价确认 (0-25) ===
+    vol_score = 0
+    obv_trend = tech.get('obv_trend', 0)
+    if obv_trend > 0.1:
+        vol_score += 8
+    elif obv_trend < -0.1:
+        vol_score -= 5
+    
+    cmf = tech.get('cmf_20', 0)
+    if cmf > 0.1:
+        vol_score += 8
+    elif cmf > 0:
+        vol_score += 4
+    elif cmf < -0.1:
+        vol_score -= 5
+    
+    vol_ratio = tech.get('volume_ratio', 1)
+    if 1.0 < vol_ratio < 2.5:  # 温和放量最好
+        vol_score += 6
+    elif vol_ratio > 3:
+        vol_score -= 3  # 异常放量不好
+    
+    if tech.get('volume_dryup'):
+        vol_score += 5  # 缩量企稳
+    
+    score += max(min(vol_score, 25), 0)
+    
+    # === 风险回报 (0-25) ===
+    rr_info = check_risk_reward_ratio(tech, regime)
+    rr = rr_info['rr_ratio']
+    if rr >= 3:
+        score += 25
+    elif rr >= 2.5:
+        score += 20
+    elif rr >= 2:
+        score += 15
+    elif rr >= 1.5:
+        score += 8
+    else:
+        score += 0
+    
+    return score
 
 
 def check_signal_consensus(signals: list) -> tuple:
@@ -1286,6 +1503,34 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
             ranked = sorted(ranked, key=lambda x: -x['score'])
         except Exception as e:
             print(f"  ⚠️ 资金面信号叠加失败: {e}")
+
+    # === 入场质量评分 + 回调入场过滤 + 风险回报比 ===
+    for stock in ranked:
+        tech = stock.get('technical', {})
+        # 入场质量评分(0-100)
+        eq_score = calculate_entry_quality_score(tech, stock.get('signals', []), regime)
+        stock['entry_quality'] = eq_score
+        
+        # 回调入场过滤
+        pullback = check_pullback_entry(tech)
+        stock['pullback_info'] = pullback
+        stock['score'] += pullback.get('bonus', 0)
+        
+        # 风险回报比
+        rr = check_risk_reward_ratio(tech, regime)
+        stock['rr_info'] = rr
+        if not rr['pass']:
+            stock['score'] = int(stock['score'] * 0.7)  # R:R不够打7折
+            stock['rr_fail'] = True
+    
+    # 按综合分重排
+    ranked = sorted(ranked, key=lambda x: -x['score'])
+    
+    # 入场质量太低的过滤掉
+    before_eq = len(ranked)
+    ranked = [s for s in ranked if s.get('entry_quality', 0) >= 30]
+    if before_eq > len(ranked):
+        print(f"  🎯 入场质量过滤: {before_eq - len(ranked)}只入场质量<30被淘汰")
 
     # === 动态分数门槛: 根据近期胜率+连亏情况自动提高门槛 ===
     score_threshold = get_dynamic_score_threshold(regime=regime, loss_streak=loss_streak)
