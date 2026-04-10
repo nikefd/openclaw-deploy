@@ -354,7 +354,7 @@ def calculate_position_size(confidence: int, sentiment_score: float,
 
 
 def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = "", loss_streak: int = 0) -> list:
-    """动态止损止盈 — 追踪止损+情绪调节+阶梯止盈+时间止损+动量衰减卖出"""
+    """动态止损止盈 — 早期止损+追踪止损+情绪调节+阶梯止盈+时间止损+动量衰减卖出"""
     actions = []
     for pos in positions:
         if not pos.get('current_price') or not pos.get('avg_cost'):
@@ -366,6 +366,40 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         # T+1检查
         if buy_date == date.today().isoformat():
             continue
+        
+        # === 早期止损 (Early Exit) ===
+        # 买入后2个交易日内亏>2%说明入场时机错误，快速认错比等-8%好
+        # 买入后3个交易日内亏>1%也止损(连亏期间更严格)
+        # 注意: 用交易日而非日历天数，避免周五买入→周一=3天的误判
+        if buy_date:
+            try:
+                buy_dt = datetime.strptime(buy_date, '%Y-%m-%d').date()
+                # 计算交易日天数(排除周末)
+                _cal_days = (date.today() - buy_dt).days
+                _weekends = sum(1 for d in range(_cal_days) if (buy_dt + timedelta(days=d+1)).weekday() >= 5)
+                hold_days = _cal_days - _weekends
+                if hold_days <= 2 and pnl_pct <= -0.02:
+                    actions.append({
+                        "action": "SELL",
+                        "symbol": pos['symbol'],
+                        "name": pos['name'],
+                        "reason": f"早期止损: 持仓{hold_days}天亏{pnl_pct*100:.1f}%,入场时机错误",
+                        "shares": pos['shares'],
+                        "price": pos['current_price']
+                    })
+                    continue
+                if hold_days <= 3 and pnl_pct <= -0.01 and loss_streak >= 5:
+                    actions.append({
+                        "action": "SELL",
+                        "symbol": pos['symbol'],
+                        "name": pos['name'],
+                        "reason": f"连亏早期止损: 持仓{hold_days}天亏{pnl_pct*100:.1f}%,连亏{loss_streak}次加严",
+                        "shares": pos['shares'],
+                        "price": pos['current_price']
+                    })
+                    continue
+            except:
+                pass
         
         # === 预取技术指标(一次获取，多处复用) ===
         pos_tech = None
@@ -444,6 +478,22 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                         "symbol": pos['symbol'],
                         "name": pos['name'],
                         "reason": f"巨量追高减仓: 盈利{pnl_pct*100:+.1f}%+成交量高潮",
+                        "shares": half,
+                        "price": pos['current_price']
+                    })
+                    continue
+            
+            # === 单日暴涨冲高减仓 ===
+            # 持仓盈利5%+且单日涨幅>5%，冲高回落概率极大，主动减半仓锁利
+            daily_chg = pos_tech.get('daily_change_pct', 0)
+            if pnl_pct >= 0.05 and daily_chg > 5:
+                half = (pos['shares'] // 200) * 100
+                if half >= 100:
+                    actions.append({
+                        "action": "SELL",
+                        "symbol": pos['symbol'],
+                        "name": pos['name'],
+                        "reason": f"单日暴涨减仓: 盈利{pnl_pct*100:+.1f}%+今日涨{daily_chg:.1f}%冲高风险",
                         "shares": half,
                         "price": pos['current_price']
                     })

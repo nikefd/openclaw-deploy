@@ -231,6 +231,80 @@ def get_trade_review_insights() -> dict:
         return {}
 
 
+def get_toxic_signal_combos() -> dict:
+    """信号毒性检测 — 分析近期亏损交易的信号组合模式
+    
+    找出哪些信号组合总是亏钱(毒信号)，自动扣分
+    Returns: {signal_combo_key: penalty_score}
+    """
+    try:
+        import sqlite3
+        conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
+        c = conn.cursor()
+        # 获取近30天买入→止损的交易对
+        c.execute("""
+            SELECT b.reason, b.trade_date, s.reason as sell_reason,
+                   (s.price - b.price) / b.price * 100 as loss_pct
+            FROM trades b
+            JOIN trades s ON b.symbol = s.symbol AND s.direction = 'SELL'
+                AND s.id = (SELECT MIN(s2.id) FROM trades s2 WHERE s2.symbol = b.symbol AND s2.direction = 'SELL' AND s2.id > b.id)
+            WHERE b.direction = 'BUY' AND b.trade_date >= date('now', '-30 days')
+                AND s.reason LIKE '%止损%'
+        """)
+        losses = c.fetchall()
+        
+        # 统计买入→赢的交易作为对照
+        c.execute("""
+            SELECT b.reason
+            FROM trades b
+            JOIN trades s ON b.symbol = s.symbol AND s.direction = 'SELL'
+                AND s.id = (SELECT MIN(s2.id) FROM trades s2 WHERE s2.symbol = b.symbol AND s2.direction = 'SELL' AND s2.id > b.id)
+            WHERE b.direction = 'BUY' AND b.trade_date >= date('now', '-30 days')
+                AND s.reason LIKE '%止盈%'
+        """)
+        wins = c.fetchall()
+        conn.close()
+        
+        if len(losses) < 3:
+            return {}
+        
+        # 提取亏损交易中频繁出现的信号关键词
+        loss_signals = {}
+        for reason, _, _, loss_pct in losses:
+            if not reason:
+                continue
+            for keyword in ['量价齐升', '创新高', '大笔买入', '火箭', '强势股', '机构', 
+                           '超跌', '北向', '龙虎榜', '新闻利好']:
+                if keyword in reason:
+                    loss_signals[keyword] = loss_signals.get(keyword, 0) + 1
+        
+        # 赢的交易中的信号
+        win_signals = {}
+        for (reason,) in wins:
+            if not reason:
+                continue
+            for keyword in loss_signals:
+                if keyword in reason:
+                    win_signals[keyword] = win_signals.get(keyword, 0) + 1
+        
+        # 计算毒性: 亏损出现率 >> 盈利出现率 的信号
+        toxic = {}
+        total_losses = len(losses)
+        total_wins = max(len(wins), 1)
+        for sig, loss_count in loss_signals.items():
+            loss_rate = loss_count / total_losses
+            win_rate = win_signals.get(sig, 0) / total_wins
+            # 亏损交易中出现率>50%且盈利交易中出现率<20% = 毒信号
+            if loss_rate > 0.5 and win_rate < 0.2:
+                toxic[sig] = -15  # 重扣
+            elif loss_rate > 0.4 and loss_rate > win_rate * 2:
+                toxic[sig] = -8   # 中扣
+        
+        return toxic
+    except:
+        return {}
+
+
 def get_dynamic_score_threshold(regime: str = "", loss_streak: int = 0) -> int:
     """基于近期胜率动态调节最低买入分数门槛
     
@@ -655,6 +729,15 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     except:
         pass
 
+    # === 信号毒性检测: 近期总亏钱的信号组合自动扣分 ===
+    _toxic_signals = {}
+    try:
+        _toxic_signals = get_toxic_signal_combos()
+        if _toxic_signals:
+            print(f"  ☠️ 毒信号检测: {_toxic_signals}")
+    except:
+        pass
+
     # 加技术面验证 + 板块策略路由
     print(f"  📊 验证{len(ranked)}只候选股技术面...")
     for i, stock in enumerate(ranked):
@@ -930,6 +1013,14 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                             stock['score'] -= 5   # 轻扣: 短期涨幅较大
                     except:
                         pass
+
+                # === 信号毒性扣分 ===
+                if _toxic_signals:
+                    for sig in stock['signals']:
+                        for toxic_kw, penalty in _toxic_signals.items():
+                            if toxic_kw in sig:
+                                stock['score'] += penalty
+                                stock['toxic_signal'] = True
 
                 # 板块整体乘数（回测验证好的板块加成）
                 stock['score'] = int(stock['score'] * get_sector_score_multiplier(sector))

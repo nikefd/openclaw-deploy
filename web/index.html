@@ -1071,8 +1071,17 @@ function highlightActiveFile(){
 let _saveTimers={};
 function save(chatId){
   const id=chatId||currentId;
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));
-  localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));
+  // Strip large base64 image data before saving to avoid localStorage quota errors
+  function stripImages(chatArr){
+    return chatArr.map(c=>({...c,messages:c.messages.map(m=>{
+      if(!m.images||!m.images.length)return m;
+      return {...m,images:m.images.map(img=>img&&img.length>200?'[image]':img)};
+    })}));
+  }
+  try{
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(stripImages(chats)));
+    localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(stripImages(chats)));
+  }catch(e){console.warn('localStorage save failed (quota?), continuing...',e);}
   if(currentNode==='local'&&id){
     clearTimeout(_saveTimers[id]);
     _saveTimers[id]=setTimeout(()=>{

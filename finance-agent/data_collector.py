@@ -748,9 +748,10 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
                 # 三线之间的最大偏差百分比
                 ma_spread = (max(ma5, ma10, ma20) - min(ma5, ma10, ma20)) / ma20 * 100
                 indicators['ma_spread'] = round(ma_spread, 2)
-                # 收敛: 偏差<2% + 今日收盘突破三线
+                # 收敛: 偏差<2% + 今日收盘突破三线 + 放量确认(量比>1.2)
+                vol_confirm = indicators.get('volume_ratio', 1.0) >= 1.2
                 indicators['ma_converge_breakout'] = bool(
-                    ma_spread < 2.0 and current > max(ma5, ma10, ma20)
+                    ma_spread < 2.0 and current > max(ma5, ma10, ma20) and vol_confirm
                 )
             else:
                 indicators['ma_spread'] = 99
@@ -1029,6 +1030,9 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
 
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
+    # 同时计算当日涨跌幅(用于持仓管理中的单日暴涨减仓)
+    if len(close) >= 2:
+        indicators['daily_change_pct'] = round((close.iloc[-1] - close.iloc[-2]) / close.iloc[-2] * 100, 2) if close.iloc[-2] > 0 else 0
     if len(close) >= 10:
         try:
             macd_hist = macd.tail(5).tolist()
