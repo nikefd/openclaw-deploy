@@ -578,15 +578,26 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
             if regime == 'bear':
                 trail_threshold = min(trail_threshold, 0.04)  # 熊市上限4%
             
-            # 保本兜底: 如果从峰值利润回撤到盈利<5%，强制止损
-            # 防止"坐过山车"从大赚变回原点（之前2%太晚，中利集团+10%全吐）
+            # === 阶梯利润底线 (Profit Floor Lock) ===
+            # 利润达到每个里程碑后, 止损线永久提升到该里程碑的一定比例
+            # 例: 峰值+12% → 底线+6%, 峰值+8% → 底线+3%, 峰值+5% → 底线+1%
             peak_gain = (peak_price - pos['avg_cost']) / pos['avg_cost']
-            if peak_gain >= 0.08 and pnl_pct < 0.05:
+            profit_floor = None
+            if peak_gain >= 0.15:
+                profit_floor = 0.08  # 峰值>=15%, 利润底线8%
+            elif peak_gain >= 0.12:
+                profit_floor = 0.06  # 峰值>=12%, 利润底线6%
+            elif peak_gain >= 0.08:
+                profit_floor = 0.03  # 峰值>=8%, 利润底线3%
+            elif peak_gain >= 0.05:
+                profit_floor = 0.01  # 峰值>=5%, 利润底线1%
+            
+            if profit_floor is not None and pnl_pct < profit_floor:
                 actions.append({
                     "action": "SELL",
                     "symbol": pos['symbol'],
                     "name": pos['name'],
-                    "reason": f"保本止损: 峰值盈利{peak_gain*100:+.1f}%回撤至{pnl_pct*100:+.1f}%",
+                    "reason": f"利润底线止损: 峰值{peak_gain*100:+.1f}%→底线{profit_floor*100:.0f}%, 当前{pnl_pct*100:+.1f}%跌破",
                     "shares": pos['shares'],
                     "price": pos['current_price']
                 })
@@ -716,17 +727,22 @@ def portfolio_risk_check(positions: list, total_value: float) -> dict:
         if count >= 4:
             warnings.append(f"板块过于集中: {sector}有{count}只持仓，建议分散")
     
-    # === 连亏检测 — 查最近交易记录 ===
+    # === 连亏检测 — 含时间衰减 ===
+    # 连亏不是永久的: 最后一次止损距今越久, 连亏的惩罚效果越弱
+    # 超过5个交易日无止损, 连亏计数每多1天减1次(最低0)
     loss_streak = 0
     try:
         import sqlite3
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute("SELECT direction, reason FROM trades ORDER BY id DESC LIMIT 10")
+        c.execute("SELECT direction, reason, trade_date FROM trades ORDER BY id DESC LIMIT 15")
         recent_sells = []
+        last_stop_date = None
         for row in c.fetchall():
             if row[0] == 'SELL':
                 recent_sells.append(row[1] or '')
+                if last_stop_date is None and '止损' in (row[1] or ''):
+                    last_stop_date = row[2]
         conn.close()
         # 统计连续止损次数
         for reason in recent_sells:
@@ -734,6 +750,22 @@ def portfolio_risk_check(positions: list, total_value: float) -> dict:
                 loss_streak += 1
             else:
                 break
+        
+        # 时间衰减: 最后一次止损距今>5个交易日, 连亏感知减弱
+        if loss_streak >= 3 and last_stop_date:
+            try:
+                from datetime import datetime as _dt
+                last_dt = _dt.strptime(last_stop_date, '%Y-%m-%d').date()
+                days_since = (date.today() - last_dt).days
+                # 排除周末粗算交易日
+                _wk = days_since // 7
+                trading_days_since = days_since - _wk * 2
+                if trading_days_since > 5:
+                    decay = trading_days_since - 5  # 每多1个交易日减1
+                    loss_streak = max(0, loss_streak - decay)
+            except:
+                pass
+        
         if loss_streak >= 3:
             warnings.append(f"⚠️ 连续{loss_streak}次止损! 建议降低仓位+提高选股门槛")
     except:

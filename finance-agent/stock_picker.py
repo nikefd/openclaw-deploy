@@ -1309,6 +1309,7 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     
     # === 信号共识过滤 ===
     # 只保留至少2个独立信号类别支持的候选,减少假信号
+    # 但极高分候选(>=60)可绕过共识门槛(高确信度旁路)
     consensus_filtered = []
     for stock in ranked:
         passed, cats, cat_count = check_signal_consensus(stock['signals'])
@@ -1320,6 +1321,11 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 stock['score'] += 10
             elif cat_count >= 3:
                 stock['score'] += 6
+            consensus_filtered.append(stock)
+        elif stock['score'] >= 60:
+            # 高确信度旁路: 极高分即使单类别也保留(仅打9折)
+            stock['score'] = int(stock['score'] * 0.9)
+            stock['bypass_consensus'] = True
             consensus_filtered.append(stock)
         else:
             # 单类别但分数极高(>50)的也保留(可能是强机构推荐)
@@ -1467,6 +1473,39 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
     # 打分排名（含市场状态调节）
     ranked = score_and_rank(all_candidates, regime=regime)
 
+    # === 波动率环境自适应 ===
+    # 高波动环境: 偏好均值回归(超跌/支撑位买入), 压缩趋势追涨权重
+    # 低波动环境: 偏好趋势突破(均线收敛/MACD金叉), 压缩超跌反弹权重
+    try:
+        from data_collector import get_stock_daily, calculate_technical_indicators
+        _idx_df = get_stock_daily('000001', 30)  # 上证指数
+        if _idx_df is not None and len(_idx_df) >= 14:
+            _idx_tech = calculate_technical_indicators(_idx_df)
+            market_atr_pct = _idx_tech.get('atr_pct', 1.5)
+            if market_atr_pct > 2.5:  # 高波动环境
+                print(f"  📈 高波动环境(ATR%={market_atr_pct:.1f}%), 偏重均值回归信号")
+                for s in ranked:
+                    tech = s.get('technical', {})
+                    # 加重超跌/支撑信号
+                    if tech.get('near_support') or tech.get('near_fib_support'):
+                        s['score'] += 5
+                    if tech.get('price_z_score', 0) < -1.5:
+                        s['score'] += 5
+                    # 压缩趋势追涨
+                    if tech.get('ma_converge_breakout'):
+                        s['score'] -= 3
+            elif market_atr_pct < 1.0:  # 低波动环境
+                print(f"  📉 低波动环境(ATR%={market_atr_pct:.1f}%), 偏重趋势突破信号")
+                for s in ranked:
+                    tech = s.get('technical', {})
+                    if tech.get('ma_converge_breakout'):
+                        s['score'] += 5
+                    if '多头' in tech.get('trend', ''):
+                        s['score'] += 3
+            ranked = sorted(ranked, key=lambda x: -x['score'])
+    except Exception as e:
+        print(f"  ⚠️ 波动率环境检测失败: {e}")
+
     # === 新闻信号叠加到候选股分数 ===
     if news_signals and use_news:
         try:
@@ -1520,17 +1559,17 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
         rr = check_risk_reward_ratio(tech, regime)
         stock['rr_info'] = rr
         if not rr['pass']:
-            stock['score'] = int(stock['score'] * 0.7)  # R:R不够打7折
+            stock['score'] = int(stock['score'] * 0.8)  # R:R不够打8折(从7折放宽)
             stock['rr_fail'] = True
     
     # 按综合分重排
     ranked = sorted(ranked, key=lambda x: -x['score'])
     
-    # 入场质量太低的过滤掉
+    # 入场质量太低的过滤掉(门槛20, 从30降低避免过度过滤)
     before_eq = len(ranked)
-    ranked = [s for s in ranked if s.get('entry_quality', 0) >= 30]
+    ranked = [s for s in ranked if s.get('entry_quality', 0) >= 20]
     if before_eq > len(ranked):
-        print(f"  🎯 入场质量过滤: {before_eq - len(ranked)}只入场质量<30被淘汰")
+        print(f"  🎯 入场质量过滤: {before_eq - len(ranked)}只入场质量<20被淘汰")
 
     # === 动态分数门槛: 根据近期胜率+连亏情况自动提高门槛 ===
     score_threshold = get_dynamic_score_threshold(regime=regime, loss_streak=loss_streak)
