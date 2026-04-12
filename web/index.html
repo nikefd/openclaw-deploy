@@ -1231,6 +1231,7 @@ async function handleBtw(question){
 }
 
 // === SEND ===
+function perfLog(type,durationMs,extra){try{fetch('/api/perf/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,durationMs:Math.round(durationMs),...(extra||{})})}).catch(()=>{});}catch{}}
 async function sendMessage(){
   const text=input.value.trim();const images=[...pendingImages];
   if(!text&&!images.length)return;
@@ -1274,6 +1275,7 @@ async function sendMessage(){
   try{
     const payload={model:`openclaw:${chat.agentId}`,stream:true,user:chatId,messages:[{role:'user',content:msgContent}]};
     console.log('[DEBUG] Sending payload, content type:', Array.isArray(msgContent)?'multipart ('+msgContent.length+' parts)':'text', 'parts:', Array.isArray(msgContent)?msgContent.map(p=>p.type+':'+(p.type==='image_url'?p.image_url.url.slice(0,50)+'...':p.text)):'N/A');
+    const _perfStart=performance.now();let _perfTTFT=0;
     const res=await fetch(API,{method:'POST',headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
     console.log('[DEBUG] Response status:', res.status, res.statusText);
     if(!res.ok){const errBody=await res.text();console.error('[DEBUG] Error body:', errBody);throw new Error(`HTTP ${res.status}: ${errBody.slice(0,200)}`);}
@@ -1281,7 +1283,7 @@ async function sendMessage(){
     const reader=res.body.getReader(),decoder=new TextDecoder();let full='',buf='',lastStreamSave=Date.now();
     while(true){const{done,value}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();
       for(const line of lines){if(!line.startsWith('data: '))continue;const data=line.slice(6);if(data==='[DONE]')break;
-        try{const delta=JSON.parse(data).choices?.[0]?.delta?.content;if(delta){if(!typingRemoved){removeTyping(chatId);if(currentId===chatId)el=appendMsg('assistant','',agent,false);typingRemoved=true;}full+=delta;if(el&&currentId===chatId){el.textContent=full;el.classList.add('raw');messagesEl.scrollTop=messagesEl.scrollHeight;}
+        try{const delta=JSON.parse(data).choices?.[0]?.delta?.content;if(delta){if(!typingRemoved){removeTyping(chatId);if(currentId===chatId)el=appendMsg('assistant','',agent,false);typingRemoved=true;_perfTTFT=performance.now()-_perfStart;perfLog('ttft',_perfTTFT);}full+=delta;if(el&&currentId===chatId){el.textContent=full;el.classList.add('raw');messagesEl.scrollTop=messagesEl.scrollHeight;}
         // Periodic save during streaming (every 3s)
         if(Date.now()-lastStreamSave>3000){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;}else{chat.messages.push({role:'assistant',content:full,_streaming:true});}chat.updatedAt=Date.now();save(chatId);lastStreamSave=Date.now();}
         }}catch{}}}
@@ -1310,7 +1312,7 @@ async function sendMessage(){
       msgEl.onclick=async()=>{msgEl.onclick=null;errEl.textContent='⏳ 正在尝试恢复...';if(await tryRecover()){msgEl.remove();}else{msgEl.remove();input.value=lastUserMsg;sendMessage();}};
     }
   }
-  streamingChats.delete(chatId);chat.updatedAt=Date.now();save();renderSidebar();
+  streamingChats.delete(chatId);if(_perfStart){const _perfTotal=performance.now()-_perfStart;perfLog('total',_perfTotal,{ttft:Math.round(_perfTTFT),chars:full.length});}chat.updatedAt=Date.now();save();renderSidebar();
   if(currentId===chatId)streamBadge.classList.remove('show');
   sendBtn.disabled=!input.value.trim();input.focus();
 }

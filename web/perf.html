@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>性能监控</title>
+<style>
+:root{--bg:#f5f5f7;--card:#fff;--text:#1a1a2e;--text2:#6c757d;--border:#e5e5ea;--accent:#4361ee;--accent-bg:rgba(67,97,238,.08);--hover:#f0f0f5;--green:#2ec4b6;--orange:#ff6b35;--red:#e63946;--radius:14px;--code-bg:#f0f0f5}
+[data-theme=dark]{--bg:#1a1a2e;--card:#232340;--text:#e8e8f0;--text2:#8e8ea0;--border:#33334d;--accent:#6c8cff;--accent-bg:rgba(108,140,255,.12);--hover:#2a2a45;--green:#3dd9c4;--orange:#ff8c5a;--red:#ff5a6a;--code-bg:#2a2a45}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;line-height:1.7}
+a{color:var(--accent);text-decoration:none}
+
+.topnav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+.topnav h1{font-size:1.1rem;flex:1}
+.topnav a{font-size:.85rem;color:var(--text2)}
+.topnav .theme-btn{background:none;border:none;font-size:1.2rem;cursor:pointer}
+
+.container{max-width:1100px;margin:0 auto;padding:24px 20px 80px}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:20px 0}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center}
+.stat-card .label{font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.stat-card .value{font-size:2rem;font-weight:700;color:var(--accent)}
+.stat-card .sub{font-size:.75rem;color:var(--text2);margin-top:4px}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin:16px 0}
+h2{font-size:1.2rem;margin:24px 0 12px}
+h3{font-size:1rem;margin:16px 0 8px;color:var(--accent)}
+
+table{width:100%;border-collapse:collapse;font-size:.82rem;margin:8px 0}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+th{background:var(--accent-bg);font-weight:600;color:var(--accent);font-size:.75rem;text-transform:uppercase}
+tr:hover{background:var(--hover)}
+
+.bar-container{height:20px;background:var(--code-bg);border-radius:10px;overflow:hidden;position:relative}
+.bar{height:100%;border-radius:10px;transition:width .3s}
+.bar.fast{background:var(--green)}
+.bar.medium{background:var(--orange)}
+.bar.slow{background:var(--red)}
+
+.timeline{margin:16px 0}
+.timeline-entry{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.timeline-entry .time{color:var(--text2);min-width:70px;font-size:.75rem}
+.timeline-entry .type{font-weight:600;min-width:120px}
+.timeline-entry .dur{font-family:monospace;min-width:80px;text-align:right}
+.timeline-entry .bar-mini{flex:1}
+
+.refresh-btn{background:var(--accent);color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:.85rem}
+.refresh-btn:hover{opacity:.9}
+
+.empty{text-align:center;padding:40px;color:var(--text2);font-size:.9rem}
+
+canvas{max-width:100%;margin:12px 0}
+
+@media(max-width:600px){
+  .container{padding:16px 14px 60px}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .stat-card .value{font-size:1.5rem}
+}
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <h1>⚡ 性能监控</h1>
+  <a href="/">💬 聊天</a>
+  <a href="/agents/">🤖 Agents</a>
+  <a href="/architecture">📐 架构</a>
+  <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+</div>
+
+<div class="container">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <select id="daysSelect" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.85rem">
+      <option value="1">最近 1 天</option>
+      <option value="3">最近 3 天</option>
+      <option value="7" selected>最近 7 天</option>
+      <option value="30">最近 30 天</option>
+    </select>
+    <button class="refresh-btn" onclick="loadData()">🔄 刷新</button>
+    <span id="lastUpdate" style="font-size:.75rem;color:var(--text2)"></span>
+  </div>
+
+  <!-- Summary Stats -->
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card"><div class="label">总请求数</div><div class="value" id="totalReqs">—</div></div>
+    <div class="stat-card"><div class="label">平均 TTFT</div><div class="value" id="avgTTFT">—</div><div class="sub">首 Token 到达时间</div></div>
+    <div class="stat-card"><div class="label">平均总耗时</div><div class="value" id="avgTotal">—</div><div class="sub">完整响应时间</div></div>
+    <div class="stat-card"><div class="label">P95 耗时</div><div class="value" id="p95Total">—</div><div class="sub">95% 请求在此以内</div></div>
+  </div>
+
+  <!-- Breakdown -->
+  <h2>📊 耗时分布</h2>
+  <div class="card" id="breakdownCard">
+    <table>
+      <thead><tr><th>阶段</th><th>次数</th><th>平均</th><th>P50</th><th>P95</th><th>最小</th><th>最大</th><th>分布</th></tr></thead>
+      <tbody id="breakdownBody"></tbody>
+    </table>
+  </div>
+
+  <!-- Timeline chart -->
+  <h2>📈 趋势</h2>
+  <div class="card">
+    <canvas id="trendChart" height="200"></canvas>
+    <div id="noChart" class="empty" style="display:none">暂无数据，发几条消息后再来看</div>
+  </div>
+
+  <!-- Recent entries -->
+  <h2>🕐 最近请求</h2>
+  <div class="card">
+    <div id="recentEntries" class="timeline"></div>
+    <div id="noRecent" class="empty" style="display:none">暂无记录</div>
+  </div>
+</div>
+
+<script>
+const API = '/api/perf';
+
+function fmt(ms) {
+  if (ms == null || isNaN(ms)) return '—';
+  if (ms < 1000) return ms + 'ms';
+  return (ms/1000).toFixed(1) + 's';
+}
+
+function barClass(ms) {
+  if (ms < 2000) return 'fast';
+  if (ms < 5000) return 'medium';
+  return 'slow';
+}
+
+async function loadData() {
+  const days = document.getElementById('daysSelect').value;
+  try {
+    const [statsRes, logsRes] = await Promise.all([
+      fetch(`${API}/stats?days=${days}`),
+      fetch(`${API}/logs?days=${days}`)
+    ]);
+    const stats = await statsRes.json();
+    const logs = await logsRes.json();
+
+    // Summary
+    const ttft = stats.byType?.ttft;
+    const total = stats.byType?.total;
+    document.getElementById('totalReqs').textContent = stats.totalEntries || 0;
+    document.getElementById('avgTTFT').textContent = ttft ? fmt(ttft.avg) : '—';
+    document.getElementById('avgTotal').textContent = total ? fmt(total.avg) : '—';
+    document.getElementById('p95Total').textContent = total ? fmt(total.p95) : '—';
+
+    // Breakdown table
+    const tbody = document.getElementById('breakdownBody');
+    tbody.innerHTML = '';
+    const typeNames = { ttft: '⚡ 首Token(TTFT)', total: '🏁 总耗时', tool: '🔧 工具执行', context: '📄 上下文加载' };
+    const maxMs = Math.max(...Object.values(stats.byType || {}).map(s => s.max || 0), 1);
+    for (const [type, s] of Object.entries(stats.byType || {})) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${typeNames[type] || type}</strong></td>
+        <td>${s.count}</td>
+        <td>${fmt(s.avg)}</td>
+        <td>${fmt(s.p50)}</td>
+        <td>${fmt(s.p95)}</td>
+        <td>${fmt(s.min)}</td>
+        <td>${fmt(s.max)}</td>
+        <td><div class="bar-container" style="width:120px"><div class="bar ${barClass(s.avg)}" style="width:${Math.max(5, s.avg/maxMs*100)}%"></div></div></td>
+      `;
+      tbody.appendChild(tr);
+    }
+    if (!Object.keys(stats.byType || {}).length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text2)">暂无数据</td></tr>';
+    }
+
+    // Recent entries
+    const recent = document.getElementById('recentEntries');
+    const noRecent = document.getElementById('noRecent');
+    recent.innerHTML = '';
+    const sorted = logs.sort((a,b) => (b._ts||0) - (a._ts||0)).slice(0, 50);
+    if (!sorted.length) {
+      noRecent.style.display = '';
+    } else {
+      noRecent.style.display = 'none';
+      for (const e of sorted) {
+        const div = document.createElement('div');
+        div.className = 'timeline-entry';
+        const t = e._ts ? new Date(e._ts) : null;
+        const timeStr = t ? t.toLocaleString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
+        const dateStr = t ? t.toLocaleDateString('zh-CN',{month:'short',day:'numeric'}) : '';
+        const typeName = typeNames[e.type] || e.type || '?';
+        const dur = e.durationMs || 0;
+        div.innerHTML = `
+          <span class="time">${dateStr} ${timeStr}</span>
+          <span class="type">${typeName}</span>
+          <span class="dur ${barClass(dur)}" style="color:var(--${barClass(dur)})">${fmt(dur)}</span>
+          <div class="bar-mini"><div class="bar-container"><div class="bar ${barClass(dur)}" style="width:${Math.min(100, Math.max(3, dur/15000*100))}%"></div></div></div>
+        `;
+        if (e.detail) div.title = e.detail;
+        recent.appendChild(div);
+      }
+    }
+
+    // Trend chart (simple canvas)
+    drawTrend(logs);
+
+    document.getElementById('lastUpdate').textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN');
+  } catch(err) {
+    console.error('Load failed:', err);
+  }
+}
+
+function drawTrend(logs) {
+  const canvas = document.getElementById('trendChart');
+  const noChart = document.getElementById('noChart');
+  const totalLogs = logs.filter(l => l.type === 'total');
+  if (!totalLogs.length) { noChart.style.display=''; canvas.style.display='none'; return; }
+  noChart.style.display='none'; canvas.style.display='';
+
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width = canvas.parentElement.clientWidth - 40;
+  const h = canvas.height = 200;
+  const pad = {t:20,r:20,b:30,l:50};
+  const pw = w - pad.l - pad.r;
+  const ph = h - pad.t - pad.b;
+
+  ctx.clearRect(0,0,w,h);
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const gridColor = isDark ? '#33334d' : '#e5e5ea';
+  const textColor = isDark ? '#8e8ea0' : '#6c757d';
+
+  const sorted = totalLogs.sort((a,b) => (a._ts||0) - (b._ts||0));
+  const maxY = Math.max(...sorted.map(l => l.durationMs||0), 1000);
+  const minT = sorted[0]._ts||0;
+  const maxT = sorted[sorted.length-1]._ts||Date.now();
+  const rangeT = maxT - minT || 1;
+
+  // Grid
+  ctx.strokeStyle = gridColor;
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + ph * (1 - i/4);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l+pw, y); ctx.stroke();
+    ctx.fillStyle = textColor; ctx.font = '11px system-ui';
+    ctx.textAlign = 'right';
+    ctx.fillText(fmt(maxY * i/4), pad.l-6, y+4);
+  }
+
+  // Points + line
+  ctx.beginPath();
+  ctx.strokeStyle = isDark ? '#6c8cff' : '#4361ee';
+  ctx.lineWidth = 2;
+  const points = sorted.map(l => ({
+    x: pad.l + ((l._ts - minT)/rangeT) * pw,
+    y: pad.t + ph * (1 - (l.durationMs||0)/maxY),
+    dur: l.durationMs
+  }));
+  points.forEach((p,i) => { i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y); });
+  ctx.stroke();
+
+  // Dots
+  points.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI*2);
+    const c = p.dur < 2000 ? (isDark?'#3dd9c4':'#2ec4b6') : p.dur < 5000 ? (isDark?'#ff8c5a':'#ff6b35') : (isDark?'#ff5a6a':'#e63946');
+    ctx.fillStyle = c;
+    ctx.fill();
+  });
+}
+
+function toggleTheme(){
+  const d=document.documentElement;
+  const t=d.getAttribute('data-theme')==='dark'?'light':'dark';
+  d.setAttribute('data-theme',t);
+  localStorage.setItem('theme',t);
+  document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙';
+  loadData(); // redraw chart
+}
+(function(){
+  const t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙';
+  loadData();
+})();
+</script>
+</body>
+</html>
