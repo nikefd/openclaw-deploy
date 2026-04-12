@@ -72,10 +72,10 @@ tr:hover{background:var(--hover)}
 <!-- Header -->
 <div style="margin-bottom:24px">
   <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-    <span class="version-badge">OpenClaw v2026.3.23-1</span>
+    <span class="version-badge">OpenClaw v2026.4.11</span>
     <span class="badge green">● 运行中</span>
   </div>
-  <p class="updated">文档最后更新：2025-04-12 | 域名：zhangyangbin.com | 环境：Azure VPS (Ubuntu)</p>
+  <p class="updated">文档最后更新：2026-04-12 | 域名：zhangyangbin.com | 环境：Azure VPS (Ubuntu)</p>
 </div>
 
 <!-- TOC -->
@@ -119,12 +119,17 @@ tr:hover{background:var(--hover)}
   <h4>核心能力</h4>
   <ul>
     <li><strong>Agent 运行时</strong> — 管理 AI Agent 的生命周期、会话、记忆（MEMORY.md）、人格（SOUL.md）</li>
-    <li><strong>多通道接入</strong> — 支持 Discord、Telegram、Signal、WhatsApp、Web 等渠道接入同一个 Agent</li>
+    <li><strong>多通道接入</strong> — 支持 Discord、Telegram、Signal、WhatsApp、Web、Teams、Feishu、Matrix 等渠道接入同一个 Agent</li>
     <li><strong>工具系统（Skills）</strong> — 可扩展的技能插件，Agent 通过 SKILL.md 获取工具使用说明</li>
+    <li><strong>Active Memory</strong> — 主动记忆插件，回复前自动拉取相关偏好和历史上下文（v2026.4.10 新增）</li>
+    <li><strong>Dreaming / Memory Wiki</strong> — 记忆整理与知识编译系统，支持 ChatGPT 对话导入（v2026.4.11 增强）</li>
     <li><strong>Cron 调度</strong> — 内置定时任务，支持定时提醒、周期巡检等</li>
     <li><strong>心跳机制</strong> — 通过 HEARTBEAT.md 实现主动巡检</li>
     <li><strong>子 Agent 编排</strong> — 可 spawn 隔离子会话，支持 ACP 协议接入 Codex 等外部 Agent</li>
+    <li><strong>Codex 内置 Provider</strong> — <code>codex/gpt-*</code> 原生集成，独立 OAuth/线程/compaction（v2026.4.10 新增）</li>
+    <li><strong>Exec Policy CLI</strong> — <code>openclaw exec-policy</code> 本地执行策略管理（v2026.4.10 新增）</li>
     <li><strong>OpenAI 兼容 API</strong> — 对外暴露 <code>/v1/</code> 接口，兼容 OpenAI API 格式</li>
+    <li><strong>Control UI [embed]</strong> — webchat 支持内嵌富内容渲染（v2026.4.11 新增）</li>
   </ul>
 
   <h4>关键文件（Workspace）</h4>
@@ -142,7 +147,7 @@ tr:hover{background:var(--hover)}
 
   <h4>技术细节</h4>
   <ul>
-    <li><strong>版本：</strong> <code>2026.3.23-1</code></li>
+    <li><strong>版本：</strong> <code>2026.4.11</code></li>
     <li><strong>安装路径：</strong> <code>~/.npm-global/lib/node_modules/openclaw/</code></li>
     <li><strong>Gateway 端口：</strong> <code>18789</code></li>
     <li><strong>运行方式：</strong> systemd user service (<code>openclaw-gateway.service</code>)</li>
@@ -484,6 +489,7 @@ openclaw gateway restart</code></pre>
 
 <table>
   <tr><th>日期</th><th>变更</th></tr>
+  <tr><td>2026-04-12</td><td>🚀 OpenClaw 更新至 v2026.4.11（Active Memory、Dreaming Wiki、Codex Provider、embed 渲染、大量安全加固）</td></tr>
   <tr><td>2025-04-12</td><td>📐 创建架构设计文档页面</td></tr>
   <tr><td>2026-04-02</td><td>记忆系统层级化重构</td></tr>
   <tr><td>2026-03-28</td><td>攀岩教练面板改造；面试工具加 SQL</td></tr>
