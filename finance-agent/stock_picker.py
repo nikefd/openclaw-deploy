@@ -155,7 +155,8 @@ def get_trade_review_insights() -> dict:
         from data_collector import get_stock_daily, calculate_technical_indicators
         
         win_conditions = {'near_support': 0, 'strong_support': 0, 'z_under_neg1': 0, 
-                         'higher_low': 0, 'volume_dryup': 0, 'weekly_up': 0, 'adx_strong': 0}
+                         'higher_low': 0, 'volume_dryup': 0, 'weekly_up': 0, 'adx_strong': 0,
+                         'near_vp_support': 0, 'below_poc': 0}
         loss_conditions = dict(win_conditions)
         win_count = 0
         loss_count = 0
@@ -205,6 +206,10 @@ def get_trade_review_insights() -> dict:
                     conds['weekly_up'] += 1
                 if tech.get('trend_strength') == 'strong':
                     conds['adx_strong'] += 1
+                if tech.get('near_vp_support'):
+                    conds['near_vp_support'] += 1
+                if tech.get('below_poc'):
+                    conds['below_poc'] += 1
             except:
                 continue
         
@@ -554,16 +559,28 @@ def calculate_entry_quality_score(tech: dict, signals: list, regime: str = "") -
     return score
 
 
-def check_signal_consensus(signals: list) -> tuple:
+def check_signal_consensus(signals: list, regime: str = "") -> tuple:
     """检查信号共识: 至少2个不同类别的信号同意才通过
+    
+    v5.27: 熊市反转信号豁免 — 超跌反弹/技术面底部信号本身就是独立策略,
+    不需要多类别共识(因为反转信号很少同时出现在多个类别)
     
     Returns: (pass: bool, categories: set, category_count: int)
     """
     categories = set()
+    has_reversal = False
     for sig in signals:
         sig_base = sig.split('×')[0].split('+')[0].split(':')[0]
         cat = SIGNAL_CATEGORIES.get(sig_base, 'other')
         categories.add(cat)
+        # 检测是否含反转类信号
+        if any(kw in sig for kw in ['超跌', '缩量企稳', '均线收敛', '看涨', '锤子', '早晨之星', '底部抬升']):
+            has_reversal = True
+    
+    # 熊市反转信号豁免: 反转信号天然单类别,不要求多类别共识
+    if regime == 'bear' and has_reversal and len(categories) >= 1:
+        return True, categories, len(categories)
+    
     return len(categories) >= 2, categories, len(categories)
 
 
@@ -859,15 +876,21 @@ def get_sector_momentum() -> dict:
             net_flow = float(row.get('主力净流入', 0) or 0)
             # 正向动量: 涨幅+资金流入
             momentum = 0
-            if change > 2:
+            if change > 3:
+                momentum += 3  # 大涨板块加更多分
+            elif change > 2:
                 momentum += 2
             elif change > 0:
                 momentum += 1
             elif change < -2:
                 momentum -= 2
-            if net_flow > 0:
+            if net_flow > 5e8:  # 超5亿流入
+                momentum += 2
+            elif net_flow > 0:
                 momentum += 1
-            elif net_flow < -1e8:  # 超过1亿流出
+            elif net_flow < -5e8:  # 超5亿流出
+                momentum -= 2
+            elif net_flow < -1e8:
                 momentum -= 1
             result[name] = momentum
         return result
@@ -1192,6 +1215,14 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 elif z_score > 1.5:
                     stock['score'] -= 4
 
+                # === 成交密集区 (Volume Profile) 评分 ===
+                # v5.27新增: 比局部极值支撑更可靠
+                if tech.get('near_vp_support'):
+                    stock['score'] += 8  # 接近成交密集支撑区=资金堆积位置
+                    stock['near_vp_support'] = True
+                if tech.get('below_poc'):
+                    stock['score'] += 5 if bear_mode else 3  # 低于成交量中心,有回归动力
+
                 # === K线形态信号 ===
                 if tech.get('bullish_candle'):
                     candle_bonus = 10 if bear_mode else 6
@@ -1268,6 +1299,10 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                             stock['score'] += adj.get('weekly_up', 0)
                         if 'adx_strong' in adj and tech.get('trend_strength') == 'strong':
                             stock['score'] += adj.get('adx_strong', 0)
+                        if 'near_vp_support' in adj and tech.get('near_vp_support'):
+                            stock['score'] += adj.get('near_vp_support', 0)
+                        if 'below_poc' in adj and tech.get('below_poc'):
+                            stock['score'] += adj.get('below_poc', 0)
                 except:
                     pass
 
@@ -1312,7 +1347,7 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     # 但极高分候选(>=60)可绕过共识门槛(高确信度旁路)
     consensus_filtered = []
     for stock in ranked:
-        passed, cats, cat_count = check_signal_consensus(stock['signals'])
+        passed, cats, cat_count = check_signal_consensus(stock['signals'], regime=regime)
         stock['signal_categories'] = list(cats)
         stock['consensus_count'] = cat_count
         if passed:
@@ -1550,6 +1585,11 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
         eq_score = calculate_entry_quality_score(tech, stock.get('signals', []), regime)
         stock['entry_quality'] = eq_score
         
+        # v5.27: 入场质量作为连续乘数而非二元过滤
+        # entry_quality 50→1.0x, 80→1.3x, 20→0.7x
+        eq_mult = 0.7 + (eq_score / 100) * 0.6  # 范围[0.7, 1.3]
+        stock['score'] = int(stock['score'] * eq_mult)
+        
         # 回调入场过滤
         pullback = check_pullback_entry(tech)
         stock['pullback_info'] = pullback
@@ -1559,17 +1599,19 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
         rr = check_risk_reward_ratio(tech, regime)
         stock['rr_info'] = rr
         if not rr['pass']:
-            stock['score'] = int(stock['score'] * 0.8)  # R:R不够打8折(从7折放宽)
+            stock['score'] = int(stock['score'] * 0.8)  # R:R不够打8折
             stock['rr_fail'] = True
+        elif rr['rr_ratio'] >= 3.0:
+            stock['score'] = int(stock['score'] * 1.1)  # 高R:R加分
     
     # 按综合分重排
     ranked = sorted(ranked, key=lambda x: -x['score'])
     
-    # 入场质量太低的过滤掉(门槛20, 从30降低避免过度过滤)
+    # v5.27: 入场质量过滤门槛降到15(从20), 低质量入场已经通过乘数惩罚了
     before_eq = len(ranked)
-    ranked = [s for s in ranked if s.get('entry_quality', 0) >= 20]
+    ranked = [s for s in ranked if s.get('entry_quality', 0) >= 15]
     if before_eq > len(ranked):
-        print(f"  🎯 入场质量过滤: {before_eq - len(ranked)}只入场质量<20被淘汰")
+        print(f"  🎯 入场质量过滤: {before_eq - len(ranked)}只入场质量<15被淘汰")
 
     # === 动态分数门槛: 根据近期胜率+连亏情况自动提高门槛 ===
     score_threshold = get_dynamic_score_threshold(regime=regime, loss_streak=loss_streak)

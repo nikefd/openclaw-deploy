@@ -292,6 +292,8 @@ def ai_final_decision(candidates: list, market_analysis: dict, sentiment: dict,
 13. **转换期机会**: 如果市场处于bear_to_sideways转换期，可适当放宽选股标准，提前布局反弹
 14. **Fibonacci支撑**: 优先选near_fib_support=True的品种(接近关键Fibonacci回撤位，历史有效的支撑)
 15. **超跌反弹**: 熊市中有'超跌'信号+多个企稳信号(缩量企稳/底部抬升/RSI低位)的品种，是当前最佳策略
+16. **成交密集区支撑**: 优先选near_vp_support=True的(接近成交量密集区=真实资金博弈位置,比普通支撑更可靠)
+17. **在POC下方**: below_poc=True的品种有均值回归动力,配合超卖信号更佳
 
 如果没有足够好的标的(连亏期间)，可以只选1-2只甚至空仓等待。
 **但注意**: 不能永远空仓，需要适度交易来重置连亏计数器。

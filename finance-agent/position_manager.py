@@ -300,10 +300,12 @@ def calculate_position_size(confidence: int, sentiment_score: float,
         base_pct *= 0.7
     
     # === 连亏8+次: 狙击手模式 — 不完全停手,但极度保守 ===
-    # v5.25: 从完全停手改为极小仓位(2-3%),只买最高质量信号
-    # 原因: 完全停手→连亏无法重置→永远停手,陷入死循环
+    # v5.27: 连亏3-7次也打开狙击手模式,而不是只缩仓
+    # 原因: 缩仓后的微仓让交易毫无意义,不如用固定小仓位快速试探
     if loss_streak >= 8:
-        base_pct = 0.025  # 固定2.5%微仓,足够重置连亏但不冒大风险
+        base_pct = 0.025  # 固定2.5%微仓
+    elif loss_streak >= 5:
+        base_pct = 0.04   # 固定4%小仓(v5.27: 从50%缩仓改为固定小仓)
     
     # === 连亏冷却期: 连亏6+次强制冷却，不只是缩仓 ===
     if loss_streak >= 6:
@@ -324,11 +326,9 @@ def calculate_position_size(confidence: int, sentiment_score: float,
             pass
     
     # === 连亏保护: 连续止损后自动收缩仓位 ===
-    # 设最低仓位地板: 低于2%的仓位毫无意义(手续费吃利润)，直接不开仓
-    if loss_streak >= 5:
-        base_pct *= 0.5  # 连亏5次，仓位降到50%（原30%太激进导致微仓）
-    elif loss_streak >= 3:
-        base_pct *= 0.6  # 连亏3次，仓位降40%
+    # v5.27: 连亏5+已在上方固定为小仓位, 这里只处理连亏2-4
+    if loss_streak >= 3 and loss_streak < 5:
+        base_pct *= 0.6  # 连亏3-4次，仓位降40%
     elif loss_streak >= 2:
         base_pct *= 0.7  # 连亏2次，仓位降30%
     
@@ -517,19 +517,29 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                 continue
         
         # === 连亏锁利润 (Loss Streak Profit Lock) ===
-        # 连亏>=5次时，+5%即卖半仓锁定利润，帮助重置连亏计数器
-        if loss_streak >= 5 and pnl_pct >= 0.05:
-            half = (pos['shares'] // 200) * 100
-            sell_shares = half if half >= 100 else pos['shares']
-            actions.append({
-                "action": "SELL",
-                "symbol": pos['symbol'],
-                "name": pos['name'],
-                "reason": f"连亏锁利润: 连亏{loss_streak}次,盈利{pnl_pct*100:+.1f}%主动锁利",
-                "shares": sell_shares,
-                "price": pos['current_price']
-            })
-            continue
+        # 连亏>=5次时，动态锁利帮助重置连亏计数器
+        # v5.27: 动态锁利门槛 — 连亏越多越早锁利
+        if loss_streak >= 3 and pnl_pct > 0:
+            # 连亏8+: +2%即锁; 连亏5-7: +3%锁; 连亏3-4: +5%锁
+            if loss_streak >= 8:
+                lock_threshold = 0.02
+            elif loss_streak >= 5:
+                lock_threshold = 0.03
+            else:
+                lock_threshold = 0.05
+            
+            if pnl_pct >= lock_threshold:
+                half = (pos['shares'] // 200) * 100
+                sell_shares = half if half >= 100 else pos['shares']
+                actions.append({
+                    "action": "SELL",
+                    "symbol": pos['symbol'],
+                    "name": pos['name'],
+                    "reason": f"连亏锁利润: 连亏{loss_streak}次,盈利{pnl_pct*100:+.1f}%≥{lock_threshold*100:.0f}%主动锁利",
+                    "shares": sell_shares,
+                    "price": pos['current_price']
+                })
+                continue
         
         # === 时间止损 (Time Stop) ===
         # 持仓天数阈值根据市场状态自适应: 牛市宽松(25天)，熊市收紧(15天)

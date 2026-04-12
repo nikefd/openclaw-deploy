@@ -1055,6 +1055,68 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['momentum_decay'] = False
             indicators['volume_price_diverge'] = False
 
+    # === 成交密集区 (Volume Profile) ===
+    # 用成交量加权的价格分布找到真正的支撑/阻力位
+    # 比局部极值法更可靠，因为成交密集区代表真实的资金博弈位置
+    try:
+        if volume is not None and len(close) >= 20:
+            high = df['最高'].astype(float)
+            low = df['最低'].astype(float)
+            price_range = high.max() - low.min()
+            if price_range > 0:
+                n_bins = 20
+                bin_size = price_range / n_bins
+                bins = {}
+                for i in range(len(close)):
+                    # 每根K线的成交量均匀分配到其价格区间
+                    k_low = float(low.iloc[i])
+                    k_high = float(high.iloc[i])
+                    k_vol = float(volume.iloc[i])
+                    for b in range(n_bins):
+                        bin_low = float(low.min()) + b * bin_size
+                        bin_high = bin_low + bin_size
+                        if k_low <= bin_high and k_high >= bin_low:
+                            overlap = min(k_high, bin_high) - max(k_low, bin_low)
+                            k_range = k_high - k_low if k_high > k_low else bin_size
+                            ratio = overlap / k_range
+                            bin_mid = bin_low + bin_size / 2
+                            bins[round(bin_mid, 2)] = bins.get(round(bin_mid, 2), 0) + k_vol * ratio
+                
+                if bins:
+                    # 找成交量最大的价格区间 = POC (Point of Control)
+                    poc_price = max(bins, key=bins.get)
+                    total_vol = sum(bins.values())
+                    
+                    # 找当前价下方最近的成交密集区(支撑) 和 上方的(阻力)
+                    avg_vol = total_vol / n_bins
+                    dense_prices = [p for p, v in bins.items() if v > avg_vol * 1.5]  # 量>均值1.5倍=密集区
+                    
+                    vp_support = None
+                    vp_resistance = None
+                    cur = float(current)
+                    for dp in sorted(dense_prices):
+                        if dp < cur * 0.98:  # 低于当前价2%以上
+                            vp_support = dp
+                        elif dp > cur * 1.01 and vp_resistance is None:
+                            vp_resistance = dp
+                    
+                    indicators['volume_profile_poc'] = poc_price
+                    indicators['vp_support'] = vp_support
+                    indicators['vp_resistance'] = vp_resistance
+                    
+                    if vp_support:
+                        vp_sup_dist = (cur - vp_support) / cur * 100
+                        indicators['vp_support_dist_pct'] = round(vp_sup_dist, 2)
+                        indicators['near_vp_support'] = vp_sup_dist < 3  # 3%以内=接近成交密集支撑
+                    else:
+                        indicators['vp_support_dist_pct'] = 99
+                        indicators['near_vp_support'] = False
+                    
+                    # 当前价在POC下方=潜在回归价值
+                    indicators['below_poc'] = cur < poc_price
+    except:
+        pass
+
     return indicators
 
 
