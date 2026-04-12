@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard</title>
+<style>
+:root{--bg:#f5f5f7;--card:#fff;--text:#1a1a2e;--text2:#6c757d;--border:#e5e5ea;--accent:#4361ee;--accent-bg:rgba(67,97,238,.08);--hover:#f0f0f5;--green:#2ec4b6;--orange:#ff6b35;--red:#e63946;--radius:14px;--code-bg:#f0f0f5}
+[data-theme=dark]{--bg:#1a1a2e;--card:#232340;--text:#e8e8f0;--text2:#8e8ea0;--border:#33334d;--accent:#6c8cff;--accent-bg:rgba(108,140,255,.12);--hover:#2a2a45;--green:#3dd9c4;--orange:#ff8c5a;--red:#ff5a6a;--code-bg:#2a2a45}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;line-height:1.7}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+
+.topnav{background:var(--card);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
+.topnav h1{font-size:1.1rem;flex:1}
+.topnav a{font-size:.85rem;color:var(--text2)}
+.topnav .theme-btn{background:none;border:none;font-size:1.2rem;cursor:pointer}
+
+.container{max-width:1100px;margin:0 auto;padding:24px 20px 80px}
+
+/* Tabs */
+.tabs{display:flex;gap:0;margin-bottom:24px;border-bottom:2px solid var(--border)}
+.tab-btn{padding:10px 24px;font-size:.9rem;font-weight:600;background:none;border:none;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* Cards */
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.card .label{font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.card .value{font-size:1.8rem;font-weight:700}
+.card .sub{font-size:.75rem;color:var(--text2);margin-top:4px}
+.card.accent .value{color:var(--accent)}
+.card.green .value{color:var(--green)}
+.card.orange .value{color:var(--orange)}
+.card.red .value{color:var(--red)}
+
+.section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+.section h2{font-size:1rem;margin-bottom:14px}
+
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+th{background:var(--accent-bg);font-weight:600;color:var(--accent);font-size:.75rem;text-transform:uppercase;letter-spacing:.5px}
+tr:hover{background:var(--hover)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.cost{color:var(--orange);font-weight:600}
+
+/* Chart */
+.bar-chart{display:flex;align-items:flex-end;gap:4px;height:180px;padding-top:10px;overflow-x:auto}
+.bar-group{display:flex;flex-direction:column;align-items:center;min-width:40px;flex:1}
+.bar{width:100%;border-radius:4px 4px 0 0;min-height:2px;transition:height .3s;position:relative;cursor:pointer}
+.bar:hover{opacity:.8}
+.bar .tooltip{display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:6px 10px;border-radius:6px;font-size:.7rem;white-space:nowrap;z-index:10}
+.bar:hover .tooltip{display:block}
+.bar-label{font-size:.6rem;color:var(--text2);margin-top:4px;writing-mode:vertical-lr;text-orientation:mixed;height:50px;overflow:hidden}
+
+.note{background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 16px;font-size:.8rem;margin-bottom:20px}
+[data-theme=dark] .note{background:#3d3520;border-color:#665522;color:#e8e8f0}
+
+/* Perf specific */
+.bar-container{height:20px;background:var(--code-bg);border-radius:10px;overflow:hidden}
+.pbar{height:100%;border-radius:10px;transition:width .3s}
+.pbar.fast{background:var(--green)}
+.pbar.medium{background:var(--orange)}
+.pbar.slow{background:var(--red)}
+
+.timeline-entry{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.timeline-entry .time{color:var(--text2);min-width:70px;font-size:.75rem}
+.timeline-entry .type{font-weight:600;min-width:120px}
+.timeline-entry .dur{font-family:monospace;min-width:80px;text-align:right}
+.timeline-entry .bar-mini{flex:1}
+
+.controls{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.controls select,.controls button{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.85rem;cursor:pointer}
+.controls button{background:var(--accent);color:#fff;border:none;font-weight:600}
+.controls button:hover{opacity:.9}
+
+.empty{text-align:center;padding:40px;color:var(--text2);font-size:.9rem}
+
+@media(max-width:600px){
+  .container{padding:16px 14px 60px}
+  .summary{grid-template-columns:1fr 1fr}
+  .card .value{font-size:1.4rem}
+  .tab-btn{padding:8px 14px;font-size:.82rem}
+}
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <h1>📊 Dashboard</h1>
+  <a href="/">💬 聊天</a>
+  <a href="/agents/">🤖 Agents</a>
+  <a href="/architecture">📐 架构</a>
+  <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('usage')">💰 用量 & 费用</button>
+    <button class="tab-btn" onclick="switchTab('perf')">⚡ 性能监控</button>
+  </div>
+
+  <!-- ==================== TAB 1: USAGE ==================== -->
+  <div class="tab-panel active" id="tab-usage">
+    <p class="sub" id="generatedAt" style="font-size:.8rem;color:var(--text2);margin-bottom:16px">加载中...</p>
+    <div class="note" id="note" style="display:none"></div>
+
+    <div class="summary" id="summary">
+      <div class="card"><div class="label">加载中</div><div class="value">...</div></div>
+    </div>
+
+    <div class="section">
+      <h2>📈 每日 Token 消耗</h2>
+      <div class="bar-chart" id="dailyChart"></div>
+    </div>
+
+    <div class="section">
+      <h2>📋 每日明细</h2>
+      <table>
+        <thead><tr><th>日期</th><th class="num">Input</th><th class="num">Output</th><th class="num">Cache Read</th><th class="num">Cache Write</th><th class="num">Sessions</th><th class="num">估算费用</th></tr></thead>
+        <tbody id="dailyTable"></tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>🤖 按模型统计</h2>
+      <table>
+        <thead><tr><th>模型</th><th class="num">Input</th><th class="num">Output</th><th class="num">Cache Read</th><th class="num">Sessions</th><th class="num">估算费用</th></tr></thead>
+        <tbody id="modelTable"></tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>🧩 按 Agent 统计</h2>
+      <table>
+        <thead><tr><th>Agent</th><th class="num">Input</th><th class="num">Output</th><th class="num">Cache Read</th><th class="num">Sessions</th><th class="num">估算费用</th></tr></thead>
+        <tbody id="agentTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 2: PERF ==================== -->
+  <div class="tab-panel" id="tab-perf">
+    <div class="controls">
+      <select id="daysSelect">
+        <option value="1">最近 1 天</option>
+        <option value="3">最近 3 天</option>
+        <option value="7" selected>最近 7 天</option>
+        <option value="30">最近 30 天</option>
+      </select>
+      <button onclick="loadPerf()">🔄 刷新</button>
+      <span id="perfUpdate" style="font-size:.75rem;color:var(--text2)"></span>
+    </div>
+
+    <div class="summary" id="perfSummary">
+      <div class="card accent"><div class="label">总请求数</div><div class="value" id="totalReqs">—</div></div>
+      <div class="card green"><div class="label">平均 TTFT</div><div class="value" id="avgTTFT">—</div><div class="sub">首 Token 到达时间</div></div>
+      <div class="card orange"><div class="label">平均总耗时</div><div class="value" id="avgTotal">—</div><div class="sub">完整响应时间</div></div>
+      <div class="card red"><div class="label">P95 耗时</div><div class="value" id="p95Total">—</div><div class="sub">95% 请求在此以内</div></div>
+    </div>
+
+    <div class="section">
+      <h2>📊 耗时分布</h2>
+      <table>
+        <thead><tr><th>阶段</th><th class="num">次数</th><th class="num">平均</th><th class="num">P50</th><th class="num">P95</th><th class="num">最小</th><th class="num">最大</th><th>分布</th></tr></thead>
+        <tbody id="breakdownBody"></tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>📈 耗时趋势</h2>
+      <canvas id="trendChart" height="200"></canvas>
+      <div id="noChart" class="empty" style="display:none">暂无数据，发几条消息后再来看</div>
+    </div>
+
+    <div class="section">
+      <h2>🕐 最近请求</h2>
+      <div id="recentEntries"></div>
+      <div id="noRecent" class="empty" style="display:none">暂无记录</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===== Common ===== */
+function fmtN(n){if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return n.toLocaleString()}
+function fmtFull(n){return n.toLocaleString()}
+function fmtCost(n){return '$'+n.toFixed(2)}
+function fmtMs(ms){if(ms==null||isNaN(ms))return'—';if(ms<1000)return ms+'ms';return(ms/1000).toFixed(1)+'s'}
+function barClass(ms){return ms<2000?'fast':ms<5000?'medium':'slow'}
+
+function switchTab(name){
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',b.textContent.includes(name==='usage'?'用量':'性能')));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
+  if(name==='perf'&&!perfLoaded)loadPerf();
+}
+
+/* ===== USAGE TAB ===== */
+async function loadUsage(){
+  try{
+    const res=await fetch('/api/usage/');
+    const data=await res.json();
+    renderUsage(data);
+  }catch(e){document.getElementById('summary').innerHTML='<div class="card"><div class="label">错误</div><div class="value">'+e.message+'</div></div>';}
+}
+
+function renderUsage(data){
+  const s=data.summary;
+  document.getElementById('generatedAt').textContent='更新于 '+new Date(data.generatedAt).toLocaleString('zh-CN');
+  if(s.note){const n=document.getElementById('note');n.style.display='block';n.textContent='💡 '+s.note;}
+  document.getElementById('summary').innerHTML=`
+    <div class="card accent"><div class="label">总 Tokens</div><div class="value">${fmtN(s.totalTokens)}</div><div class="sub">${fmtFull(s.totalTokens)} tokens</div></div>
+    <div class="card green"><div class="label">Output Tokens</div><div class="value">${fmtN(s.totalOutput)}</div><div class="sub">模型生成</div></div>
+    <div class="card"><div class="label">Cache Read</div><div class="value">${fmtN(s.totalCacheRead)}</div><div class="sub">缓存命中</div></div>
+    <div class="card orange"><div class="label">估算费用 (API价)</div><div class="value">${fmtCost(s.estimatedCost)}</div><div class="sub">如果按标准API计费</div></div>
+    <div class="card"><div class="label">Sessions</div><div class="value">${s.sessionCount}</div><div class="sub">对话数量</div></div>
+  `;
+  const daily=data.daily;
+  const maxT=Math.max(...daily.map(d=>d.input+d.output+d.cacheRead+d.cacheWrite));
+  document.getElementById('dailyChart').innerHTML=daily.map(d=>{
+    const t=d.input+d.output+d.cacheRead+d.cacheWrite;
+    const h=Math.max(2,(t/maxT)*160);
+    const c=d.cost>50?'var(--red)':d.cost>20?'var(--orange)':'var(--accent)';
+    return`<div class="bar-group"><div class="bar" style="height:${h}px;background:${c}"><div class="tooltip">${d.date}<br>${fmtN(t)} tokens<br>${fmtCost(d.cost)}<br>${d.sessions} sessions</div></div><div class="bar-label">${d.date.slice(5)}</div></div>`;
+  }).join('');
+  document.getElementById('dailyTable').innerHTML=daily.slice().reverse().map(d=>`<tr><td>${d.date}</td><td class="num">${fmtFull(d.input)}</td><td class="num">${fmtFull(d.output)}</td><td class="num">${fmtFull(d.cacheRead)}</td><td class="num">${fmtFull(d.cacheWrite)}</td><td class="num">${d.sessions}</td><td class="num cost">${fmtCost(d.cost)}</td></tr>`).join('');
+  document.getElementById('modelTable').innerHTML=data.models.map(m=>`<tr><td style="font-size:.8rem">${m.model||'unknown'}</td><td class="num">${fmtFull(m.input)}</td><td class="num">${fmtFull(m.output)}</td><td class="num">${fmtFull(m.cacheRead)}</td><td class="num">${m.sessions}</td><td class="num cost">${fmtCost(m.cost)}</td></tr>`).join('');
+  document.getElementById('agentTable').innerHTML=(data.agents||[]).map(a=>`<tr><td>${a.agent}</td><td class="num">${fmtFull(a.input)}</td><td class="num">${fmtFull(a.output)}</td><td class="num">${fmtFull(a.cacheRead)}</td><td class="num">${a.sessions}</td><td class="num cost">${fmtCost(a.cost)}</td></tr>`).join('');
+}
+
+/* ===== PERF TAB ===== */
+let perfLoaded=false;
+const typeNames={ttft:'⚡ 首Token(TTFT)',total:'🏁 总耗时',tool:'🔧 工具执行',context:'📄 上下文加载'};
+
+async function loadPerf(){
+  perfLoaded=true;
+  const days=document.getElementById('daysSelect').value;
+  try{
+    const[sR,lR]=await Promise.all([fetch(`/api/perf/stats?days=${days}`),fetch(`/api/perf/logs?days=${days}`)]);
+    const stats=await sR.json(),logs=await lR.json();
+    const ttft=stats.byType?.ttft,total=stats.byType?.total;
+    document.getElementById('totalReqs').textContent=stats.totalEntries||0;
+    document.getElementById('avgTTFT').textContent=ttft?fmtMs(ttft.avg):'—';
+    document.getElementById('avgTotal').textContent=total?fmtMs(total.avg):'—';
+    document.getElementById('p95Total').textContent=total?fmtMs(total.p95):'—';
+
+    const tbody=document.getElementById('breakdownBody');tbody.innerHTML='';
+    const maxMs=Math.max(...Object.values(stats.byType||{}).map(s=>s.max||0),1);
+    for(const[type,s] of Object.entries(stats.byType||{})){
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td><strong>${typeNames[type]||type}</strong></td><td class="num">${s.count}</td><td class="num">${fmtMs(s.avg)}</td><td class="num">${fmtMs(s.p50)}</td><td class="num">${fmtMs(s.p95)}</td><td class="num">${fmtMs(s.min)}</td><td class="num">${fmtMs(s.max)}</td><td><div class="bar-container" style="width:120px"><div class="pbar ${barClass(s.avg)}" style="width:${Math.max(5,s.avg/maxMs*100)}%"></div></div></td>`;
+      tbody.appendChild(tr);
+    }
+    if(!Object.keys(stats.byType||{}).length)tbody.innerHTML='<tr><td colspan="8" class="empty">暂无数据</td></tr>';
+
+    const recent=document.getElementById('recentEntries'),noR=document.getElementById('noRecent');
+    recent.innerHTML='';
+    const sorted=logs.sort((a,b)=>(b._ts||0)-(a._ts||0)).slice(0,50);
+    if(!sorted.length){noR.style.display='';}else{noR.style.display='none';
+      for(const e of sorted){
+        const div=document.createElement('div');div.className='timeline-entry';
+        const t=e._ts?new Date(e._ts):null;
+        const ts=t?t.toLocaleString('zh-CN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
+        const dur=e.durationMs||0;
+        div.innerHTML=`<span class="time">${ts}</span><span class="type">${typeNames[e.type]||e.type||'?'}</span><span class="dur" style="color:var(--${barClass(dur)})">${fmtMs(dur)}</span><div class="bar-mini"><div class="bar-container"><div class="pbar ${barClass(dur)}" style="width:${Math.min(100,Math.max(3,dur/15000*100))}%"></div></div></div>`;
+        if(e.detail)div.title=e.detail;
+        recent.appendChild(div);
+      }
+    }
+    drawTrend(logs);
+    document.getElementById('perfUpdate').textContent='更新于 '+new Date().toLocaleTimeString('zh-CN');
+  }catch(err){console.error('Perf load failed:',err);}
+}
+
+function drawTrend(logs){
+  const canvas=document.getElementById('trendChart'),noC=document.getElementById('noChart');
+  const totalLogs=logs.filter(l=>l.type==='total');
+  if(!totalLogs.length){noC.style.display='';canvas.style.display='none';return;}
+  noC.style.display='none';canvas.style.display='';
+  const ctx=canvas.getContext('2d');
+  const w=canvas.width=canvas.parentElement.clientWidth-40,h=canvas.height=200;
+  const pad={t:20,r:20,b:30,l:50},pw=w-pad.l-pad.r,ph=h-pad.t-pad.b;
+  ctx.clearRect(0,0,w,h);
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const gc=isDark?'#33334d':'#e5e5ea',tc=isDark?'#8e8ea0':'#6c757d';
+  const sorted=totalLogs.sort((a,b)=>(a._ts||0)-(b._ts||0));
+  const maxY=Math.max(...sorted.map(l=>l.durationMs||0),1000);
+  const minT=sorted[0]._ts||0,maxT2=sorted[sorted.length-1]._ts||Date.now(),rangeT=maxT2-minT||1;
+  ctx.strokeStyle=gc;ctx.lineWidth=.5;
+  for(let i=0;i<=4;i++){const y=pad.t+ph*(1-i/4);ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+pw,y);ctx.stroke();ctx.fillStyle=tc;ctx.font='11px system-ui';ctx.textAlign='right';ctx.fillText(fmtMs(maxY*i/4),pad.l-6,y+4);}
+  ctx.beginPath();ctx.strokeStyle=isDark?'#6c8cff':'#4361ee';ctx.lineWidth=2;
+  const pts=sorted.map(l=>({x:pad.l+((l._ts-minT)/rangeT)*pw,y:pad.t+ph*(1-(l.durationMs||0)/maxY),dur:l.durationMs}));
+  pts.forEach((p,i)=>{i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y);});ctx.stroke();
+  pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fillStyle=p.dur<2000?(isDark?'#3dd9c4':'#2ec4b6'):p.dur<5000?(isDark?'#ff8c5a':'#ff6b35'):(isDark?'#ff5a6a':'#e63946');ctx.fill();});
+}
+
+/* ===== Theme ===== */
+function toggleTheme(){
+  const d=document.documentElement,t=d.getAttribute('data-theme')==='dark'?'light':'dark';
+  d.setAttribute('data-theme',t);localStorage.setItem('theme',t);
+  document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙';
+  if(perfLoaded)loadPerf();
+}
+
+/* ===== Init ===== */
+(function(){
+  const t=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙';
+  // Check URL hash for tab
+  if(location.hash==='#perf')switchTab('perf');
+  loadUsage();
+})();
+</script>
+</body>
+</html>
