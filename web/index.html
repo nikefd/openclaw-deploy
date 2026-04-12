@@ -1272,10 +1272,10 @@ async function sendMessage(){
   streamingChats.add(chatId);streamBadge.classList.add('show');renderSidebar();appendTyping(agent);
   // Query experts in parallel
   queryExperts(text, chat.messages.slice(0,-1));
+  let _perfStart=performance.now(),_perfTTFT=0;
   try{
     const payload={model:`openclaw:${chat.agentId}`,stream:true,user:chatId,messages:[{role:'user',content:msgContent}]};
     console.log('[DEBUG] Sending payload, content type:', Array.isArray(msgContent)?'multipart ('+msgContent.length+' parts)':'text', 'parts:', Array.isArray(msgContent)?msgContent.map(p=>p.type+':'+(p.type==='image_url'?p.image_url.url.slice(0,50)+'...':p.text)):'N/A');
-    const _perfStart=performance.now();let _perfTTFT=0;
     const res=await fetch(API,{method:'POST',headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
     console.log('[DEBUG] Response status:', res.status, res.statusText);
     if(!res.ok){const errBody=await res.text();console.error('[DEBUG] Error body:', errBody);throw new Error(`HTTP ${res.status}: ${errBody.slice(0,200)}`);}
