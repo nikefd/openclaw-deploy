@@ -1,5 +1,28 @@
 # 金融Agent 更新日志
 
+## 2026-04-13 11:30 — v5.29 每日盈亏瀑布图+交易胜负时间线
+
+### 💰 每日盈亏瀑布图 (Daily P&L Waterfall)
+- **仪表盘新增**: 近30天每日盈亏金额柱状图
+- **红柱=赚钱日，绿柱=亏钱日**，柱高度直接反映¥金额
+- **与热力图互补**: 热力图看百分比，瀑布图看绝对金额，角度不同
+- **API**: 新增`/api/finance/daily-pnl`端点
+
+### 🎯 交易胜负时间线 (Trade Outcome Timeline)
+- **仪表盘新增**: 所有卖出交易的胜(✔)/负(✘)序列可视化
+- **每个方块=一笔卖出交易**, hover显示日期/股票名/盈亏金额/原因
+- **底部统计**: 总胜负笔数、胜率、当前连胜/连亏次数(重点标红)
+- **核心价值**: 连亏8次一目了然，不需要翻交易记录才知道
+- **API**: 新增`/api/finance/trade-outcomes`端点
+
+### 🔧 技术细节
+- finance-api-server.js: 新增handleDailyPnl()+handleTradeOutcomes()
+- finance.html: 新增dailyPnlChart+outcomeTimeline+loadDailyPnl()+loadTradeOutcomes()
+
+### 📈 预期效果
+- 瀑布图直观看出哪天赚/亏了多少钱，比百分比热力图更有冲击力
+- 胜负时间线让连亏状态"看得见"，辅助判断何时该停手/加码
+
 ## 2026-04-13 08:00 — v5.28 时间止损交易日修复+NR7窄幅整理检测
 
 ### 🐛 时间止损交易日Bug修复 (Critical)

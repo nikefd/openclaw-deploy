@@ -527,6 +527,50 @@ function handleRun(req, res) {
   sendJson(res, { status: 'running', message: '分析已触发' });
 }
 
+function handleDailyPnl(req, res) {
+  const snapshots = querySqlite('SELECT date, total_value FROM daily_snapshots ORDER BY date ASC');
+  if (snapshots.length < 2) return sendJson(res, { days: [] });
+  const days = [];
+  const count = Math.min(snapshots.length, 31);
+  const start = snapshots.length - count;
+  for (let i = Math.max(start, 1); i < snapshots.length; i++) {
+    const pnl = Math.round((snapshots[i].total_value - snapshots[i-1].total_value) * 100) / 100;
+    days.push({ date: snapshots[i].date, pnl });
+  }
+  sendJson(res, { days });
+}
+
+function handleTradeOutcomes(req, res) {
+  const allTrades = querySqlite('SELECT * FROM trades ORDER BY trade_date ASC, id ASC');
+  const buyMap = {};
+  allTrades.forEach(t => {
+    if (t.direction === 'BUY') {
+      if (!buyMap[t.symbol]) buyMap[t.symbol] = [];
+      buyMap[t.symbol].push(t);
+    }
+  });
+  const avgCosts = {};
+  Object.keys(buyMap).forEach(sym => {
+    const buys = buyMap[sym];
+    const ts = buys.reduce((s, b) => s + b.shares, 0);
+    const tc = buys.reduce((s, b) => s + b.price * b.shares, 0);
+    avgCosts[sym] = ts > 0 ? tc / ts : 0;
+  });
+  const outcomes = [];
+  allTrades.filter(t => t.direction === 'SELL').forEach(t => {
+    const cost = avgCosts[t.symbol] || 0;
+    if (cost <= 0) return;
+    const pnl = Math.round((t.price - cost) * t.shares * 100) / 100;
+    const pnlPct = Math.round((t.price - cost) / cost * 10000) / 100;
+    outcomes.push({
+      date: t.trade_date, name: t.name || t.symbol, symbol: t.symbol,
+      result: pnl >= 0 ? 'win' : 'loss', pnl, pnl_pct: pnlPct,
+      reason: (t.reason || '').slice(0, 60)
+    });
+  });
+  sendJson(res, { outcomes });
+}
+
 function handleRunStatus(req, res) {
   // Also try reading from log file if log is empty
   let logContent = runState.log;
@@ -709,6 +753,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/period-returns' && req.method === 'GET') return handlePeriodReturns(req, res);
     if (pathname === '/api/finance/risk-metrics' && req.method === 'GET') return handleRiskMetrics(req, res);
     if (pathname === '/api/finance/signal-analysis' && req.method === 'GET') return handleSignalAnalysis(req, res);
+    if (pathname === '/api/finance/daily-pnl' && req.method === 'GET') return handleDailyPnl(req, res);
+    if (pathname === '/api/finance/trade-outcomes' && req.method === 'GET') return handleTradeOutcomes(req, res);
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);
