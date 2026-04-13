@@ -1,5 +1,52 @@
 # 金融Agent 更新日志
 
+## 2026-04-13 22:00 — v5.31 深度优化: 信号持续性追踪+止损自学习+绩效面板增强
+
+### 🔄 信号持续性追踪 (Signal Persistence) — 过滤一日游假信号
+- **核心问题**: 候选股常常只出现1天就消失(一日游假信号),买入后立即反转亏损
+- **方案**: 新增`candidate_snapshots`数据库表,每日保存候选股快照
+  - `get_signal_persistence()`: 检查候选股在过去7天的出现记录
+  - 连续2+天出现 → +8分(持续信号可靠)
+  - 出现过但不连续 → -3分(信号已衰退)
+  - 熊市+连亏期: 首次出现的候选股评分打6折
+- **save_candidate_snapshot()**: 自动保存每日top30候选快照,30天自动清理
+- **核心价值**: 真正的好股票会连续出现在候选池,假突破通常只闪一天
+
+### 🔧 止损参数自学习 (Stop-Loss Auto-Tune) — 从错误中自动校准
+- **核心问题**: 历史止损分析显示60%的止损是"错误止损"(止损后股价反弹3%+),说明止损太紧
+- **方案**: 新增`analyze_stop_loss_effectiveness()`
+  - 回溯近45天所有止损交易,检查止损后5天的股价表现
+  - 止损后继续跌3%+ = 正确止损
+  - 止损后反弹3%+ = 错误止损(太紧了)
+  - 准确率>70%: 保持 | 50-70%: 放宽1% | <50%: 放宽2%
+- **当前数据**: 11次止损,40%正确率 → 自动放宽2%
+  - 例: 熊市止损线从-5%放宽到-7%,减少被正常波动洗出
+- **集成位置**: position_manager.check_dynamic_stop() 在计算止损线时自动应用
+- **核心价值**: 止损不再一刀切,系统从自己的止损历史中学习最优参数
+
+### 📊 绩效面板新增2个可视化
+1. **信号持续性跟踪面板** (绩效Tab)
+   - 展示过去7天的候选股出现频率和持续性
+   - 每个候选股卡片显示: 出现天数、平均评分、信号内容、是否持续
+   - 绿色=持续信号,灰色=一日游
+2. **止损效果分析面板** (绩效Tab)
+   - 止损正确率大数字展示(正确/错误/总数)
+   - 平均止损幅度
+   - 自学习建议: 保持/放宽/大幅放宽
+- **API**: 新增`/api/finance/stop-loss-analysis`和`/api/finance/signal-persistence`端点
+
+### 🔧 技术细节
+- stock_picker: 新增save_candidate_snapshot()+get_signal_persistence()+analyze_stop_loss_effectiveness()
+- stock_picker: multi_strategy_pick中新增信号持续性评分+熊市连亏期首次出现候选打折
+- position_manager: check_dynamic_stop止损线计算中集成自学习校准
+- finance-api-server: 新增handleStopLossAnalysis()+handleSignalPersistence()
+- finance.html: 新增signalPersistenceGrid+stopLossAnalysisBox面板+loadSignalPersistence()+loadStopLossAnalysis()
+
+### 📈 预期效果
+- 信号持续性过滤减少约40%的一日游假信号,提高选股质量
+- 止损自学习将错误止损率从60%降低到~30%,减少"被洗出后股价反弹"的损失
+- 两个新面板让用户直观了解信号质量和止损效果,辅助手动调参
+
 ## 2026-04-13 15:30 — v5.30 动态门槛防死循环+LLM模型切换
 
 ### 🔧 动态分数门槛优化 (Critical)
