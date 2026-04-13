@@ -653,7 +653,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 <div class="panel" id="panel-interview">
   <!-- Top Bar -->
   <div class="iv-topbar">
-    <button class="back-btn" onclick="ivCurrentView==='problem'?ivShowList():ivCurrentView==='review'?ivShowList():ivCurrentView==='solutions'?ivShowList():showHub()" style="color:var(--text)">←</button>
+    <button class="back-btn" onclick="ivCurrentView==='problem'?ivShowList():ivCurrentView==='review'?ivShowList():ivCurrentView==='solutions'?ivShowList():ivCurrentView==='schedule'?ivShowList():showHub()" style="color:var(--text)">←</button>
     <div class="iv-topbar-title" id="ivTopTitle">🎯 面试刷题</div>
     <div class="iv-timer" id="ivTimer" style="display:none">
       <span>⏱</span> <span id="ivTimerVal">00:00</span>
@@ -667,6 +667,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
       <button class="iv-vt active" onclick="ivShowList()">📋 刷题</button>
       <button class="iv-vt" onclick="ivShowReview()">📊 提交</button>
       <button class="iv-vt" onclick="ivShowSolutions()">📚 题解</button>
+      <button class="iv-vt" onclick="ivShowSchedule()">📅 面试</button>
     </div>
     <div id="ivProblemBtns" style="display:none;gap:6px;align-items:center">
       <button class="iv-topbtn" onclick="ivHint()">💡 提示</button>
@@ -729,6 +730,11 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
       <div class="iv-filter-row" id="ivSolCatChips" style="margin-top:6px"></div>
     </div>
     <div id="ivSolutionsContent" class="iv-review-content"></div>
+  </div>
+
+  <!-- Schedule View -->
+  <div id="ivScheduleView" style="display:none;padding:20px;overflow-y:auto;height:calc(100dvh - 52px)">
+    <div id="ivScheduleContent"></div>
   </div>
 
   <!-- Problem Solve View -->
@@ -1914,6 +1920,7 @@ async function ivOpenProblem(id){
   document.getElementById('ivSolveView').style.display='';
   document.getElementById('ivReviewView').style.display='none';
   document.getElementById('ivSolutionsView').style.display='none';
+  document.getElementById('ivScheduleView').style.display='none';
   document.getElementById('ivProblemBtns').style.display='flex';
   document.getElementById('ivViewToggle').style.display='none';
   ivInitEditor();
@@ -1968,6 +1975,65 @@ async function ivOpenProblem(id){
   }
 }
 
+const IV_SCHEDULE = [
+  {date:'2026-04-13',weekday:'周一',slots:[
+    {time:'14:00-15:00',company:'NVIDIA',note:'面试官 Yijie，Teams 视频面'},
+    {time:'19:00-20:00',company:'阿里国际站',note:''}
+  ]},
+  {date:'2026-04-14',weekday:'周二',slots:[
+    {time:'10:30-11:00',company:'Cookiy AI',note:''},
+    {time:'11:00-12:00',company:'快手',note:''},
+    {time:'14:00-15:00',company:'京东',note:''},
+    {time:'16:30-17:30',company:'小米',note:''}
+  ]},
+  {date:'2026-04-15',weekday:'周三',slots:[
+    {time:'10:00-11:00',company:'字节跳动',note:''},
+    {time:'14:00-14:45',company:'第四范式',note:''}
+  ]}
+];
+function ivShowSchedule(){
+  ivCurrentView='schedule';
+  ivStopTimer();
+  document.getElementById('ivListView').style.display='none';
+  document.getElementById('ivSolveView').style.display='none';
+  document.getElementById('ivReviewView').style.display='none';
+  document.getElementById('ivSolutionsView').style.display='none';
+  document.getElementById('ivScheduleView').style.display='';
+  document.getElementById('ivProblemBtns').style.display='none';
+  document.getElementById('ivViewToggle').style.display='';
+  document.getElementById('ivTopTitle').textContent='📅 面试安排';
+  document.getElementById('ivTimer').style.display='none';
+  document.querySelectorAll('.iv-vt').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.iv-vt')[3].classList.add('active');
+  renderSchedule();
+}
+function renderSchedule(){
+  const now=new Date();
+  let html='<div style="display:flex;flex-direction:column;gap:20px;max-width:700px">';
+  IV_SCHEDULE.forEach(day=>{
+    html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">`;
+    html+=`<div style="padding:14px 18px;border-bottom:1px solid var(--border);font-weight:600;font-size:.95rem;display:flex;align-items:center;gap:8px"><span>${day.weekday}</span><span style="color:var(--text2);font-weight:400;font-size:.82rem">${day.date}</span></div>`;
+    day.slots.forEach(s=>{
+      const [startH,startM]=s.time.split('-')[0].split(':').map(Number);
+      const slotDate=new Date(day.date+'T'+String(startH).padStart(2,'0')+':'+String(startM).padStart(2,'0')+':00+08:00');
+      const isPast=now>new Date(day.date+'T'+s.time.split('-')[1].replace(':',':')+':00+08:00');
+      const isNow=now>=slotDate&&!isPast;
+      let borderColor=isPast?'var(--text2)':isNow?'var(--green)':'var(--accent)';
+      let bg=isNow?'rgba(46,196,182,.08)':'';
+      html+=`<div style="display:flex;align-items:center;padding:12px 18px;gap:14px;border-left:3px solid ${borderColor};background:${bg};${isPast?'opacity:.5':''}">`;
+      html+=`<div style="min-width:110px;font-size:.85rem;font-family:'SF Mono',Monaco,monospace;color:var(--text2)">${s.time}</div>`;
+      html+=`<div style="flex:1"><div style="font-size:.9rem;font-weight:600">${s.company}</div>`;
+      if(s.note)html+=`<div style="font-size:.75rem;color:var(--text2);margin-top:2px">${s.note}</div>`;
+      html+=`</div>`;
+      if(isNow)html+=`<span style="font-size:.7rem;padding:3px 8px;border-radius:10px;background:rgba(46,196,182,.15);color:var(--green);font-weight:600">进行中</span>`;
+      if(isPast)html+=`<span style="font-size:.7rem;color:var(--text2)">已结束</span>`;
+      html+=`</div>`;
+    });
+    html+=`</div>`;
+  });
+  html+='</div>';
+  document.getElementById('ivScheduleContent').innerHTML=html;
+}
 function ivShowList(){
   ivCurrentView='list';
   ivStopTimer();
@@ -1975,6 +2041,7 @@ function ivShowList(){
   document.getElementById('ivSolveView').style.display='none';
   document.getElementById('ivReviewView').style.display='none';
   document.getElementById('ivSolutionsView').style.display='none';
+  document.getElementById('ivScheduleView').style.display='none';
   document.getElementById('ivProblemBtns').style.display='none';
   document.getElementById('ivViewToggle').style.display='';
   document.getElementById('ivTopTitle').textContent='🎯 面试刷题';
@@ -2147,6 +2214,7 @@ async function ivShowReview(){
   document.getElementById('ivSolveView').style.display='none';
   document.getElementById('ivReviewView').style.display='';
   document.getElementById('ivSolutionsView').style.display='none';
+  document.getElementById('ivScheduleView').style.display='none';
   document.getElementById('ivProblemBtns').style.display='none';
   document.getElementById('ivViewToggle').style.display='';
   document.getElementById('ivTimer').style.display='none';
@@ -2304,6 +2372,7 @@ async function ivShowSolutions(){
   document.getElementById('ivSolveView').style.display='none';
   document.getElementById('ivReviewView').style.display='none';
   document.getElementById('ivSolutionsView').style.display='';
+  document.getElementById('ivScheduleView').style.display='none';
   document.getElementById('ivProblemBtns').style.display='none';
   document.getElementById('ivViewToggle').style.display='';
   document.getElementById('ivTimer').style.display='none';
