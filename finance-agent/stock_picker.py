@@ -4,7 +4,7 @@ import akshare as ak
 import pandas as pd
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from data_collector import (
     get_stock_daily, get_realtime_quotes, get_market_sentiment,
     get_hot_stocks, get_stock_research_reports, get_stock_news,
@@ -12,6 +12,86 @@ from data_collector import (
 )
 from performance_tracker import classify_sector, record_recommendation
 from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier, kelly_position_size, get_stop_loss_blacklist, get_sector_stop_loss_penalty
+
+
+# === 信号持续性数据库 (Signal Persistence) ===
+# 保存每日候选股快照，只有连续出现2+天的信号才可信
+def save_candidate_snapshot(candidates: list):
+    """保存今日候选股快照到数据库，供信号持续性检查使用"""
+    try:
+        import sqlite3
+        from datetime import date as _date
+        conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS candidate_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            snapshot_date TEXT,
+            symbol TEXT,
+            score INTEGER,
+            signals TEXT,
+            UNIQUE(snapshot_date, symbol)
+        )''')
+        today = _date.today().isoformat()
+        for cand in candidates[:30]:  # 保存top 30
+            code = cand.get('code', cand.get('symbol', ''))
+            if not code:
+                continue
+            sigs = '+'.join(cand.get('signals', []))
+            score = cand.get('score', 0)
+            c.execute('INSERT OR REPLACE INTO candidate_snapshots (snapshot_date, symbol, score, signals) VALUES (?,?,?,?)',
+                      (today, code, score, sigs))
+        # 清理30天前的旧数据
+        cutoff = (_date.today() - timedelta(days=30)).isoformat()
+        c.execute('DELETE FROM candidate_snapshots WHERE snapshot_date < ?', (cutoff,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"  ⚠️ 保存候选快照失败: {e}")
+
+
+def get_signal_persistence(symbol: str) -> dict:
+    """检查一只股票在过去几天是否持续出现在候选池中
+    
+    Returns: {days_appeared: int, consecutive: int, avg_score: float, persistent: bool}
+    """
+    try:
+        import sqlite3
+        from datetime import date as _date
+        conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
+        c = conn.cursor()
+        cutoff = (_date.today() - timedelta(days=7)).isoformat()
+        c.execute('SELECT snapshot_date, score FROM candidate_snapshots WHERE symbol=? AND snapshot_date >= ? ORDER BY snapshot_date DESC',
+                  (symbol, cutoff))
+        rows = c.fetchall()
+        conn.close()
+        
+        if not rows:
+            return {'days_appeared': 0, 'consecutive': 0, 'avg_score': 0, 'persistent': False}
+        
+        days_appeared = len(rows)
+        avg_score = sum(r[1] for r in rows) / len(rows)
+        
+        # 计算连续出现天数(从今天往前数)
+        from datetime import datetime as _dt
+        dates = sorted([r[0] for r in rows], reverse=True)
+        consecutive = 1
+        for i in range(1, len(dates)):
+            d1 = _dt.strptime(dates[i-1], '%Y-%m-%d').date()
+            d2 = _dt.strptime(dates[i], '%Y-%m-%d').date()
+            # 允许跳过周末(差1-3天都算连续)
+            if (d1 - d2).days <= 3:
+                consecutive += 1
+            else:
+                break
+        
+        return {
+            'days_appeared': days_appeared,
+            'consecutive': consecutive,
+            'avg_score': round(avg_score, 1),
+            'persistent': consecutive >= 2  # 连续2天出现=持续性信号
+        }
+    except:
+        return {'days_appeared': 0, 'consecutive': 0, 'avg_score': 0, 'persistent': False}
 
 
 # 各信号源对应的策略key（用于市场状态调节权重）
@@ -1438,6 +1518,98 @@ def filter_tradeable(candidates: list) -> list:
     return filtered
 
 
+def analyze_stop_loss_effectiveness() -> dict:
+    """止损效果分析器 — 分析历史止损是太紧还是太松
+    
+    检查止损卖出后股价的表现:
+    - 如果多数止损后继续跌 → 止损正确，保持或更紧
+    - 如果多数止损后反弹 → 止损太紧，应放宽
+    - 计算最优止损阈值建议
+    
+    Returns: {correct_stops, wrong_stops, optimal_threshold, recommendation}
+    """
+    try:
+        import sqlite3
+        from data_collector import get_stock_daily
+        conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
+        c = conn.cursor()
+        c.execute("""SELECT symbol, price, trade_date, reason FROM trades 
+                     WHERE direction='SELL' AND reason LIKE '%止损%' 
+                     AND trade_date >= date('now', '-45 days') ORDER BY id DESC""")
+        stops = c.fetchall()
+        conn.close()
+        
+        if len(stops) < 3:
+            return {}
+        
+        correct = 0  # 止损后继续跌
+        wrong = 0    # 止损后反弹
+        loss_at_stop = []  # 止损时的亏损幅度
+        
+        for symbol, stop_price, stop_date, reason in stops[:12]:
+            try:
+                df = get_stock_daily(symbol, 30)
+                if df is None or df.empty:
+                    continue
+                # 找止损日之后的价格走势
+                if '日期' in df.columns:
+                    after = df[df['日期'] > stop_date]
+                    if len(after) < 3:
+                        continue
+                    # 止损后5天的最高价 vs 止损价
+                    max_after = after['最高'].astype(float).head(5).max()
+                    min_after = after['最低'].astype(float).head(5).min()
+                    
+                    if max_after > stop_price * 1.03:  # 止损后涨了3%+
+                        wrong += 1
+                    elif min_after < stop_price * 0.97:  # 止损后继续跌3%+
+                        correct += 1
+                    else:
+                        correct += 0.5  # 横盘，止损不算错
+                        wrong += 0.5
+                
+                # 提取止损时的亏损幅度
+                import re
+                m = re.search(r'亏损([\-\d.]+)%', reason)
+                if m:
+                    loss_at_stop.append(float(m.group(1)))
+                time.sleep(0.2)
+            except:
+                continue
+        
+        total = correct + wrong
+        if total < 2:
+            return {}
+        
+        accuracy = correct / total
+        avg_loss = sum(loss_at_stop) / len(loss_at_stop) if loss_at_stop else -8
+        
+        # 建议
+        if accuracy > 0.7:
+            rec = 'keep'  # 止损正确率高，保持
+            adj = 0
+        elif accuracy > 0.5:
+            rec = 'slightly_loosen'  # 稍微放宽
+            adj = 1  # 放宽1个百分点
+        else:
+            rec = 'loosen'  # 太紧，放宽
+            adj = 2  # 放宽2个百分点
+        
+        return {
+            'total_stops': len(stops),
+            'analyzed': int(total),
+            'correct': int(correct),
+            'wrong': int(wrong),
+            'accuracy': round(accuracy * 100, 1),
+            'avg_loss_at_stop': round(avg_loss, 1),
+            'recommendation': rec,
+            'stop_adjustment': adj,
+        }
+    except Exception as e:
+        print(f"  ⚠️ 止损分析失败: {e}")
+        return {}
+
+
 def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: int = 0) -> dict:
     """多策略综合选股主流程（含新闻/舆情数据源）"""
     print("  🔍 策略1: 动量选股(量价齐升+创新高)...")
@@ -1634,6 +1806,37 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
     ranked = [s for s in ranked if s.get('entry_quality', 0) >= 15]
     if before_eq > len(ranked):
         print(f"  🎯 入场质量过滤: {before_eq - len(ranked)}只入场质量<15被淘汰")
+
+    # === 信号持续性检查 (Signal Persistence) ===
+    # 只有连续2+天出现在候选池的股票才可信,过滤一日游假信号
+    # 熊市时更严格: 必须连续2天; 牛市时放宽到1天也可以
+    for stock in ranked:
+        code = stock.get('code', '')
+        persistence = get_signal_persistence(code)
+        stock['persistence'] = persistence
+        if persistence.get('persistent'):
+            stock['score'] += 8  # 连续2+天出现,信号可靠加分
+            stock['signal_persistent'] = True
+        elif persistence.get('days_appeared', 0) == 0:
+            # 首次出现,不扣分但标记
+            stock['signal_persistent'] = False
+        else:
+            # 出现过但不连续,信号可能已衰退
+            stock['score'] -= 3
+            stock['signal_persistent'] = False
+    
+    # 熊市+连亏期: 强制要求信号持续性(首次出现的不买)
+    if regime == 'bear' and loss_streak >= 3:
+        before_persist = len(ranked)
+        # 不直接过滤,而是非持续性信号大幅打折
+        for stock in ranked:
+            if not stock.get('signal_persistent') and stock.get('persistence', {}).get('days_appeared', 0) == 0:
+                stock['score'] = int(stock['score'] * 0.6)  # 首次出现打6折
+        ranked = sorted(ranked, key=lambda x: -x['score'])
+        print(f"  🔄 信号持续性: 熊市连亏期,首次出现的候选打6折")
+    
+    # 保存今日候选快照(供明天持续性检查)
+    save_candidate_snapshot(ranked)
 
     # === 动态分数门槛: 根据近期胜率+连亏情况自动提高门槛 ===
     score_threshold = get_dynamic_score_threshold(regime=regime, loss_streak=loss_streak)

@@ -627,7 +627,7 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                 })
                 continue
         
-        # === ATR自适应止损 + 情绪/市场状态调节 ===
+        # === ATR自适应止损 + 情绪/市场状态调节 + 止损自学习 ===
         stop_loss = STOP_LOSS  # 默认-8%
         atr_stop = None
         if pos_tech:
@@ -644,6 +644,18 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         # 如果有ATR数据，取ATR止损和市场止损中更保守的（更紧的）
         if atr_stop is not None:
             stop_loss = max(stop_loss, atr_stop)  # max because both are negative
+        
+        # === 止损自学习: 根据历史止损效果微调 ===
+        # 如果历史止损多数是“错误止损”(止损后股价反弹), 则适当放宽
+        try:
+            from stock_picker import analyze_stop_loss_effectiveness
+            sl_analysis = analyze_stop_loss_effectiveness()
+            if sl_analysis and sl_analysis.get('stop_adjustment', 0) > 0:
+                adj = sl_analysis['stop_adjustment'] / 100  # 1% or 2%
+                stop_loss = stop_loss - adj  # 放宽(e.g. -5% → -7%)
+                stop_loss = max(stop_loss, -0.15)  # 最宽不超过-15%
+        except:
+            pass
         
         # 情绪再调节（注意: 贪婪+熊市是陷阱信号，不放宽止损）
         if sentiment_score < 35:  # 市场恐慌时收紧止损

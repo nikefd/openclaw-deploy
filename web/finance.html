@@ -350,6 +350,16 @@ tr.pos-row.expanded{background:var(--hover)}
       <h3>📊 信号有效性分析 (近60天)</h3>
       <div id="signalAnalysisGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:12px"></div>
     </div>
+    <div class="chart-box" style="margin-bottom:24px">
+      <h3>🔄 信号持续性跟踪 (近7天)</h3>
+      <p style="font-size:12px;color:var(--text2);margin:4px 12px">连续2+天出现的信号更可靠，一日游假信号会被过滤</p>
+      <div id="signalPersistenceGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;padding:12px"></div>
+    </div>
+    <div class="chart-box" style="margin-bottom:24px">
+      <h3>🔧 止损效果分析</h3>
+      <p style="font-size:12px;color:var(--text2);margin:4px 12px">分析止损后股价表现，判断止损是太紧还是太松</p>
+      <div id="stopLossAnalysisBox" style="padding:12px"></div>
+    </div>
     <div class="tbl-wrap">
       <h3>最近推荐追踪</h3>
       <div style="overflow-x:auto">
@@ -1555,6 +1565,8 @@ async function loadPerformance(){
 
   // Signal effectiveness analysis
   loadSignalAnalysis();
+  loadSignalPersistence();
+  loadStopLossAnalysis();
 }
 
 async function loadSignalAnalysis(){
@@ -1574,6 +1586,62 @@ async function loadSignalAnalysis(){
       <div style="font-size:12px;margin-top:4px;color:${s.avgPnl>=0?'var(--up)':'var(--down)'}">均盈亏 ${s.avgPnl>=0?'+':''}${s.avgPnl}%</div>
     </div>`;
   }).join('');
+}
+
+// Signal Persistence
+async function loadSignalPersistence(){
+  const d=await api('/api/finance/signal-persistence');
+  const grid=document.getElementById('signalPersistenceGrid');
+  if(!grid)return;
+  if(!d||!d.candidates||!d.candidates.length){
+    grid.innerHTML='<div style="color:var(--sub);grid-column:1/-1;text-align:center">暂无候选股快照数据，运行一次选股后可查看</div>';
+    return;
+  }
+  grid.innerHTML=d.candidates.slice(0,20).map(c=>{
+    const persistent=c.persistent;
+    const bg=persistent?'rgba(46,196,182,0.12)':'rgba(255,209,102,0.08)';
+    const border=persistent?'#2ec4b6':'#555';
+    const icon=persistent?'🔁':'⚡';
+    const datesStr=c.dates.slice(0,5).join(', ');
+    return`<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:12px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">${icon} ${c.symbol}</div>
+      <div style="font-size:11px;color:var(--sub)">出现${c.days_appeared}天 | 均分${c.avg_score}</div>
+      <div style="font-size:11px;color:var(--sub);margin-top:2px">日期: ${datesStr}</div>
+      <div style="font-size:11px;margin-top:4px;color:var(--text2)">${c.latest_signals.substring(0,40)}</div>
+      <div style="margin-top:4px;font-size:12px;font-weight:600;color:${persistent?'#2ec4b6':'#888'}">${persistent?'✅ 持续信号':'⚠ 一日游'}</div>
+    </div>`;
+  }).join('');
+}
+
+// Stop Loss Analysis
+async function loadStopLossAnalysis(){
+  const d=await api('/api/finance/stop-loss-analysis');
+  const box=document.getElementById('stopLossAnalysisBox');
+  if(!box)return;
+  if(!d||!d.total_stops){
+    box.innerHTML='<div style="color:var(--sub);text-align:center">止损数据不足，暂无分析</div>';
+    return;
+  }
+  const accColor=d.accuracy>=70?'#2ec4b6':d.accuracy>=50?'#ffd166':'#e63946';
+  const recText={'keep':'✅ 止损参数合适，保持当前设置','slightly_loosen':'⚠️ 止损略偏紧，已自动放宽1%','loosen':'🔴 止损过紧！已自动放宽2%'};
+  box.innerHTML=`
+    <div style="display:flex;gap:20px;flex-wrap:wrap">
+      <div style="background:rgba(108,140,255,0.1);border-radius:10px;padding:16px;flex:1;min-width:200px;text-align:center">
+        <div style="font-size:12px;color:var(--sub)">止损正确率</div>
+        <div style="font-size:28px;font-weight:700;color:${accColor}">${d.accuracy}%</div>
+        <div style="font-size:11px;color:var(--sub)">正确${d.correct}次 / 错误${d.wrong}次 (共${d.analyzed}次分析)</div>
+      </div>
+      <div style="background:rgba(108,140,255,0.1);border-radius:10px;padding:16px;flex:1;min-width:200px;text-align:center">
+        <div style="font-size:12px;color:var(--sub)">止损时平均亏损</div>
+        <div style="font-size:28px;font-weight:700;color:var(--down)">${d.avg_loss_at_stop}%</div>
+        <div style="font-size:11px;color:var(--sub)">近45天${d.total_stops}次止损</div>
+      </div>
+      <div style="background:rgba(108,140,255,0.1);border-radius:10px;padding:16px;flex:2;min-width:300px">
+        <div style="font-size:12px;color:var(--sub);margin-bottom:8px">自学习建议</div>
+        <div style="font-size:16px;font-weight:600">${recText[d.recommendation]||d.recommendation}</div>
+        <div style="font-size:12px;color:var(--sub);margin-top:6px">正确率>70%=止损合适 | 50-70%=略偏紧 | <50%=过紧需放宽</div>
+      </div>
+    </div>`;
 }
 
 // Dark Mode
