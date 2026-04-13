@@ -1285,14 +1285,17 @@ async function sendMessage(){
     console.log('[DEBUG] Response status:', res.status, res.statusText);
     if(!res.ok){const errBody=await res.text();console.error('[DEBUG] Error body:', errBody);throw new Error(`HTTP ${res.status}: ${errBody.slice(0,200)}`);}
     let el=null,typingRemoved=false;
-    const reader=res.body.getReader(),decoder=new TextDecoder();let full='',buf='',lastStreamSave=Date.now();let _perfToolStart=0;
-    while(true){const{done,value}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();
+    const reader=res.body.getReader(),decoder=new TextDecoder();let full='',buf='',lastStreamSave=Date.now();
+    let _lastChunkTime=performance.now(),_perfPauses=[],_perfStreaming=0;
+    while(true){const{done,value}=await reader.read();if(done)break;
+      const _now=performance.now(),_gap=_now-_lastChunkTime;
+      if(typingRemoved&&_gap>3000){_perfPauses.push({gap:Math.round(_gap),at:Math.round(_now-_perfStart)});_perfToolCount++;_perfToolTotalMs+=_gap;}
+      if(typingRemoved)_perfStreaming+=(_gap<3000?_gap:0);
+      _lastChunkTime=_now;
+      buf+=decoder.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();
       for(const line of lines){if(!line.startsWith('data: '))continue;const data=line.slice(6);if(data==='[DONE]')break;
         try{const parsed=JSON.parse(data);const choice=parsed.choices?.[0];
-        // Detect tool calls in SSE
-        if(choice?.delta?.tool_calls){if(!_perfToolStart)_perfToolStart=performance.now();}
-        if(choice?.finish_reason==='tool_calls'&&_perfToolStart){_perfToolCount++;const toolDur=performance.now()-_perfToolStart;_perfToolTotalMs+=toolDur;perfLog('tool',toolDur,{count:_perfToolCount});_perfToolStart=0;}
-        const delta=choice?.delta?.content;if(delta){if(!typingRemoved){removeTyping(chatId);if(currentId===chatId)el=appendMsg('assistant','',agent,false);typingRemoved=true;_perfTTFT=performance.now()-_perfStart;perfLog('ttft',_perfTTFT,{toolCalls:_perfToolCount});}full+=delta;_perfFull=full;if(el&&currentId===chatId){el.textContent=full;el.classList.add('raw');messagesEl.scrollTop=messagesEl.scrollHeight;}
+        const delta=choice?.delta?.content;if(delta){if(!typingRemoved){removeTyping(chatId);if(currentId===chatId)el=appendMsg('assistant','',agent,false);typingRemoved=true;_perfTTFT=performance.now()-_perfStart;perfLog('ttft',_perfTTFT);}full+=delta;_perfFull=full;if(el&&currentId===chatId){el.textContent=full;el.classList.add('raw');messagesEl.scrollTop=messagesEl.scrollHeight;}
         // Periodic save during streaming (every 3s)
         if(Date.now()-lastStreamSave>3000){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;}else{chat.messages.push({role:'assistant',content:full,_streaming:true});}chat.updatedAt=Date.now();save(chatId);lastStreamSave=Date.now();}
         }}catch{}}}
@@ -1321,7 +1324,10 @@ async function sendMessage(){
       msgEl.onclick=async()=>{msgEl.onclick=null;errEl.textContent='⏳ 正在尝试恢复...';if(await tryRecover()){msgEl.remove();}else{msgEl.remove();input.value=lastUserMsg;sendMessage();}};
     }
   }finally{
-    const _perfTotal=performance.now()-_perfStart;perfLog('total',_perfTotal,{ttft:Math.round(_perfTTFT),http:Math.round(_perfHttpMs||0),chars:_perfFull.length,toolCalls:_perfToolCount||0,toolMs:Math.round(_perfToolTotalMs||0)});
+    const _perfTotal=performance.now()-_perfStart;
+    if(_perfToolCount)perfLog('tool',_perfToolTotalMs,{count:_perfToolCount,pauses:_perfPauses.length>10?_perfPauses.slice(0,10):_perfPauses});
+    perfLog('streaming',_perfStreaming,{chars:_perfFull.length,speed:_perfStreaming>0?Math.round(_perfFull.length/(_perfStreaming/1000)):0});
+    perfLog('total',_perfTotal,{ttft:Math.round(_perfTTFT),http:Math.round(_perfHttpMs),streaming:Math.round(_perfStreaming),toolPauses:_perfToolCount,toolMs:Math.round(_perfToolTotalMs),chars:_perfFull.length});
   }
   streamingChats.delete(chatId);chat.updatedAt=Date.now();save();renderSidebar();
   if(currentId===chatId)streamBadge.classList.remove('show');
