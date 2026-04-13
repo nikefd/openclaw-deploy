@@ -234,6 +234,7 @@ function renderUsage(data){
 /* ===== PERF TAB ===== */
 let perfLoaded=false;
 const typeNames={http:'🌐 HTTP响应',ttft:'⚡ 首Token(TTFT)',total:'🏁 总耗时',tool:'🔧 工具执行',context:'📄 上下文加载'};
+const typeOrder=['http','ttft','tool','total'];
 
 async function loadPerf(){
   perfLoaded=true;
@@ -249,7 +250,8 @@ async function loadPerf(){
 
     const tbody=document.getElementById('breakdownBody');tbody.innerHTML='';
     const maxMs=Math.max(...Object.values(stats.byType||{}).map(s=>s.max||0),1);
-    for(const[type,s] of Object.entries(stats.byType||{})){
+    const sortedTypes=Object.entries(stats.byType||{}).sort((a,b)=>(typeOrder.indexOf(a[0])!==-1?typeOrder.indexOf(a[0]):99)-(typeOrder.indexOf(b[0])!==-1?typeOrder.indexOf(b[0]):99));
+    for(const[type,s] of sortedTypes){
       const tr=document.createElement('tr');
       tr.innerHTML=`<td><strong>${typeNames[type]||type}</strong></td><td class="num">${s.count}</td><td class="num">${fmtMs(s.avg)}</td><td class="num">${fmtMs(s.p50)}</td><td class="num">${fmtMs(s.p95)}</td><td class="num">${fmtMs(s.min)}</td><td class="num">${fmtMs(s.max)}</td><td><div class="bar-container" style="width:120px"><div class="pbar ${barClass(s.avg)}" style="width:${Math.max(5,s.avg/maxMs*100)}%"></div></div></td>`;
       tbody.appendChild(tr);
@@ -265,7 +267,7 @@ async function loadPerf(){
         const t=e._ts?new Date(e._ts):null;
         const ts=t?t.toLocaleString('zh-CN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}):'';
         const dur=e.durationMs||0;
-        div.innerHTML=`<span class="time">${ts}</span><span class="type">${typeNames[e.type]||e.type||'?'}</span><span class="dur" style="color:var(--${barClass(dur)})">${fmtMs(dur)}</span><div class="bar-mini"><div class="bar-container"><div class="pbar ${barClass(dur)}" style="width:${Math.min(100,Math.max(3,dur/15000*100))}%"></div></div></div>`;
+        div.innerHTML=`<span class="time">${ts}</span><span class="type">${typeNames[e.type]||e.type||'?'}</span><span class="dur" style="color:var(--${barClass(dur)})">${fmtMs(dur)}</span>${e.toolCalls?'<span style="font-size:.7rem;color:var(--text2)">🔧×'+e.toolCalls+'</span>':''}${e.chars?'<span style="font-size:.7rem;color:var(--text2)">'+e.chars+'字</span>':''}<div class="bar-mini"><div class="bar-container"><div class="pbar ${barClass(dur)}" style="width:${Math.min(100,Math.max(3,dur/15000*100))}%"></div></div></div>`;
         if(e.detail)div.title=e.detail;
         recent.appendChild(div);
       }

@@ -1272,19 +1272,27 @@ async function sendMessage(){
   streamingChats.add(chatId);streamBadge.classList.add('show');renderSidebar();appendTyping(agent);
   // Query experts in parallel
   queryExperts(text, chat.messages.slice(0,-1));
-  let _perfStart=performance.now(),_perfTTFT=0,_perfFull='';
+  let _perfStart=performance.now(),_perfTTFT=0,_perfFull='',_perfHttpMs=0,_perfToolCount=0,_perfToolTotalMs=0;
   try{
     const payload={model:`openclaw:${chat.agentId}`,stream:true,user:chatId,messages:[{role:'user',content:msgContent}]};
     console.log('[DEBUG] Sending payload, content type:', Array.isArray(msgContent)?'multipart ('+msgContent.length+' parts)':'text', 'parts:', Array.isArray(msgContent)?msgContent.map(p=>p.type+':'+(p.type==='image_url'?p.image_url.url.slice(0,50)+'...':p.text)):'N/A');
     const res=await fetch(API,{method:'POST',headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const _perfHttpMs=performance.now()-_perfStart;perfLog('http',_perfHttpMs);
+    _perfHttpMs=performance.now()-_perfStart;
+    // Capture nginx upstream timing from headers
+    const _ngxUpstream=res.headers.get('X-Upstream-Time');
+    const _ngxConnect=res.headers.get('X-Upstream-Connect');
+    perfLog('http',_perfHttpMs,{upstream:_ngxUpstream?parseFloat(_ngxUpstream)*1000:null,connect:_ngxConnect?parseFloat(_ngxConnect)*1000:null});
     console.log('[DEBUG] Response status:', res.status, res.statusText);
     if(!res.ok){const errBody=await res.text();console.error('[DEBUG] Error body:', errBody);throw new Error(`HTTP ${res.status}: ${errBody.slice(0,200)}`);}
     let el=null,typingRemoved=false;
-    const reader=res.body.getReader(),decoder=new TextDecoder();let full='',buf='',lastStreamSave=Date.now();
+    const reader=res.body.getReader(),decoder=new TextDecoder();let full='',buf='',lastStreamSave=Date.now();let _perfToolStart=0;
     while(true){const{done,value}=await reader.read();if(done)break;buf+=decoder.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();
       for(const line of lines){if(!line.startsWith('data: '))continue;const data=line.slice(6);if(data==='[DONE]')break;
-        try{const delta=JSON.parse(data).choices?.[0]?.delta?.content;if(delta){if(!typingRemoved){removeTyping(chatId);if(currentId===chatId)el=appendMsg('assistant','',agent,false);typingRemoved=true;_perfTTFT=performance.now()-_perfStart;perfLog('ttft',_perfTTFT);}full+=delta;_perfFull=full;if(el&&currentId===chatId){el.textContent=full;el.classList.add('raw');messagesEl.scrollTop=messagesEl.scrollHeight;}
+        try{const parsed=JSON.parse(data);const choice=parsed.choices?.[0];
+        // Detect tool calls in SSE
+        if(choice?.delta?.tool_calls){if(!_perfToolStart)_perfToolStart=performance.now();}
+        if(choice?.finish_reason==='tool_calls'&&_perfToolStart){_perfToolCount++;const toolDur=performance.now()-_perfToolStart;_perfToolTotalMs+=toolDur;perfLog('tool',toolDur,{count:_perfToolCount});_perfToolStart=0;}
+        const delta=choice?.delta?.content;if(delta){if(!typingRemoved){removeTyping(chatId);if(currentId===chatId)el=appendMsg('assistant','',agent,false);typingRemoved=true;_perfTTFT=performance.now()-_perfStart;perfLog('ttft',_perfTTFT,{toolCalls:_perfToolCount});}full+=delta;_perfFull=full;if(el&&currentId===chatId){el.textContent=full;el.classList.add('raw');messagesEl.scrollTop=messagesEl.scrollHeight;}
         // Periodic save during streaming (every 3s)
         if(Date.now()-lastStreamSave>3000){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;}else{chat.messages.push({role:'assistant',content:full,_streaming:true});}chat.updatedAt=Date.now();save(chatId);lastStreamSave=Date.now();}
         }}catch{}}}
@@ -1312,8 +1320,10 @@ async function sendMessage(){
       const errEl=appendMsg('assistant','❌ '+err.message+'\n\n🔄 点击恢复回复 / 重试',agent,false);const msgEl=errEl.closest('.message');msgEl.classList.add('error-msg');msgEl.style.cursor='pointer';
       msgEl.onclick=async()=>{msgEl.onclick=null;errEl.textContent='⏳ 正在尝试恢复...';if(await tryRecover()){msgEl.remove();}else{msgEl.remove();input.value=lastUserMsg;sendMessage();}};
     }
+  }finally{
+    const _perfTotal=performance.now()-_perfStart;perfLog('total',_perfTotal,{ttft:Math.round(_perfTTFT),http:Math.round(_perfHttpMs||0),chars:_perfFull.length,toolCalls:_perfToolCount||0,toolMs:Math.round(_perfToolTotalMs||0)});
   }
-  streamingChats.delete(chatId);{const _perfTotal=performance.now()-_perfStart;perfLog('total',_perfTotal,{ttft:Math.round(_perfTTFT),chars:_perfFull.length});}chat.updatedAt=Date.now();save();renderSidebar();
+  streamingChats.delete(chatId);chat.updatedAt=Date.now();save();renderSidebar();
   if(currentId===chatId)streamBadge.classList.remove('show');
   sendBtn.disabled=!input.value.trim();input.focus();
 }
