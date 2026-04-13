@@ -318,29 +318,33 @@ def get_dynamic_score_threshold(regime: str = "", loss_streak: int = 0) -> int:
     """
     base = 25  # 正常市场下的最低分数
     
-    # 近期胜率调节
+    # 近期胜率调节 — v5.30: 样本量<10时惩罚减半，避免小样本过拟合导致永远空仓
     try:
         from performance_tracker import get_performance_summary
         perf = get_performance_summary()
         hr = perf.get('hit_rate', 50)
+        total = perf.get('total_recommendations', 0)
+        # 样本量不足时惩罚减半
+        penalty_mult = 0.5 if total < 10 else 1.0
         if hr < 20:
-            base += 10  # 从15降到10，别锁太死
+            base += int(5 * penalty_mult)  # 小样本: +2~3, 大样本: +5
         elif hr < 35:
-            base += 5
+            base += int(3 * penalty_mult)
     except:
         pass
     
     # 连亏调节 — 进一步放宽，让系统有机会交易
     if loss_streak >= 5:
-        base += 5   # 从8降到5
+        base += 3   # 从5降到3
     elif loss_streak >= 3:
-        base += 3   # 从4降到3
+        base += 2   # 从3降到2
     
     # 熊市调节
     if regime == 'bear':
-        base += 3   # 从5降到3
+        base += 3
     
-    return base
+    # v5.30: 门槛上限30分，防止永远空仓的死循环
+    return min(base, 30)
 
 
 def check_risk_reward_ratio(tech: dict, regime: str = "") -> dict:
