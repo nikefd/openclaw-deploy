@@ -1028,6 +1028,31 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['cmf_rising'] = False
             indicators['cmf_falling'] = False
 
+    # === NR7 窄幅整理检测 (Narrow Range 7) ===
+    # 当日振幅是近7天最小 = 多空平衡极致压缩，即将突破
+    # NR7是经典的低风险入场形态，突破方向成功率高
+    if len(close) >= 7:
+        try:
+            high_nr = df['最高'].astype(float)
+            low_nr = df['最低'].astype(float)
+            ranges = high_nr - low_nr
+            today_range = float(ranges.iloc[-1])
+            min_range_7 = float(ranges.iloc[-7:].min())
+            indicators['nr7'] = bool(today_range <= min_range_7 and today_range > 0)
+            # NR4: 近4天最窄(更常见)
+            min_range_4 = float(ranges.iloc[-4:].min())
+            indicators['nr4'] = bool(today_range <= min_range_4 and today_range > 0)
+            # 振幅压缩比: 今日振幅/近20日平均振幅
+            if len(ranges) >= 20:
+                avg_range_20 = float(ranges.tail(20).mean())
+                indicators['range_compression'] = round(today_range / avg_range_20, 2) if avg_range_20 > 0 else 1.0
+            else:
+                indicators['range_compression'] = 1.0
+        except:
+            indicators['nr7'] = False
+            indicators['nr4'] = False
+            indicators['range_compression'] = 1.0
+
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     # 同时计算当日涨跌幅(用于持仓管理中的单日暴涨减仓)

@@ -697,6 +697,10 @@ def get_oversold_reversal_candidates() -> list:
                     reversal_signals += 1
                     reasons.append('MACD转多')
                 
+                if tech.get('nr7') and tech.get('range_compression', 1.0) < 0.5:
+                    reversal_signals += 1
+                    reasons.append('NR7蓄力')
+                
                 if reversal_signals >= 2:
                     c['signal'] += '+' + '+'.join(reasons[:3])
                     c['score'] += reversal_signals * 5
@@ -1247,6 +1251,20 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] -= 3
                 if consec_bear >= 3:
                     stock['score'] -= 6  # 连续阴线=趋势衰弱
+
+                # === NR7窄幅整理评分 ===
+                # NR7=7天内最窄振幅,多空极度压缩即将突破
+                # 配合趋势方向:上升趋势中NR7=低风险做多入场
+                if tech.get('nr7'):
+                    weekly_up = tech.get('weekly_trend') == 'up'
+                    macd_bull = tech.get('macd_signal') in ('bullish', 'golden_cross')
+                    if weekly_up or macd_bull:
+                        stock['score'] += 8  # 上升趋势中的窄幅整理=强蓄力
+                    else:
+                        stock['score'] += 3  # 方向不明的窄幅整理
+                elif tech.get('nr4') and tech.get('range_compression', 1.0) < 0.5:
+                    # NR4+振幅压缩到均值50%以下,也是较好信号
+                    stock['score'] += 4
 
                 # === 抛物线拉升过滤 ===
                 # 5日涨幅>15%的票大概率要回调，不追

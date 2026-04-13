@@ -555,7 +555,10 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         if buy_date:
             try:
                 buy_dt = datetime.strptime(buy_date, '%Y-%m-%d').date()
-                hold_days = (date.today() - buy_dt).days
+                # 用交易日天数(排除周末), 与早期止损保持一致
+                _cal_days_ts = (date.today() - buy_dt).days
+                _weekends_ts = sum(1 for d in range(_cal_days_ts) if (buy_dt + timedelta(days=d+1)).weekday() >= 5)
+                hold_days = _cal_days_ts - _weekends_ts
                 if hold_days >= time_stop_days and time_stop_loss_floor <= pnl_pct <= 0.03:
                     actions.append({
                         "action": "SELL",
