@@ -375,6 +375,44 @@ function handleSignalAnalysis(req, res) {
   }
 }
 
+function handleStopLossAnalysis(req, res) {
+  // Analyze stop-loss effectiveness from Python
+  try {
+    const py = `import json,sys;sys.path.insert(0,'/home/nikefd/finance-agent');from stock_picker import analyze_stop_loss_effectiveness;print(json.dumps(analyze_stop_loss_effectiveness(),ensure_ascii=False))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 30000 }).toString().trim();
+    sendJson(res, JSON.parse(out || '{}'));
+  } catch(e) {
+    log('stop-loss-analysis error: ' + e.message);
+    sendJson(res, {});
+  }
+}
+
+function handleSignalPersistence(req, res) {
+  // Get signal persistence data from candidate_snapshots table
+  try {
+    const rows = querySqlite(`SELECT symbol, snapshot_date, score, signals FROM candidate_snapshots ORDER BY snapshot_date DESC LIMIT 200`);
+    // Group by symbol
+    const bySymbol = {};
+    for (const r of rows) {
+      if (!bySymbol[r.symbol]) bySymbol[r.symbol] = [];
+      bySymbol[r.symbol].push({ date: r.snapshot_date, score: r.score, signals: r.signals });
+    }
+    // Calculate persistence for each
+    const result = Object.entries(bySymbol).map(([sym, entries]) => ({
+      symbol: sym,
+      days_appeared: entries.length,
+      dates: entries.map(e => e.date),
+      avg_score: Math.round(entries.reduce((s, e) => s + e.score, 0) / entries.length),
+      latest_signals: entries[0]?.signals || '',
+      persistent: entries.length >= 2
+    })).sort((a, b) => b.days_appeared - a.days_appeared);
+    sendJson(res, { candidates: result });
+  } catch(e) {
+    log('signal-persistence error: ' + e.message);
+    sendJson(res, { candidates: [] });
+  }
+}
+
 function handleHealthScore(req, res) {
   // Composite portfolio health score 0-100
   const snapshots = querySqlite('SELECT date, total_value, sentiment_score FROM daily_snapshots ORDER BY date ASC');
@@ -538,6 +576,17 @@ function handleDailyPnl(req, res) {
     days.push({ date: snapshots[i].date, pnl });
   }
   sendJson(res, { days });
+}
+
+function handleRollingReturns(req, res) {
+  const snapshots = querySqlite('SELECT date, total_value FROM daily_snapshots ORDER BY date ASC');
+  if (snapshots.length < 21) return sendJson(res, { data: [] });
+  const result = [];
+  for (let i = 20; i < snapshots.length; i++) {
+    const ret = Math.round((snapshots[i].total_value - snapshots[i - 20].total_value) / snapshots[i - 20].total_value * 10000) / 100;
+    result.push({ date: snapshots[i].date, rolling_return: ret });
+  }
+  sendJson(res, { data: result });
 }
 
 function handleTradeOutcomes(req, res) {
@@ -753,7 +802,10 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/period-returns' && req.method === 'GET') return handlePeriodReturns(req, res);
     if (pathname === '/api/finance/risk-metrics' && req.method === 'GET') return handleRiskMetrics(req, res);
     if (pathname === '/api/finance/signal-analysis' && req.method === 'GET') return handleSignalAnalysis(req, res);
+    if (pathname === '/api/finance/stop-loss-analysis' && req.method === 'GET') return handleStopLossAnalysis(req, res);
+    if (pathname === '/api/finance/signal-persistence' && req.method === 'GET') return handleSignalPersistence(req, res);
     if (pathname === '/api/finance/daily-pnl' && req.method === 'GET') return handleDailyPnl(req, res);
+    if (pathname === '/api/finance/rolling-returns' && req.method === 'GET') return handleRollingReturns(req, res);
     if (pathname === '/api/finance/trade-outcomes' && req.method === 'GET') return handleTradeOutcomes(req, res);
 
     // /api/finance/reports/:date
