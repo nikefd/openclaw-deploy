@@ -1080,6 +1080,32 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['momentum_decay'] = False
             indicators['volume_price_diverge'] = False
 
+    # === MACD柱状图背离 (MACD Histogram Divergence) ===
+    # 比RSI背离更灵敏的趋势反转信号:
+    # 看涨背离: 价格创新低但MACD柱线(histogram)低点抬升 → 空方力量衰竭
+    # 看跌背离: 价格创新高但MACD柱线高点下降 → 多方力量衰竭
+    # 与RSI背离互补: RSI背离看速度, MACD柱线背离看加速度(动量的变化率)
+    if len(close) >= 20:
+        try:
+            macd_hist_full = macd.tail(20)  # 近20根K线的MACD柱线
+            recent_close_mh = close.iloc[-10:]
+            prev_close_mh = close.iloc[-20:-10]
+            recent_hist = macd_hist_full.iloc[-10:]
+            prev_hist = macd_hist_full.iloc[:10]
+
+            # 看涨背离: 价格新低 + MACD柱线低点抬升
+            price_new_low = recent_close_mh.min() < prev_close_mh.min()
+            hist_low_rising = recent_hist.min() > prev_hist.min()
+            indicators['macd_hist_bull_div'] = bool(price_new_low and hist_low_rising)
+
+            # 看跌背离: 价格新高 + MACD柱线高点下降
+            price_new_high = recent_close_mh.max() > prev_close_mh.max()
+            hist_high_falling = recent_hist.max() < prev_hist.max()
+            indicators['macd_hist_bear_div'] = bool(price_new_high and hist_high_falling)
+        except:
+            indicators['macd_hist_bull_div'] = False
+            indicators['macd_hist_bear_div'] = False
+
     # === 成交密集区 (Volume Profile) ===
     # 用成交量加权的价格分布找到真正的支撑/阻力位
     # 比局部极值法更可靠，因为成交密集区代表真实的资金博弈位置

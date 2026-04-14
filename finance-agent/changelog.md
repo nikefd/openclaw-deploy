@@ -1,5 +1,31 @@
 # 金融Agent 更新日志
 
+## 2026-04-14 08:00 — v5.32 MACD柱状图背离+交易日计算重构+持仓MACD柱背离减仓
+
+### 📉 MACD柱状图背离检测 (MACD Histogram Divergence) — 新增动量反转信号
+- **核心价值**: 比RSI背离更灵敏——RSI看速度, MACD柱线看“加速度”(动量的变化率)
+- **看涨背离(macd_hist_bull_div)**: 价格创新低但MACD柱线低点抬升 → 空方衰竭, 反弹即将开始
+- **看跌背离(macd_hist_bear_div)**: 价格创新高但MACD柱线高点下降 → 多方衰竭, 上涨动力不足
+- **选股评分**: 看涨背离 熊市+12分/普通+7分; 看跌背离-8分
+- **超跌反弹**: MACD柱背离纳入反转企稳信号(与RSI<30/缩量企稳/Fib支撑互补)
+- **持仓管理**: 盈利+4%且MACD柱看跌背离 → 减半仓锁利
+- **与现有指标互补**: RSI背离看“超买超卖速度”, MACD柱背离看“趋势动量衰减”, 角度不同双重确认
+
+### ⚡ 交易日计算重构 (DRY优化)
+- **问题**: 早期止损和时间止损各自独立计算交易日天数, 逻辑完全重复(6行代码×2)
+- **修复**: 提取`_trading_days_since(buy_date_str)`工具函数, 两处复用
+- **效果**: 减少重复代码, 降低bug风险(之前两处用不同变量名容易出错)
+
+### 🔧 技术细节
+- data_collector: calculate_technical_indicators新增macd_hist_bull_div/macd_hist_bear_div
+- stock_picker: score_and_rank新增MACD柱背离评分; get_oversold_reversal_candidates新增MACD柱背离作为反转信号
+- position_manager: 新增_trading_days_since()工具函数; 早期止损+时间止损重构为复用; check_dynamic_stop新增MACD柱背离减仓
+
+### 📈 预期效果
+- MACD柱背离+RSI背离双重确认, 提高反转信号可靠性
+- 熊市超跌反弹企稳信号库扩展, 更多底部形态被识别
+- 持仓MACD柱背离减仓在动量衰减时提前锁利, 避免利润回吐
+
 ## 2026-04-13 22:00 — v5.31 深度优化: 信号持续性追踪+止损自学习+绩效面板增强
 
 ### 🔄 信号持续性追踪 (Signal Persistence) — 过滤一日游假信号

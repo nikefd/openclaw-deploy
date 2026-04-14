@@ -4,6 +4,20 @@ from datetime import datetime, date, timedelta
 from config import *
 
 
+def _trading_days_since(buy_date_str: str) -> int:
+    """计算从买入日期到今天的交易日天数(排除周末)
+    
+    统一工具函数，避免早期止损和时间止损各自重复计算
+    """
+    try:
+        buy_dt = datetime.strptime(buy_date_str, '%Y-%m-%d').date()
+        cal_days = (date.today() - buy_dt).days
+        weekends = sum(1 for d in range(cal_days) if (buy_dt + timedelta(days=d+1)).weekday() >= 5)
+        return cal_days - weekends
+    except:
+        return -1  # 解析失败返回-1
+
+
 def check_correlation_with_portfolio(symbol: str, positions: list) -> float:
     """检查候选股与现有持仓的价格相关性
     
@@ -456,6 +470,19 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                     "price": pos['current_price']
                 })
                 continue
+            # MACD柱状图看跌背离 + 盈利 → 减半仓
+            if (pnl_pct >= 0.04 and pos_tech.get('macd_hist_bear_div')):
+                half = (pos['shares'] // 200) * 100
+                if half >= 100:
+                    actions.append({
+                        "action": "SELL",
+                        "symbol": pos['symbol'],
+                        "name": pos['name'],
+                        "reason": f"MACD柱背离减仓: 盈利{pnl_pct*100:+.1f}%+柱线高点下降",
+                        "shares": half,
+                        "price": pos['current_price']
+                    })
+                    continue
             # Williams %R 从超买回落 + 盈利 → 减仓
             if (pnl_pct >= 0.05 and pos_tech.get('wr_overbought_exit')):
                 half = (pos['shares'] // 200) * 100
@@ -553,24 +580,17 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         time_stop_loss_floor = -0.05 if regime == 'bear' else -0.03
         
         if buy_date:
-            try:
-                buy_dt = datetime.strptime(buy_date, '%Y-%m-%d').date()
-                # 用交易日天数(排除周末), 与早期止损保持一致
-                _cal_days_ts = (date.today() - buy_dt).days
-                _weekends_ts = sum(1 for d in range(_cal_days_ts) if (buy_dt + timedelta(days=d+1)).weekday() >= 5)
-                hold_days = _cal_days_ts - _weekends_ts
-                if hold_days >= time_stop_days and time_stop_loss_floor <= pnl_pct <= 0.03:
+            hold_days_ts = _trading_days_since(buy_date)
+            if hold_days_ts >= 0 and hold_days_ts >= time_stop_days and time_stop_loss_floor <= pnl_pct <= 0.03:
                     actions.append({
                         "action": "SELL",
                         "symbol": pos['symbol'],
                         "name": pos['name'],
-                        "reason": f"时间止损: 持仓{hold_days}天无明显盈亏({pnl_pct*100:+.1f}%)",
+                        "reason": f"时间止损: 持仓{hold_days_ts}天无明显盈亏({pnl_pct*100:+.1f}%)",
                         "shares": pos['shares'],
                         "price": pos['current_price']
                     })
                     continue
-            except:
-                pass
         
         # === 追踪止损 (Trailing Stop) ===
         # 当盈利超过一定比例后，启用追踪止损：从最高点回撤即卖出

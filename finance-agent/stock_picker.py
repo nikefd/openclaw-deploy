@@ -785,6 +785,10 @@ def get_oversold_reversal_candidates() -> list:
                     reversal_signals += 1
                     reasons.append('NR7蓄力')
                 
+                if tech.get('macd_hist_bull_div'):
+                    reversal_signals += 1
+                    reasons.append('MACD柱背离')
+                
                 if reversal_signals >= 2:
                     c['signal'] += '+' + '+'.join(reasons[:3])
                     c['score'] += reversal_signals * 5
@@ -1135,6 +1139,15 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] += 10  # 底背离是强买入信号
                 elif rsi_div == 'bearish':
                     stock['score'] -= 10  # 顶背离是强卖出信号
+
+                # === MACD柱状图背离 — 比RSI背离更灵敏的动量反转信号 ===
+                # 看涨背离: 价格新低但MACD柱线低点抬升 → 空方衰竭
+                # 看跌背离: 价格新高但MACD柱线高点下降 → 多方衰竭
+                if tech.get('macd_hist_bull_div'):
+                    bonus = 12 if regime == 'bear' else 7
+                    stock['score'] += bonus
+                if tech.get('macd_hist_bear_div'):
+                    stock['score'] -= 8  # 看跌背离警告
 
                 # === 动量衰减检测 — 避免追高 ===
                 if tech.get('momentum_decay'):
