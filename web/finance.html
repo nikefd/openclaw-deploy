@@ -355,6 +355,11 @@ tr.pos-row.expanded{background:var(--hover)}
       <h3>📊 信号有效性分析 (近60天)</h3>
       <div id="signalAnalysisGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:12px"></div>
     </div>
+    <!-- Indicator Attribution Panel (v5.35) -->
+    <div class="chart-box" style="margin-bottom:24px">
+      <h3>🎯 指标归因分析 (每个指标的实战胜率)</h3>
+      <div id="indicatorAttrGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;padding:12px"></div>
+    </div>
     <!-- Signal Persistence Panel -->
     <div class="chart-box" style="margin-bottom:24px">
       <h3>🔄 信号持续性跟踪 (近7天候选股出现频率)</h3>
@@ -1570,6 +1575,7 @@ async function loadPerformance(){
 
   // Signal effectiveness analysis
   loadSignalAnalysis();
+  loadIndicatorAttribution();
   loadSignalPersistence();
   loadStopLossAnalysis();
 }
@@ -1737,6 +1743,29 @@ async function togglePosExpand(symbol, row){
 }
 
 // Signal Persistence
+async function loadIndicatorAttribution(){
+  try{
+    const r=await fetch('/api/finance/indicator-attribution');const d=await r.json();
+    const grid=document.getElementById('indicatorAttrGrid');
+    if(!grid||!d.indicators||d.indicators.length===0){if(grid)grid.innerHTML='<p style="color:var(--sub)">\u6682\u65e0\u5f52\u56e0\u6570\u636e\uff0c\u9700\u8981\u66f4\u591a\u4ea4\u6613\u8bb0\u5f55</p>';return;}
+    let html='';
+    d.indicators.forEach(ind=>{
+      const wr=ind.win_rate;
+      const clr=wr>=60?'#4caf50':wr>=40?'#ff9800':'#f44336';
+      const bar=Math.min(wr,100);
+      html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:4px">${ind.name}</div>
+        <div style="font-size:20px;font-weight:700;color:${clr}">${wr}%</div>
+        <div style="background:var(--border);border-radius:4px;height:6px;margin:4px 0">
+          <div style="background:${clr};width:${bar}%;height:100%;border-radius:4px"></div>
+        </div>
+        <div style="font-size:11px;color:var(--sub)">\u80dc${ind.present_win} \u8d1f${ind.present_loss} | \u5747\u76c8\u4e8f${ind.avg_pnl>0?'+':''}${ind.avg_pnl}%</div>
+      </div>`;
+    });
+    grid.innerHTML=html;
+  }catch(e){console.warn('indicator-attribution error',e);}
+}
+
 async function loadSignalPersistence(){
   const d=await api('/api/finance/signal-persistence');
   const grid=document.getElementById('signalPersistenceGrid');

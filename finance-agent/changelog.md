@@ -1,5 +1,46 @@
 # 金融Agent 更新日志
 
+## 2026-04-14 22:00 — v5.35 深度优化: 指标归因系统+闲置资金递减门槛+指标效果面板
+
+### 🎯 指标归因系统 (Indicator Attribution) — 新增模块
+- **核心问题**: 系统有30+个技术指标，但不知道哪些真正有效。现有的加分/扣分都是硬编码的经验值
+- **方案**: 新增`indicator_attribution.py`，实现全自动的指标效果追踪
+  1. **买入时**: 记录所有40+个指标的实时快照到DB
+  2. **卖出时**: 自动匹配买入记录，标记交易结果(win/loss)
+  3. **分析**: 计算每个指标在赢/亏交易中的分布差异
+  4. **应用**: 自动生成分数调整(+/-15分)，补充硬编码评分
+- **数据库**: 新增`indicator_snapshots`表，记录每次买入的全量指标状态
+- **价值**: 用实盘数据驱动的指标权重，替代人工拍脑袋的+8/-6
+
+### 💰 闲置资金递减门槛 (Idle Capital Threshold Decay)
+- **核心问题**: 88%现金闲置很久，极端情况下永远无交易。闲置本身是机会成本
+- **方案**: 监测距离上次交易的天数，自动降低选股门槛
+  - 5天无交易: 门槛-3分
+  - 7天无交易: 门槛-5分
+  - 10天无交易: 门槛-8分
+  - 最低门槛18分(不会无底线降低)
+- **与现有门槛配合**: 叠加在get_dynamic_score_threshold()之上
+- **效果**: 避免“门槛过高→永远空仓→永远不交易”的死循环
+
+### 📊 指标效果热力图面板 (UI)
+- **绩效Tab新增**: 指标归因分析卡片组
+- **展示**: 每个指标的实战胜率、均盈亏、样本数
+- **颜色编码**: 绿色(胜率≥60%)、橙色(40-60%)、红色(<40%)
+- **API**: 新增`/api/finance/indicator-attribution`端点
+- **价值**: 直观看到哪些指标真的赚钱、哪些是干扰噪声
+
+### 🔧 技术细节
+- 新增 indicator_attribution.py: record_entry_indicators()+update_attribution_outcomes()+compute_indicator_effectiveness()+get_attribution_score_adjustments()+get_idle_threshold_adjustment()
+- daily_runner: 买入成功后调用record_entry_indicators()记录指标快照；每日开始时调用update_attribution_outcomes()更新归因结果
+- stock_picker: score_and_rank新增归因评分调整；get_dynamic_score_threshold新增闲置递减逻辑
+- finance-api-server: 新增handleIndicatorAttribution()
+- finance.html: 新增indicatorAttrGrid面板+loadIndicatorAttribution()
+
+### 📈 预期效果
+- 指标归因让系统从“人工调参”升级为“数据驱动自调”，随着交易数据积累越来越准
+- 闲置资金递减避免96%现金永久闲置，在保持谨慎的同时解放交易能力
+- 指标效果面板让用户可视化了解哪些指标在实战中有用，辅助手动调优
+
 ## 2026-04-14 15:30 — v5.34 盘后分析+LLM模型修复
 
 ### 📊 盘后分析

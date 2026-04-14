@@ -387,6 +387,62 @@ function handleStopLossAnalysis(req, res) {
   }
 }
 
+function handleIndicatorAttribution(req, res) {
+  // Get indicator attribution effectiveness data
+  try {
+    // Get outcome counts
+    const counts = querySqlite(`SELECT outcome, COUNT(*) as cnt FROM indicator_snapshots WHERE direction='BUY' GROUP BY outcome`);
+    const countMap = {};
+    (counts || []).forEach(r => countMap[r.outcome] = r.cnt);
+    
+    // Get completed records
+    const records = querySqlite(`SELECT indicators_json, outcome, outcome_pnl_pct FROM indicator_snapshots WHERE outcome IN ('win','loss') AND direction='BUY' ORDER BY trade_date DESC LIMIT 100`);
+    
+    if (!records || records.length < 3) {
+      return sendJson(res, { indicators: [], total: countMap, message: 'Not enough data yet' });
+    }
+    
+    // Compute per-indicator stats
+    const stats = {};
+    records.forEach(r => {
+      try {
+        const inds = JSON.parse(r.indicators_json);
+        for (const [name, val] of Object.entries(inds)) {
+          if (!stats[name]) stats[name] = { win_pnl: 0, loss_pnl: 0, win_count: 0, loss_count: 0, present_win: 0, present_loss: 0 };
+          const s = stats[name];
+          // Count presence (non-zero/non-false/non-empty)
+          const present = val && val !== 0 && val !== '0' && val !== 'none' && val !== 'neutral';
+          if (present) {
+            if (r.outcome === 'win') { s.present_win++; s.win_pnl += r.outcome_pnl_pct; }
+            else { s.present_loss++; s.loss_pnl += r.outcome_pnl_pct; }
+          }
+          if (r.outcome === 'win') s.win_count++; else s.loss_count++;
+        }
+      } catch(_){}
+    });
+    
+    const indicators = [];
+    for (const [name, s] of Object.entries(stats)) {
+      const total = s.present_win + s.present_loss;
+      if (total < 2) continue;
+      indicators.push({
+        name,
+        present_win: s.present_win,
+        present_loss: s.present_loss,
+        present_total: total,
+        win_rate: Math.round(s.present_win / total * 1000) / 10,
+        avg_pnl: total > 0 ? Math.round((s.win_pnl + s.loss_pnl) / total * 100) / 100 : 0,
+      });
+    }
+    indicators.sort((a,b) => b.win_rate - a.win_rate);
+    
+    sendJson(res, { indicators, total: countMap });
+  } catch(e) {
+    log('indicator-attribution error: ' + e.message);
+    sendJson(res, { indicators: [], error: e.message });
+  }
+}
+
 function handleSignalPersistence(req, res) {
   // Get signal persistence data from candidate_snapshots table
   try {
@@ -807,6 +863,7 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/daily-pnl' && req.method === 'GET') return handleDailyPnl(req, res);
     if (pathname === '/api/finance/rolling-returns' && req.method === 'GET') return handleRollingReturns(req, res);
     if (pathname === '/api/finance/trade-outcomes' && req.method === 'GET') return handleTradeOutcomes(req, res);
+    if (pathname === '/api/finance/indicator-attribution' && req.method === 'GET') return handleIndicatorAttribution(req, res);
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);

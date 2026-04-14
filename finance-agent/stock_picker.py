@@ -424,7 +424,18 @@ def get_dynamic_score_threshold(regime: str = "", loss_streak: int = 0) -> int:
         base += 3
     
     # v5.30: 门槛上限30分，防止永远空仓的死循环
-    return min(base, 30)
+    threshold = min(base, 30)
+    
+    # v5.35: 闲置资金递减门槛——连续无交易时逐步降低要求
+    try:
+        from indicator_attribution import get_idle_threshold_adjustment
+        idle_adj = get_idle_threshold_adjustment()
+        if idle_adj < 0:
+            threshold = max(18, threshold + idle_adj)  # 最低18分
+    except:
+        pass
+    
+    return threshold
 
 
 def check_risk_reward_ratio(tech: dict, regime: str = "") -> dict:
@@ -1418,6 +1429,17 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                             stock['score'] += adj.get('near_vp_support', 0)
                         if 'below_poc' in adj and tech.get('below_poc'):
                             stock['score'] += adj.get('below_poc', 0)
+                except:
+                    pass
+
+                # === 指标归因评分调整 (v5.35) ===
+                # 基于实盘归因数据，自动调整各指标分数
+                try:
+                    from indicator_attribution import get_attribution_score_adjustments
+                    attr_adj = get_attribution_score_adjustments(tech)
+                    if attr_adj != 0:
+                        stock['score'] += attr_adj
+                        stock['attribution_adj'] = attr_adj
                 except:
                     pass
 

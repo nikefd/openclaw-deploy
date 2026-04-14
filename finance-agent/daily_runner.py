@@ -17,6 +17,7 @@ from performance_tracker import (
 )
 from market_regime import detect_market_regime
 from config import *
+from indicator_attribution import record_entry_indicators, update_attribution_outcomes, get_idle_days_since_last_trade
 
 
 def is_trading_day() -> bool:
@@ -205,6 +206,17 @@ def execute_buys(picks: list, sentiment: dict, regime: str = "", loss_streak: in
             current_count += 1
             held_symbols.add(symbol)
             print(f"  🛒 买入 {pick.get('name','')}({symbol}) {shares}股 @{price} 信心:{confidence} 板块:{sector}")
+
+            # 记录指标归因快照 — 用于后续分析哪些指标有效
+            try:
+                from data_collector import calculate_technical_indicators as _calc_tech
+                _buy_df = get_stock_daily(symbol, 60)
+                if _buy_df is not None and not _buy_df.empty:
+                    _pick_tech = _calc_tech(_buy_df)
+                    if _pick_tech:
+                        record_entry_indicators(symbol, _pick_tech)
+            except Exception as _e:
+                print(f"  ⚠️ 指标归因记录失败: {_e}")
 
             # 记录推荐 — 用于后续绩效追踪
             record_recommendation(
@@ -468,6 +480,18 @@ def run_daily():
             print(f"  ✅ 更新了{updated}条历史推荐表现")
     except Exception as e:
         print(f"  ⚠️ 绩效更新失败: {e}")
+    
+    # 0.3 更新指标归因结果
+    print("🎯 更新指标归因...")
+    try:
+        attr_updated = update_attribution_outcomes()
+        if attr_updated > 0:
+            print(f"  ✅ 更新了{attr_updated}条指标归因")
+        idle_days = get_idle_days_since_last_trade()
+        if idle_days >= 5:
+            print(f"  ⚠️ 已{idle_days}个交易日无交易，闲置资金门槛将递减")
+    except Exception as e:
+        print(f"  ⚠️ 归因更新失败: {e}")
 
     # 1. 更新持仓价格（含追踪最高价）
     print("📊 更新持仓价格...")
