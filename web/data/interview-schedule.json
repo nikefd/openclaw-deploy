@@ -24,5 +24,8 @@
     {"time":"10:00-11:00","company":"快手","note":"二面 | 混合云AI推理工程师-可灵AI专项，视频面试"},
     {"time":"14:30-15:30","company":"ShopBack","note":"Technical Assessment，Haixiang Yan，HackerRank"},
     {"time":"15:45-16:45","company":"ShopBack","note":"Domain Assessment，Matthew Chng & Weihang Huang，HackerRank"}
+  ]},
+  {"date":"2026-04-22","weekday":"周三","slots":[
+    {"time":"11:00-12:00","company":"OiiOii","note":"上海天码形空科技，飞书视频面"}
   ]}
 ]
