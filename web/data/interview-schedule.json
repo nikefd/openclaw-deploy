@@ -1,29 +1,32 @@
 [
-  {"date":"2026-04-13","weekday":"周一","slots":[
-    {"time":"14:00-15:00","company":"NVIDIA","note":"面试官 Yijie，Teams 视频面"},
+  {"date":"2026-04-13","weekday":"周日","slots":[
+    {"time":"14:00-15:00","company":"NVIDIA","note":"一面，面试官 Yijie，Teams 视频面"},
     {"time":"19:00-20:00","company":"阿里国际站","note":""}
   ]},
-  {"date":"2026-04-14","weekday":"周二","slots":[
+  {"date":"2026-04-14","weekday":"周一","slots":[
     {"time":"10:30-11:00","company":"Cookiy AI","note":""},
     {"time":"14:00-15:00","company":"京东","note":""},
     {"time":"16:30-17:30","company":"小米","note":"一面"},
     {"time":"19:00-20:00","company":"快手","note":"一面 | 混合云AI推理工程师-可灵AI专项"}
   ]},
-  {"date":"2026-04-15","weekday":"周三","slots":[
+  {"date":"2026-04-15","weekday":"周二","slots":[
     {"time":"10:00-11:00","company":"字节跳动","note":""},
     {"time":"15:00-16:00","company":"阶跃星辰","note":"大模型AI Coding工程师/专家，预留缓冲"},
     {"time":"19:00-20:00","company":"腾讯","note":"元宝 Agent架构工程师，腾讯会议"}
   ]},
-  {"date":"2026-04-16","weekday":"周四","slots":[
-    {"time":"10:30-11:30","company":"爱诗科技","note":"后端开发工程师，飞书视频面"},
+  {"date":"2026-04-16","weekday":"周三","slots":[
     {"time":"11:50-12:50","company":"大疆创新","note":"中/高级Java开发工程师，腾讯会议，HR: o-alex.tang"},
     {"time":"15:00-16:00","company":"小米","note":"二面 | Agent Memory & Skills 专项工程师，视频面试"},
     {"time":"17:00-17:45","company":"第四范式","note":"AI全栈专家（Agent方向），45分钟，预留缓冲"}
   ]},
-  {"date":"2026-04-17","weekday":"周五","slots":[
+  {"date":"2026-04-17","weekday":"周四","slots":[
+    {"time":"08:00-09:00","company":"NVIDIA","note":"二面，Teams 视频面"},
     {"time":"10:00-11:00","company":"快手","note":"二面 | 混合云AI推理工程师-可灵AI专项，视频面试"},
     {"time":"14:30-15:30","company":"ShopBack","note":"Technical Assessment，Haixiang Yan，HackerRank"},
     {"time":"15:45-16:45","company":"ShopBack","note":"Domain Assessment，Matthew Chng & Weihang Huang，HackerRank"}
+  ]},
+  {"date":"2026-04-21","weekday":"周一","slots":[
+    {"time":"14:30-15:30","company":"爱诗科技","note":"后端开发工程师，飞书视频面"}
   ]},
   {"date":"2026-04-22","weekday":"周三","slots":[
     {"time":"11:00-12:00","company":"OiiOii","note":"上海天码形空科技，飞书视频面"}
