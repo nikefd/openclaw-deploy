@@ -1,5 +1,23 @@
 # 金融Agent 更新日志
 
+## 2026-04-15 11:30 — v5.37 资金利用率趋势图
+
+### 💰 资金利用率趋势图 (Capital Utilization Trend)
+- **仪表盘新增**: 仓位% vs 现金%的面积堆叠折线图
+- **数据源**: daily_snapshots表的cash/total_value字段
+- **直观展示**: 蓝色=仓位占比, 黄色=现金占比, Y轴0-100%
+- **核心价值**: 直观追踪"96%现金闲置"问题的变化趋势, 看出何时开始建仓/何时清仓
+- **API**: 新增`/api/finance/capital-utilization`端点
+
+### 🔧 技术细节
+- finance-api-server.js: 新增handleCapitalUtilization(), 从daily_snapshots计算每日仓位/现金占比
+- finance.html: 新增capitalUtilChart canvas + loadCapitalUtilization(), 双折线面积图
+- refreshAll()新增loadCapitalUtilization调用
+
+### 📈 预期效果
+- 资金利用率变化一目了然, 辅助判断连亏保护/市场状态对仓位的实际影响
+- 与回撤曲线形成对照, 高仓位+大回撤=风险过高, 低仓位+低回撤=保守过度
+
 ## 2026-04-15 08:00 — v5.36 早期止损DRY重构+KDJ J值极端区域评分+连亏锁利优先级提升
 
 ### 🔧 早期止损DRY重构 (Bug修复)

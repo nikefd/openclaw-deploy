@@ -864,6 +864,7 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/rolling-returns' && req.method === 'GET') return handleRollingReturns(req, res);
     if (pathname === '/api/finance/trade-outcomes' && req.method === 'GET') return handleTradeOutcomes(req, res);
     if (pathname === '/api/finance/indicator-attribution' && req.method === 'GET') return handleIndicatorAttribution(req, res);
+    if (pathname === '/api/finance/capital-utilization' && req.method === 'GET') return handleCapitalUtilization(req, res);
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);
@@ -875,5 +876,16 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     sendError(res, e.message);
   }
 });
+
+function handleCapitalUtilization(req, res) {
+  const snapshots = querySqlite('SELECT date, total_value, cash FROM daily_snapshots ORDER BY date ASC');
+  if (!snapshots.length) return sendJson(res, { data: [] });
+  const data = snapshots.map(s => {
+    const cashPct = s.total_value > 0 ? Math.round(s.cash / s.total_value * 1000) / 10 : 100;
+    const posPct = Math.round((100 - cashPct) * 10) / 10;
+    return { date: s.date, cash_pct: cashPct, position_pct: posPct };
+  });
+  sendJson(res, { data });
+}
 
 server.listen(PORT, () => log(`Finance API server running on port ${PORT}`));
