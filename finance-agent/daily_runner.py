@@ -20,6 +20,95 @@ from config import *
 from indicator_attribution import record_entry_indicators, update_attribution_outcomes, get_idle_days_since_last_trade
 
 
+def check_staged_entry(regime: str = "", loss_streak: int = 0, sentiment: dict = None) -> list:
+    """v5.39 分批建仓 — 昨日买入的持仓, 今日确认方向后追加40%
+    
+    逻辑: 首次买入60%仓位, 次日如果:
+    - 当日涨幅>0 + MACD/RSI仍看多 → 追加40%
+    - 当日跌幅>2% → 不追加
+    """
+    results = []
+    positions = get_positions()
+    account = get_account()
+    
+    for pos in positions:
+        buy_date = pos.get('buy_date', '')
+        if not buy_date:
+            continue
+        # 只检查昨天买入的(T+1后第一天)
+        try:
+            from datetime import timedelta as _td
+            buy_dt = datetime.strptime(buy_date, '%Y-%m-%d').date()
+            if (date.today() - buy_dt).days < 1 or (date.today() - buy_dt).days > 3:
+                continue
+        except:
+            continue
+        
+        # 检查是否已经追加过(不重复追加)
+        try:
+            import sqlite3
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute("SELECT COUNT(*) FROM trades WHERE symbol=? AND direction='BUY' AND trade_date>?",
+                     (pos['symbol'], buy_date))
+            already_added = c.fetchone()[0] > 0
+            conn.close()
+            if already_added:
+                continue
+        except:
+            continue
+        
+        # 获取技术指标确认方向
+        try:
+            df = get_stock_daily(pos['symbol'], 30)
+            if df is None or df.empty:
+                continue
+            from data_collector import calculate_technical_indicators
+            tech = calculate_technical_indicators(df)
+            if not tech:
+                continue
+            
+            daily_chg = tech.get('daily_change_pct', 0)
+            macd_sig = tech.get('macd_signal', '')
+            rsi = tech.get('rsi14', 50)
+            
+            # 确认条件: 今日涨 + 技术面仍看多
+            if daily_chg > 0 and macd_sig in ('bullish', 'golden_cross') and rsi < 75:
+                quotes = get_realtime_quotes([pos['symbol']])
+                if pos['symbol'] not in quotes:
+                    continue
+                price = quotes[pos['symbol']]['price']
+                if price <= 0:
+                    continue
+                
+                # 追加40%仓位
+                add_amount = pos['avg_cost'] * pos['shares'] * 0.67  # 原60%对应40%
+                add_shares = int(add_amount / price / 100) * 100
+                if add_shares < 100 or add_amount > account['cash'] * 0.3:
+                    continue
+                
+                sector = classify_sector(pos['symbol'], pos.get('name', ''))
+                r = buy_stock(pos['symbol'], pos.get('name', ''), price, add_shares,
+                            f"分批建仓追加: 昨日买入确认方向(涨{daily_chg:.1f}%+{macd_sig})")
+                if r.get('success'):
+                    print(f"  🔄 分批追加 {pos.get('name','')}({pos['symbol']}) {add_shares}股 @{price}")
+                    results.append({
+                        'type': '分批建仓追加',
+                        'symbol': pos['symbol'],
+                        'name': pos.get('name', ''),
+                        'shares': add_shares,
+                        'price': price,
+                        'status': '✅',
+                        'result': r
+                    })
+            elif daily_chg < -2:
+                print(f"  ⚠️ {pos.get('name','')} 昨日买入今日跌{daily_chg:.1f}%, 不追加")
+        except Exception as e:
+            continue
+    
+    return results
+
+
 def is_trading_day() -> bool:
     """判断今天是否为交易日（排除周末，节假日暂不处理）"""
     today = datetime.now()
@@ -180,6 +269,8 @@ def execute_buys(picks: list, sentiment: dict, regime: str = "", loss_streak: in
             atr_pct=stock_atr
         )
         buy_amount = available_cash * position_pct
+        # v5.39 分批建仓: 首次买入60%仓位, 次日确认后追加40%
+        buy_amount = buy_amount * 0.6
         shares = int(buy_amount / price / 100) * 100
 
         if shares < 100:
@@ -528,6 +619,16 @@ def run_daily():
     print("💸 执行止损止盈...")
     sell_results = execute_sells(sentiment.get('sentiment_score', 50), regime=regime, loss_streak=loss_streak)
 
+    # 4.1 分批建仓追加 (v5.39) — 昨日买入的持仓如果今日确认方向, 追加仓位
+    buy_results = []
+    print("🔄 检查分批建仓追加...")
+    try:
+        _staged_buys = check_staged_entry(regime=regime, loss_streak=loss_streak, sentiment=sentiment)
+        if _staged_buys:
+            buy_results.extend(_staged_buys)
+    except Exception as _e:
+        print(f"  ⚠️ 分批建仓检查失败: {_e}")
+
     # 4. 多策略选股（传入市场状态）
     print("🔍 多策略选股中...")
     pick_result = multi_strategy_pick(regime=regime, loss_streak=loss_streak)
@@ -542,7 +643,7 @@ def run_daily():
 
     # 6. 执行买入
     print("🛒 执行买入...")
-    buy_results = execute_buys(final_picks, sentiment, regime=regime, loss_streak=loss_streak)
+    buy_results.extend(execute_buys(final_picks, sentiment, regime=regime, loss_streak=loss_streak))
 
     # 7. 保存快照
     save_daily_snapshot(

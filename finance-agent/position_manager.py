@@ -682,6 +682,10 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         elif sentiment_score > 75 and regime != 'bear':  # 乐观+非熊市才放宽
             stop_loss = min(stop_loss, -0.10)
         
+        # === 梯度止损 v5.39 ===
+        # 接近止损线时先减半仓(预警区), 真正触发才清仓
+        # 避免一次性全卖后股价反弹的"错误止损"问题
+        stop_warning_zone = stop_loss * 0.7  # 预警区=止损线的70% (如止损-8%,预警-5.6%)
         if pnl_pct <= stop_loss:
             atr_info = f" ATR止损{atr_stop*100:.1f}%" if atr_stop else ""
             actions.append({
@@ -693,6 +697,19 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                 "price": pos['current_price']
             })
             continue
+        elif pnl_pct <= stop_warning_zone and pos['shares'] >= 200:
+            # 预警区: 先减半仓, 降低风险但保留反弹机会
+            half = (pos['shares'] // 200) * 100
+            if half >= 100:
+                actions.append({
+                    "action": "SELL",
+                    "symbol": pos['symbol'],
+                    "name": pos['name'],
+                    "reason": f"止损预警减仓: 亏损{pnl_pct*100:.1f}%接近止损线{stop_loss*100:.0f}%,先减半仓",
+                    "shares": half,
+                    "price": pos['current_price']
+                })
+                continue
         
         # === 阶梯止盈 (ATR自适应) ===
         # 根据个股波动率动态设定止盈档位，而非固定12%/20%/30%
@@ -770,6 +787,13 @@ def portfolio_risk_check(positions: list, total_value: float) -> dict:
     for sector, count in sector_counts.items():
         if count >= 4:
             warnings.append(f"板块过于集中: {sector}有{count}只持仓，建议分散")
+    
+    # === 资金闲置告警 ===
+    # 96%现金是大问题，提醒用户/系统
+    if total_value > 0:
+        cash_pct = 1.0 - sum(p['current_price'] * p['shares'] for p in positions) / total_value
+        if cash_pct > 0.90 and len(positions) <= 2:
+            warnings.append(f"💤 现金{cash_pct*100:.0f}%闲置过多(仅{len(positions)}只持仓),建议适度建仓")
     
     # === 连亏检测 — 含时间衰减 ===
     # 连亏不是永久的: 最后一次止损距今越久, 连亏的惩罚效果越弱

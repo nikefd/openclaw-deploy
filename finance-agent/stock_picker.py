@@ -426,6 +426,16 @@ def get_dynamic_score_threshold(regime: str = "", loss_streak: int = 0) -> int:
     # v5.30: 门槛上限30分，防止永远空仓的死循环
     threshold = min(base, 30)
     
+    # v5.39: 转换期降低门槛20% — bear→sideways是最佳布局时机
+    try:
+        from market_regime import detect_market_regime
+        _regime_info = detect_market_regime()
+        _transition = _regime_info.get('transition', 'none')
+        if _transition in ('bear_to_sideways', 'sideways_to_bull'):
+            threshold = int(threshold * 0.8)  # 降低20%
+    except:
+        pass
+    
     # v5.35: 闲置资金递减门槛——连续无交易时逐步降低要求
     try:
         from indicator_attribution import get_idle_threshold_adjustment
@@ -455,9 +465,11 @@ def check_risk_reward_ratio(tech: dict, regime: str = "") -> dict:
     if current <= 0:
         return {'rr_ratio': 0, 'pass': False}
     
-    # 预期风险: ATR止损距离
+    # 预期风险: ATR止损距离 + 交易成本
+    # v5.39: 纳入佣金(万三×2)+印花税(千一)+滑点(0.2%)≈ 0.22%单程→来回0.44%
     atr_pct = tech.get('atr_pct', 3)
-    risk_pct = max(atr_pct * 2, 3.0)  # 至少3%风险
+    trading_cost_pct = 0.44  # 买卖一次的总交易成本
+    risk_pct = max(atr_pct * 2 + trading_cost_pct, 3.0)  # 至少3%风险
     risk_pct = min(risk_pct, 10.0)    # 最多10%风险
     
     # 预期回报: 多种方式估算，取最保守
@@ -481,8 +493,13 @@ def check_risk_reward_ratio(tech: dict, regime: str = "") -> dict:
     
     rr_ratio = reward_pct / risk_pct if risk_pct > 0 else 0
     
-    # 熊市要求更高R:R
-    min_rr = 2.5 if regime == 'bear' else 1.8
+    # v5.39: 转换期降低R:R要求，熊市要求更高
+    if regime == 'bear':
+        min_rr = 2.5
+    elif regime == 'transition':  # bear→sideways转换期
+        min_rr = 1.5
+    else:
+        min_rr = 1.8
     
     return {
         'rr_ratio': round(rr_ratio, 2),
@@ -1046,6 +1063,30 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     # 熊市下追涨策略命中率低,切换为超跌反弹逻辑
     bear_mode = (regime == 'bear')
 
+    # === v5.39 指标分级权重 ===
+    # A级: 回测+实盘验证有效的指标, 权重2x
+    # B级: 回测验证但实盘样本不足, 权重1x
+    # C级: 未验证/实盘表现中性, 权重0.5x
+    # 基于指标归因数据自动分级
+    _indicator_tiers = {'A': 2.0, 'B': 1.0, 'C': 0.5}
+    _tier_map = {}  # indicator -> tier
+    try:
+        from indicator_attribution import compute_indicator_effectiveness
+        _eff = compute_indicator_effectiveness()
+        for ind, stats in _eff.items():
+            if stats.get('sample_size', 0) >= 5 and stats.get('win_rate', 0) >= 0.6:
+                _tier_map[ind] = 'A'  # 胜率≥60%+样本足够
+            elif stats.get('sample_size', 0) >= 3:
+                _tier_map[ind] = 'B'
+            else:
+                _tier_map[ind] = 'C'
+    except:
+        pass
+    
+    def _tier_mult(indicator_name: str) -> float:
+        tier = _tier_map.get(indicator_name, 'B')
+        return _indicator_tiers.get(tier, 1.0)
+
     # === 预计算: 循环外一次性获取，避免每只股票重复调用 ===
     _review_insights = None
     try:
@@ -1300,7 +1341,7 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
 
                 # === 缩量企稳(Volume Dry-up) ===
                 if tech.get('volume_dryup'):
-                    stock['score'] += 10 if bear_mode else 6  # 卖方耗尽=底部信号
+                    stock['score'] += int((10 if bear_mode else 6) * _tier_mult('volume_dryup'))
                     stock['volume_dryup'] = True
 
                 # === 均线密集收敛突破 ===
@@ -1316,9 +1357,9 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
 
                 # === 支撑阻力位评分 ===
                 if tech.get('near_support'):
-                    stock['score'] += 8  # 接近支撑位，好的买入位置
+                    stock['score'] += int(8 * _tier_mult('near_support'))  # 接近支撑位
                     if tech.get('strong_support'):
-                        stock['score'] += 5  # 多次验证的强支撑更可靠
+                        stock['score'] += int(5 * _tier_mult('strong_support'))
                 if tech.get('near_resistance'):
                     stock['score'] -= 6  # 接近阻力位，上涨空间有限
 
@@ -1343,7 +1384,7 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 # === 成交密集区 (Volume Profile) 评分 ===
                 # v5.27新增: 比局部极值支撑更可靠
                 if tech.get('near_vp_support'):
-                    stock['score'] += 8  # 接近成交密集支撑区=资金堆积位置
+                    stock['score'] += int(8 * _tier_mult('near_vp_support'))
                     stock['near_vp_support'] = True
                 if tech.get('below_poc'):
                     stock['score'] += 5 if bear_mode else 3  # 低于成交量中心,有回归动力
@@ -1901,6 +1942,7 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
             print(f"  🚫 止损黑名单过滤: 排除{blocked}只近期止损股")
 
     # === 市场宽度检查: 普跌行情进一步提高门槛 ===
+    # v5.39: 转换期放宽市场宽度限制
     breadth_info = {}
     try:
         from market_regime import get_market_breadth
@@ -1908,7 +1950,14 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
         breadth_sig = breadth_info.get('breadth_signal', 'neutral')
         print(f"  📊 市场宽度: 涨{breadth_info.get('advance',0)}跌{breadth_info.get('decline',0)} "
               f"({breadth_info.get('breadth_ratio',0.5):.1%}) → {breadth_sig}")
-        if breadth_sig == 'very_weak':
+        # 检查是否在转换期
+        _in_transition = False
+        try:
+            _ri = detect_market_regime() if 'detect_market_regime' in dir() else {}
+            _in_transition = _ri.get('transition', 'none') not in ('none', None)
+        except:
+            pass
+        if breadth_sig == 'very_weak' and not _in_transition:
             # 普跌行情，只保留最强的2只
             ranked = ranked[:2]
             print(f"  ⚠️ 市场普跌，候选缩减至{len(ranked)}只")
