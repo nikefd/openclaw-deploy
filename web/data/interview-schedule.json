@@ -17,6 +17,7 @@
   ]},
   {"date":"2026-04-16","weekday":"周四","slots":[
     {"time":"10:30-11:30","company":"爱诗科技","note":"后端开发工程师，飞书视频面"},
+    {"time":"11:50-12:50","company":"大疆创新","note":"中/高级Java开发工程师，腾讯会议，HR: o-alex.tang"},
     {"time":"15:00-16:00","company":"小米","note":"二面 | Agent Memory & Skills 专项工程师，视频面试"}
   ]},
   {"date":"2026-04-17","weekday":"周五","slots":[
