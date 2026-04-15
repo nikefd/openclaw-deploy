@@ -575,9 +575,12 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         # 熊市时间止损扩大亏损容忍: 小亏(-5%以内)也清掉，别死扛
         time_stop_loss_floor = -0.05 if regime == 'bear' else -0.03
         
+        # 时间止损盈利上限: 牛市只清微利(<1.5%)，震荡/熊市清<3%
+        time_stop_profit_cap = 0.015 if regime == 'bull' else 0.03
+        
         if buy_date:
             hold_days_ts = _trading_days_since(buy_date)
-            if hold_days_ts >= 0 and hold_days_ts >= time_stop_days and time_stop_loss_floor <= pnl_pct <= 0.03:
+            if hold_days_ts >= 0 and hold_days_ts >= time_stop_days and time_stop_loss_floor <= pnl_pct <= time_stop_profit_cap:
                     actions.append({
                         "action": "SELL",
                         "symbol": pos['symbol'],

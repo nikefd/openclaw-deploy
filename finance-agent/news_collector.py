@@ -178,8 +178,21 @@ def get_sina_finance_news() -> list:
 # ============================================================
 @retry()
 @monitored("雪球热帖")
-def get_xueqiu_hot(stock_code: str = None) -> list:
-    """雪球热帖 — 散户情绪风向标"""
+def get_xueqiu_hot(stock_code: str = None, retries: int = 2) -> list:
+    """雪球热帖 — 散户情绪风向标（带重试）"""
+    import time as _time
+    for attempt in range(retries + 1):
+        try:
+            return _get_xueqiu_hot_impl(stock_code)
+        except Exception as e:
+            if attempt < retries:
+                _time.sleep(1)
+                continue
+            print(f"[get_xueqiu_hot] 失败(重试{retries}次后): {e}")
+            return []
+
+def _get_xueqiu_hot_impl(stock_code: str = None) -> list:
+    """雪球热帖实际实现"""
     session = requests.Session()
     # 先获取cookie
     session.get('https://xueqiu.com/', headers=HEADERS, timeout=5)
