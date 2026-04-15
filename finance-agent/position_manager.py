@@ -389,11 +389,7 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         # 注意: 用交易日而非日历天数，避免周五买入→周一=3天的误判
         if buy_date:
             try:
-                buy_dt = datetime.strptime(buy_date, '%Y-%m-%d').date()
-                # 计算交易日天数(排除周末)
-                _cal_days = (date.today() - buy_dt).days
-                _weekends = sum(1 for d in range(_cal_days) if (buy_dt + timedelta(days=d+1)).weekday() >= 5)
-                hold_days = _cal_days - _weekends
+                hold_days = _trading_days_since(buy_date)
                 if hold_days <= 2 and pnl_pct <= -0.02:
                     actions.append({
                         "action": "SELL",
@@ -416,6 +412,31 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                     continue
             except:
                 pass
+        
+        # === 连亏锁利润 (Loss Streak Profit Lock) ===
+        # v5.36: 优先级提升 — 移到动量衰减减仓之前，确保连亏锁利不被半仓减仓截获
+        # 连亏>=3次时，动态锁利帮助重置连亏计数器
+        if loss_streak >= 3 and pnl_pct > 0:
+            # 连亏8+: +2%即锁; 连亏5-7: +3%锁; 连亏3-4: +5%锁
+            if loss_streak >= 8:
+                lock_threshold = 0.02
+            elif loss_streak >= 5:
+                lock_threshold = 0.03
+            else:
+                lock_threshold = 0.05
+            
+            if pnl_pct >= lock_threshold:
+                half = (pos['shares'] // 200) * 100
+                sell_shares = half if half >= 100 else pos['shares']
+                actions.append({
+                    "action": "SELL",
+                    "symbol": pos['symbol'],
+                    "name": pos['name'],
+                    "reason": f"连亏锁利润: 连亏{loss_streak}次,盈利{pnl_pct*100:+.1f}%≥{lock_threshold*100:.0f}%主动锁利",
+                    "shares": sell_shares,
+                    "price": pos['current_price']
+                })
+                continue
         
         # === 预取技术指标(一次获取，多处复用) ===
         pos_tech = None
@@ -539,31 +560,6 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                     "name": pos['name'],
                     "reason": f"支撑破位止损: 跌破支撑{broken_sup:.2f}, 亏损{pnl_pct*100:+.1f}%",
                     "shares": pos['shares'],
-                    "price": pos['current_price']
-                })
-                continue
-        
-        # === 连亏锁利润 (Loss Streak Profit Lock) ===
-        # 连亏>=5次时，动态锁利帮助重置连亏计数器
-        # v5.27: 动态锁利门槛 — 连亏越多越早锁利
-        if loss_streak >= 3 and pnl_pct > 0:
-            # 连亏8+: +2%即锁; 连亏5-7: +3%锁; 连亏3-4: +5%锁
-            if loss_streak >= 8:
-                lock_threshold = 0.02
-            elif loss_streak >= 5:
-                lock_threshold = 0.03
-            else:
-                lock_threshold = 0.05
-            
-            if pnl_pct >= lock_threshold:
-                half = (pos['shares'] // 200) * 100
-                sell_shares = half if half >= 100 else pos['shares']
-                actions.append({
-                    "action": "SELL",
-                    "symbol": pos['symbol'],
-                    "name": pos['name'],
-                    "reason": f"连亏锁利润: 连亏{loss_streak}次,盈利{pnl_pct*100:+.1f}%≥{lock_threshold*100:.0f}%主动锁利",
-                    "shares": sell_shares,
                     "price": pos['current_price']
                 })
                 continue

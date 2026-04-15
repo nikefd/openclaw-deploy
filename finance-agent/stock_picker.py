@@ -1143,6 +1143,19 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                     stock['score'] -= 8
                 elif kdj_sig == 'overbought':
                     stock['score'] -= 5
+                
+                # KDJ J值极端区域 — J<0极度超卖, J>100极度超买
+                # J值比K/D更灵敏，极端值是强反转信号
+                kdj_j = tech.get('kdj_j', 50)
+                if kdj_j < 0:  # J<0: 统计极度超卖
+                    j_bonus = 10 if regime == 'bear' else 6
+                    stock['score'] += j_bonus
+                elif kdj_j < 10:  # J<10: 超卖区
+                    stock['score'] += 3
+                elif kdj_j > 100:  # J>100: 极度超买
+                    stock['score'] -= 8
+                elif kdj_j > 90:  # J>90: 超买区
+                    stock['score'] -= 3
 
                 # RSI背离信号 — 强反转信号
                 rsi_div = tech.get('rsi_divergence', 'none')
