@@ -21,9 +21,10 @@
   ]},
   {"date":"2026-04-17","weekday":"周五","slots":[
     {"time":"08:00-09:00","company":"NVIDIA","note":"二面，Teams 视频面"},
-    {"time":"10:00-11:00","company":"快手","note":"二面 | 混合云AI推理工程师-可灵AI专项，视频面试"},
+    {"time":"17:00-18:00","company":"快手","note":"二面 | 混合云AI推理工程师-可灵AI专项，视频面试"},
     {"time":"14:30-15:30","company":"ShopBack","note":"Technical Assessment，Haixiang Yan，HackerRank"},
-    {"time":"15:45-16:45","company":"ShopBack","note":"Domain Assessment，Matthew Chng & Weihang Huang，HackerRank"}
+    {"time":"15:45-16:45","company":"ShopBack","note":"Domain Assessment，Matthew Chng & Weihang Huang，HackerRank"},
+    {"time":"18:00-19:00","company":"Pika","note":"一面 | Senior Software Engineer, Agent，1h技术面，面试官 Mel Massadian (Technical Artist)"}
   ]},
   {"date":"2026-04-20","weekday":"周一","slots":[
     {"time":"14:30-15:30","company":"爱诗科技","note":"后端开发工程师，飞书视频面"}
