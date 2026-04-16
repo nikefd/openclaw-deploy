@@ -271,6 +271,12 @@ tr.pos-row.expanded{background:var(--hover)}
       <div id="outcomeTimeline" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center"></div>
       <div id="outcomeSummary" style="font-size:12px;color:var(--sub);margin-top:10px"></div>
     </div>
+    <!-- Trade Activity Calendar -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px">
+      <h3 style="font-size:14px;color:var(--sub);margin-bottom:12px">📅 交易活动日历 (近90天)</h3>
+      <div id="tradeCalendar" style="display:grid;grid-template-columns:repeat(13,1fr);gap:3px"></div>
+      <div id="tradeCalendarLegend" style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:11px;color:var(--sub)"></div>
+    </div>
     <!-- Position PnL Bar Chart -->
     <div class="chart-box" style="margin-bottom:24px">
       <h3>📊 持仓盈亏对比</h3>
@@ -361,6 +367,11 @@ tr.pos-row.expanded{background:var(--hover)}
       <div id="signalAnalysisGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:12px"></div>
     </div>
     <!-- Indicator Attribution Panel (v5.35) -->
+    <!-- Strategy Contribution Panel (v5.41) -->
+    <div class="chart-box" style="margin-bottom:24px">
+      <h3>🎯 策略收益贡献 (各策略实际盈亏)</h3>
+      <div id="strategyContribGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;padding:12px"></div>
+    </div>
     <div class="chart-box" style="margin-bottom:24px">
       <h3>🎯 指标归因分析 (每个指标的实战胜率)</h3>
       <div id="indicatorAttrGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;padding:12px"></div>
@@ -1513,7 +1524,7 @@ async function loadCapitalUtilization(){
 }
 
 async function refreshAll(){
-  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadMonthlyReturns(),loadWeeklyReturns(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics(),loadPeriodReturns(),loadHealthScore(),loadDailyPnl(),loadTradeOutcomes(),loadRollingReturns(),loadCapitalUtilization()]);
+  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadMonthlyReturns(),loadWeeklyReturns(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics(),loadPeriodReturns(),loadHealthScore(),loadDailyPnl(),loadTradeOutcomes(),loadRollingReturns(),loadCapitalUtilization(),loadTradeCalendar()]);
 }
 
 // Period Returns
@@ -1610,6 +1621,7 @@ async function loadPerformance(){
   loadIndicatorAttribution();
   loadSignalPersistence();
   loadStopLossAnalysis();
+  loadStrategyContribution();
 }
 
 async function loadSignalAnalysis(){
@@ -1914,6 +1926,51 @@ async function loadTradeOutcomes(){
   const streakLabel=streakType==='win'?`🔥 连胜${streak}次`:`⚠️ 连亏${streak}次`;
   const streakColor=streakType==='win'?'var(--up)':'var(--down)';
   sm.innerHTML=`共${oc.length}笔交易 · <span style="color:var(--up)">${totalWins}胜</span> / <span style="color:var(--down)">${totalLosses}负</span> · 胜率${winRate}% · <b style="color:${streakColor}">${streakLabel}</b>`;
+}
+
+// Trade Activity Calendar
+async function loadTradeCalendar(){
+  const d=await api('/api/finance/trade-calendar');
+  if(!d||!d.days)return;
+  const cal=document.getElementById('tradeCalendar');
+  const legend=document.getElementById('tradeCalendarLegend');
+  if(!cal)return;
+  const maxTrades=Math.max(...d.days.map(x=>x.total),1);
+  // Week headers
+  cal.innerHTML=d.days.map(day=>{
+    const isWeekend=day.dow===0||day.dow===6;
+    const lvl=day.total===0?0:day.total===1?1:day.total<=3?2:3;
+    const colors=['transparent','rgba(67,97,238,0.25)','rgba(67,97,238,0.5)','rgba(67,97,238,0.85)'];
+    const bg=isWeekend&&day.total===0?'var(--border)':colors[lvl];
+    const border=isWeekend?'none':'1px solid var(--border)';
+    const title=`${day.date}\n买入: ${day.buys} 卖出: ${day.sells}${day.details.length?'\n'+day.details.join('\n'):''}`;
+    return`<div title="${title}" style="aspect-ratio:1;border-radius:3px;background:${bg};border:${border};cursor:default;transition:transform .1s;min-height:14px" onmouseenter="this.style.transform='scale(1.3)'" onmouseleave="this.style.transform='scale(1)'"></div>`;
+  }).join('');
+  legend.innerHTML='<span>少</span>'+[0,1,2,3].map(l=>{
+    const c=['var(--border)','rgba(67,97,238,0.25)','rgba(67,97,238,0.5)','rgba(67,97,238,0.85)'][l];
+    return`<div style="width:14px;height:14px;border-radius:2px;background:${c}"></div>`;
+  }).join('')+'<span>多</span>&emsp;hover查看详情';
+}
+
+// Strategy Contribution
+async function loadStrategyContribution(){
+  const d=await api('/api/finance/strategy-contribution');
+  const grid=document.getElementById('strategyContribGrid');
+  if(!grid)return;
+  if(!d||!d.strategies||!d.strategies.length){grid.innerHTML='<p style="color:var(--sub)">暂无策略贡献数据</p>';return;}
+  grid.innerHTML=d.strategies.map(s=>{
+    const pnlColor=s.pnl>=0?'var(--up)':'var(--down)';
+    const sign=s.pnl>=0?'+':'';
+    const wrColor=s.win_rate>=50?'#4caf50':s.win_rate>=30?'#ff9800':'#f44336';
+    return`<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px">${s.name}</div>
+      <div style="font-size:22px;font-weight:700;color:${pnlColor}">${sign}¥${s.pnl.toLocaleString()}</div>
+      <div style="display:flex;gap:12px;margin-top:6px;font-size:11px;color:var(--sub)">
+        <span>${s.count}笔</span>
+        <span style="color:${wrColor}">胜率${s.win_rate}%</span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // Init

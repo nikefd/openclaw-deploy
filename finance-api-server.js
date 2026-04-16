@@ -865,6 +865,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/trade-outcomes' && req.method === 'GET') return handleTradeOutcomes(req, res);
     if (pathname === '/api/finance/indicator-attribution' && req.method === 'GET') return handleIndicatorAttribution(req, res);
     if (pathname === '/api/finance/capital-utilization' && req.method === 'GET') return handleCapitalUtilization(req, res);
+    if (pathname === '/api/finance/trade-calendar' && req.method === 'GET') return handleTradeCalendar(req, res);
+    if (pathname === '/api/finance/strategy-contribution' && req.method === 'GET') return handleStrategyContribution(req, res);
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);
@@ -876,6 +878,89 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     sendError(res, e.message);
   }
 });
+
+function handleTradeCalendar(req, res) {
+  // GitHub-style trade activity calendar (last 90 days)
+  const trades = querySqlite("SELECT trade_date, direction, symbol, name, price, shares FROM trades ORDER BY trade_date ASC");
+  const dayMap = {};
+  trades.forEach(t => {
+    if (!dayMap[t.trade_date]) dayMap[t.trade_date] = { buys: 0, sells: 0, total: 0, details: [] };
+    const d = dayMap[t.trade_date];
+    if (t.direction === 'BUY') d.buys++; else d.sells++;
+    d.total++;
+    d.details.push((t.direction === 'BUY' ? '\u4e70' : '\u5356') + ' ' + t.name + ' ' + t.shares + '\u80a1');
+  });
+  const days = [];
+  const now = new Date();
+  for (let i = 89; i >= 0; i--) {
+    const dt = new Date(now);
+    dt.setDate(dt.getDate() - i);
+    const ds = dt.toISOString().slice(0, 10);
+    const dow = dt.getDay();
+    const info = dayMap[ds] || { buys: 0, sells: 0, total: 0, details: [] };
+    days.push({ date: ds, dow, ...info });
+  }
+  sendJson(res, { days });
+}
+
+function handleStrategyContribution(req, res) {
+  const allTrades = querySqlite('SELECT id, trade_date, direction, symbol, name, price, shares, reason FROM trades ORDER BY id ASC');
+  // Build buy reason map and avg cost
+  const buyReasons = {}; // symbol -> last buy reason
+  const buyCosts = {};   // symbol -> {totalCost, totalShares}
+  const results = [];
+  allTrades.forEach(t => {
+    if (t.direction === 'BUY') {
+      buyReasons[t.symbol] = t.reason || '';
+      if (!buyCosts[t.symbol]) buyCosts[t.symbol] = { totalCost: 0, totalShares: 0 };
+      buyCosts[t.symbol].totalCost += t.price * t.shares;
+      buyCosts[t.symbol].totalShares += t.shares;
+    } else if (t.direction === 'SELL') {
+      const bc = buyCosts[t.symbol];
+      if (bc && bc.totalShares > 0) {
+        const avgCost = bc.totalCost / bc.totalShares;
+        const pnl = Math.round((t.price - avgCost) * t.shares * 100) / 100;
+        results.push({ pnl, buyReason: buyReasons[t.symbol] || '', sellReason: t.reason || '' });
+      }
+    }
+  });
+  const stratMap = {};
+  const keywords = {
+    'MACD': ['macd', '\u91d1\u53c9', '\u6b7b\u53c9', 'dif'],
+    'RSI': ['rsi'],
+    '\u5747\u7ebf': ['\u591a\u5934\u6392\u5217', '\u5747\u7ebf'],
+    '\u5e03\u6797\u5e26': ['\u5e03\u6797', 'boll'],
+    '\u653e\u91cf': ['\u91cf\u6bd4', '\u653e\u91cf', '\u7f29\u91cf', '\u91cf\u4ef7\u9f50\u5347'],
+    '\u673a\u6784': ['\u673a\u6784', '\u7814\u62a5', '\u8bc4\u7ea7'],
+    '\u8d44\u91d1\u6d41': ['\u5927\u7b14\u4e70\u5165', '\u706b\u7bad', '\u5317\u5411', '\u9f99\u864e\u699c'],
+    '\u8d85\u8dcc\u53cd\u5f39': ['\u8d85\u8dcc', '\u53cd\u5f39', '\u652f\u6491'],
+    '\u521b\u65b0\u9ad8': ['\u521b\u65b0\u9ad8', '\u7a81\u7834']
+  };
+  results.forEach(r => {
+    const reason = (r.buyReason + ' ' + r.sellReason).toLowerCase();
+    let matched = false;
+    for (const [strat, kws] of Object.entries(keywords)) {
+      if (kws.some(kw => reason.includes(kw))) {
+        if (!stratMap[strat]) stratMap[strat] = { pnl: 0, count: 0, wins: 0 };
+        stratMap[strat].pnl += r.pnl;
+        stratMap[strat].count++;
+        if (r.pnl > 0) stratMap[strat].wins++;
+        matched = true;
+      }
+    }
+    if (!matched) {
+      if (!stratMap['\u5176\u4ed6']) stratMap['\u5176\u4ed6'] = { pnl: 0, count: 0, wins: 0 };
+      stratMap['\u5176\u4ed6'].pnl += r.pnl;
+      stratMap['\u5176\u4ed6'].count++;
+      if (r.pnl > 0) stratMap['\u5176\u4ed6'].wins++;
+    }
+  });
+  const strategies = Object.entries(stratMap).map(([name, d]) => ({
+    name, pnl: Math.round(d.pnl * 100) / 100, count: d.count,
+    win_rate: d.count > 0 ? Math.round(d.wins / d.count * 100) : 0
+  })).sort((a, b) => b.pnl - a.pnl);
+  sendJson(res, { strategies });
+}
 
 function handleCapitalUtilization(req, res) {
   const snapshots = querySqlite('SELECT date, total_value, cash FROM daily_snapshots ORDER BY date ASC');
