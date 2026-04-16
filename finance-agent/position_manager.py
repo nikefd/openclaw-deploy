@@ -636,15 +636,30 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                 continue
             
             if trail_drawdown >= trail_threshold:  # 从高点回撤
-                actions.append({
-                    "action": "SELL",
-                    "symbol": pos['symbol'],
-                    "name": pos['name'],
-                    "reason": f"追踪止损: 高点{peak_price:.2f}回撤{trail_drawdown*100:.1f}%",
-                    "shares": pos['shares'],
-                    "price": pos['current_price']
-                })
-                continue
+                # v5.43: 动量确认追踪止损 — 只有动量也转弱才触发
+                # 避免"强势股正常回调"被误止损(历史60%错误止损的主因)
+                momentum_weak = True  # 默认触发
+                if pos_tech and trail_drawdown < trail_threshold * 1.5:
+                    # 回撤不太大时检查动量:MACD仍看多且RSI>40说明只是正常回调
+                    _m = pos_tech.get('macd_signal', '')
+                    _r = pos_tech.get('rsi14', 50)
+                    if _m in ('bullish', 'golden_cross') and _r > 40:
+                        momentum_weak = False
+                        # 不触发追踪止损,但记录观察
+                        print(f"  👀 {pos['name']} 回撤{trail_drawdown*100:.1f}%但动量仍强(MACD={_m},RSI={_r:.0f}),暂缓止损")
+                
+                if momentum_weak:
+                    actions.append({
+                        "action": "SELL",
+                        "symbol": pos['symbol'],
+                        "name": pos['name'],
+                        "reason": f"追踪止损: 高点{peak_price:.2f}回撤{trail_drawdown*100:.1f}%+动量确认转弱",
+                        "shares": pos['shares'],
+                        "price": pos['current_price']
+                    })
+                    continue
+                else:
+                    continue  # 动量仍强,暂不止损
         
         # === ATR自适应止损 + 情绪/市场状态调节 + 止损自学习 ===
         stop_loss = STOP_LOSS  # 默认-8%

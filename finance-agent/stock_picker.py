@@ -1970,6 +1970,22 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
     except Exception as e:
         print(f"  ⚠️ 市场宽度检查失败: {e}")
 
+    # === 强制最低交易保障 (v5.43) ===
+    # 连续7+交易日无新建仓且现金>85%: 强制放宽所有过滤器
+    # 核心问题: 系统42+层过滤叠加导致永远无法交易，97%现金闲置是机会成本
+    try:
+        from indicator_attribution import get_idle_days_since_last_trade
+        idle_days = get_idle_days_since_last_trade()
+        if idle_days >= 7 and len(ranked) == 0:
+            # 重新从全部候选中选择，只要分数>15就保留
+            emergency_threshold = 15
+            all_merged = score_and_rank(all_candidates, regime=regime)
+            ranked = [s for s in all_merged if s['score'] >= emergency_threshold][:5]
+            if ranked:
+                print(f"  🚨 最低交易保障触发: 已{idle_days}交易日未建仓，放宽门槛到{emergency_threshold}分，{len(ranked)}只候选")
+    except Exception as e:
+        print(f"  ⚠️ 最低交易保障检查失败: {e}")
+
     # 过滤
     tradeable = filter_tradeable(ranked)
 

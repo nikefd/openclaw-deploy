@@ -20,6 +20,95 @@ from config import *
 from indicator_attribution import record_entry_indicators, update_attribution_outcomes, get_idle_days_since_last_trade
 
 
+def check_winner_scaling(regime: str = "", loss_streak: int = 0, sentiment: dict = None) -> list:
+    """v5.43 胜者加仓 — 盈利5%+且动量仍强的持仓，主动追加仓位
+    
+    比找新股票更安全: 已经验证了方向正确，趋势确认后加码
+    条件:
+    - 盈利 >= 5%
+    - MACD仍看多(bullish/golden_cross)
+    - RSI < 70 (没超买)
+    - 周线趋势不是down
+    - 追踪止损尚未激活(不追在高位)
+    - 当前仓位占比 < 12% (不过度集中)
+    """
+    results = []
+    positions = get_positions()
+    account = get_account()
+    total_value = account['cash'] + sum(p['current_price'] * p['shares'] for p in positions)
+    
+    if not positions or account['cash'] < total_value * 0.05:
+        return results  # 现金不足5%不加仓
+    
+    for pos in positions:
+        try:
+            pnl_pct = (pos['current_price'] - pos['avg_cost']) / pos['avg_cost']
+            if pnl_pct < 0.05:
+                continue  # 盈利不够
+            
+            # 仓位占比检查
+            pos_weight = (pos['current_price'] * pos['shares']) / total_value
+            if pos_weight >= 0.12:
+                continue  # 已经够重了
+            
+            # 技术面确认
+            df = get_stock_daily(pos['symbol'], 30)
+            if df is None or df.empty:
+                continue
+            from data_collector import calculate_technical_indicators
+            tech = calculate_technical_indicators(df)
+            if not tech:
+                continue
+            
+            macd_sig = tech.get('macd_signal', '')
+            rsi = tech.get('rsi14', 50)
+            weekly = tech.get('weekly_trend', 'neutral')
+            obv_trend = tech.get('obv_trend', 0)
+            
+            # 动量确认: MACD看多 + RSI适中 + 周线不下降 + OBV正向
+            if macd_sig not in ('bullish', 'golden_cross', 'fresh_golden'):
+                continue
+            if rsi >= 70:
+                continue  # 超买不追
+            if weekly == 'down':
+                continue
+            if obv_trend < -0.05:
+                continue  # OBV下降不追
+            
+            # 追加仓位: 现有仓位的30% (谨慎加码)
+            add_amount = pos['current_price'] * pos['shares'] * 0.3
+            add_amount = min(add_amount, account['cash'] * 0.15)  # 不超过现金15%
+            
+            quotes = get_realtime_quotes([pos['symbol']])
+            if pos['symbol'] not in quotes:
+                continue
+            price = quotes[pos['symbol']]['price']
+            if price <= 0:
+                continue
+            
+            add_shares = int(add_amount / price / 100) * 100
+            if add_shares < 100:
+                continue
+            
+            r = buy_stock(pos['symbol'], pos.get('name', ''), price, add_shares,
+                        f"胜者加仓: 盈利{pnl_pct*100:+.1f}%+{macd_sig}+RSI{rsi:.0f}")
+            if r.get('success'):
+                print(f"  🏆 胜者加仓 {pos.get('name','')}({pos['symbol']}) +{add_shares}股 @{price} (盈利{pnl_pct*100:+.1f}%)")
+                results.append({
+                    'type': '胜者加仓',
+                    'symbol': pos['symbol'],
+                    'name': pos.get('name', ''),
+                    'shares': add_shares,
+                    'price': price,
+                    'status': '✅',
+                    'result': r
+                })
+        except Exception as e:
+            continue
+    
+    return results
+
+
 def check_staged_entry(regime: str = "", loss_streak: int = 0, sentiment: dict = None) -> list:
     """v5.39 分批建仓 — 昨日买入的持仓, 今日确认方向后追加40%
     
@@ -628,6 +717,15 @@ def run_daily():
             buy_results.extend(_staged_buys)
     except Exception as _e:
         print(f"  ⚠️ 分批建仓检查失败: {_e}")
+
+    # 4.05 胜者加仓 (v5.43) — 盈利中的持仓如果动量仍强，追加仓位
+    print("🏆 检查胜者加仓...")
+    try:
+        _winner_buys = check_winner_scaling(regime=regime, loss_streak=loss_streak, sentiment=sentiment)
+        if _winner_buys:
+            buy_results.extend(_winner_buys)
+    except Exception as _e:
+        print(f"  ⚠️ 胜者加仓检查失败: {_e}")
 
     # 4. 多策略选股（传入市场状态）
     print("🔍 多策略选股中...")
