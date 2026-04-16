@@ -129,10 +129,13 @@ def get_market_sentiment() -> dict:
         conn.close()
         if history:
             # EMA: 当日权重0.4, 历史权重0.6
-            ema = result['sentiment_score']
+            # 必须从最旧→最新迭代，否则旧值权重反而最大
+            ema = history[-1]  # 从最旧的开始
             alpha = 0.4
-            for h in history:
-                ema = alpha * ema + (1 - alpha) * h
+            for h in reversed(history[:-1]):  # 从次旧到最新
+                ema = alpha * h + (1 - alpha) * ema
+            # 最后混入今日原始值
+            ema = alpha * result['sentiment_score'] + (1 - alpha) * ema
             result['sentiment_raw'] = result['sentiment_score']
             result['sentiment_score'] = round(ema, 1)
             # 重新判断标签
@@ -403,9 +406,28 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     indicators['macd'] = round(macd.iloc[-1], 4)
     indicators['macd_dif'] = round(dif.iloc[-1], 4)
     indicators['macd_dea'] = round(dea.iloc[-1], 4)
-    indicators['macd_signal'] = 'golden_cross' if dif.iloc[-1] > dea.iloc[-1] and dif.iloc[-2] <= dea.iloc[-2] else \
-                                 'death_cross' if dif.iloc[-1] < dea.iloc[-1] and dif.iloc[-2] >= dea.iloc[-2] else \
-                                 'bullish' if dif.iloc[-1] > dea.iloc[-1] else 'bearish'
+    # MACD信号: 2日确认金叉/死叉，减少假crossover
+    # 确认金叉: DIF连续2日>DEA 且 3日前DIF<=DEA
+    # 确认死叉: DIF连续2日<DEA 且 3日前DIF>=DEA
+    if len(dif) >= 3:
+        confirmed_golden = (dif.iloc[-1] > dea.iloc[-1] and dif.iloc[-2] > dea.iloc[-2] and dif.iloc[-3] <= dea.iloc[-3])
+        confirmed_death = (dif.iloc[-1] < dea.iloc[-1] and dif.iloc[-2] < dea.iloc[-2] and dif.iloc[-3] >= dea.iloc[-3])
+        fresh_golden = (dif.iloc[-1] > dea.iloc[-1] and dif.iloc[-2] <= dea.iloc[-2])  # 刚发生,未确认
+        fresh_death = (dif.iloc[-1] < dea.iloc[-1] and dif.iloc[-2] >= dea.iloc[-2])
+        if confirmed_golden:
+            indicators['macd_signal'] = 'golden_cross'
+        elif confirmed_death:
+            indicators['macd_signal'] = 'death_cross'
+        elif fresh_golden:
+            indicators['macd_signal'] = 'fresh_golden'  # 未确认金叉,权重低于confirmed
+        elif fresh_death:
+            indicators['macd_signal'] = 'fresh_death'
+        elif dif.iloc[-1] > dea.iloc[-1]:
+            indicators['macd_signal'] = 'bullish'
+        else:
+            indicators['macd_signal'] = 'bearish'
+    else:
+        indicators['macd_signal'] = 'bullish' if dif.iloc[-1] > dea.iloc[-1] else 'bearish'
     # MACD零轴突破: DIF从负转正，比普通金叉更强(趋势从空翻多)
     indicators['macd_zero_cross_up'] = bool(dif.iloc[-1] > 0 and dif.iloc[-2] <= 0)
     indicators['macd_zero_cross_down'] = bool(dif.iloc[-1] < 0 and dif.iloc[-2] >= 0)
@@ -586,14 +608,12 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     # 经典量价确认指标: OBV上升确认上涨趋势，OBV下降警示假突破
     if volume is not None and len(close) >= 20:
         try:
-            obv = pd.Series(0.0, index=close.index)
-            for idx in range(1, len(close)):
-                if close.iloc[idx] > close.iloc[idx-1]:
-                    obv.iloc[idx] = obv.iloc[idx-1] + volume.iloc[idx]
-                elif close.iloc[idx] < close.iloc[idx-1]:
-                    obv.iloc[idx] = obv.iloc[idx-1] - volume.iloc[idx]
-                else:
-                    obv.iloc[idx] = obv.iloc[idx-1]
+            # 向量化OBV: 涨日+vol, 跌日-vol, 平日0, 然后cumsum
+            price_diff = close.diff()
+            obv_direction = pd.Series(0.0, index=close.index)
+            obv_direction[price_diff > 0] = volume[price_diff > 0]
+            obv_direction[price_diff < 0] = -volume[price_diff < 0]
+            obv = obv_direction.cumsum()
             # OBV趋势: 比较近5日OBV均值 vs 前5日OBV均值
             obv_recent = obv.iloc[-5:].mean()
             obv_prev = obv.iloc[-10:-5].mean()

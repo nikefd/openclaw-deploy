@@ -1156,11 +1156,15 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 macd_sig = tech.get('macd_signal', '')
                 macd_weight = weights.get('macd_rsi', 1.0)
                 if macd_sig == 'golden_cross':
-                    stock['score'] += int(12 * macd_weight)  # MACD金叉按板块加权
+                    stock['score'] += int(12 * macd_weight)  # 已确认金叉(2日)
+                elif macd_sig == 'fresh_golden':
+                    stock['score'] += int(7 * macd_weight)  # 未确认金叉(仅1日),权重降低
                 elif macd_sig == 'bullish':
                     stock['score'] += int(5 * macd_weight)
                 elif macd_sig == 'death_cross':
                     stock['score'] -= 12
+                elif macd_sig == 'fresh_death':
+                    stock['score'] -= 7  # 未确认死叉
 
                 # === MACD零轴突破: DIF上穿零轴=趋势空翻多，比金叉更强 ===
                 if tech.get('macd_zero_cross_up'):

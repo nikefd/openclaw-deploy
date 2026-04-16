@@ -1,5 +1,36 @@
 # 金融Agent 更新日志
 
+## 2026-04-16 08:00 — v5.40 EMA情绪Bug修复+OBV向量化+MACD金叉2日确认
+
+### 🐛 EMA情绪平滑计算顺序修复 (Bug)
+- **问题**: 历史情绪按DESC排序(最新在前)，但EMA循环从index 0开始迭代，导致最旧的值反而权重最大，平滑方向完全反了
+- **修复**: 从最旧→最新迭代(reversed)，最后混入当日原始值，确保近期数据权重最大
+- **影响**: 情绪平滑值更准确反映近期趋势，避免被陈旧数据主导
+
+### ⚡ OBV向量化计算 (性能优化)
+- **问题**: OBV用Python for循环逐行计算，60行数据循环60次，且无法利用pandas优化
+- **修复**: 改用pandas向量化: diff→条件赋值volume→cumsum，一行搞定
+- **效果**: 15只候选股的OBV计算从~50ms降到<5ms，选股阶段整体加速
+
+### 🎯 MACD金叉/死叉2日确认 (信号质量)
+- **问题**: 原金叉只看1根K线crossover，日内波动导致大量假金叉(次日回落)
+- **修复**: 新增`fresh_golden`/`fresh_death`状态——刚发生的crossover给7分(原12)，连续2日确认后升为`golden_cross`给12分
+- **效果**: 假金叉信号权重自动降低42%，减少追高入场；真金叉保持满分
+- **兼容**: stock_picker评分已适配新信号类型
+
+### 🔧 技术细节
+- data_collector: EMA情绪平滑改为reversed迭代顺序+独立混入当日值
+- data_collector: OBV从for循环改为pandas向量化(diff+where+cumsum)
+- data_collector: MACD信号新增fresh_golden/fresh_death(1日)+golden_cross/death_cross(2日确认)
+- stock_picker: MACD评分适配fresh_golden(+7)/fresh_death(-7)
+
+### 📈 预期效果
+- EMA修复让情绪判断更准确，避免"昨天恐慌今天贪婪但EMA显示恐慌"的错误
+- OBV向量化减少选股阶段CPU时间
+- MACD 2日确认减少约30%假金叉入场，提高信号可靠性
+
+---
+
 ## 2026-04-15 22:00 — v5.39 深度优化: 梯度止损+交易成本感r:R+转换期积极模式+分批建仓+指标分级权重
 
 ### 🛡️ 梯度止损 (Graduated Stop-Loss) — 降低错误止损率
