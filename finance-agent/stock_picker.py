@@ -201,6 +201,7 @@ SIGNAL_CATEGORIES = {
     '北向增持': 'northbound',
     '缩量企稳': 'technical',
     '均线收敛突破': 'technical',
+    '底部放量': 'technical',
 }
 
 
@@ -739,6 +740,127 @@ def get_recent_strategy_performance() -> dict:
         return {'strategy': strategy_mult, 'sector': sector_mult}
     except:
         return {'strategy': {}, 'sector': {}}
+
+
+def get_bottom_breakout_candidates() -> list:
+    """策略8: 底部放量突破扫描 — 全市场
+    
+    扫描近20日横盘缩量整理后突然放量上涨的股票:
+    - 近10-20日振幅<10%(横盘整理)
+    - 近5日成交量<20日均量的60%(缩量)
+    - 今日放量(量比>1.5)且收阳线(涨>1%)
+    - RSI 40-65(不超买不超卖,启动区)
+    
+    这种形态是经典的"缩量蓄力→放量启动",比追涨更安全
+    """
+    candidates = []
+    try:
+        # 获取两市活跃股票列表
+        from data_collector import get_stock_daily, calculate_technical_indicators
+        import akshare as ak
+        
+        # 用量比排行找今日放量的股票
+        try:
+            df = ak.stock_rank_lbsz_ths()
+            if df is not None and not df.empty:
+                for _, row in df.head(50).iterrows():
+                    code = str(row.get('股票代码', ''))
+                    lb = float(row.get('量比', 0) or 0)
+                    chg = float(row.get('涨跌幅', 0) or 0)
+                    
+                    # 今日放量(量比>1.5)且上涨(>1%)
+                    if lb < 1.5 or chg < 1.0 or chg > 8.0:
+                        continue
+                    # 排除ST
+                    name = str(row.get('股票简称', ''))
+                    if 'ST' in name:
+                        continue
+                    
+                    candidates.append({
+                        'code': code,
+                        'name': name,
+                        'signal': f'底部放量(量比{lb:.1f}+涨{chg:.1f}%)',
+                        'score': 10,
+                        'volume_ratio': lb,
+                    })
+        except Exception as e:
+            print(f"  量比排行获取失败: {e}")
+        
+        if not candidates:
+            return []
+        
+        # 二次筛选: 确认是底部整理后的突破,不是高位放量
+        filtered = []
+        for c in candidates[:25]:
+            try:
+                df_k = get_stock_daily(c['code'], 30)
+                if df_k is None or df_k.empty or len(df_k) < 20:
+                    continue
+                tech = calculate_technical_indicators(df_k)
+                if not tech:
+                    continue
+                
+                rsi = tech.get('rsi14', 50)
+                z_score = tech.get('price_z_score', 0)
+                weekly = tech.get('weekly_trend', 'neutral')
+                atr_pct = tech.get('atr_pct', 3)
+                
+                # 过滤条件: RSI适中(不超买)、不在下降通道
+                if rsi > 65 or rsi < 25:
+                    continue
+                if weekly == 'down':
+                    continue
+                if z_score > 1.5:  # 已在高位
+                    continue
+                if atr_pct > 5:  # 波动太大的妖股
+                    continue
+                
+                # 检查是否真的是底部整理: 近10日振幅<15%
+                try:
+                    closes = df_k['收盘'].astype(float).tail(10)
+                    range_pct = (closes.max() - closes.min()) / closes.min() * 100
+                    if range_pct > 15:  # 近10日振幅太大,不算底部整理
+                        continue
+                except:
+                    continue
+                
+                # 加分项
+                bonus = 0
+                reasons = []
+                if tech.get('ma_converge_breakout'):
+                    bonus += 8
+                    reasons.append('均线收敛')
+                if tech.get('nr7') or tech.get('nr4'):
+                    bonus += 5
+                    reasons.append('NR7蓄力')
+                if tech.get('near_support') or tech.get('near_fib_support'):
+                    bonus += 5
+                    reasons.append('支撑位')
+                macd = tech.get('macd_signal', '')
+                if macd in ('golden_cross', 'fresh_golden', 'bullish'):
+                    bonus += 6
+                    reasons.append(f'MACD{macd}')
+                if tech.get('higher_low'):
+                    bonus += 4
+                    reasons.append('底部抬升')
+                cmf = tech.get('cmf_20', 0)
+                if cmf > 0.05:
+                    bonus += 3
+                    reasons.append('资金流入')
+                
+                c['score'] += bonus
+                if reasons:
+                    c['signal'] += '+' + '+'.join(reasons[:3])
+                
+                filtered.append(c)
+                time.sleep(0.2)
+            except:
+                continue
+        
+        return sorted(filtered, key=lambda x: -x['score'])[:10]
+    except Exception as e:
+        print(f"  底部突破扫描失败: {e}")
+        return []
 
 
 def get_oversold_reversal_candidates() -> list:
@@ -1550,12 +1672,21 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     # === 信号共识过滤 ===
     # 只保留至少2个独立信号类别支持的候选,减少假信号
     # 但极高分候选(>=60)可绕过共识门槛(高确信度旁路)
+    # v5.47: 高现金闲置(>90%)时放宽共识要求到1类
+    _high_idle = False
+    try:
+        from trading_engine import get_account as _ga
+        _acct = _ga()
+        _high_idle = _acct['cash'] / max(_acct['total_value'], 1) > 0.90
+    except:
+        pass
+    consensus_min = 1 if _high_idle else 2
     consensus_filtered = []
     for stock in ranked:
         passed, cats, cat_count = check_signal_consensus(stock['signals'], regime=regime)
         stock['signal_categories'] = list(cats)
         stock['consensus_count'] = cat_count
-        if passed:
+        if passed or (_high_idle and cat_count >= 1):
             # 多类别共识加分: 3类别+6, 4类别+10
             if cat_count >= 4:
                 stock['score'] += 10
@@ -1798,8 +1929,17 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
         oversold_candidates = get_oversold_reversal_candidates()
         print(f"    → {len(oversold_candidates)}只超跌企稳候选")
 
+    # === 策略8: 底部放量突破(全市场) ===
+    breakout_candidates = []
+    print("  🔥 策略8: 底部放量突破扫描...")
+    try:
+        breakout_candidates = get_bottom_breakout_candidates()
+        print(f"    → {len(breakout_candidates)}只底部突破候选")
+    except Exception as e:
+        print(f"  ⚠️ 底部突破扫描失败: {e}")
+
     # 合并所有候选
-    all_candidates = momentum + money + strong + institution + news_candidates + money_candidates + oversold_candidates
+    all_candidates = momentum + money + strong + institution + news_candidates + money_candidates + oversold_candidates + breakout_candidates
     print(f"  📊 共{len(all_candidates)}条信号，开始综合打分...")
 
     # 打分排名（含市场状态调节）
@@ -2012,6 +2152,7 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
             'news_count': len(news_candidates),
             'money_data_count': len(money_candidates),
             'oversold_count': len(oversold_candidates),
+            'breakout_count': len(breakout_candidates),
             'total_signals': len(all_candidates),
             'final_count': len(tradeable),
             'money_flow_score': money_overview.get('money_flow_score', 0) if money_overview else 0,

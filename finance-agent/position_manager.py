@@ -697,6 +697,35 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         elif sentiment_score > 75 and regime != 'bear':  # 乐观+非熊市才放宽
             stop_loss = min(stop_loss, -0.10)
         
+        # === 趋势恶化预警减仓 v5.47 ===
+        # 持仓超5天+浮亏+多个技术面恶化信号 → 主动减半仓,不等止损线
+        if pos_tech and pnl_pct < 0 and pnl_pct > stop_loss:
+            _bad_signals = 0
+            if pos_tech.get('weekly_trend') == 'down':
+                _bad_signals += 2
+            if pos_tech.get('macd_signal') in ('death_cross', 'bearish'):
+                _bad_signals += 1
+            if pos_tech.get('lower_low'):
+                _bad_signals += 1
+            if pos_tech.get('cmf_20', 0) < -0.1:
+                _bad_signals += 1
+            if pos_tech.get('obv_price_diverge'):
+                _bad_signals += 1
+            
+            _hold = _trading_days_since(buy_date) if buy_date else 0
+            if _bad_signals >= 3 and _hold >= 5 and pos['shares'] >= 200:
+                half = (pos['shares'] // 200) * 100
+                if half >= 100:
+                    actions.append({
+                        "action": "SELL",
+                        "symbol": pos['symbol'],
+                        "name": pos['name'],
+                        "reason": f"趋势恶化减仓: 亏损{pnl_pct*100:+.1f}%+{_bad_signals}个恶化信号,主动减半仓",
+                        "shares": half,
+                        "price": pos['current_price']
+                    })
+                    continue
+        
         # === 梯度止损 v5.39 ===
         # 接近止损线时先减半仓(预警区), 真正触发才清仓
         # 避免一次性全卖后股价反弹的"错误止损"问题
