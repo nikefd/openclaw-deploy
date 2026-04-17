@@ -238,16 +238,45 @@ function handleRiskMetrics(req, res) {
     if (cost > 0 && t.price < cost) lossStreak++; else break;
   }
 
+  // Sortino ratio (only downside deviation)
+  const negRets = dailyRets.filter(r => r < 0);
+  const downsideDev = negRets.length > 1 ? Math.sqrt(negRets.reduce((s, r) => s + r * r, 0) / negRets.length) : stdRet;
+  const sortino = downsideDev > 0 ? (avgRet / downsideDev * Math.sqrt(252)) : 0;
+
+  // Calmar ratio (annualized return / max drawdown)
+  const annualizedReturn = totalDays > 0 ? (Math.pow(1 + (vals.length ? (vals[vals.length-1] - INITIAL_CAPITAL) / INITIAL_CAPITAL : 0), 252 / totalDays) - 1) * 100 : 0;
+  const calmar = maxDD > 0 ? annualizedReturn / maxDD : 0;
+
+  // Profit factor (gross profit / gross loss)
+  let grossProfit = 0, grossLoss = 0;
+  trades.forEach(t => {
+    const cost = avgCosts[t.symbol] || 0;
+    if (cost > 0) {
+      const pnl = (t.price - cost) * t.shares;
+      if (pnl > 0) grossProfit += pnl; else grossLoss += Math.abs(pnl);
+    }
+  });
+  const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 999 : 0;
+
+  // Average win/loss amounts
+  const avgWin = wins > 0 ? grossProfit / wins : 0;
+  const avgLoss = losses > 0 ? grossLoss / losses : 0;
+
   sendJson(res, {
     max_drawdown: Math.round(maxDD * 100) / 100,
     sharpe_ratio: Math.round(sharpe * 100) / 100,
+    sortino_ratio: Math.round(sortino * 100) / 100,
+    calmar_ratio: Math.round(calmar * 100) / 100,
+    profit_factor: Math.round(profitFactor * 100) / 100,
     win_rate: Math.round(winRate * 10) / 10,
     total_trades: totalSells,
     wins, losses,
     loss_streak: lossStreak,
     trading_days: totalDays,
     total_return: Math.round(totalReturn * 100) / 100,
-    daily_volatility: Math.round(stdRet * 10000) / 100, // as percentage
+    daily_volatility: Math.round(stdRet * 10000) / 100,
+    avg_win: Math.round(avgWin),
+    avg_loss: Math.round(avgLoss),
   });
 }
 
@@ -867,6 +896,7 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/capital-utilization' && req.method === 'GET') return handleCapitalUtilization(req, res);
     if (pathname === '/api/finance/trade-calendar' && req.method === 'GET') return handleTradeCalendar(req, res);
     if (pathname === '/api/finance/strategy-contribution' && req.method === 'GET') return handleStrategyContribution(req, res);
+    if (pathname === '/api/finance/recent-trades' && req.method === 'GET') return handleRecentTrades(req, res);
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);
@@ -960,6 +990,26 @@ function handleStrategyContribution(req, res) {
     win_rate: d.count > 0 ? Math.round(d.wins / d.count * 100) : 0
   })).sort((a, b) => b.pnl - a.pnl);
   sendJson(res, { strategies });
+}
+
+function handleRecentTrades(req, res) {
+  const trades = querySqlite("SELECT * FROM trades ORDER BY trade_date DESC, id DESC LIMIT 8");
+  // compute pnl for sells
+  const allBuys = querySqlite("SELECT * FROM trades WHERE direction='BUY' ORDER BY trade_date ASC, id ASC");
+  const costMap = {};
+  allBuys.forEach(t => {
+    if (!costMap[t.symbol]) costMap[t.symbol] = { totalShares: 0, totalCost: 0 };
+    costMap[t.symbol].totalShares += t.shares;
+    costMap[t.symbol].totalCost += t.price * t.shares;
+  });
+  trades.forEach(t => {
+    if (t.direction === 'SELL' && costMap[t.symbol] && costMap[t.symbol].totalShares > 0) {
+      const avg = costMap[t.symbol].totalCost / costMap[t.symbol].totalShares;
+      t.pnl = Math.round((t.price - avg) * t.shares * 100) / 100;
+      t.pnl_pct = Math.round((t.price - avg) / avg * 10000) / 100;
+    }
+  });
+  sendJson(res, { trades });
 }
 
 function handleCapitalUtilization(req, res) {

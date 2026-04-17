@@ -1,5 +1,36 @@
 # 金融Agent 更新日志
 
+## 2026-04-17 11:30 — v5.45 风险指标增强+最近交易速览面板
+
+### 📊 风险指标增强 — Sortino/Calmar/盈亏比/均盈均亏
+- **Sortino比率**: 仅用下行波动率计算，比夏普更公平(上涨不算风险)
+- **Calmar比率**: 年化收益/最大回撤，衡量回撤效率
+- **盈亏比(Profit Factor)**: 总盈利/总亏损，>1=总体赚钱
+- **均盈/均亏**: 平均每笔赢单¥ vs 亏单¥，一眼看"大赚小亏"还是"小赚大亏"
+- **tooltip提示**: hover卡片显示指标含义
+- 风控指标卡片从7个增加到11个
+
+### 📝 最近交易速览面板 (仪表盘)
+- **位置**: 持仓明细表上方，最近8笔交易的卡片视图
+- **展示**: 每笔交易显示买/卖方向、股票名、日期、数量、价格、盈亏
+- **卖出交易**: 显示盈亏金额和百分比(红/绿色标)
+- **买入原因**: 截取前30字符hover显示完整
+- **API**: 新增`/api/finance/recent-trades`端点
+- **核心价值**: 不用切换到交易记录Tab就能快速了解最近操作
+
+### 🔧 技术细节
+- finance-api-server.js: handleRiskMetrics新增sortino/calmar/profit_factor/avg_win/avg_loss计算
+- finance-api-server.js: 新增handleRecentTrades()最近交易端点
+- finance.html: loadRiskMetrics新增4个指标卡片+tooltip
+- finance.html: 新增recentTradesGrid面板+loadRecentTrades()
+- refreshAll()新增loadRecentTrades调用
+
+### 📈 预期效果
+- Sortino+Calmar让风险评估更专业(不惩罚上涨波动)
+- 最近交易速览让仪表盘成为一站式dashboard，减少tab切换
+
+---
+
 ## 2026-04-17 08:00 — v5.44 性能优化: 列转换去重+VP向量化+VP默认值安全
 
 ### ⚡ 技术指标计算列转换去重 (Column Dedup)

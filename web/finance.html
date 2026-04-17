@@ -282,6 +282,11 @@ tr.pos-row.expanded{background:var(--hover)}
       <h3>📊 持仓盈亏对比</h3>
       <canvas id="posPnlChart" style="max-height:220px"></canvas>
     </div>
+    <!-- Recent Trades Quick View -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px">
+      <h3 style="font-size:14px;color:var(--sub);margin-bottom:12px">📝 最近交易速览</h3>
+      <div id="recentTradesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px"></div>
+    </div>
     <div class="tbl-wrap">
       <h3>持仓明细</h3>
       <div style="overflow-x:auto">
@@ -1442,14 +1447,18 @@ async function loadRiskMetrics(){
   if(!d)return;
   const cards=[
     {label:'最大回撤',value:'-'+d.max_drawdown+'%',cls:'down'},
-    {label:'夏普比率',value:d.sharpe_ratio?.toFixed(2),cls:d.sharpe_ratio>0?'up':'down'},
+    {label:'夏普比率',value:d.sharpe_ratio?.toFixed(2),cls:d.sharpe_ratio>0?'up':'down',tip:'风险调整收益'},
+    {label:'Sortino比率',value:d.sortino_ratio?.toFixed(2),cls:d.sortino_ratio>0?'up':'down',tip:'仅考虑下行风险'},
+    {label:'Calmar比率',value:d.calmar_ratio?.toFixed(2),cls:d.calmar_ratio>0?'up':'down',tip:'年化收益/最大回撤'},
+    {label:'盈亏比',value:d.profit_factor?.toFixed(2),cls:d.profit_factor>=1?'up':'down',tip:'总盈利/总亏损'},
     {label:'卖出胜率',value:d.win_rate+'%',cls:d.win_rate>=50?'up':'down'},
     {label:'盈/亏笔数',value:d.wins+'/'+d.losses},
+    {label:'均盈/均亏',value:'¥'+d.avg_win+'/¥'+d.avg_loss,cls:d.avg_win>d.avg_loss?'up':'down'},
     {label:'当前连亏',value:d.loss_streak+'次',cls:d.loss_streak>=3?'down':''},
     {label:'日波动率',value:d.daily_volatility+'%'},
     {label:'交易天数',value:d.trading_days+'天'},
   ];
-  document.getElementById('riskCards').innerHTML=cards.map(c=>`<div class="card"><div class="card-label">${c.label}</div><div class="card-value ${c.cls||''}" style="font-size:20px">${c.value}</div></div>`).join('');
+  document.getElementById('riskCards').innerHTML=cards.map(c=>`<div class="card" ${c.tip?'title="'+c.tip+'"':''}><div class="card-label">${c.label}</div><div class="card-value ${c.cls||''}" style="font-size:20px">${c.value}</div></div>`).join('');
 }
 
 // Sortable positions table
@@ -1523,8 +1532,34 @@ async function loadCapitalUtilization(){
     scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8,font:{size:10}}},y:{grid:{color:'#e5e5ea'},min:0,max:100,ticks:{font:{size:10},callback:v=>v+'%'}}}}});
 }
 
+async function loadRecentTrades(){
+  const d=await api('/api/finance/recent-trades');
+  if(!d||!d.trades||!d.trades.length){document.getElementById('recentTradesGrid').innerHTML='<div style="color:var(--sub);font-size:13px">暂无交易记录</div>';return;}
+  document.getElementById('recentTradesGrid').innerHTML=d.trades.map(t=>{
+    const isBuy=t.direction==='BUY';
+    const icon=isBuy?'🟢':'🔴';
+    const dirLabel=isBuy?'买入':'卖出';
+    const borderColor=isBuy?'#2ec4b6':'#e63946';
+    let pnlHtml='';
+    if(!isBuy&&t.pnl!=null){
+      const cls=t.pnl>=0?'up':'down';
+      const sign=t.pnl>=0?'+':'';
+      pnlHtml=`<div style="font-size:12px;margin-top:4px;color:var(--${cls})">${sign}¥${t.pnl} (${sign}${t.pnl_pct||0}%)</div>`;
+    }
+    return `<div style="padding:12px;border-left:3px solid ${borderColor};border-radius:8px;background:var(--hover);font-size:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:600">${icon} ${t.name||t.symbol}</span>
+        <span style="color:var(--sub)">${(t.trade_date||'').slice(5)}</span>
+      </div>
+      <div style="color:var(--sub);margin-top:4px">${dirLabel} ${t.shares}股 @¥${t.price}</div>
+      ${pnlHtml}
+      ${t.reason?'<div style="color:var(--sub);margin-top:2px;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+t.reason+'">'+t.reason.slice(0,30)+'</div>':''}
+    </div>`;
+  }).join('');
+}
+
 async function refreshAll(){
-  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadMonthlyReturns(),loadWeeklyReturns(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics(),loadPeriodReturns(),loadHealthScore(),loadDailyPnl(),loadTradeOutcomes(),loadRollingReturns(),loadCapitalUtilization(),loadTradeCalendar()]);
+  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadMonthlyReturns(),loadWeeklyReturns(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics(),loadPeriodReturns(),loadHealthScore(),loadDailyPnl(),loadTradeOutcomes(),loadRollingReturns(),loadCapitalUtilization(),loadTradeCalendar(),loadRecentTrades()]);
 }
 
 // Period Returns
