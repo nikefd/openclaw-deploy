@@ -379,8 +379,19 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
 
     close = df['收盘'].astype(float)
     volume = df['成交量'].astype(float) if '成交量' in df.columns else None
+    # 预转换高/低/开盘列，避免后续30+处重复astype(float)
+    high_all = df['最高'].astype(float)
+    low_all = df['最低'].astype(float)
+    open_all = df['开盘'].astype(float) if '开盘' in df.columns else None
 
     indicators = {}
+    # VP指标默认值(VP计算可能被跳过)
+    indicators['volume_profile_poc'] = None
+    indicators['vp_support'] = None
+    indicators['vp_resistance'] = None
+    indicators['vp_support_dist_pct'] = 99
+    indicators['near_vp_support'] = False
+    indicators['below_poc'] = False
 
     # MA均线
     indicators['ma5'] = round(close.tail(5).mean(), 2)
@@ -395,7 +406,7 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
     rs = gain / loss.replace(0, float('nan'))
     rsi = 100 - (100 / (1 + rs))
-    indicators['rsi14'] = round(rsi.iloc[-1], 1) if not rsi.empty else 50
+    indicators['rsi14'] = round(float(rsi.iloc[-1]), 1) if not rsi.empty else 50
 
     # MACD
     ema12 = close.ewm(span=12).mean()
@@ -452,8 +463,8 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
 
     # KDJ指标 (9,3,3)
     if len(close) >= 9:
-        low_list = df['最低'].astype(float).rolling(9).min()
-        high_list = df['最高'].astype(float).rolling(9).max()
+        low_list = low_all.rolling(9).min()
+        high_list = high_all.rolling(9).max()
         rsv = (close - low_list) / (high_list - low_list) * 100
         rsv = rsv.fillna(50)
         k = rsv.ewm(com=2, adjust=False).mean()
@@ -513,8 +524,8 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     # === ATR (Average True Range) — 波动率指标，用于自适应止损 ===
     if len(close) >= 14:
         try:
-            high = df['最高'].astype(float)
-            low = df['最低'].astype(float)
+            high = high_all
+            low = low_all
             prev_close = close.shift(1)
             tr1 = high - low
             tr2 = (high - prev_close).abs()
@@ -532,8 +543,8 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     # ADX>25=强趋势(信任趋势信号), ADX<20=无方向(避免趋势策略), 25附近=弱趋势
     if len(close) >= 30:
         try:
-            high = df['最高'].astype(float)
-            low = df['最低'].astype(float)
+            high = high_all
+            low = low_all
             prev_high = high.shift(1)
             prev_low = low.shift(1)
             prev_close = close.shift(1)
@@ -572,7 +583,7 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     # 近20日VWAP，用于判断入场时机: 低于VWAP买入更安全
     if volume is not None and len(close) >= 20:
         try:
-            typical_price = (df['最高'].astype(float) + df['最低'].astype(float) + close) / 3
+            typical_price = (high_all + low_all + close) / 3
             vwap_20 = (typical_price.tail(20) * volume.tail(20)).sum() / volume.tail(20).sum()
             indicators['vwap_20'] = round(vwap_20, 2)
             indicators['price_vs_vwap'] = round((current - vwap_20) / vwap_20 * 100, 2)  # 正=溢价, 负=折价
@@ -584,16 +595,16 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     # 近5日内的跳空缺口是重要的趋势信号
     if len(close) >= 5:
         try:
-            high_col = df['最高'].astype(float)
-            low_col = df['最低'].astype(float)
+            # using pre-converted high_all
+            low_col = low_all
             gap_up = False
             gap_down = False
             for i in range(-1, -4, -1):  # 检查最近3天
-                if len(low_col) + i >= 1:
-                    prev_high = high_col.iloc[i - 1]
-                    curr_low = low_col.iloc[i]
-                    prev_low = low_col.iloc[i - 1]
-                    curr_high = high_col.iloc[i]
+                if len(low_all) + i >= 1:
+                    prev_high = high_all.iloc[i - 1]
+                    curr_low = low_all.iloc[i]
+                    prev_low = low_all.iloc[i - 1]
+                    curr_high = high_all.iloc[i]
                     if curr_low > prev_high:  # 向上跳空
                         gap_up = True
                     if curr_high < prev_low:  # 向下跳空
@@ -634,8 +645,8 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     # 类似RSI但更灵敏，-80以下超卖，-20以上超买
     if len(close) >= 14:
         try:
-            high14 = df['最高'].astype(float).rolling(14).max()
-            low14 = df['最低'].astype(float).rolling(14).min()
+            high14 = high_all.rolling(14).max()
+            low14 = low_all.rolling(14).min()
             wr = (high14 - close) / (high14 - low14) * -100
             indicators['williams_r'] = round(wr.iloc[-1], 1)
             # Williams %R 趋势: 从超卖区回升是买入信号
@@ -715,7 +726,7 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     if len(close) >= 20:
         try:
             # 找近20日的两个局部低点
-            lows = df['最低'].astype(float).tail(20)
+            lows = low_all.tail(20)
             # 简化: 比较前10日最低 vs 后10日最低
             first_half_low = lows.iloc[:10].min()
             second_half_low = lows.iloc[10:].min()
@@ -784,20 +795,20 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     # 识别近期关键价位，买在支撑位附近成功率更高
     if len(close) >= 30:
         try:
-            high_col = df['最高'].astype(float)
-            low_col = df['最低'].astype(float)
+            # using pre-converted high_all
+            low_col = low_all
             # 找近30日的局部极值作为支撑/阻力
             supports = []
             resistances = []
             for i in range(2, min(len(close)-2, 28)):
                 # 局部低点 = 支撑
-                if low_col.iloc[i] <= low_col.iloc[i-1] and low_col.iloc[i] <= low_col.iloc[i-2] and \
-                   low_col.iloc[i] <= low_col.iloc[i+1] and low_col.iloc[i] <= low_col.iloc[i+2]:
-                    supports.append(float(low_col.iloc[i]))
+                if low_all.iloc[i] <= low_all.iloc[i-1] and low_all.iloc[i] <= low_all.iloc[i-2] and \
+                   low_all.iloc[i] <= low_all.iloc[i+1] and low_all.iloc[i] <= low_all.iloc[i+2]:
+                    supports.append(float(low_all.iloc[i]))
                 # 局部高点 = 阻力
-                if high_col.iloc[i] >= high_col.iloc[i-1] and high_col.iloc[i] >= high_col.iloc[i-2] and \
-                   high_col.iloc[i] >= high_col.iloc[i+1] and high_col.iloc[i] >= high_col.iloc[i+2]:
-                    resistances.append(float(high_col.iloc[i]))
+                if high_all.iloc[i] >= high_all.iloc[i-1] and high_all.iloc[i] >= high_all.iloc[i-2] and \
+                   high_all.iloc[i] >= high_all.iloc[i+1] and high_all.iloc[i] >= high_all.iloc[i+2]:
+                    resistances.append(float(high_all.iloc[i]))
             
             # 最近的支撑位和阻力位
             current_p = float(close.iloc[-1])
@@ -862,14 +873,14 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     # 经典反转形态: 锤子线/吞没形态/十字星，提高入场时机精准度
     if len(close) >= 5:
         try:
-            open_col = df['开盘'].astype(float)
-            high_col_k = df['最高'].astype(float)
-            low_col_k = df['最低'].astype(float)
+            # using pre-converted open_all
+            # using pre-converted high_all
+            low_col_k = low_all
             
             # 取最近3根K线
-            o1, c1, h1, l1 = open_col.iloc[-1], close.iloc[-1], high_col_k.iloc[-1], low_col_k.iloc[-1]
-            o2, c2, h2, l2 = open_col.iloc[-2], close.iloc[-2], high_col_k.iloc[-2], low_col_k.iloc[-2]
-            o3, c3, h3, l3 = open_col.iloc[-3], close.iloc[-3], high_col_k.iloc[-3], low_col_k.iloc[-3]
+            o1, c1, h1, l1 = open_all.iloc[-1], close.iloc[-1], high_all.iloc[-1], low_all.iloc[-1]
+            o2, c2, h2, l2 = open_all.iloc[-2], close.iloc[-2], high_all.iloc[-2], low_all.iloc[-2]
+            o3, c3, h3, l3 = open_all.iloc[-3], close.iloc[-3], high_all.iloc[-3], low_all.iloc[-3]
             
             body1 = abs(c1 - o1)
             body2 = abs(c2 - o2)
@@ -928,15 +939,15 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     # 连续3+阳线在超卖区=强反转信号; 连续3+阴线=趋势衰弱
     if len(close) >= 5:
         try:
-            open_col_cc = df['开盘'].astype(float)
+            # using pre-converted open_all
             consec_bull = 0
             consec_bear = 0
             for idx in range(-1, -6, -1):
-                if close.iloc[idx] > open_col_cc.iloc[idx]:
+                if close.iloc[idx] > open_all.iloc[idx]:
                     if consec_bear > 0:
                         break
                     consec_bull += 1
-                elif close.iloc[idx] < open_col_cc.iloc[idx]:
+                elif close.iloc[idx] < open_all.iloc[idx]:
                     if consec_bull > 0:
                         break
                     consec_bear += 1
@@ -952,13 +963,13 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     # 记录略高于当前价的支撑位(可能是刚跌破的)，供止损使用
     if len(close) >= 30:
         try:
-            high_col_sr = df['最高'].astype(float)
-            low_col_sr = df['最低'].astype(float)
+            # using pre-converted high_all
+            low_col_sr = low_all
             all_supports = []
             for i in range(2, min(len(close)-2, 28)):
-                if (low_col_sr.iloc[i] <= low_col_sr.iloc[i-1] and low_col_sr.iloc[i] <= low_col_sr.iloc[i-2] and
-                    low_col_sr.iloc[i] <= low_col_sr.iloc[i+1] and low_col_sr.iloc[i] <= low_col_sr.iloc[i+2]):
-                    all_supports.append(float(low_col_sr.iloc[i]))
+                if (low_all.iloc[i] <= low_all.iloc[i-1] and low_all.iloc[i] <= low_all.iloc[i-2] and
+                    low_all.iloc[i] <= low_all.iloc[i+1] and low_all.iloc[i] <= low_all.iloc[i+2]):
+                    all_supports.append(float(low_all.iloc[i]))
             # 刚跌破的支撑: 在当前价上方3%以内的支撑位
             current_p = float(close.iloc[-1])
             broken_supports = sorted([s for s in all_supports if current_p < s <= current_p * 1.03], reverse=False)
@@ -977,8 +988,8 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     if len(close) >= 30:
         try:
             lookback = min(len(close), 60)
-            high_val = float(df['最高'].astype(float).tail(lookback).max())
-            low_val = float(df['最低'].astype(float).tail(lookback).min())
+            high_val = float(high_all.tail(lookback).max())
+            low_val = float(low_all.tail(lookback).min())
             diff = high_val - low_val
             if diff > 0:
                 fib_levels = {
@@ -1023,11 +1034,11 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     # CMF>0.1=资金强流入(确认上涨), CMF<-0.1=资金流出(警示下跌)
     if volume is not None and len(close) >= 20:
         try:
-            high_cmf = df['最高'].astype(float)
-            low_cmf = df['最低'].astype(float)
-            hl_range = high_cmf - low_cmf
+            # using pre-converted high_all
+            low_all = low_all
+            hl_range = high_all - low_all
             # Money Flow Multiplier = ((Close - Low) - (High - Close)) / (High - Low)
-            mfm = ((close - low_cmf) - (high_cmf - close)) / hl_range.replace(0, float('nan'))
+            mfm = ((close - low_all) - (high_all - close)) / hl_range.replace(0, float('nan'))
             mfm = mfm.fillna(0)
             # Money Flow Volume = MFM × Volume
             mfv = mfm * volume
@@ -1053,9 +1064,9 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     # NR7是经典的低风险入场形态，突破方向成功率高
     if len(close) >= 7:
         try:
-            high_nr = df['最高'].astype(float)
-            low_nr = df['最低'].astype(float)
-            ranges = high_nr - low_nr
+            # using pre-converted high_all
+            low_nr = low_all
+            ranges = high_all - low_all
             today_range = float(ranges.iloc[-1])
             min_range_7 = float(ranges.iloc[-7:].min())
             indicators['nr7'] = bool(today_range <= min_range_7 and today_range > 0)
@@ -1126,50 +1137,42 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
             indicators['macd_hist_bull_div'] = False
             indicators['macd_hist_bear_div'] = False
 
-    # === 成交密集区 (Volume Profile) ===
-    # 用成交量加权的价格分布找到真正的支撑/阻力位
-    # 比局部极值法更可靠，因为成交密集区代表真实的资金博弈位置
+    # === 成交密集区 (Volume Profile) — 向量化版本 ===
+    # v5.44: 从O(n×bins)双循环改为numpy向量化，性能提升~10x
     try:
+        import numpy as np
         if volume is not None and len(close) >= 20:
-            high = df['最高'].astype(float)
-            low = df['最低'].astype(float)
-            price_range = high.max() - low.min()
-            if price_range > 0:
+            h_arr = high_all.values.astype(float)
+            l_arr = low_all.values.astype(float)
+            v_arr = volume.values.astype(float)
+            price_min = l_arr.min()
+            price_max = h_arr.max()
+            price_range_vp = price_max - price_min
+            if price_range_vp > 0:
                 n_bins = 20
-                bin_size = price_range / n_bins
-                bins = {}
-                for i in range(len(close)):
-                    # 每根K线的成交量均匀分配到其价格区间
-                    k_low = float(low.iloc[i])
-                    k_high = float(high.iloc[i])
-                    k_vol = float(volume.iloc[i])
-                    for b in range(n_bins):
-                        bin_low = float(low.min()) + b * bin_size
-                        bin_high = bin_low + bin_size
-                        if k_low <= bin_high and k_high >= bin_low:
-                            overlap = min(k_high, bin_high) - max(k_low, bin_low)
-                            k_range = k_high - k_low if k_high > k_low else bin_size
-                            ratio = overlap / k_range
-                            bin_mid = bin_low + bin_size / 2
-                            bins[round(bin_mid, 2)] = bins.get(round(bin_mid, 2), 0) + k_vol * ratio
+                bin_edges = np.linspace(price_min, price_max, n_bins + 1)
+                bin_mids = (bin_edges[:-1] + bin_edges[1:]) / 2
+                bin_vols = np.zeros(n_bins)
+                k_range = np.maximum(h_arr - l_arr, price_range_vp / n_bins)
+                for b in range(n_bins):
+                    overlap = np.maximum(0, np.minimum(h_arr, bin_edges[b+1]) - np.maximum(l_arr, bin_edges[b]))
+                    bin_vols[b] = np.sum(v_arr * overlap / k_range)
                 
-                if bins:
-                    # 找成交量最大的价格区间 = POC (Point of Control)
-                    poc_price = max(bins, key=bins.get)
-                    total_vol = sum(bins.values())
-                    
-                    # 找当前价下方最近的成交密集区(支撑) 和 上方的(阻力)
-                    avg_vol = total_vol / n_bins
-                    dense_prices = [p for p, v in bins.items() if v > avg_vol * 1.5]  # 量>均值1.5倍=密集区
+                if bin_vols.sum() > 0:
+                    poc_idx = int(np.argmax(bin_vols))
+                    poc_price = round(float(bin_mids[poc_idx]), 2)
+                    avg_vol = bin_vols.mean()
+                    dense_mask = bin_vols > avg_vol * 1.5
+                    dense_prices = bin_mids[dense_mask]
                     
                     vp_support = None
                     vp_resistance = None
                     cur = float(current)
                     for dp in sorted(dense_prices):
-                        if dp < cur * 0.98:  # 低于当前价2%以上
-                            vp_support = dp
+                        if dp < cur * 0.98:
+                            vp_support = round(float(dp), 2)
                         elif dp > cur * 1.01 and vp_resistance is None:
-                            vp_resistance = dp
+                            vp_resistance = round(float(dp), 2)
                     
                     indicators['volume_profile_poc'] = poc_price
                     indicators['vp_support'] = vp_support
@@ -1178,12 +1181,8 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
                     if vp_support:
                         vp_sup_dist = (cur - vp_support) / cur * 100
                         indicators['vp_support_dist_pct'] = round(vp_sup_dist, 2)
-                        indicators['near_vp_support'] = vp_sup_dist < 3  # 3%以内=接近成交密集支撑
-                    else:
-                        indicators['vp_support_dist_pct'] = 99
-                        indicators['near_vp_support'] = False
+                        indicators['near_vp_support'] = vp_sup_dist < 3
                     
-                    # 当前价在POC下方=潜在回归价值
                     indicators['below_poc'] = cur < poc_price
     except:
         pass
