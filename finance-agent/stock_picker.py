@@ -445,6 +445,16 @@ def get_dynamic_score_threshold(regime: str = "", loss_streak: int = 0) -> int:
     except:
         pass
     
+    # v5.41: 牛市+高现金闲置(>90%)时额外降低门槛，避免踏空
+    try:
+        from trading_engine import get_account
+        acct = get_account()
+        cash_ratio = acct['cash'] / max(acct['total_value'], 1)
+        if cash_ratio > 0.90 and regime == 'bull':
+            threshold = max(18, threshold - 5)  # 牛市98%闲置太离谱，再降5分
+    except:
+        pass
+    
     return threshold
 
 

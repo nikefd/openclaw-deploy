@@ -59,7 +59,7 @@ def check_correlation_with_portfolio(symbol: str, positions: list) -> float:
 
 
 # === 止损黑名单: 近期止损过的股票短期内不再买入 ===
-STOP_LOSS_BLACKLIST_DAYS = 8  # 止损后8个交易日内不买回(从15缩短,避免牛市中错过太多机会)
+STOP_LOSS_BLACKLIST_DAYS = 5  # 止损后5个交易日内不买回(v5.41: 从8缩短,98%现金闲置说明太保守)
 
 
 def get_stop_loss_blacklist() -> set:
