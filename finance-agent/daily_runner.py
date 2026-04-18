@@ -20,6 +20,100 @@ from config import *
 from indicator_attribution import record_entry_indicators, update_attribution_outcomes, get_idle_days_since_last_trade
 
 
+def check_position_rotation(candidates: list, regime: str = '', loss_streak: int = 0, sentiment: dict = None) -> list:
+    """v5.48 持仓轮动替换 — 弱持仓主动卖出并替换为更强候选
+    
+    条件: 持仓超过10天 + 浮亏且技术面转差 + 有更好候选可替换
+    核心价值: 解决"资金被弱持仓占用"的问题，提高资金利用率
+    """
+    results = []
+    positions = get_positions()
+    if not positions or not candidates:
+        return results
+    
+    # 找出弱持仓: 持仓>10天 + 浮亏 + 技术面转差
+    weak_positions = []
+    for pos in positions:
+        buy_date = pos.get('buy_date', '')
+        if not buy_date:
+            continue
+        try:
+            from position_manager import _trading_days_since
+            hold_days = _trading_days_since(buy_date)
+            if hold_days < 10:
+                continue
+        except:
+            continue
+        
+        pnl_pct = (pos['current_price'] - pos['avg_cost']) / pos['avg_cost']
+        if pnl_pct > 0:
+            continue  # 盈利的不动
+        
+        # 检查技术面是否转差
+        try:
+            df = get_stock_daily(pos['symbol'], 30)
+            if df is None or df.empty:
+                continue
+            from data_collector import calculate_technical_indicators
+            tech = calculate_technical_indicators(df)
+            if not tech:
+                continue
+            
+            bad_signals = 0
+            if tech.get('weekly_trend') == 'down': bad_signals += 2
+            if tech.get('macd_signal') in ('death_cross', 'bearish'): bad_signals += 1
+            if tech.get('lower_low'): bad_signals += 1
+            if tech.get('obv_trend', 0) < -0.1: bad_signals += 1
+            if tech.get('cmf_20', 0) < -0.05: bad_signals += 1
+            if tech.get('rsi14', 50) > 60: bad_signals += 0  # RSI中性不算差
+            
+            if bad_signals >= 3:
+                weak_positions.append({
+                    'pos': pos,
+                    'pnl_pct': pnl_pct,
+                    'hold_days': hold_days,
+                    'bad_signals': bad_signals,
+                })
+        except:
+            continue
+    
+    if not weak_positions:
+        return results
+    
+    # 按表现排序(最差的优先替换)
+    weak_positions.sort(key=lambda x: x['pnl_pct'])
+    
+    # 最多替换1只(保守)
+    for wp in weak_positions[:1]:
+        pos = wp['pos']
+        # 检查是否有更好的候选股
+        best_candidate = None
+        for c in candidates[:5]:
+            if c.get('code') == pos['symbol']:
+                continue
+            if c.get('score', 0) >= 30 and c.get('entry_quality', 0) >= 40:
+                best_candidate = c
+                break
+        
+        if best_candidate:
+            # 卖出弱持仓
+            r = sell_stock(pos['symbol'], pos['current_price'], pos['shares'],
+                         f"轮动替换: 持{wp['hold_days']}天亏{wp['pnl_pct']*100:.1f}%+{wp['bad_signals']}个恶化信号→换{best_candidate.get('name','')}")
+            if r.get('success'):
+                print(f"  🔄 轮动卖出 {pos.get('name','')}({pos['symbol']}) 持{wp['hold_days']}天 亏{wp['pnl_pct']*100:.1f}% → 换{best_candidate.get('name','')}")
+                results.append({
+                    'type': '轮动卖出',
+                    'symbol': pos['symbol'],
+                    'name': pos.get('name', ''),
+                    'shares': pos['shares'],
+                    'price': pos['current_price'],
+                    'status': '✅',
+                    'result': r
+                })
+    
+    return results
+
+
 def check_winner_scaling(regime: str = "", loss_streak: int = 0, sentiment: dict = None) -> list:
     """v5.43 胜者加仓 — 盈利5%+且动量仍强的持仓，主动追加仓位
     
@@ -742,6 +836,15 @@ def run_daily():
     # 6. 执行买入
     print("🛒 执行买入...")
     buy_results.extend(execute_buys(final_picks, sentiment, regime=regime, loss_streak=loss_streak))
+
+    # 6.5 持仓轮动替换 (v5.48) — 弱持仓替换为更强候选
+    print("🔄 检查持仓轮动替换...")
+    try:
+        rotation_results = check_position_rotation(candidates, regime=regime, loss_streak=loss_streak, sentiment=sentiment)
+        if rotation_results:
+            sell_results.extend(rotation_results)
+    except Exception as _e:
+        print(f"  ⚠️ 轮动替换检查失败: {_e}")
 
     # 7. 保存快照
     save_daily_snapshot(

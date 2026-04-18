@@ -1087,8 +1087,20 @@ def calculate_technical_indicators(df: pd.DataFrame) -> dict:
     # === 动量衰减检测 ===
     # 检测MACD柱线递减 + 量能递减，识别上涨动力不足
     # 同时计算当日涨跌幅(用于持仓管理中的单日暴涨减仓)
+    # v5.48: 新增阴跌检测 — 价格持续下行但没有明显跌停/大跌，温水煮蛙式下跌
     if len(close) >= 2:
         indicators['daily_change_pct'] = round((close.iloc[-1] - close.iloc[-2]) / close.iloc[-2] * 100, 2) if close.iloc[-2] > 0 else 0
+    if len(close) >= 10:
+        try:
+            # 阴跌检测: 近10天中>=7天下跌，且累计跌幅>3%
+            _changes = close.diff().tail(10)
+            _down_days = int((_changes < 0).sum())
+            _cum_ret_10d = (close.iloc[-1] / close.iloc[-10] - 1) * 100 if close.iloc[-10] > 0 else 0
+            indicators['slow_bleed'] = bool(_down_days >= 7 and _cum_ret_10d < -3)
+            indicators['down_day_ratio_10d'] = round(_down_days / 10, 2)
+        except:
+            indicators['slow_bleed'] = False
+            indicators['down_day_ratio_10d'] = 0.5
     if len(close) >= 10:
         try:
             macd_hist = macd.tail(5).tolist()

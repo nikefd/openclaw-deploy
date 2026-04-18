@@ -202,6 +202,7 @@ SIGNAL_CATEGORIES = {
     '缩量企稳': 'technical',
     '均线收敛突破': 'technical',
     '底部放量': 'technical',
+    '主力净流入': 'money_flow',
 }
 
 
@@ -740,6 +741,91 @@ def get_recent_strategy_performance() -> dict:
         return {'strategy': strategy_mult, 'sector': sector_mult}
     except:
         return {'strategy': {}, 'sector': {}}
+
+
+def get_smart_money_candidates() -> list:
+    """策略9: 主力资金异动扫描 (Smart Money Scanner)
+    
+    追踪当日主力大单净流入排行 + 技术面筛选:
+    - 主力净流入为正且排名靠前
+    - RSI不超买(< 70)
+    - 非ST/退市
+    - 结合技术面企稳信号(支撑位/MACD/底部抬升)给加分
+    
+    核心价值: 直接跟踪"聪明钱"的流向，比追涨/机构研报更实时
+    """
+    candidates = []
+    try:
+        try:
+            df = ak.stock_individual_fund_flow_rank(indicator="今日")
+            if df is not None and not df.empty:
+                flow_col = None
+                for col in df.columns:
+                    if '主力净流入' in str(col) and '占比' not in str(col):
+                        flow_col = col
+                        break
+                if flow_col is None:
+                    for col in df.columns:
+                        if '净额' in str(col) or '净流入' in str(col):
+                            flow_col = col
+                            break
+                if flow_col:
+                    df[flow_col] = pd.to_numeric(df[flow_col], errors='coerce')
+                    df = df.dropna(subset=[flow_col])
+                    df = df.sort_values(flow_col, ascending=False)
+                    for _, row in df.head(40).iterrows():
+                        code = str(row.get('代码', row.get('股票代码', '')))
+                        name = str(row.get('名称', row.get('股票简称', '')))
+                        net_flow = float(row.get(flow_col, 0) or 0)
+                        if not code or len(code) < 6 or 'ST' in name or net_flow <= 0:
+                            continue
+                        net_flow_yi = net_flow / 1e8 if abs(net_flow) > 1e8 else (net_flow / 1e4 if abs(net_flow) > 1e4 else net_flow)
+                        candidates.append({'code': code, 'name': name, 'signal': f'主力净流入{net_flow_yi:.1f}亿', 'score': min(int(abs(net_flow_yi) * 5), 15), 'net_flow': net_flow})
+        except Exception as e:
+            print(f"  主力资金排行获取失败: {e}")
+        if not candidates:
+            return []
+        filtered = []
+        for c in candidates[:20]:
+            try:
+                df_k = get_stock_daily(c['code'], 30)
+                if df_k is None or df_k.empty or len(df_k) < 20:
+                    continue
+                tech = calculate_technical_indicators(df_k)
+                if not tech:
+                    continue
+                rsi = tech.get('rsi14', 50)
+                if rsi > 70 or tech.get('weekly_trend') == 'down' or tech.get('atr_pct', 3) > 6:
+                    continue
+                bonus = 0
+                reasons = []
+                if tech.get('near_support') or tech.get('near_fib_support'):
+                    bonus += 6; reasons.append('支撑位')
+                macd = tech.get('macd_signal', '')
+                if macd in ('golden_cross', 'fresh_golden', 'bullish'):
+                    bonus += 5; reasons.append(f'MACD{macd}')
+                if tech.get('higher_low'):
+                    bonus += 4; reasons.append('底部抬升')
+                if tech.get('cmf_20', 0) > 0.05:
+                    bonus += 4; reasons.append('CMF正')
+                if tech.get('obv_trend', 0) > 0.1:
+                    bonus += 3; reasons.append('OBV↑')
+                if tech.get('volume_dryup'):
+                    bonus += 5; reasons.append('缩量企稳')
+                z = tech.get('price_z_score', 0)
+                if z < -1:
+                    bonus += 4; reasons.append(f'Z{z:.1f}')
+                c['score'] += bonus
+                if reasons:
+                    c['signal'] += '+' + '+'.join(reasons[:3])
+                filtered.append(c)
+                time.sleep(0.2)
+            except:
+                continue
+        return sorted(filtered, key=lambda x: -x['score'])[:10]
+    except Exception as e:
+        print(f"  主力资金扫描失败: {e}")
+        return []
 
 
 def get_bottom_breakout_candidates() -> list:
@@ -1550,6 +1636,12 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 if consec_bear >= 3:
                     stock['score'] -= 6  # 连续阴线=趋势衰弱
 
+                # === 阴跌检测 (v5.48) ===
+                # 10天中7天跌且累计>3%→温水煮蛙式下跌，重扣
+                if tech.get('slow_bleed'):
+                    stock['score'] -= 10
+                    stock['slow_bleed'] = True
+
                 # === NR7窄幅整理评分 ===
                 # NR7=7天内最窄振幅,多空极度压缩即将突破
                 # 配合趋势方向:上升趋势中NR7=低风险做多入场
@@ -1669,6 +1761,20 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     # 重新排序
     ranked = sorted(ranked, key=lambda x: -x['score'])
     
+    # === 过滤器全局松绑率 (v5.48) ===
+    # 现金闲置越高，过滤器越应该松绑，避免"永远空仓"
+    _filter_relax = 1.0  # 1.0=不松绑, 0.7=松30%
+    try:
+        from trading_engine import get_account as _ga2
+        _acct2 = _ga2()
+        _cash_ratio = _acct2['cash'] / max(_acct2['total_value'], 1)
+        if _cash_ratio > 0.95:
+            _filter_relax = 0.6  # 95%以上闲置，大幅松绑
+        elif _cash_ratio > 0.85:
+            _filter_relax = 0.8  # 85%以上闲置，适度松绑
+    except:
+        pass
+
     # === 信号共识过滤 ===
     # 只保留至少2个独立信号类别支持的候选,减少假信号
     # 但极高分候选(>=60)可绕过共识门槛(高确信度旁路)
@@ -1681,6 +1787,9 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     except:
         pass
     consensus_min = 1 if _high_idle else 2
+    # v5.48: 应用全局松绑率到共识门槛
+    if _filter_relax < 0.8:
+        consensus_min = 1  # 重度闲置时放宽到单类别即可
     consensus_filtered = []
     for stock in ranked:
         passed, cats, cat_count = check_signal_consensus(stock['signals'], regime=regime)
@@ -1938,8 +2047,17 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
     except Exception as e:
         print(f"  ⚠️ 底部突破扫描失败: {e}")
 
+    # === 策略9: 主力资金异动(全市场) ===
+    smart_money_candidates = []
+    print("  💎 策略9: 主力资金异动扫描...")
+    try:
+        smart_money_candidates = get_smart_money_candidates()
+        print(f"    → {len(smart_money_candidates)}只主力资金候选")
+    except Exception as e:
+        print(f"  ⚠️ 主力资金扫描失败: {e}")
+
     # 合并所有候选
-    all_candidates = momentum + money + strong + institution + news_candidates + money_candidates + oversold_candidates + breakout_candidates
+    all_candidates = momentum + money + strong + institution + news_candidates + money_candidates + oversold_candidates + breakout_candidates + smart_money_candidates
     print(f"  📊 共{len(all_candidates)}条信号，开始综合打分...")
 
     # 打分排名（含市场状态调节）
@@ -2045,10 +2163,12 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
     ranked = sorted(ranked, key=lambda x: -x['score'])
     
     # v5.27: 入场质量过滤门槛降到15(从20), 低质量入场已经通过乘数惩罚了
+    # v5.48: 应用全局松绑率
+    _eq_threshold = int(15 * _filter_relax)
     before_eq = len(ranked)
-    ranked = [s for s in ranked if s.get('entry_quality', 0) >= 15]
+    ranked = [s for s in ranked if s.get('entry_quality', 0) >= _eq_threshold]
     if before_eq > len(ranked):
-        print(f"  🎯 入场质量过滤: {before_eq - len(ranked)}只入场质量<15被淘汰")
+        print(f"  🎯 入场质量过滤: {before_eq - len(ranked)}只入场质量<{_eq_threshold}被淘汰")
 
     # === 信号持续性检查 (Signal Persistence) ===
     # 只有连续2+天出现在候选池的股票才可信,过滤一日游假信号
@@ -2153,6 +2273,7 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
             'money_data_count': len(money_candidates),
             'oversold_count': len(oversold_candidates),
             'breakout_count': len(breakout_candidates),
+            'smart_money_count': len(smart_money_candidates),
             'total_signals': len(all_candidates),
             'final_count': len(tradeable),
             'money_flow_score': money_overview.get('money_flow_score', 0) if money_overview else 0,

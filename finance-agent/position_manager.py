@@ -553,7 +553,6 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
             # 跌破关键支撑位 = 技术面破位，不等止损线直接卖
             broken_sup = pos_tech.get('broken_support', 0)
             if pnl_pct < -0.02 and broken_sup > 0:
-                # broken_support > 0 说明有刚跌破的支撑位
                 actions.append({
                     "action": "SELL",
                     "symbol": pos['symbol'],
@@ -563,14 +562,48 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                     "price": pos['current_price']
                 })
                 continue
+            
+            # === 阴跌主动减仓 (v5.48) ===
+            # 持仓超过7天 + 浮亏 + 阴跌模式(10天中7天跌) → 主动减半仓
+            if pos_tech.get('slow_bleed') and pnl_pct < 0 and pos['shares'] >= 200:
+                _hold_sb = _trading_days_since(buy_date) if buy_date else 0
+                if _hold_sb >= 7:
+                    half = (pos['shares'] // 200) * 100
+                    if half >= 100:
+                        actions.append({
+                            "action": "SELL",
+                            "symbol": pos['symbol'],
+                            "name": pos['name'],
+                            "reason": f"阴跌减仓: 持{_hold_sb}天亏{pnl_pct*100:.1f}%+10天中{int(pos_tech.get('down_day_ratio_10d',0)*10)}天下跌,主动减半仓",
+                            "shares": half,
+                            "price": pos['current_price']
+                        })
+                        continue
         
         # === 时间止损 (Time Stop) ===
-        # 持仓天数阈值根据市场状态自适应: 牛市宽松(25天)，熊市收紧(15天)
+        # 持仓天数阈值根据市场状态自适应: 牛市宽松(25天)，熊市收紧(12天)
         time_stop_days = 20  # 默认震荡市
         if regime == 'bull':
             time_stop_days = 25  # 牛市给更多时间发酵
         elif regime == 'bear':
             time_stop_days = 12  # 熊市快速止损换票（加速换仓）
+        
+        # v5.48: PnL轨迹自适应时间止损
+        # 如果持仓期间PnL持续下降(每天都比前一天差)，提前触发时间止损
+        if pos_tech and buy_date:
+            _hold_d = _trading_days_since(buy_date)
+            if _hold_d >= 7 and pnl_pct < 0.01:
+                # 检查近5日收盘价是否持续下降
+                try:
+                    _closes = df['收盘'].astype(float) if df is not None else None
+                    if _closes is not None and len(_closes) >= 5:
+                        _recent5 = _closes.tail(5).tolist()
+                        _declining = all(_recent5[i] <= _recent5[i-1] for i in range(1, len(_recent5)))
+                        if _declining:
+                            time_stop_days = min(time_stop_days, _hold_d)  # 立即触发
+                            print(f"  ⚠️ {pos['name']} 连续5日下行轨迹，提前时间止损")
+                except:
+                    pass
         
         # 熊市时间止损扩大亏损容忍: 小亏(-5%以内)也清掉，别死扛
         time_stop_loss_floor = -0.05 if regime == 'bear' else -0.03
