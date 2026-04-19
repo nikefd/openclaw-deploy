@@ -65,6 +65,13 @@ body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
 /* topbar-title moved to chat-item block */
 .topbar .agent-badge{font-size:12px;color:var(--accent);background:rgba(16,163,127,.15);padding:3px 8px;border-radius:6px}
 .topbar .dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite}
+.model-selector:hover{background:rgba(16,163,127,.25);border-color:var(--accent)}
+.model-dropdown{padding:6px 0;}
+.model-dropdown .model-option{padding:8px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;transition:background .15s;color:var(--text)}
+.model-dropdown .model-option:hover{background:var(--hover)}
+.model-dropdown .model-option.active{background:rgba(16,163,127,.2);color:var(--accent);font-weight:600}
+.model-dropdown .model-option .cost{font-size:10px;color:var(--text-sec);margin-left:auto}
+.topbar{position:relative}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
 /* Tabs */
@@ -415,6 +422,12 @@ textarea::placeholder{color:var(--text-sec)}
     </select>
     <div class="topbar-title" id="topTitle">OpenClaw</div>
     <span class="agent-badge" id="agentBadge"></span>
+    <div class="model-selector" id="modelSelector" style="display:flex;align-items:center;gap:4px;font-size:11px;padding:4px 8px;border-radius:6px;background:rgba(16,163,127,.1);cursor:pointer;border:1px solid transparent;transition:all .2s" title="点击切换模型">
+      <span id="modelIcon">🧠</span>
+      <span id="modelLabel">加载中...</span>
+      <span style="font-size:10px;color:var(--text-sec)">▼</span>
+    </div>
+    <div class="model-dropdown" id="modelDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--input-bg);border:1px solid var(--border);border-radius:6px;z-index:1000;min-width:180px;box-shadow:0 4px 12px rgba(0,0,0,.3)"></div>
     <a href="/dashboard" style="font-size:12px;color:var(--accent);text-decoration:none;padding:3px 8px;border-radius:6px;background:rgba(16,163,127,.1)" title="Token Usage">📊</a>
     <a href="/agents/" style="font-size:12px;color:var(--accent);text-decoration:none;padding:3px 8px;border-radius:6px;background:rgba(16,163,127,.1)" title="My Agents">🤖</a>
     <a href="/architecture" style="font-size:12px;color:var(--accent);text-decoration:none;padding:3px 8px;border-radius:6px;background:rgba(16,163,127,.1)" title="架构文档">📐</a>
@@ -640,6 +653,62 @@ const AGENTS=[
   {id:'finance',name:'理财管家',emoji:'🎩',color:'#eab308',desc:'A股选股、模拟交易、行情分析',mention:'@理财管家'},
 ];
 
+// === MODEL MANAGEMENT ===
+const MODELS=[
+  {id:'github-copilot/claude-haiku-4.5',name:'Claude Haiku 4.5',emoji:'🐰',icon:'🐰',cost:'1x',desc:'快速轻量，日常任务'},
+  {id:'github-copilot/claude-opus-4.7',name:'Claude Opus 4.7',emoji:'🐙',icon:'🐙',cost:'10x',desc:'最强模型，深度思考'},
+  {id:'github-copilot/claude-opus-4.6-fast',name:'Opus 4.6 (Fast)',emoji:'⚡',icon:'⚡',cost:'5x',desc:'平衡速度和能力'},
+];
+let currentModel=localStorage.getItem('oc_model')||'github-copilot/claude-haiku-4.5';
+function getModelInfo(modelId){return MODELS.find(m=>m.id===modelId)||MODELS[0];}
+function setCurrentModel(modelId){
+  const model=MODELS.find(m=>m.id===modelId);
+  if(!model)return;
+  currentModel=modelId;
+  localStorage.setItem('oc_model',modelId);
+  updateModelDisplay();
+  // Refresh the model dropdown
+  renderModelDropdown();
+}
+function updateModelDisplay(){
+  const model=getModelInfo(currentModel);
+  const selector=$('modelSelector');
+  if(selector){
+    selector.querySelector('#modelIcon').textContent=model.emoji;
+    selector.querySelector('#modelLabel').textContent=model.name;
+    selector.title=model.desc+' ('+model.cost+')';
+  }
+}
+function renderModelDropdown(){
+  const dropdown=$('modelDropdown');
+  if(!dropdown)return;
+  dropdown.innerHTML=MODELS.map(m=>`
+    <div class="model-option ${m.id===currentModel?'active':''}" onclick="setCurrentModel('${m.id}')">
+      <span>${m.emoji}</span>
+      <div style="flex:1">
+        <div>${m.name}</div>
+        <div style="font-size:10px;color:var(--text-sec)">${m.desc}</div>
+      </div>
+      <span class="cost">${m.cost}</span>
+    </div>
+  `).join('');
+}
+function toggleModelDropdown(){
+  const dropdown=$('modelDropdown');
+  if(!dropdown)return;
+  const isOpen=dropdown.style.display!=='none';
+  dropdown.style.display=isOpen?'none':'block';
+  if(!isOpen)renderModelDropdown();
+}
+document.addEventListener('click',(e)=>{
+  const selector=$('modelSelector');
+  const dropdown=$('modelDropdown');
+  if(!selector||!dropdown)return;
+  if(selector.contains(e.target)||dropdown.contains(e.target))return;
+  dropdown.style.display='none';
+});
+
+
 let chats=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'),currentId=null;
 // Load from server if local is empty
 (async()=>{try{const r=await fetch('/api/chats');if(r.ok){const d=await r.json();if(d.length>0){const merged=mergeChats(chats,d);chats=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));renderSidebar();if(currentId){const cur=chats.find(c=>c.id===currentId);if(cur)switchChat(cur.id);}else if(chats.length>0){switchChat(chats[0].id);}}}}catch{}
@@ -658,6 +727,13 @@ const agentBadge=$('agentBadge'),streamBadge=$('streamBadge'),themeBtn=$('themeB
 function applyTheme(t){currentTheme=t;document.documentElement.setAttribute('data-theme',t);localStorage.setItem(THEME_KEY,t);themeBtn.innerHTML=t==='dark'?'<span class="emoji">☀️</span><span>浅色模式</span>':'<span class="emoji">🌙</span><span>深色模式</span>';}
 applyTheme(currentTheme);
 themeBtn.addEventListener('click',()=>applyTheme(currentTheme==='dark'?'light':'dark'));
+
+// === MODEL SELECTOR INIT ===
+const modelSelector=$('modelSelector');
+if(modelSelector){
+  updateModelDisplay();
+  modelSelector.addEventListener('click',toggleModelDropdown);
+}
 
 // === TABS ===
 let terminalLoaded=false;
@@ -1219,7 +1295,7 @@ async function handleBtw(question){
   const agent=chat?getAgent(chat.agentId):null;
   btwAbort=new AbortController();
   try{
-    const res=await fetch(API,{method:'POST',signal:btwAbort.signal,headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({model:`openclaw:${chat?.agentId||'main'}`,stream:true,messages})});
+    const res=await fetch(API,{method:'POST',signal:btwAbort.signal,headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({model:`openclaw:${chat?.agentId||'main'}@${currentModel}`,stream:true,messages});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     body.innerHTML='<div class="msg-text"></div>';
     const textEl=body.querySelector('.msg-text');
@@ -1276,7 +1352,7 @@ async function sendMessage(){
   queryExperts(text, chat.messages.slice(0,-1));
   let _perfStart=performance.now(),_perfTTFT=0,_perfFull='',_perfHttpMs=0,_perfToolCount=0,_perfToolTotalMs=0,_perfPauses=[],_perfStreaming=0;
   try{
-    const payload={model:`openclaw:${chat.agentId}`,stream:true,user:chatId,messages:[{role:'user',content:msgContent}]};
+    const payload={model:`openclaw:${chat.agentId}@${currentModel}`,stream:true,user:chatId,messages:[{role:'user',content:msgContent}]};
     console.log('[DEBUG] Sending payload, content type:', Array.isArray(msgContent)?'multipart ('+msgContent.length+' parts)':'text', 'parts:', Array.isArray(msgContent)?msgContent.map(p=>p.type+':'+(p.type==='image_url'?p.image_url.url.slice(0,50)+'...':p.text)):'N/A');
     const res=await fetch(API,{method:'POST',headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
     _perfHttpMs=performance.now()-_perfStart;
