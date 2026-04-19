@@ -1353,7 +1353,8 @@ async function sendMessage(){
   let _perfStart=performance.now(),_perfTTFT=0,_perfFull='',_perfHttpMs=0,_perfToolCount=0,_perfToolTotalMs=0,_perfPauses=[],_perfStreaming=0;
   let full=''; // Declare early to avoid ReferenceError in catch block
   try{
-    const modelName=chat.agentId?`openclaw/${chat.agentId}`:currentModel;
+    // Only use agent routing if explicitly mentioned (not for the default 'main' agent)
+    const modelName=chat.agentId&&chat.agentId!=='main'?`openclaw/${chat.agentId}`:currentModel;
     const payload={model:modelName,stream:true,user:chatId,messages:[{role:'user',content:msgContent}]};
     console.log('[DEBUG] Sending payload, content type:', Array.isArray(msgContent)?'multipart ('+msgContent.length+' parts)':'text', 'parts:', Array.isArray(msgContent)?msgContent.map(p=>p.type+':'+(p.type==='image_url'?p.image_url.url.slice(0,50)+'...':p.text)):'N/A');
     const res=await fetch(API,{method:'POST',headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
