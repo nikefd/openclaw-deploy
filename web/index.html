@@ -1353,8 +1353,12 @@ async function sendMessage(){
   let _perfStart=performance.now(),_perfTTFT=0,_perfFull='',_perfHttpMs=0,_perfToolCount=0,_perfToolTotalMs=0,_perfPauses=[],_perfStreaming=0;
   let full=''; // Declare early to avoid ReferenceError in catch block
   try{
-    // Use currentModel (from dropdown) to send request
-    const payload={model:currentModel,stream:true,user:chatId,messages:[{role:'user',content:msgContent}]};
+    // Convert model selection to agent ID
+    let agentIdToUse = 'main';
+    if(currentModel === 'github-copilot/claude-opus-4.7') agentIdToUse = 'opus';
+    else if(currentModel === 'github-copilot/claude-opus-4.6-fast') agentIdToUse = 'opus-fast';
+    // Always use openclaw format for API calls
+    const payload={model:`openclaw${agentIdToUse !== 'main' ? '/' + agentIdToUse : ''}`,stream:true,user:chatId,messages:[{role:'user',content:msgContent}]};
     console.log('[DEBUG] Sending payload, content type:', Array.isArray(msgContent)?'multipart ('+msgContent.length+' parts)':'text', 'parts:', Array.isArray(msgContent)?msgContent.map(p=>p.type+':'+(p.type==='image_url'?p.image_url.url.slice(0,50)+'...':p.text)):'N/A');
     const res=await fetch(API,{method:'POST',headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
     _perfHttpMs=performance.now()-_perfStart;
@@ -2009,11 +2013,7 @@ async function queryExperts(userMessage, chatHistory){
         {role:'user',content:userMessage}
       ];
       
-      const res=await fetch(API,{
-        method:'POST',signal:abort.signal,
-        headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},
-        body:JSON.stringify({model:'openclaw',stream:true,messages:msgs})
-      });
+    const res=await fetch(API,{method:'POST',signal:abort.signal,headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw',stream:true,messages:msgs})});
       if(!res.ok)throw new Error('HTTP '+res.status);
       
       card.classList.remove('thinking');
