@@ -1295,7 +1295,7 @@ async function handleBtw(question){
   const agent=chat?getAgent(chat.agentId):null;
   btwAbort=new AbortController();
   try{
-    const res=await fetch(API,{method:'POST',signal:btwAbort.signal,headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({model:`openclaw:${chat?.agentId||'main'}@${currentModel}`,stream:true,messages});
+    const res=await fetch(API,{method:'POST',signal:btwAbort.signal,headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({model:`openclaw:${chat?.agentId||'main'}@${currentModel}`,stream:true,messages})});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     body.innerHTML='<div class="msg-text"></div>';
     const textEl=body.querySelector('.msg-text');
