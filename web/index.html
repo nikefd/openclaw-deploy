@@ -659,7 +659,7 @@ const MODELS=[
   {id:'github-copilot/claude-opus-4.7',name:'Claude Opus 4.7',emoji:'🐙',icon:'🐙',cost:'10x',desc:'最强模型，深度思考'},
   {id:'github-copilot/claude-opus-4.6-fast',name:'Opus 4.6 (Fast)',emoji:'⚡',icon:'⚡',cost:'5x',desc:'平衡速度和能力'},
 ];
-let currentModel=localStorage.getItem('oc_model')||'github-copilot/claude-haiku-4.5';
+let currentModel=localStorage.getItem('oc_model')||'openclaw';
 function getModelInfo(modelId){return MODELS.find(m=>m.id===modelId)||MODELS[0];}
 function setCurrentModel(modelId){
   const model=MODELS.find(m=>m.id===modelId);
@@ -1295,7 +1295,7 @@ async function handleBtw(question){
   const agent=chat?getAgent(chat.agentId):null;
   btwAbort=new AbortController();
   try{
-    const res=await fetch(API,{method:'POST',signal:btwAbort.signal,headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({model:`openclaw:${chat?.agentId||'main'}@${currentModel}`,stream:true,messages})});
+    const res=await fetch(API,{method:'POST',signal:btwAbort.signal,headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({model:chat?.agentId&&chat.agentId!=='main'?`openclaw/${chat.agentId}`:currentModel,stream:true,messages})});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
     body.innerHTML='<div class="msg-text"></div>';
     const textEl=body.querySelector('.msg-text');
@@ -1355,7 +1355,7 @@ async function sendMessage(){
   try{
     // Only use agent routing if explicitly mentioned (not for the default 'main' agent)
     const modelName=chat.agentId&&chat.agentId!=='main'?`openclaw/${chat.agentId}`:currentModel;
-    const payload={model:modelName,stream:true,user:chatId,messages:[{role:'user',content:msgContent}]};
+    const payload={model:'openclaw',stream:true,user:chatId,messages:[{role:'user',content:msgContent}]};
     console.log('[DEBUG] Sending payload, content type:', Array.isArray(msgContent)?'multipart ('+msgContent.length+' parts)':'text', 'parts:', Array.isArray(msgContent)?msgContent.map(p=>p.type+':'+(p.type==='image_url'?p.image_url.url.slice(0,50)+'...':p.text)):'N/A');
     const res=await fetch(API,{method:'POST',headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
     _perfHttpMs=performance.now()-_perfStart;
@@ -2013,7 +2013,7 @@ async function queryExperts(userMessage, chatHistory){
       const res=await fetch(API,{
         method:'POST',signal:abort.signal,
         headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},
-        body:JSON.stringify({model:'openclaw:main',stream:true,messages:msgs})
+        body:JSON.stringify({model:'openclaw',stream:true,messages:msgs})
       });
       if(!res.ok)throw new Error('HTTP '+res.status);
       
