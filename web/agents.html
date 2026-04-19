@@ -1558,45 +1558,40 @@ function renderClimbDashboard() {
 
   document.getElementById('climbBottleneck').innerHTML = `<h4>🔍 瓶颈分析</h4>
     <p>• 当前最高 redpoint：<b>5.10c</b>（4/11 确认）✅</p>
-    <p>• 当前项目：<b>5.10d</b>（4/11/16/18 共 4 次 project，卡在末段）</p>
-    <p>• 4/18 自评："卡在最后几个点，感觉力量不够" → 核心瓶颈是<b>末段持久力 / 指力</b></p>
-    <p>• 进步轨迹：${GRADE_ORDER[earlyMax]} → ${GRADE_ORDER[recentMax]} 📈</p>
-    <p>• 抱石新起步（V2×3），手指力量正好可补短板</p>
-    <p>• 先锋绳攀仍不足，建议每场练 1 条 lead</p>`;
+    <p>• 当前项目：<b>5.10d</b>（4/11、4/16×2、4/18 共4次 project，卡在末段）</p>
+    <p>• 4/18 自评："卡在最后几个点，感觉力量不够" → 核心是<b>末段持久力 / 指力</b></p>
+    <p>• 进步轨迹:${GRADE_ORDER[earlyMax]} → ${GRADE_ORDER[recentMax]} ${recentMax>earlyMax?'📈':'⏸'}</p>
+    <p>• 抱石刚起步(V2×3),手指力量正好可以补短板</p>
+    <p>• 先锋攀仍不足,建议每场加1条 lead</p>`;
 
   document.getElementById('climbPlan').innerHTML = `<h4>📋 下次训练计划</h4>
-    <p style="font-weight:600;margin-bottom:4px">目标：send 5.10d，预估 70-80min：</p>
+    <p style="font-weight:600;margin-bottom:4px">目标:send 掏 5.10c,给 5.10d 做功课(约70min):</p>
     <ul>
-      <li><b>热身</b>（10min）：5.7 + 5.8 各一条，激活手指/肩关节</li>
-      <li><b>5.10c 巩固</b>（15min）：1-2 条已红点线，保持手感和信心</li>
-      <li><b>5.10d 分段攻</b>（30min）：
-        <ul style="margin-top:4px">
-          <li>上半段 5-10min（务必完成），积累 take 次数找感觉</li>
-          <li>末段 15-20min（重点），用 take/分段压绳省力量，记录卡点</li>
-          <li>状态好就冲通段，不行就分段退，<b>不要硬磨到没力</b></li>
-        </ul>
-      </li>
-      <li><b>力量补充</b>（10-15min）：指板悬垂 7s×5 组 或连爬 2 条 5.10a 不休息</li>
-      <li><b>先锋练</b>（5-10min）：1 条 5.8-5.9 lead，不求速度求流畅</li>
+      <li><b>热身</b>(10min):5.7 + 5.8 各一条,手指/肩关节激活</li>
+      <li><b>5.10c 冲 redpoint</b>(20min):状态最好时打,拿下来算新高点</li>
+      <li><b>5.10d 分段练</b>(25min):重点绣有上半段+末段,用 take/分段压您,<b>不要从头爬</b>往死给消耗力量</li>
+      <li><b>持久力补充</b>(10min):4×4训练 或 连爬 2条 5.10a 不休息</li>
+      <li><b>收尾</b>(5min):1条 5.8 lead 练绳感</li>
     </ul>
-    <p style="margin-top:4px;color:var(--text2);font-size:.72rem">🎯 短期目标：send 5.10d | 长期：摸 5.11a</p>`;
+    <p style="margin-top:4px;color:var(--text2);font-size:.72rem">🎯 阶段目标:send 5.10c → 继续磨 5.10d;抱石 V2→V3</p>
+    <p style="color:var(--text2);font-size:.72rem">💪 辅助训练(2-3次/周):指板悬垂7s×5组 + 引体向上 5×3,直接砂上限</p>`;
 
   document.getElementById('climbWarmup').innerHTML = `<h4>🧘 热身 & 拉伸</h4>
-    <p style="font-weight:600">🔥 攀前热身（10min，冲 5.10d 必做）：</p>
+    <p style="font-weight:600">🔥 攀前热身(10min,冲 5.10d 必做):</p>
     <ul>
-      <li>手腕画圈 ×20 + 手指开合 ×20 + 指关节按摩</li>
-      <li>肩绕环 ×各 10 + 弹力带外旋 ×15（防肩伤）</li>
-      <li>引体向上 5-8 个（激活背部）</li>
-      <li>深蹲 ×10 + 弓步 ×各 8</li>
-      <li>5.7-5.8 找感觉 1-2 条</li>
+      <li>手腕画圈 × 各20 + 手指开合 × 20 + 指节按摩</li>
+      <li>肩绕环 × 各10 + 弹力带外旋 × 15(防肩伤)</li>
+      <li>引体悬垂 × 15s × 2(激活背阔)</li>
+      <li>深蹲 × 10 + 弓步 × 各8 + 髋部绕环</li>
+      <li>1条 5.7-5.8 找感觉</li>
     </ul>
-    <p style="font-weight:600;margin-top:8px">🧊 攀后拉伸（10min，末段卡点一定要做）：</p>
+    <p style="font-weight:600;margin-top:6px">🧊 攀后拉伸(10min,重点护手指):</p>
     <ul>
-      <li>前臂拉伸（掌心朝上/下各 30s）×2 组</li>
-      <li>手指逐根反向拉 ×20s（特别重要，末段指力酸胀）</li>
-      <li>胸肌门框拉伸 ×各 30s</li>
-      <li>背阔肌侧拉 + 髋屈肌弓步 ×各 30s</li>
-      <li>冰敷指关节 5-10min（如有微痛感）</li>
+      <li>前臂拉伸(掌心朝上/下各30s)× 2组</li>
+      <li>手指逐根反向拉 × 20s(难度升了更要护)</li>
+      <li>胸肌门框拉伸 × 各30s</li>
+      <li>背阔肌侧拉 + 髋屈肌弓步 × 各30s</li>
+      <li>冰敷手指 5min(如有明显酸胀)</li>
     </ul>`;
 
   // Drag to resize chat
