@@ -648,18 +648,14 @@ echo '{"version":1,"defaults":{"security":"full"}}' > ~/.openclaw/exec-approvals
 const API='/v1/chat/completions',TOKEN='17043bad6b19491dfa222d681d43584fbc3e8dd3781edfbc';
 const STORAGE_KEY='oc_chats_v2',AGENT_KEY='oc_selected_agent',THEME_KEY='oc_theme';
 const AGENTS=[
-  {id:'main',name:'狗蛋',emoji:'🦞',color:'#10a37f',desc:'你的全能助手',model:'openclaw'},
-  {id:'climbing',name:'攀岩教练',emoji:'🧗',color:'#f97316',desc:'训练记录、进步分析、训练计划',mention:'@攀岩教练',model:'openclaw'},
-  {id:'finance',name:'理财管家',emoji:'🎩',color:'#eab308',desc:'A股选股、模拟交易、行情分析',mention:'@理财管家',model:'openclaw'},
-  {id:'haiku',name:'Claude Haiku',emoji:'🐰',color:'#8b5cf6',desc:'快速轻量，日常任务',mention:'@haiku',model:'github-copilot/claude-haiku-4.5'},
-  {id:'opus',name:'Claude Opus',emoji:'🐙',color:'#0ea5e9',desc:'最强模型，深度思考',mention:'@opus',model:'github-copilot/claude-opus-4.7'},
-  {id:'opus-fast',name:'Opus Fast',emoji:'⚡',color:'#ef4444',desc:'平衡速度和能力',mention:'@opus-fast',model:'github-copilot/claude-opus-4.6-fast'},
+  {id:'main',name:'狗蛋',emoji:'🦞',color:'#10a37f',desc:'你的全能助手'},
+  {id:'climbing',name:'攀岩教练',emoji:'🧗',color:'#f97316',desc:'训练记录、进步分析、训练计划',mention:'@攀岩教练'},
+  {id:'finance',name:'理财管家',emoji:'🎩',color:'#eab308',desc:'A股选股、模拟交易、行情分析',mention:'@理财管家'},
 ];
 
 // === MODEL MANAGEMENT ===
 const MODELS=[
-  {id:'openclaw',name:'Default',emoji:'🦞',icon:'🦞',cost:'1x',desc:'默认模型'},
-  {id:'github-copilot/claude-haiku-4.5',name:'Claude Haiku 4.5',emoji:'🐰',icon:'🐰',cost:'1x',desc:'快速轻量，日常任务'},
+  {id:'openclaw',name:'Default (Haiku)',emoji:'🐰',icon:'🐰',cost:'1x',desc:'快速轻量，日常任务'},
   {id:'github-copilot/claude-opus-4.7',name:'Claude Opus 4.7',emoji:'🐙',icon:'🐙',cost:'10x',desc:'最强模型，深度思考'},
   {id:'github-copilot/claude-opus-4.6-fast',name:'Opus 4.6 (Fast)',emoji:'⚡',icon:'⚡',cost:'5x',desc:'平衡速度和能力'},
 ];
@@ -1357,10 +1353,8 @@ async function sendMessage(){
   let _perfStart=performance.now(),_perfTTFT=0,_perfFull='',_perfHttpMs=0,_perfToolCount=0,_perfToolTotalMs=0,_perfPauses=[],_perfStreaming=0;
   let full=''; // Declare early to avoid ReferenceError in catch block
   try{
-    // Agent-level model override: if agent has custom model, use it; else use currentModel
-    const agent=getAgent(chat.agentId);
-    const modelName=agent?.model||currentModel;
-    const payload={model:modelName,stream:true,user:chatId,messages:[{role:'user',content:msgContent}]};
+    // Use currentModel (from dropdown) to send request
+    const payload={model:currentModel,stream:true,user:chatId,messages:[{role:'user',content:msgContent}]};
     console.log('[DEBUG] Sending payload, content type:', Array.isArray(msgContent)?'multipart ('+msgContent.length+' parts)':'text', 'parts:', Array.isArray(msgContent)?msgContent.map(p=>p.type+':'+(p.type==='image_url'?p.image_url.url.slice(0,50)+'...':p.text)):'N/A');
     const res=await fetch(API,{method:'POST',headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
     _perfHttpMs=performance.now()-_perfStart;
