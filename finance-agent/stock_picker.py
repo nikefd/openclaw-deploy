@@ -88,7 +88,7 @@ def get_signal_persistence(symbol: str) -> dict:
             'days_appeared': days_appeared,
             'consecutive': consecutive,
             'avg_score': round(avg_score, 1),
-            'persistent': consecutive >= 2  # 连续2天出现=持续性信号
+            'persistent': consecutive >= 3  # v5.49: 从2升级到3天 - 提高信号可靠性
         }
     except:
         return {'days_appeared': 0, 'consecutive': 0, 'avg_score': 0, 'persistent': False}
@@ -1250,6 +1250,12 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
         # 应用学习调整: 实盘验证后的信号权重覆盖默认值
         if sig_base in learned_adj:
             quality_w *= learned_adj[sig_base]
+        
+        # v5.49: MACD+RSI信号加权逻辑 — 基于回测最好成绩提升权重
+        # 回测数据: 17.1% 收益, 2.35 Sharpe, 60% 胜率 → 权重提升30%
+        if 'MACD' in c['signal'] or 'RSI' in c['signal']:
+            from config import MACD_RSI_SIGNAL_BOOST
+            quality_w *= MACD_RSI_SIGNAL_BOOST  # 1.3x提升
         weighted_score = int(c['score'] * quality_w)
         if code in merged:
             merged[code]['signals'].append(c['signal'])
@@ -1264,6 +1270,20 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
 
     # 排序取top
     ranked = sorted(merged.values(), key=lambda x: -x['score'])[:15]
+
+    # v5.49: 科技成长赛道权重优化 (+20%)
+    # 逻辑: 科技相关板块持续表现优异，基于回测数据提升权重
+    try:
+        from config import TECH_GROWTH_SECTORS, TECH_GROWTH_WEIGHT_BOOST
+        for stock in ranked:
+            # 尝试分类股票所属板块
+            sector = classify_sector(stock['code'], stock.get('name', ''))
+            if sector in TECH_GROWTH_SECTORS:
+                original_score = stock['score']
+                stock['score'] = int(stock['score'] * (1 + TECH_GROWTH_WEIGHT_BOOST))
+                # 记录优化: score从xx升级到yy(+20%权重加成)
+    except Exception as e:
+        pass  # 如果分类失败则忽略，不影响后续逻辑
 
     # 市场状态调节信号源权重
     if regime:

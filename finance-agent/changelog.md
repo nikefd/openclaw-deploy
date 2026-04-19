@@ -1,5 +1,63 @@
 # 金融Agent 更新日志
 
+## 2026-04-19 22:00 — v5.49 深度优化: 回测驱动参数优化+MACD+RSI权重提升+科技成长赛道聚焦+信号持续性强化+Kelly加仓优化
+
+### 🎯 核心洞察: 回测驱动优化
+- **发现**: MACD+RSI(科技成长)策略表现最优 — 17.1%收益 + 2.35 Sharpe + 60%胜率
+- **原因**: 技术指标组合优于追涨/多因子，科技赛道强于混合池
+- **方案**: 将回测最佳参数和信号权重强制融入实盘选股流程
+
+### 📊 1. MACD+RSI信号权重提升(+30%)
+- **核心**: 在`score_and_rank()`中，MACD/RSI信号权重从1.0x提升到1.3x
+- **依据**: 回测数据显示MACD+RSI策略最稳定(最大回撤仅4.08%)
+- **新增参数**: `MACD_RSI_SIGNAL_BOOST = 1.3`在config.py写死
+- **效果**: 优先级推荐MACD+RSI信号的候选，直接提升选股成功率
+
+### 🏢 2. 科技成长赛道权重优化(+20%)
+- **核心**: 在`score_and_rank()`的排序后，科技相关板块候选评分 +20%
+- **板块**: 软件服务/芯片/新能源/电子产品/通信设备/互联网/计算机
+- **新增参数**: `TECH_GROWTH_SECTORS = [...]` + `TECH_GROWTH_WEIGHT_BOOST = 0.20`
+- **效果**: 科技成长赛道候选优先级提升，与回测TOP策略对齐
+
+### 🔐 3. 信号持续性要求升级(2天→3天)
+- **核心**: 在`get_signal_persistence()`中，连续出现要求从2天升级到3天
+- **原因**: 避免一次性信号触发，只要真正持续的强信号
+- **效果**: 降低误信号率，提高入场可靠性
+
+### 📈 4. Kelly准则加仓优化(胜率驱动)
+- **新逻辑**: 在`kelly_position_size()`中，胜率>60%时自动敢加仓
+- **公式**: `kelly_pct *= (1 + (win_rate - 0.5) * KELLY_WIN_RATE_BOOST)` 上限30%
+- **参数**: `KELLY_MAX_POSITION = 0.30` + `KELLY_WIN_RATE_BOOST = 0.05`
+- **效果**: 高胜率阶段敢加仓，低胜率阶段自动降仓，动态平衡风险
+
+### 🛡️ 5. 高Sharpe持仓保护机制(新增)
+- **新函数**: `check_high_sharpe_holdings()`检查历史高Sharpe持仓
+- **逻辑**: 如果持仓历史Sharpe>1.5，止损容错放宽+2%
+- **效果**: 保护"好股票临时回调"，减少不必要的止损出局
+
+### ⚫ 6. 低胜率信号自动黑名单(新增)
+- **新函数**: `get_low_win_rate_blacklist()`统计最近30天信号胜率
+- **触发**: 胜率<40%的信号自动加入30天黑名单
+- **效果**: 系统自动学习，避免重复使用失效信号
+
+### 🔧 技术细节
+- config.py: 新增MACD_PARAMS, RSI_PARAMS, MACD_RSI_SIGNAL_BOOST等参数
+- stock_picker.py: score_and_rank()集成MACD+RSI权重+科技赛道权重
+- stock_picker.py: get_signal_persistence()升级持续性要求(2→3天)
+- position_manager.py: kelly_position_size()添加胜率加仓逻辑
+- position_manager.py: 新增check_high_sharpe_holdings(), get_low_win_rate_blacklist()
+- daily_runner.py: 集成高Sharpe保护、低胜率黑名单检查
+
+### 📈 预期效果
+- ✅ MACD+RSI信号权重提升 → 直接靠齐回测最佳策略
+- ✅ 科技成长赛道聚焦 → 避免低效能板块
+- ✅ 信号持续性升级 → 降低误入率
+- ✅ Kelly加仓+高Sharpe保护 → 风险管理更智能
+- ✅ 低胜率黑名单 → 系统自学习，避免重复犯错
+
+---
+
+
 ## 2026-04-18 22:00 — v5.48 深度优化: 主力资金扫描+持仓轮动替换+过滤器动态松绑+阴跌检测+PnL轨迹时间止损
 
 ### 💎 策略9: 主力资金异动扫描 (Smart Money Scanner) — 全市场

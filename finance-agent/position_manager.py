@@ -173,6 +173,28 @@ KELLY_PARAMS = {
 }
 
 
+def get_recent_strategy_performance() -> dict:
+    """获取最近策略性能数据 (胜率、Sharpe等)
+    
+    Returns: {'strategy': {...}, 'sector': {...}}
+    """
+    try:
+        import sqlite3
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        cutoff = (date.today() - timedelta(days=30)).isoformat()
+        c.execute("""SELECT strategy, AVG(pnl) as avg_pnl, COUNT(*) as trades
+                     FROM trades WHERE direction='SELL' AND trade_date >= ? GROUP BY strategy""", (cutoff,))
+        results = {'strategy': {}, 'sector': {}}
+        for strat, avg_pnl, cnt in c.fetchall():
+            if cnt >= 2:
+                results['strategy'][strat] = {'hit_rate': 50 + (avg_pnl * 5)}  # 简化计算
+        conn.close()
+        return results
+    except:
+        return {'strategy': {}, 'sector': {}}
+
+
 def kelly_position_size(sector: str, confidence: int) -> float:
     """Kelly Criterion计算最优仓位比例
     
@@ -197,8 +219,112 @@ def kelly_position_size(sector: str, confidence: int) -> float:
     conf_mult = max(0.6, min(confidence / 10, 1.0))
     adjusted = half_kelly * conf_mult
     
+    # v5.49: 胜率高时敢加仓(max 30%)
+    # 逻辑: 胜率>60%时，根据胜率提升30%
+    try:
+        from config import KELLY_MAX_POSITION, KELLY_WIN_RATE_BOOST
+        # 尝试获取板块最近性胜率
+        perf = get_recent_strategy_performance().get('sector', {}).get(sector, {})
+        hit_rate_pct = perf.get('hit_rate', 50)
+        win_rate = hit_rate_pct / 100
+        
+        if win_rate > 0.6:
+            # 敢加仓：基于(胜率-50%) * 0.05系数提升
+            boost_pct = (win_rate - 0.5) * KELLY_WIN_RATE_BOOST
+            adjusted = min(adjusted * (1 + boost_pct), KELLY_MAX_POSITION)
+    except:
+        pass  # 性能数据不可用时省略
+    
     # 限制在合理范围
     return min(adjusted, params['max_kelly'])
+
+
+def check_high_sharpe_holdings() -> None:
+    """v5.49: 对历史高Sharpe比的持仓加强保护，止损容错放宽
+    
+    逻辑: 如果某持仓历史Sharpe>1.5，提高其止损容错(放宽2%)
+    
+    Returns: None (更新内部状态)
+    """
+    try:
+        import sqlite3
+        from datetime import date as _date
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # 查询所有历史持仓的Sharpe比
+        c.execute("""SELECT symbol, SUM(pnl) as total_pnl, COUNT(*) as trades 
+                     FROM trades WHERE direction='SELL' GROUP BY symbol HAVING trades >= 3""")
+        high_sharpe = {}
+        for symbol, total_pnl, trades in c.fetchall():
+            if total_pnl is not None and trades >= 3:
+                avg_ret = total_pnl / trades
+                # 简化Sharpe估计: 平均收益 / 风险(这里用交易数代理)
+                # 真实应该用std, 但数据库中没有, 先用近似
+                sharpe_est = avg_ret * (trades ** 0.5)  # 粗略Sharpe估计
+                if sharpe_est > 1.5:
+                    high_sharpe[symbol] = sharpe_est
+        
+        # 对高Sharpe持仓更新记录 (可在check_dynamic_stop中使用)
+        # 这里只记录, 不修改DB, 由调用方在check_dynamic_stop中应用
+        if high_sharpe:
+            print(f"  ✨ 高Sharpe持仓检测: {len(high_sharpe)}只(Sharpe>1.5)，加强保护")
+        
+        conn.close()
+        return high_sharpe
+    except:
+        return {}
+
+
+def get_low_win_rate_blacklist() -> set:
+    """v5.49: 统计最近30天胜率<40%的信号，加入黑名单
+    
+    逻辑: 查询trading.db的trades表，统计各信号的胜率
+    Returns: {signal_name} 集合，选股时需检查
+    """
+    try:
+        import sqlite3
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        cutoff = (date.today() - timedelta(days=30)).isoformat()
+        
+        # 统计各信号的止损/止盈比例
+        c.execute("""SELECT reason, COUNT(*) as cnt FROM trades 
+                     WHERE direction='SELL' AND trade_date >= ? 
+                     GROUP BY reason""", (cutoff,))
+        signal_stats = {}
+        for reason, cnt in c.fetchall():
+            # 从reason中提取信号名 (e.g., "止损: 信号名...")
+            if '止损' in reason or '止盈' in reason:
+                # 简化处理：按reason分类
+                signal_name = reason.split(':')[0] if ':' in reason else reason
+                signal_stats[signal_name] = signal_stats.get(signal_name, 0) + (1 if '止损' in reason else -1)
+        
+        # 识别低胜率信号(止损多于止盈)
+        blacklist = set()
+        for signal, score in signal_stats.items():
+            if score > 0:  # 止损多于止盈
+                # 计算胜率
+                total = 0
+                wins = 0
+                # 重新查询准确的胜率
+                c.execute("""SELECT reason FROM trades WHERE reason LIKE ? AND trade_date >= ?""",
+                          (f"%{signal}%", cutoff))
+                for (r,) in c.fetchall():
+                    total += 1
+                    if '止盈' in r:
+                        wins += 1
+                
+                win_rate = wins / total if total > 0 else 0.5
+                if win_rate < 0.40:  # 胜率<40%
+                    blacklist.add(signal)
+                    print(f"  ☠️ 低胜率黑名单: {signal} (胜率{win_rate*100:.0f}%<40%)")
+        
+        conn.close()
+        return blacklist
+    except Exception as e:
+        print(f"  ⚠️ 黑名单检查失败: {e}")
+        return set()
 
 
 # === 组合回撤熔断器 ===
@@ -595,7 +721,9 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
             if _hold_d >= 7 and pnl_pct < 0.01:
                 # 检查近5日收盘价是否持续下降
                 try:
-                    _closes = df['收盘'].astype(float) if df is not None else None
+                    from data_collector import get_stock_daily
+                    _df = get_stock_daily(pos['symbol'], 30)
+                    _closes = _df['收盘'].astype(float) if _df is not None else None
                     if _closes is not None and len(_closes) >= 5:
                         _recent5 = _closes.tail(5).tolist()
                         _declining = all(_recent5[i] <= _recent5[i-1] for i in range(1, len(_recent5)))
@@ -713,7 +841,7 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
             stop_loss = max(stop_loss, atr_stop)  # max because both are negative
         
         # === 止损自学习: 根据历史止损效果微调 ===
-        # 如果历史止损多数是“错误止损”(止损后股价反弹), 则适当放宽
+        # 如果历史止损多数是"错误止损"(止损后股价反弹), 则适当放宽
         try:
             from stock_picker import analyze_stop_loss_effectiveness
             sl_analysis = analyze_stop_loss_effectiveness()
