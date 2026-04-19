@@ -1287,31 +1287,29 @@ async function addToLearn(articleId){
   const btn=event.target;
   btn.disabled=true;btn.textContent='⏳ 生成中...';
   try{
-    const prompt=`请为以下AI技术主题生成一篇丰富的学习指南。要求：
-1. 用中文写，深入但易懂
-2. 用markdown格式，同时使用以下富组件语法：
-   - \`\`\`mermaid 代码块画架构图/流程图（至少2个）。**极其重要：每条mermaid语句必须独占一行！** 绝对不要把两条语句写在同一行，包括 participant、箭头连接、style、end、Note 等都必须换行。
-   - :::info-cards 卡片组（用 #### emoji 标题 + 描述）展示核心概念
-   - :::callout{type="tip/warning/info"} 提示/警告框
-   - :::pros-cons 优劣对比（用 #### ✅ 优势 和 #### ❌ 劣势）
-   - :::timeline 时间线（用 #### 标题 + 描述展示发展历程）
-   - :::compare 对比栏（用 #### 框架名 + 列表展示多框架对比）
-   - 普通markdown: 代码块、表格、引用等
-3. 内容结构：Hero概述 → 核心概念卡片 → 架构图解 → 原理深入 → 代码示例 → 实际应用 → 优劣分析 → 相关对比
-4. 不要使用 :::demo 组件
-4. 返回格式（严格遵守）：
-先输出一行JSON元数据（不含content字段）：
-\`\`\`json
-{"title":"标题","category":"分类","icon":"emoji","summary":"一句话","tags":["标签"]}
-\`\`\`
-然后输出分隔符：---CONTENT---
-最后输出完整的markdown+组件学习内容（不要包裹在JSON里）。
-
-主题: ${article.title}
-摘要: ${article.summary||''}
-${article.url?'链接: '+article.url:''}
-
-严格按上述格式返回。`;
+    const prompt='请为以下AI技术主题生成一篇丰富的学习指南。要求：\n' +
+'1. 用中文写，深入但易懂\n' +
+'2. 用markdown格式，同时使用以下富组件语法：\n' +
+'   - ```mermaid 代码块画架构图/流程图（至少2个）。**极其重要：每条mermaid语句必须独占一行！** 绝对不要把两条语句写在同一行，包括 participant、箭头连接、style、end、Note 等都必须换行。\n' +
+'   - :::info-cards 卡片组（用 #### emoji 标题 + 描述）展示核心概念\n' +
+'   - :::callout{type="tip/warning/info"} 提示/警告框\n' +
+'   - :::pros-cons 优劣对比（用 #### ✅ 优势 和 #### ❌ 劣势）\n' +
+'   - :::timeline 时间线（用 #### 标题 + 描述展示发展历程）\n' +
+'   - :::compare 对比栏（用 #### 框架名 + 列表展示多框架对比）\n' +
+'   - 普通markdown: 代码块、表格、引用等\n' +
+'3. 内容结构：Hero概述 → 核心概念卡片 → 架构图解 → 原理深入 → 代码示例 → 实际应用 → 优劣分析 → 相关对比\n' +
+'4. 不要使用 :::demo 组件\n' +
+'4. 返回格式（严格遵守）：\n' +
+'先输出一行JSON元数据（不含content字段）：\n' +
+'```json\n' +
+'{"title":"标题","category":"分类","icon":"emoji","summary":"一句话","tags":["标签"]}\n' +
+'```\n' +
+'然后输出分隔符：---CONTENT---\n' +
+'最后输出完整的markdown+组件学习内容（不要包裹在JSON里）。\n\n' +
+'主题: ' + article.title + '\n' +
+'摘要: ' + (article.summary||'') + '\n' +
+(article.url?'链接: '+article.url:'') + '\n\n' +
+'严格按上述格式返回。';
 
     const resp=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:prompt,stream:false})});
     const data=await resp.json();
