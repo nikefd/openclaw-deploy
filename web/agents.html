@@ -1529,7 +1529,7 @@ function renderClimbDashboard() {
     s.routes.forEach(r => { months[m].routes++; if(['flash','redpoint'].includes(r.s)){months[m].sends++;months[m].maxGrade=Math.max(months[m].maxGrade,GRADE_NUM[r.g]||0)} });
   });
   const mLabels = Object.keys(months).sort();
-  const mNames = mLabels.map(m => ({'2026-01':'1月','2026-02':'2月','2026-03':'3月'}[m]||m));
+  const mNames = mLabels.map(m => ({'2026-01':'1月','2026-02':'2月','2026-03':'3月','2026-04':'4月','2026-05':'5月','2026-06':'6月','2026-07':'7月','2026-08':'8月','2026-09':'9月','2026-10':'10月','2026-11':'11月','2026-12':'12月'}[m]||m));
   climbChartInstances.monthly = new Chart(document.getElementById('chartMonthly'), {
     type: 'radar',
     data: {
@@ -1557,35 +1557,40 @@ function renderClimbDashboard() {
   const avgAtt = projectRoutes.length ? (projectRoutes.reduce((s,r)=>s+(r.a||1),0)/projectRoutes.length).toFixed(1) : '0';
 
   document.getElementById('climbBottleneck').innerHTML = `<h4>🔍 瓶颈分析</h4>
+    <p>• 当前最高 redpoint：<b>5.10d</b>（4/16、4/18 共3条）🎯 新高点！</p>
     <p>• 主要卡点：<b>${bottleneck?bottleneck[0]:'无'}</b>（${bottleneck?bottleneck[1]:0}次project，平均${avgAtt}次尝试）</p>
-    <p>• 进步轨迹：${GRADE_ORDER[earlyMax]} → ${GRADE_ORDER[recentMax]} ${recentMax>earlyMax?'📈':'⏸ 需突破'}</p>
-    <p>• 5.7-5.8 已是舒适区，无需多练</p>
-    <p>• 先锋攀经验不足（仅1次lead记录）</p>`;
+    <p>• 进步轨迹：${GRADE_ORDER[earlyMax]} → ${GRADE_ORDER[recentMax]} ${recentMax>earlyMax?'📈 稳步上升':'⏸ 需突破'}</p>
+    <p>• 5.10b 已稳定（4/18 一次 redpoint），可少练</p>
+    <p>• 抱石刚起步（V2×3），手指力量还在适应期</p>
+    <p>• 先锋攀仍不足，建议每场加1条 lead</p>`;
 
   document.getElementById('climbPlan').innerHTML = `<h4>📋 下次训练计划</h4>
-    <p style="font-weight:600;margin-bottom:4px">建议安排（约60min）：</p>
+    <p style="font-weight:600;margin-bottom:4px">建议安排（约70min）：</p>
     <ul>
-      <li><b>热身攀爬</b>（10min）：1条 5.7 + 1条 5.8</li>
-      <li><b>成长区刷量</b>（20min）：2-3条 5.10a，追求流畅完攀</li>
-      <li><b>冲击难度</b>（20min）：2条 5.10b，记录卡点动作</li>
-      <li><b>收尾放松</b>（10min）：1条 5.9 轻松爬</li>
+      <li><b>热身攀爬</b>（10min）：1条 5.7 + 1条 5.8，动态热身</li>
+      <li><b>成长区巩固</b>（15min）：2条 5.10b/c 流畅完攀</li>
+      <li><b>冲击 5.10d</b>（25min）：2-3条 project，记录卡点动作、休息充分</li>
+      <li><b>抱石补充</b>（10min）：2-3条 V2，练爆发和手指</li>
+      <li><b>收尾</b>（10min）：1条 5.9 lead 练绳感</li>
     </ul>
-    <p style="margin-top:4px;color:var(--text2);font-size:.72rem">🎯 阶段目标：稳定 redpoint 5.10b → 摸 5.10c</p>`;
+    <p style="margin-top:4px;color:var(--text2);font-size:.72rem">🎯 阶段目标：稳定 redpoint 5.10d → 摸 5.11a；抱石 V2→V3</p>`;
 
   document.getElementById('climbWarmup').innerHTML = `<h4>🧘 热身 & 拉伸</h4>
-    <p style="font-weight:600">🔥 攀前热身（8-10min）：</p>
+    <p style="font-weight:600">🔥 攀前热身（10min，冲 5.10d 必做）：</p>
     <ul>
-      <li>手腕画圈 × 各20 + 手指开合 × 20</li>
-      <li>肩绕环 × 各10 + 弹力带外旋 × 12</li>
-      <li>深蹲 × 10 + 弓步 × 各8</li>
-      <li>简单路线1条找感觉</li>
+      <li>手腕画圈 × 各20 + 手指开合 × 20 + 指节按摩</li>
+      <li>肩绕环 × 各10 + 弹力带外旋 × 15（防肩伤）</li>
+      <li>引体悬垂 × 15s × 2（激活背阔）</li>
+      <li>深蹲 × 10 + 弓步 × 各8 + 髋部绕环</li>
+      <li>1条 5.7-5.8 找感觉</li>
     </ul>
-    <p style="font-weight:600;margin-top:6px">🧊 攀后拉伸（8-10min）：</p>
+    <p style="font-weight:600;margin-top:6px">🧊 攀后拉伸（10min，重点护手指）：</p>
     <ul>
-      <li>前臂拉伸（掌心朝上/下各30s）</li>
-      <li>手指逐根反向拉 × 15s</li>
+      <li>前臂拉伸（掌心朝上/下各30s）× 2组</li>
+      <li>手指逐根反向拉 × 20s（难度升了更要护）</li>
       <li>胸肌门框拉伸 × 各30s</li>
       <li>背阔肌侧拉 + 髋屈肌弓步 × 各30s</li>
+      <li>冰敷手指 5min（如有明显酸胀）</li>
     </ul>`;
 
   // Drag to resize chat
