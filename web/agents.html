@@ -1557,23 +1557,24 @@ function renderClimbDashboard() {
   const avgAtt = projectRoutes.length ? (projectRoutes.reduce((s,r)=>s+(r.a||1),0)/projectRoutes.length).toFixed(1) : '0';
 
   document.getElementById('climbBottleneck').innerHTML = `<h4>🔍 瓶颈分析</h4>
-    <p>• 当前最高 redpoint：<b>5.10d</b>（4/16、4/18 共3条）🎯 新高点！</p>
-    <p>• 主要卡点：<b>${bottleneck?bottleneck[0]:'无'}</b>（${bottleneck?bottleneck[1]:0}次project，平均${avgAtt}次尝试）</p>
-    <p>• 进步轨迹：${GRADE_ORDER[earlyMax]} → ${GRADE_ORDER[recentMax]} ${recentMax>earlyMax?'📈 稳步上升':'⏸ 需突破'}</p>
-    <p>• 5.10b 已稳定（4/18 一次 redpoint），可少练</p>
-    <p>• 抱石刚起步（V2×3），手指力量还在适应期</p>
+    <p>• 当前项目：<b>5.10d</b>（4/11、4/16×2、4/18 共4次 project，均未send）</p>
+    <p>• 4/18 自评：“卡在最后几个点，感觉力量不够” → 核心是<b>持久力/末段指力</b></p>
+    <p>• 当前最高 redpoint：<b>5.10b</b>（4/18）；5.10c 还在project阶段</p>
+    <p>• 进步轨迹：${GRADE_ORDER[earlyMax]} → ${GRADE_ORDER[recentMax]} ${recentMax>earlyMax?'📈':'⏸'}</p>
+    <p>• 抱石刚起步（V2×3），手指力量正好可以补短板</p>
     <p>• 先锋攀仍不足，建议每场加1条 lead</p>`;
 
   document.getElementById('climbPlan').innerHTML = `<h4>📋 下次训练计划</h4>
-    <p style="font-weight:600;margin-bottom:4px">建议安排（约70min）：</p>
+    <p style="font-weight:600;margin-bottom:4px">目标：send 掏 5.10c，给 5.10d 做功课（约70min）：</p>
     <ul>
-      <li><b>热身攀爬</b>（10min）：1条 5.7 + 1条 5.8，动态热身</li>
-      <li><b>成长区巩固</b>（15min）：2条 5.10b/c 流畅完攀</li>
-      <li><b>冲击 5.10d</b>（25min）：2-3条 project，记录卡点动作、休息充分</li>
-      <li><b>抱石补充</b>（10min）：2-3条 V2，练爆发和手指</li>
-      <li><b>收尾</b>（10min）：1条 5.9 lead 练绳感</li>
+      <li><b>热身</b>（10min）：5.7 + 5.8 各一条，手指/肩关节激活</li>
+      <li><b>5.10c 冲 redpoint</b>（20min）：状态最好时打，拿下来算新高点</li>
+      <li><b>5.10d 分段练</b>（25min）：重点绣有上半段+末段，用 take/分段压您，<b>不要从头爬</b>往死给消耗力量</li>
+      <li><b>持久力补充</b>（10min）：4×4训练 或 连爬 2条 5.10a 不休息</li>
+      <li><b>收尾</b>（5min）：1条 5.8 lead 练绳感</li>
     </ul>
-    <p style="margin-top:4px;color:var(--text2);font-size:.72rem">🎯 阶段目标：稳定 redpoint 5.10d → 摸 5.11a；抱石 V2→V3</p>`;
+    <p style="margin-top:4px;color:var(--text2);font-size:.72rem">🎯 阶段目标：send 5.10c → 继续磨 5.10d；抱石 V2→V3</p>
+    <p style="color:var(--text2);font-size:.72rem">💪 辅助训练（2-3次/周）：指板悬垂7s×5组 + 引体向上 5×3，直接砂上限</p>`;
 
   document.getElementById('climbWarmup').innerHTML = `<h4>🧘 热身 & 拉伸</h4>
     <p style="font-weight:600">🔥 攀前热身（10min，冲 5.10d 必做）：</p>
