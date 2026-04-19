@@ -84,7 +84,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .ai-tab:hover{color:var(--text)}
 .ai-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
 
-/* Learning Center - Full Width */
+/* Learning Center — Full Width */
 #panel-ai-news.active.learn-mode{max-width:100%;padding:10px 24px}
 .learn-layout{display:grid;grid-template-columns:240px 1fr;gap:0;min-height:calc(100vh - 160px)}
 @media(max-width:900px){.learn-layout{grid-template-columns:1fr;min-height:auto}}
@@ -127,7 +127,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .learn-body th,.learn-body td{padding:10px 14px;border:1px solid var(--border);text-align:left}
 .learn-body th{background:var(--accent-bg);font-weight:600;color:var(--accent)}
 
-/* Info Cards - key concepts, callouts */
+/* Info Cards — key concepts, callouts */
 .info-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin:20px 0}
 .info-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;transition:transform .15s,box-shadow .15s}
 .info-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.06)}
@@ -501,19 +501,19 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     <div class="agent-card" onclick="showPanel('ai-news')">
       <div class="icon">🤖</div>
       <h3>AI 前沿追踪</h3>
-      <p>每日搜索 AI 领域最新进展,带「动手试试」实操指引,按你的学习路径精准推送</p>
+      <p>每日搜索 AI 领域最新进展，带「动手试试」实操指引，按你的学习路径精准推送</p>
       <span class="status">● 每晚自动更新</span>
     </div>
     <div class="agent-card" onclick="showPanel('fitness')">
       <div class="icon">🧗</div>
       <h3>攀岩教练</h3>
-      <p>基于你的训练数据,AI教练分析进步趋势、生成图表、制定训练计划</p>
+      <p>基于你的训练数据，AI教练分析进步趋势、生成图表、制定训练计划</p>
       <span class="status">● 14次训练数据已导入</span>
     </div>
     <div class="agent-card" onclick="showPanel('interview')">
       <div class="icon">🎯</div>
       <h3>面试刷题教练</h3>
-      <p>算法题练习 & 系统设计模拟面试 - 出题、答题、点评、追踪进度</p>
+      <p>算法题练习 & 系统设计模拟面试 — 出题、答题、点评、追踪进度</p>
       <span class="status">● 随时可用</span>
     </div>
     <div class="agent-card" onclick="window.location.href='/finance'">
@@ -525,7 +525,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     <div class="agent-card" onclick="showPanel('vibe')">
       <div class="icon">🎨</div>
       <h3>Vibe Coding</h3>
-      <p>实时编程挑战 - 限时写代码,AI评测,看谁vibe得更硬</p>
+      <p>实时编程挑战 — 限时写代码，AI评测，看谁vibe得更硬</p>
       <span class="status">● 随时可用</span>
     </div>
   </div>
@@ -553,11 +553,11 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   <!-- Track Management (hidden by default) -->
   <div class="track-manage" id="trackManage" style="display:none">
     <h3>📚 我的学习路径</h3>
-    <p style="font-size:.75rem;color:var(--text2);margin-bottom:10px">添加你关注的技术方向,AI 会重点搜索这些领域,并标记相关文章</p>
+    <p style="font-size:.75rem;color:var(--text2);margin-bottom:10px">添加你关注的技术方向，AI 会重点搜索这些领域，并标记相关文章</p>
     <div class="track-list-edit" id="trackListEdit"></div>
     <div class="track-add-form">
       <input id="trackNewName" placeholder="方向名称 (如: Agent框架)">
-      <input id="trackNewKw" placeholder="搜索关键词,逗号分隔">
+      <input id="trackNewKw" placeholder="搜索关键词，逗号分隔">
       <button class="btn primary sm" onclick="addTrack()">+ 添加</button>
     </div>
   </div>
@@ -580,7 +580,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   <!-- Sources Tab -->
   <div id="aiTabSources" style="display:none">
     <div style="padding:8px 0">
-      <p style="font-size:.85rem;color:var(--text2);margin-bottom:16px">AI 前沿追踪从以下渠道搜索和抓取最新资讯。每次点击「搜索最新」时,狗蛋会遍历这些来源寻找有价值的内容。</p>
+      <p style="font-size:.85rem;color:var(--text2);margin-bottom:16px">AI 前沿追踪从以下渠道搜索和抓取最新资讯。每次点击「搜索最新」时，狗蛋会遍历这些来源寻找有价值的内容。</p>
       <div class="sources-grid" id="sourcesGrid"></div>
       <div style="margin-top:20px;padding:12px;background:var(--card);border-radius:8px">
         <h4 style="margin:0 0 8px;font-size:.85rem">📊 当前文章来源分布</h4>
@@ -610,7 +610,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
     </div>
   </div><!-- /aiTabLearn -->
 
-
+  
 </div>
 
 <!-- Fitness Panel -->
@@ -635,7 +635,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
       </div>
     </div>
     <div style="text-align:center;padding:12px;font-size:.8rem;color:var(--text2)">
-      💬 在主聊天输入 <b>@攀岩教练</b> 即可对话,训练数据会自动同步到这里
+      💬 在主聊天输入 <b>@攀岩教练</b> 即可对话，训练数据会自动同步到这里
     </div>
   </div>
 </div>
@@ -856,7 +856,7 @@ async function addTrack(){
   document.getElementById('trackNewName').value='';document.getElementById('trackNewKw').value='';
   loadTracks();
 }
-async function deleteTrack(id){if(!confirm('删除?'))return;await fetch(API+'/ai-news/tracks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',id})});loadTracks()}
+async function deleteTrack(id){if(!confirm('删除？'))return;await fetch(API+'/ai-news/tracks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',id})});loadTracks()}
 function guessIcon(name){const n=name.toLowerCase();if(n.includes('agent'))return'🤖';if(n.includes('多模态')||n.includes('vision'))return'👁️';if(n.includes('rag'))return'📚';if(n.includes('微调')||n.includes('fine'))return'🔧';if(n.includes('开源'))return'🌐';return'🔬'}
 
 let activeTrackFilter=null;
@@ -883,7 +883,7 @@ function renderNews(){
   else if(newsFilter!=='all')items=items.filter(a=>a.tag===newsFilter);
   if(activeTrackFilter)items=items.filter(a=>(a.tracks||[]).includes(activeTrackFilter));
   items.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  if(!items.length){list.innerHTML='<div class="news-empty">暂无内容'+(newsFilter!=='all'||activeTrackFilter?'(当前筛选)':',点击「搜索最新」获取')+'</div>';return}
+  if(!items.length){list.innerHTML='<div class="news-empty">暂无内容'+(newsFilter!=='all'||activeTrackFilter?'（当前筛选）':'，点击「搜索最新」获取')+'</div>';return}
 
   list.innerHTML=items.map(a=>{
     const hasReader=readArticleIds.has(articleCacheKey(a.id))||readerCache[a.id]?.status==='done';
@@ -911,7 +911,7 @@ function renderNews(){
 }
 
 async function togglePin(id){await fetch(API+'/ai-news/pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});const a=allNews.find(x=>x.id===id);if(a)a.pinned=!a.pinned;renderNews()}
-async function deleteNews(id){if(!confirm('删除?'))return;await fetch(API+'/ai-news/articles',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});allNews=allNews.filter(a=>a.id!==id);renderNews()}
+async function deleteNews(id){if(!confirm('删除？'))return;await fetch(API+'/ai-news/articles',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});allNews=allNews.filter(a=>a.id!==id);renderNews()}
 
 async function triggerNewsScan(){
   const btn=document.getElementById('refreshNewsBtn');
@@ -919,7 +919,7 @@ async function triggerNewsScan(){
   const oldCount=allNews.length;
   try{
     // Fire-and-forget: don't await the full response
-    fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:'请立即执行一次AI前沿新闻搜索。先读取学习路径 curl -s http://127.0.0.1:7685/api/agents/ai-news/tracks,然后搜索最新AI进展。\n\n请依次从以下来源搜索(每个来源搜1-3条高质量内容):\n1. GitHub Trending (https://github.com/trending) - 热门AI/ML项目,tag设为github\n2. Hacker News (site:news.ycombinator.com) - AI相关热帖,tag设为community\n3. Reddit r/MachineLearning + r/LocalLLaMA (site:reddit.com) - 热门讨论,tag设为community\n4. Hugging Face (site:huggingface.co) - trending models/papers/spaces,tag设为model\n5. Papers With Code (site:paperswithcode.com) - 最新SOTA论文,tag设为research\n6. TechCrunch AI (site:techcrunch.com AI) - 产品发布融资,tag设为product\n7. The Verge AI (site:theverge.com AI) - AI新闻,tag设为product\n8. VentureBeat AI (site:venturebeat.com AI) - 企业AI,tag设为product\n9. MIT Technology Review (site:technologyreview.com AI) - 深度分析,tag设为research\n10. arXiv (site:arxiv.org cs.AI OR cs.LG) - 最新论文,tag设为research\n11. OpenAI Blog (site:openai.com/blog) - 官方发布,tag设为model\n12. Anthropic (site:anthropic.com) - 研究发布,tag设为model\n13. Google DeepMind (site:deepmind.google) - 前沿研究,tag设为research\n14. Meta AI (site:ai.meta.com) - 开源模型发布,tag设为model\n15. Import AI Newsletter (site:importai.net) - AI周报,tag设为research\n16. The Batch / DeepLearning.AI (site:deeplearning.ai) - 吴恩达AI周刊,tag设为research\n17. Ars Technica (site:arstechnica.com AI) - 深度报道,tag设为product\n18. MarkTechPost (site:marktechpost.com) - 论文解读,tag设为research\n\n每条要包含 actionable(动手试试)字段和 tracks(关联学习路径)字段。只收录最近7天内的内容,跳过已有文章(对比url去重)。搜完后 POST 到 http://127.0.0.1:7685/api/agents/ai-news/articles,格式 {"articles":[...],"mode":"append"}。每条: {id,title,summary,url,tag,date,actionable,tracks}',stream:false})}).catch(()=>{});
+    fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:'请立即执行一次AI前沿新闻搜索。先读取学习路径 curl -s http://127.0.0.1:7685/api/agents/ai-news/tracks，然后搜索最新AI进展。\n\n请依次从以下来源搜索（每个来源搜1-3条高质量内容）：\n1. GitHub Trending (https://github.com/trending) — 热门AI/ML项目，tag设为github\n2. Hacker News (site:news.ycombinator.com) — AI相关热帖，tag设为community\n3. Reddit r/MachineLearning + r/LocalLLaMA (site:reddit.com) — 热门讨论，tag设为community\n4. Hugging Face (site:huggingface.co) — trending models/papers/spaces，tag设为model\n5. Papers With Code (site:paperswithcode.com) — 最新SOTA论文，tag设为research\n6. TechCrunch AI (site:techcrunch.com AI) — 产品发布融资，tag设为product\n7. The Verge AI (site:theverge.com AI) — AI新闻，tag设为product\n8. VentureBeat AI (site:venturebeat.com AI) — 企业AI，tag设为product\n9. MIT Technology Review (site:technologyreview.com AI) — 深度分析，tag设为research\n10. arXiv (site:arxiv.org cs.AI OR cs.LG) — 最新论文，tag设为research\n11. OpenAI Blog (site:openai.com/blog) — 官方发布，tag设为model\n12. Anthropic (site:anthropic.com) — 研究发布，tag设为model\n13. Google DeepMind (site:deepmind.google) — 前沿研究，tag设为research\n14. Meta AI (site:ai.meta.com) — 开源模型发布，tag设为model\n15. Import AI Newsletter (site:importai.net) — AI周报，tag设为research\n16. The Batch / DeepLearning.AI (site:deeplearning.ai) — 吴恩达AI周刊，tag设为research\n17. Ars Technica (site:arstechnica.com AI) — 深度报道，tag设为product\n18. MarkTechPost (site:marktechpost.com) — 论文解读，tag设为research\n\n每条要包含 actionable（动手试试）字段和 tracks（关联学习路径）字段。只收录最近7天内的内容，跳过已有文章（对比url去重）。搜完后 POST 到 http://127.0.0.1:7685/api/agents/ai-news/articles，格式 {"articles":[...],"mode":"append"}。每条: {id,title,summary,url,tag,date,actionable,tracks}',stream:false})}).catch(()=>{});
     // Poll for new articles every 8s, up to 3 minutes
     let elapsed=0;const interval=8000;const maxWait=180000;
     const poll=setInterval(async()=>{
@@ -955,39 +955,39 @@ function switchAiTab(tab){
 
 const KNOWN_SOURCES=[
   // 🔥 核心来源
-  {host:'github.com',icon:'🐙',name:'GitHub Trending',type:'开源项目',url:'https://github.com/trending',desc:'GitHub 热门趋势项目,追踪最火的 AI/ML 开源库、框架和工具。每天更新,是发现新工具的第一站。'},
-  {host:'news.ycombinator.com',icon:'🟧',name:'Hacker News',type:'技术社区',url:'https://news.ycombinator.com',desc:'硅谷技术圈最活跃的社区,AI 重大消息几乎第一时间出现,评论区含金量极高。'},
-  {host:'reddit.com',icon:'🔴',name:'Reddit ML/LocalLLaMA',type:'技术社区',url:'https://www.reddit.com/r/MachineLearning/',desc:'r/MachineLearning 和 r/LocalLLaMA 是 ML 学术圈和开源 LLM 社区的核心阵地,论文讨论、模型评测第一手。'},
-  {host:'huggingface.co',icon:'🤗',name:'Hugging Face',type:'模型平台',url:'https://huggingface.co',desc:'最大的 AI 模型 Hub,trending models/papers/spaces 一目了然,新模型发布必经之地。'},
-  {host:'paperswithcode.com',icon:'📑',name:'Papers With Code',type:'论文+代码',url:'https://paperswithcode.com',desc:'论文+代码+benchmark 一站式平台,追踪各领域 SOTA 最好用,有排行榜。'},
+  {host:'github.com',icon:'🐙',name:'GitHub Trending',type:'开源项目',url:'https://github.com/trending',desc:'GitHub 热门趋势项目，追踪最火的 AI/ML 开源库、框架和工具。每天更新，是发现新工具的第一站。'},
+  {host:'news.ycombinator.com',icon:'🟧',name:'Hacker News',type:'技术社区',url:'https://news.ycombinator.com',desc:'硅谷技术圈最活跃的社区，AI 重大消息几乎第一时间出现，评论区含金量极高。'},
+  {host:'reddit.com',icon:'🔴',name:'Reddit ML/LocalLLaMA',type:'技术社区',url:'https://www.reddit.com/r/MachineLearning/',desc:'r/MachineLearning 和 r/LocalLLaMA 是 ML 学术圈和开源 LLM 社区的核心阵地，论文讨论、模型评测第一手。'},
+  {host:'huggingface.co',icon:'🤗',name:'Hugging Face',type:'模型平台',url:'https://huggingface.co',desc:'最大的 AI 模型 Hub，trending models/papers/spaces 一目了然，新模型发布必经之地。'},
+  {host:'paperswithcode.com',icon:'📑',name:'Papers With Code',type:'论文+代码',url:'https://paperswithcode.com',desc:'论文+代码+benchmark 一站式平台，追踪各领域 SOTA 最好用，有排行榜。'},
   // 📰 主流AI媒体
-  {host:'techcrunch.com',icon:'💚',name:'TechCrunch',type:'科技媒体',url:'https://techcrunch.com/category/artificial-intelligence/',desc:'产品发布、融资消息最快的科技媒体,AI 创业生态必看。'},
-  {host:'theverge.com',icon:'🔷',name:'The Verge',type:'科技媒体',url:'https://www.theverge.com/ai-artificial-intelligence',desc:'主流科技媒体中 AI 报道质量最高之一,兼顾深度和可读性。'},
-  {host:'venturebeat.com',icon:'📡',name:'VentureBeat',type:'企业AI',url:'https://venturebeat.com/category/ai/',desc:'偏企业级 AI 应用报道,关注 AI 商业化、企业采购和部署趋势。'},
-  {host:'technologyreview.com',icon:'🎓',name:'MIT Technology Review',type:'深度分析',url:'https://www.technologyreview.com/topic/artificial-intelligence/',desc:'MIT 出品的深度技术分析,质量极高,关注 AI 伦理、社会影响和前沿突破。'},
-  {host:'arstechnica.com',icon:'🔬',name:'Ars Technica',type:'科技媒体',url:'https://arstechnica.com/ai/',desc:'老牌科技媒体,AI 报道深入且专业,注重技术细节和行业影响分析。'},
-  {host:'marktechpost.com',icon:'🤖',name:'MarkTechPost',type:'AI 媒体',url:'https://www.marktechpost.com',desc:'专注 AI/ML 的技术媒体,论文解读和新模型评测做得很好,更新频繁。'},
+  {host:'techcrunch.com',icon:'💚',name:'TechCrunch',type:'科技媒体',url:'https://techcrunch.com/category/artificial-intelligence/',desc:'产品发布、融资消息最快的科技媒体，AI 创业生态必看。'},
+  {host:'theverge.com',icon:'🔷',name:'The Verge',type:'科技媒体',url:'https://www.theverge.com/ai-artificial-intelligence',desc:'主流科技媒体中 AI 报道质量最高之一，兼顾深度和可读性。'},
+  {host:'venturebeat.com',icon:'📡',name:'VentureBeat',type:'企业AI',url:'https://venturebeat.com/category/ai/',desc:'偏企业级 AI 应用报道，关注 AI 商业化、企业采购和部署趋势。'},
+  {host:'technologyreview.com',icon:'🎓',name:'MIT Technology Review',type:'深度分析',url:'https://www.technologyreview.com/topic/artificial-intelligence/',desc:'MIT 出品的深度技术分析，质量极高，关注 AI 伦理、社会影响和前沿突破。'},
+  {host:'arstechnica.com',icon:'🔬',name:'Ars Technica',type:'科技媒体',url:'https://arstechnica.com/ai/',desc:'老牌科技媒体，AI 报道深入且专业，注重技术细节和行业影响分析。'},
+  {host:'marktechpost.com',icon:'🤖',name:'MarkTechPost',type:'AI 媒体',url:'https://www.marktechpost.com',desc:'专注 AI/ML 的技术媒体，论文解读和新模型评测做得很好，更新频繁。'},
   // 📄 学术论文
-  {host:'arxiv.org',icon:'📄',name:'arXiv',type:'学术论文',url:'https://arxiv.org/list/cs.AI/recent',desc:'预印本论文平台,AI/ML 领域最前沿的研究成果首发地。顶会论文几乎都先发 arXiv。'},
+  {host:'arxiv.org',icon:'📄',name:'arXiv',type:'学术论文',url:'https://arxiv.org/list/cs.AI/recent',desc:'预印本论文平台，AI/ML 领域最前沿的研究成果首发地。顶会论文几乎都先发 arXiv。'},
   // 🏠 官方博客
   {host:'openai.com',icon:'🟢',name:'OpenAI Blog',type:'官方博客',url:'https://openai.com/blog',desc:'GPT 系列模型更新、研究论文发布、产品公告的官方来源。'},
   {host:'anthropic.com',icon:'🔵',name:'Anthropic',type:'官方博客',url:'https://www.anthropic.com/research',desc:'Claude 系列模型、AI 安全研究、Constitutional AI 等前沿研究的官方发布。'},
-  {host:'deepmind.google',icon:'💎',name:'Google DeepMind',type:'官方博客',url:'https://deepmind.google/research/',desc:'Gemini、AlphaFold、AlphaCode 等顶级研究成果发布地,学术影响力最大。'},
-  {host:'ai.meta.com',icon:'🔷',name:'Meta AI',type:'官方博客',url:'https://ai.meta.com/blog/',desc:'LLaMA 系列开源模型、FAIR 实验室研究发布,开源生态的重要推动者。'},
+  {host:'deepmind.google',icon:'💎',name:'Google DeepMind',type:'官方博客',url:'https://deepmind.google/research/',desc:'Gemini、AlphaFold、AlphaCode 等顶级研究成果发布地，学术影响力最大。'},
+  {host:'ai.meta.com',icon:'🔷',name:'Meta AI',type:'官方博客',url:'https://ai.meta.com/blog/',desc:'LLaMA 系列开源模型、FAIR 实验室研究发布，开源生态的重要推动者。'},
   // 📬 Newsletter
-  {host:'importai.net',icon:'📬',name:'Import AI',type:'周报',url:'https://importai.net',desc:'Jack Clark(前 OpenAI 联合创始人)的 AI 周报,最老牌、最有深度的 AI Newsletter。'},
-  {host:'deeplearning.ai',icon:'📧',name:'The Batch (吴恩达)',type:'周报',url:'https://www.deeplearning.ai/the-batch/',desc:'吴恩达的 AI 周刊,适合快速了解一周全局,兼顾学术和产业。'},
+  {host:'importai.net',icon:'📬',name:'Import AI',type:'周报',url:'https://importai.net',desc:'Jack Clark（前 OpenAI 联合创始人）的 AI 周报，最老牌、最有深度的 AI Newsletter。'},
+  {host:'deeplearning.ai',icon:'📧',name:'The Batch (吴恩达)',type:'周报',url:'https://www.deeplearning.ai/the-batch/',desc:'吴恩达的 AI 周刊，适合快速了解一周全局，兼顾学术和产业。'},
   // 其他已收录来源
-  {host:'dev.to',icon:'👩‍💻',name:'DEV Community',type:'技术社区',url:'https://dev.to/t/ai',desc:'开发者社区,有大量 AI 实战教程、经验分享和趋势分析文章,偏实践应用。'},
-  {host:'news.crunchbase.com',icon:'💰',name:'Crunchbase News',type:'创投媒体',url:'https://news.crunchbase.com',desc:'关注 AI 创业公司融资、并购动态,了解资本流向和商业化趋势。'},
-  {host:'digitalapplied.com',icon:'📊',name:'Digital Applied',type:'技术博客',url:'https://www.digitalapplied.com',desc:'AI 技术应用分析博客,对开源模型生态(Gemma、Qwen、Llama)有持续跟踪。'},
-  {host:'af.net',icon:'⚡',name:'AF.net',type:'AI 快讯',url:'https://af.net',desc:'AI 新闻聚合站,实时追踪 AI 领域重大发展和突发事件。'},
-  {host:'computingforgeeks.com',icon:'🖥️',name:'ComputingForGeeks',type:'技术指南',url:'https://computingforgeeks.com',desc:'技术教程站点,涵盖 AI 工具部署、配置等实操内容。'},
-  {host:'whatllm.org',icon:'🧪',name:'WhatLLM',type:'模型评测',url:'https://whatllm.org',desc:'LLM 模型对比评测平台,追踪各大模型性能和排名变化。'},
-  {host:'qwen.ai',icon:'🔮',name:'Qwen (通义千问)',type:'官方博客',url:'https://qwen.ai',desc:'阿里通义千问官方,发布模型更新、技术报告和 benchmark 结果。'},
-  {host:'fortune.com',icon:'📰',name:'Fortune',type:'商业媒体',url:'https://fortune.com/tag/artificial-intelligence/',desc:'顶级商业杂志,关注 AI 对商业和经济的宏观影响。'},
-  {host:'techstartups.com',icon:'🚀',name:'TechStartups',type:'创业媒体',url:'https://techstartups.com',desc:'报道科技创业动态,聚焦 AI 初创公司和产品发布。'},
-  {host:'letsdatascience.com',icon:'📈',name:"Let's Data Science",type:'数据科学',url:'https://letsdatascience.com',desc:'数据科学和 ML 教程平台,有不少实用的入门到进阶内容。'},
+  {host:'dev.to',icon:'👩‍💻',name:'DEV Community',type:'技术社区',url:'https://dev.to/t/ai',desc:'开发者社区，有大量 AI 实战教程、经验分享和趋势分析文章，偏实践应用。'},
+  {host:'news.crunchbase.com',icon:'💰',name:'Crunchbase News',type:'创投媒体',url:'https://news.crunchbase.com',desc:'关注 AI 创业公司融资、并购动态，了解资本流向和商业化趋势。'},
+  {host:'digitalapplied.com',icon:'📊',name:'Digital Applied',type:'技术博客',url:'https://www.digitalapplied.com',desc:'AI 技术应用分析博客，对开源模型生态（Gemma、Qwen、Llama）有持续跟踪。'},
+  {host:'af.net',icon:'⚡',name:'AF.net',type:'AI 快讯',url:'https://af.net',desc:'AI 新闻聚合站，实时追踪 AI 领域重大发展和突发事件。'},
+  {host:'computingforgeeks.com',icon:'🖥️',name:'ComputingForGeeks',type:'技术指南',url:'https://computingforgeeks.com',desc:'技术教程站点，涵盖 AI 工具部署、配置等实操内容。'},
+  {host:'whatllm.org',icon:'🧪',name:'WhatLLM',type:'模型评测',url:'https://whatllm.org',desc:'LLM 模型对比评测平台，追踪各大模型性能和排名变化。'},
+  {host:'qwen.ai',icon:'🔮',name:'Qwen (通义千问)',type:'官方博客',url:'https://qwen.ai',desc:'阿里通义千问官方，发布模型更新、技术报告和 benchmark 结果。'},
+  {host:'fortune.com',icon:'📰',name:'Fortune',type:'商业媒体',url:'https://fortune.com/tag/artificial-intelligence/',desc:'顶级商业杂志，关注 AI 对商业和经济的宏观影响。'},
+  {host:'techstartups.com',icon:'🚀',name:'TechStartups',type:'创业媒体',url:'https://techstartups.com',desc:'报道科技创业动态，聚焦 AI 初创公司和产品发布。'},
+  {host:'letsdatascience.com',icon:'📈',name:"Let's Data Science",type:'数据科学',url:'https://letsdatascience.com',desc:'数据科学和 ML 教程平台，有不少实用的入门到进阶内容。'},
 ];
 
 function renderSources(){
@@ -1026,8 +1026,8 @@ function renderSources(){
   // Stats summary
   const total=allNews.length;
   const hostArr=Object.entries(hostCount).sort((a,b)=>b[1]-a[1]);
-  stats.innerHTML=`共 <b>${total}</b> 篇文章,来自 <b>${hostArr.length}</b> 个不同来源。`
-    +(hostArr.length?` 最多:${hostArr.slice(0,3).map(([h,c])=>`${h} (${c}篇)`).join('、')}。`:'');
+  stats.innerHTML=`共 <b>${total}</b> 篇文章，来自 <b>${hostArr.length}</b> 个不同来源。`
+    +(hostArr.length?` 最多：${hostArr.slice(0,3).map(([h,c])=>`${h} (${c}篇)`).join('、')}。`:'');
 }
 
 async function loadGuides(){
@@ -1146,11 +1146,11 @@ function setupDemo(el){
   const demoSteps={
     'agent-flow':['🤔 用户发送请求...','🧠 Agent 解析意图...','🔧 调用工具: web_search()','📄 获取搜索结果...','💬 生成回复...','✅ 完成!'],
     'langchain':['📥 接收输入: "帮我总结这篇论文"','🔗 Chain 初始化: LLMChain + PromptTemplate','📎 Retriever 加载文档 → 分块 (chunk_size=1000)','🧮 Embeddings → FAISS 向量检索 Top-3 相关段落','🤖 LLM 生成摘要 (temperature=0.3)','📤 OutputParser 格式化结果','✅ 返回结构化摘要!'],
-    'autogen':['👤 User Proxy: "分析这份销售数据"','🧑‍💼 Assistant Agent: 我来写个 Python 脚本','💻 Code Executor: 运行 pandas 分析...','❌ Assistant: 发现缺失值,修改代码重试','💻 Code Executor: 重新运行... 成功!','📊 Assistant: 生成可视化图表','👤 User Proxy: AUTO_REPLY → 确认结果','✅ 多轮对话完成,共 3 轮迭代!'],
-    'crewai':['🚀 Crew 启动: 市场调研任务','🕵️ Research Agent: 搜索行业报告...','🕵️ Research Agent → 交接给 Analyst','📈 Analyst Agent: 整理数据,提取趋势...','📈 Analyst Agent → 交接给 Writer','✍️ Writer Agent: 撰写分析报告...','🔄 Manager: 审核质量,要求 Analyst 补充数据','📈 Analyst Agent: 补充完毕 → Writer 修订','✅ Crew 完成! 3个Agent协作,2轮修订'],
-    'mcp':['🖥️ Client: 连接 MCP Server (stdio)','📋 Server: 暴露工具列表 [search, calc, db_query]','🤖 LLM: 决定调用 db_query(sql="SELECT...")','→ Client: 发送 tools/call 请求','← Server: 返回查询结果 (15 rows)','🤖 LLM: 需要进一步计算,调用 calc()','→ Client: 发送第二次 tools/call','← Server: 返回计算结果','💬 LLM: 整合结果生成回答','✅ 完成! 通过标准协议调用了2个工具'],
-    'a2a':['🏢 Client Agent: "帮我订明天北京到上海的机票"','🔍 发现 Agent Card: flight-booking-agent','📡 发送 Task 请求 (JSON-RPC)','✈️ Remote Agent: 搜索航班中...','📨 状态更新: working → 找到3个航班','💬 Remote Agent: 需要确认,发送选项','🏢 Client Agent: 选择最便宜的','✈️ Remote Agent: 确认预订...','📨 Artifact 返回: 订单确认 PDF','✅ 跨Agent协作完成! (A2A协议)'],
-    'react':['❓ 问题: "SpaceX最新发射是什么时候?"','💭 Thought: 我需要搜索最新的SpaceX发射信息','⚡ Action: search("SpaceX latest launch 2026")','👁️ Observation: 搜索返回3条结果...','💭 Thought: 第一条结果有具体日期,但需要确认','⚡ Action: fetch(url) 获取详情页','👁️ Observation: 确认发射日期为...','💭 Thought: 信息充分,可以回答了','📝 Final Answer: SpaceX于...完成了第N次发射','✅ ReAct循环结束 (2轮推理)']
+    'autogen':['👤 User Proxy: "分析这份销售数据"','🧑‍💼 Assistant Agent: 我来写个 Python 脚本','💻 Code Executor: 运行 pandas 分析...','❌ Assistant: 发现缺失值，修改代码重试','💻 Code Executor: 重新运行... 成功!','📊 Assistant: 生成可视化图表','👤 User Proxy: AUTO_REPLY → 确认结果','✅ 多轮对话完成，共 3 轮迭代!'],
+    'crewai':['🚀 Crew 启动: 市场调研任务','🕵️ Research Agent: 搜索行业报告...','🕵️ Research Agent → 交接给 Analyst','📈 Analyst Agent: 整理数据，提取趋势...','📈 Analyst Agent → 交接给 Writer','✍️ Writer Agent: 撰写分析报告...','🔄 Manager: 审核质量，要求 Analyst 补充数据','📈 Analyst Agent: 补充完毕 → Writer 修订','✅ Crew 完成! 3个Agent协作，2轮修订'],
+    'mcp':['🖥️ Client: 连接 MCP Server (stdio)','📋 Server: 暴露工具列表 [search, calc, db_query]','🤖 LLM: 决定调用 db_query(sql="SELECT...")','→ Client: 发送 tools/call 请求','← Server: 返回查询结果 (15 rows)','🤖 LLM: 需要进一步计算，调用 calc()','→ Client: 发送第二次 tools/call','← Server: 返回计算结果','💬 LLM: 整合结果生成回答','✅ 完成! 通过标准协议调用了2个工具'],
+    'a2a':['🏢 Client Agent: "帮我订明天北京到上海的机票"','🔍 发现 Agent Card: flight-booking-agent','📡 发送 Task 请求 (JSON-RPC)','✈️ Remote Agent: 搜索航班中...','📨 状态更新: working → 找到3个航班','💬 Remote Agent: 需要确认，发送选项','🏢 Client Agent: 选择最便宜的','✈️ Remote Agent: 确认预订...','📨 Artifact 返回: 订单确认 PDF','✅ 跨Agent协作完成! (A2A协议)'],
+    'react':['❓ 问题: "SpaceX最新发射是什么时候？"','💭 Thought: 我需要搜索最新的SpaceX发射信息','⚡ Action: search("SpaceX latest launch 2026")','👁️ Observation: 搜索返回3条结果...','💭 Thought: 第一条结果有具体日期，但需要确认','⚡ Action: fetch(url) 获取详情页','👁️ Observation: 确认发射日期为...','💭 Thought: 信息充分，可以回答了','📝 Final Answer: SpaceX于...完成了第N次发射','✅ ReAct循环结束 (2轮推理)']
   };
   const steps=demoSteps[type]||demoSteps['agent-flow'];
   const area=el.querySelector('.demo-area');
@@ -1172,7 +1172,7 @@ function setupDemo(el){
 }
 
 async function deleteGuide(id){
-  if(!confirm('确定删除这篇学习指南?'))return;
+  if(!confirm('确定删除这篇学习指南？'))return;
   await fetch(API+'/ai-news/guides/'+encodeURIComponent(id),{method:'DELETE'});
   allGuides=allGuides.filter(g=>g.id!==id);
   if(activeGuideId===id)activeGuideId=null;
@@ -1187,7 +1187,7 @@ function renderMarkdown(md){
     return `<div class="demo-box" data-demo="${type||'agent-flow'}"><h4>🎮 ${title}</h4><p>${body.trim().split('\n')[0]||''}</p><div class="demo-area"></div><button data-run>▶️ 运行演示</button></div>`;
   });
   html=html.replace(/:::callout\{type="([^"]*)"\}\n([\s\S]*?):::/g,(m,type,body)=>{
-    const icons={tip:'💡',warning:'⚠️',info:'i️'};
+    const icons={tip:'💡',warning:'⚠️',info:'ℹ️'};
     return `<div class="callout ${type}"><span class="callout-icon">${icons[type]||'💡'}</span><div class="callout-body">${body.trim()}</div></div>`;
   });
   html=html.replace(/:::info-cards\n([\s\S]*?):::/g,(m,body)=>{
@@ -1287,25 +1287,25 @@ async function addToLearn(articleId){
   const btn=event.target;
   btn.disabled=true;btn.textContent='⏳ 生成中...';
   try{
-    const prompt=`请为以下AI技术主题生成一篇丰富的学习指南。要求:
-1. 用中文写,深入但易懂
-2. 用markdown格式,同时使用以下富组件语法:
-   - \`\`\`mermaid 代码块画架构图/流程图(至少2个)。**极其重要:每条mermaid语句必须独占一行!** 绝对不要把两条语句写在同一行,包括 participant、箭头连接、style、end、Note 等都必须换行。
-   - :::info-cards 卡片组(用 #### emoji 标题 + 描述)展示核心概念
+    const prompt=`请为以下AI技术主题生成一篇丰富的学习指南。要求：
+1. 用中文写，深入但易懂
+2. 用markdown格式，同时使用以下富组件语法：
+   - \`\`\`mermaid 代码块画架构图/流程图（至少2个）。**极其重要：每条mermaid语句必须独占一行！** 绝对不要把两条语句写在同一行，包括 participant、箭头连接、style、end、Note 等都必须换行。
+   - :::info-cards 卡片组（用 #### emoji 标题 + 描述）展示核心概念
    - :::callout{type="tip/warning/info"} 提示/警告框
-   - :::pros-cons 优劣对比(用 #### ✅ 优势 和 #### ❌ 劣势)
-   - :::timeline 时间线(用 #### 标题 + 描述展示发展历程)
-   - :::compare 对比栏(用 #### 框架名 + 列表展示多框架对比)
+   - :::pros-cons 优劣对比（用 #### ✅ 优势 和 #### ❌ 劣势）
+   - :::timeline 时间线（用 #### 标题 + 描述展示发展历程）
+   - :::compare 对比栏（用 #### 框架名 + 列表展示多框架对比）
    - 普通markdown: 代码块、表格、引用等
-3. 内容结构:Hero概述 → 核心概念卡片 → 架构图解 → 原理深入 → 代码示例 → 实际应用 → 优劣分析 → 相关对比
+3. 内容结构：Hero概述 → 核心概念卡片 → 架构图解 → 原理深入 → 代码示例 → 实际应用 → 优劣分析 → 相关对比
 4. 不要使用 :::demo 组件
-4. 返回格式(严格遵守):
-先输出一行JSON元数据(不含content字段):
+4. 返回格式（严格遵守）：
+先输出一行JSON元数据（不含content字段）：
 \`\`\`json
 {"title":"标题","category":"分类","icon":"emoji","summary":"一句话","tags":["标签"]}
 \`\`\`
-然后输出分隔符:---CONTENT---
-最后输出完整的markdown+组件学习内容(不要包裹在JSON里)。
+然后输出分隔符：---CONTENT---
+最后输出完整的markdown+组件学习内容（不要包裹在JSON里）。
 
 主题: ${article.title}
 摘要: ${article.summary||''}
@@ -1355,7 +1355,7 @@ ${article.url?'链接: '+article.url:''}
   }
 }
 
-// Mermaid code cleaner - fixes common LLM output issues
+// Mermaid code cleaner – fixes common LLM output issues
 function cleanMermaid(code){
   // Strip markdown fence if LLM wrapped it again
   code=code.replace(/^```mermaid\s*/i,'').replace(/```\s*$/,'');
@@ -1557,41 +1557,41 @@ function renderClimbDashboard() {
   const avgAtt = projectRoutes.length ? (projectRoutes.reduce((s,r)=>s+(r.a||1),0)/projectRoutes.length).toFixed(1) : '0';
 
   document.getElementById('climbBottleneck').innerHTML = `<h4>🔍 瓶颈分析</h4>
+    <p>• 当前项目：<b>5.10d</b>（4/11、4/16×2、4/18 共4次 project，均未send）</p>
+    <p>• 4/18 自评：“卡在最后几个点，感觉力量不够” → 核心是<b>持久力/末段指力</b></p>
     <p>• 当前最高 redpoint：<b>5.10c</b>（4/11 确认）✅</p>
-    <p>• 当前项目：<b>5.10d</b>（4/11、4/16×2、4/18 共4次 project，卡在末段）</p>
-    <p>• 4/18 自评："卡在最后几个点，感觉力量不够" → 核心是<b>末段持久力 / 指力</b></p>
-    <p>• 进步轨迹:${GRADE_ORDER[earlyMax]} → ${GRADE_ORDER[recentMax]} ${recentMax>earlyMax?'📈':'⏸'}</p>
-    <p>• 抱石刚起步(V2×3),手指力量正好可以补短板</p>
-    <p>• 先锋攀仍不足,建议每场加1条 lead</p>`;
+    <p>• 进步轨迹：${GRADE_ORDER[earlyMax]} → ${GRADE_ORDER[recentMax]} ${recentMax>earlyMax?'📈':'⏸'}</p>
+    <p>• 抱石刚起步（V2×3），手指力量正好可以补短板</p>
+    <p>• 先锋攀仍不足，建议每场加1条 lead</p>`;
 
   document.getElementById('climbPlan').innerHTML = `<h4>📋 下次训练计划</h4>
-    <p style="font-weight:600;margin-bottom:4px">目标:send 掏 5.10c,给 5.10d 做功课(约70min):</p>
+    <p style="font-weight:600;margin-bottom:4px">目标：send 掏 5.10c，给 5.10d 做功课（约70min）：</p>
     <ul>
-      <li><b>热身</b>(10min):5.7 + 5.8 各一条,手指/肩关节激活</li>
-      <li><b>5.10c 冲 redpoint</b>(20min):状态最好时打,拿下来算新高点</li>
-      <li><b>5.10d 分段练</b>(25min):重点绣有上半段+末段,用 take/分段压您,<b>不要从头爬</b>往死给消耗力量</li>
-      <li><b>持久力补充</b>(10min):4×4训练 或 连爬 2条 5.10a 不休息</li>
-      <li><b>收尾</b>(5min):1条 5.8 lead 练绳感</li>
+      <li><b>热身</b>（10min）：5.7 + 5.8 各一条，手指/肩关节激活</li>
+      <li><b>5.10c 冲 redpoint</b>（20min）：状态最好时打，拿下来算新高点</li>
+      <li><b>5.10d 分段练</b>（25min）：重点绣有上半段+末段，用 take/分段压您，<b>不要从头爬</b>往死给消耗力量</li>
+      <li><b>持久力补充</b>（10min）：4×4训练 或 连爬 2条 5.10a 不休息</li>
+      <li><b>收尾</b>（5min）：1条 5.8 lead 练绳感</li>
     </ul>
-    <p style="margin-top:4px;color:var(--text2);font-size:.72rem">🎯 阶段目标:send 5.10c → 继续磨 5.10d;抱石 V2→V3</p>
-    <p style="color:var(--text2);font-size:.72rem">💪 辅助训练(2-3次/周):指板悬垂7s×5组 + 引体向上 5×3,直接砂上限</p>`;
+    <p style="margin-top:4px;color:var(--text2);font-size:.72rem">🎯 阶段目标：send 5.10c → 继续磨 5.10d；抱石 V2→V3</p>
+    <p style="color:var(--text2);font-size:.72rem">💪 辅助训练（2-3次/周）：指板悬垂7s×5组 + 引体向上 5×3，直接砂上限</p>`;
 
   document.getElementById('climbWarmup').innerHTML = `<h4>🧘 热身 & 拉伸</h4>
-    <p style="font-weight:600">🔥 攀前热身(10min,冲 5.10d 必做):</p>
+    <p style="font-weight:600">🔥 攀前热身（10min，冲 5.10d 必做）：</p>
     <ul>
       <li>手腕画圈 × 各20 + 手指开合 × 20 + 指节按摩</li>
-      <li>肩绕环 × 各10 + 弹力带外旋 × 15(防肩伤)</li>
-      <li>引体悬垂 × 15s × 2(激活背阔)</li>
+      <li>肩绕环 × 各10 + 弹力带外旋 × 15（防肩伤）</li>
+      <li>引体悬垂 × 15s × 2（激活背阔）</li>
       <li>深蹲 × 10 + 弓步 × 各8 + 髋部绕环</li>
       <li>1条 5.7-5.8 找感觉</li>
     </ul>
-    <p style="font-weight:600;margin-top:6px">🧊 攀后拉伸(10min,重点护手指):</p>
+    <p style="font-weight:600;margin-top:6px">🧊 攀后拉伸（10min，重点护手指）：</p>
     <ul>
-      <li>前臂拉伸(掌心朝上/下各30s)× 2组</li>
-      <li>手指逐根反向拉 × 20s(难度升了更要护)</li>
+      <li>前臂拉伸（掌心朝上/下各30s）× 2组</li>
+      <li>手指逐根反向拉 × 20s（难度升了更要护）</li>
       <li>胸肌门框拉伸 × 各30s</li>
       <li>背阔肌侧拉 + 髋屈肌弓步 × 各30s</li>
-      <li>冰敷手指 5min(如有明显酸胀)</li>
+      <li>冰敷手指 5min（如有明显酸胀）</li>
     </ul>`;
 
   // Drag to resize chat
@@ -1618,11 +1618,11 @@ async function loadCoachChat() {
       coachChatHistory = chats.map(c => ({ role: c.role, content: c.content }));
       el.innerHTML = chats.map(c => `<div class="coach-msg ${c.role}">${c.role==='assistant' ? fmtCoach(c.content) : esc(c.content)}</div>`).join('');
     } else {
-      el.innerHTML = '<div class="coach-msg assistant">嘿!我是你的攀岩教练 🧗‍♂️ 左边是你的数据分析,有问题随时问!</div>';
+      el.innerHTML = '<div class="coach-msg assistant">嘿！我是你的攀岩教练 🧗‍♂️ 左边是你的数据分析，有问题随时问！</div>';
     }
     el.scrollTop = el.scrollHeight;
   } catch {
-    el.innerHTML = '<div class="coach-msg assistant">嘿!有什么攀岩问题随时问我 🧗‍♂️</div>';
+    el.innerHTML = '<div class="coach-msg assistant">嘿！有什么攀岩问题随时问我 🧗‍♂️</div>';
   }
 }
 
@@ -1657,13 +1657,13 @@ async function askCoach(text) {
     const firstDate = CLIMB_SESSIONS[0]?.date || '?';
     const lastDate = CLIMB_SESSIONS[CLIMB_SESSIONS.length-1]?.date || '?';
 
-    const sp = '今天:' + today + '。你是专业攀岩教练,热情友好,给实用建议。\n\n' +
-      '【用户数据摘要】' + totalS + '次训练(' + firstDate + '~' + lastDate + '),问山攀岩,顶绳为主。最高完成:' + maxSend + ',最高尝试:' + maxAttempt + ',完成率:' + sendRate + '%,总路线:' + allR.length + '条\n' +
-      '最近5次训练:\n' + recent5 + '\n\n' +
-      '【报告新训练】用户报告训练时,回复末尾附:\n' +
+    const sp = '今天：' + today + '。你是专业攀岩教练，热情友好，给实用建议。\n\n' +
+      '【用户数据摘要】' + totalS + '次训练(' + firstDate + '~' + lastDate + ')，问山攀岩，顶绳为主。最高完成：' + maxSend + '，最高尝试：' + maxAttempt + '，完成率：' + sendRate + '%，总路线：' + allR.length + '条\n' +
+      '最近5次训练：\n' + recent5 + '\n\n' +
+      '【报告新训练】用户报告训练时，回复末尾附：\n' +
       '```session_data\n{"date":"YYYY-MM-DD","dur":分钟,"routes":[{"g":"难度","s":"flash/redpoint/project/fail","a":次数}]}\n```\n' +
       's: flash=首攀完成 redpoint=练后完成 project=未完成 fail=失败。a默认1可省。信息不全先追问。\n\n' +
-      '【更新卡片】讨论涉及瓶颈/训练计划/热身拉伸时,回复末尾附:\n' +
+      '【更新卡片】讨论涉及瓶颈/训练计划/热身拉伸时，回复末尾附：\n' +
       '- 瓶颈 → ```cards_update_bottleneck\n<HTML>\n```\n' +
       '- 计划 → ```cards_update_plan\n<HTML>\n```\n' +
       '- 热身 → ```cards_update_warmup\n<HTML>\n```\n' +
@@ -1672,9 +1672,9 @@ async function askCoach(text) {
     const ctx = coachChatHistory.slice(-8).map(m=>m.role+': '+m.content).join('\n');
     const res = await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:ctx,stream:false})});
     const data = await res.json();
-    let reply = data.output?.find(o=>o.type==='message')?.content?.[0]?.text || data.output_text || '抱歉,暂时无法回答';
+    let reply = data.output?.find(o=>o.type==='message')?.content?.[0]?.text || data.output_text || '抱歉，暂时无法回答';
     console.log('[Coach raw reply]', reply);
-
+    
     // Extract session_data if present
     const sdMatch = reply.match(/```session_data\s*\n([\s\S]*?)```/);
     let displayReply = reply;
@@ -1702,7 +1702,7 @@ async function askCoach(text) {
       } catch(e) { console.warn('Failed to parse session_data', e); }
       // Remove the JSON block from display
       displayReply = reply.replace(/```session_data\s*\n[\s\S]*?```/, '').trim();
-      displayReply += '\n\n✅ 数据已更新,图表已刷新!';
+      displayReply += '\n\n✅ 数据已更新，图表已刷新！';
     }
 
     // Parse card updates
@@ -1718,7 +1718,7 @@ async function askCoach(text) {
       }
     });
     if (hasCardUpdate) {
-      displayReply += '\n\n✅ 建议卡片已更新!';
+      displayReply += '\n\n✅ 建议卡片已更新！';
     }
 
     document.getElementById('coachLoading')?.remove();
@@ -1761,12 +1761,12 @@ function openReader(articleId){
     document.getElementById('readerBody').innerHTML='<div class="reader-loading"><span class="loading-spinner"></span> 加载中...</div>';
     fetch(API+'/ai-news/reader/'+encodeURIComponent(articleCacheKey(articleId))).then(r=>r.json()).then(d=>{
       if(d.content){readerCache[articleId].html=simpleMarkdown(d.content);if(currentReaderId===articleId)document.getElementById('readerBody').innerHTML=readerCache[articleId].html}
-      else{if(currentReaderId===articleId)document.getElementById('readerBody').innerHTML='<div class="reader-loading">内容为空,点「📖 解读」重新生成</div>'}
+      else{if(currentReaderId===articleId)document.getElementById('readerBody').innerHTML='<div class="reader-loading">内容为空，点「📖 解读」重新生成</div>'}
     }).catch(()=>{if(currentReaderId===articleId)document.getElementById('readerBody').innerHTML='<div class="reader-loading">❌ 加载失败</div>'});
   }else if(cache?.status==='error'){
-    document.getElementById('readerBody').innerHTML='<div class="reader-loading">❌ 解读失败,点击「📖 解读」重试</div>';
+    document.getElementById('readerBody').innerHTML='<div class="reader-loading">❌ 解读失败，点击「📖 解读」重试</div>';
   }else{
-    document.getElementById('readerBody').innerHTML='<div class="reader-loading"><span class="loading-spinner"></span> 正在解读中,你可以先关掉做别的事,稍后再点「📖 查看」</div>';
+    document.getElementById('readerBody').innerHTML='<div class="reader-loading"><span class="loading-spinner"></span> 正在解读中，你可以先关掉做别的事，稍后再点「📖 查看」</div>';
   }
   document.getElementById('readerOverlay').classList.add('show');
 }
@@ -1811,11 +1811,11 @@ async function doReadArticle(articleId,article){
   try{
     const prompt=`请帮我深入解读以下文章。
 
-文章标题:${article.title}
-文章链接:${article.url}
-${article.summary?'摘要:'+article.summary:''}
+文章标题：${article.title}
+文章链接：${article.url}
+${article.summary?'摘要：'+article.summary:''}
 
-请按以下格式输出:
+请按以下格式输出：
 
 ## 📌 一句话总结
 用一句话概括文章核心观点
@@ -1824,12 +1824,12 @@ ${article.summary?'摘要:'+article.summary:''}
 列出 3-5 个核心要点
 
 ## 📖 详细解读
-按文章逻辑逐段深入讲解,用通俗易懂的语言解释专业概念,补充必要背景知识
+按文章逻辑逐段深入讲解，用通俗易懂的语言解释专业概念，补充必要背景知识
 
 ## 💡 延伸思考
 这篇文章的意义、影响、值得进一步探索的方向
 
-请先用 web_fetch 工具抓取链接内容,然后进行解读。用中文回复,深入浅出,有自己的分析见解。`;
+请先用 web_fetch 工具抓取链接内容，然后进行解读。用中文回复，深入浅出，有自己的分析见解。`;
 
     const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw:main',input:prompt,stream:false})});
     const data=await res.json();
@@ -1852,7 +1852,7 @@ ${article.summary?'摘要:'+article.summary:''}
     readerCache[articleId]={status:'error',html:''};
     updateReaderBtn(articleId);
     if(currentReaderId===articleId){
-      document.getElementById('readerBody').innerHTML='<div class="reader-loading">❌ 解读失败:'+esc(e.message)+'</div>';
+      document.getElementById('readerBody').innerHTML='<div class="reader-loading">❌ 解读失败：'+esc(e.message)+'</div>';
     }
   }
 }
@@ -1909,7 +1909,7 @@ function renderIVList(){
 
   const statusIcon={todo:'',attempted:'🔵',solved:'✅'};
   const diffClass={Easy:'iv-diff-easy',Medium:'iv-diff-medium',Hard:'iv-diff-hard'};
-
+  
   document.getElementById('ivProblemList').innerHTML=items.length?items.map(p=>`<div class="iv-table-row" onclick="ivOpenProblem(${p.leetcode_id})">
     <span class="iv-col-status">${statusIcon[p.status]||''}</span>
     <span class="iv-col-id">${p.leetcode_id}</span>
@@ -1932,24 +1932,24 @@ async function ivOpenProblem(id){
   ivInitEditor();
   if(ivEditor)setTimeout(()=>ivEditor.refresh(),50);
   document.getElementById('ivProblemArea').innerHTML='<div style="padding:20px;color:var(--text2)"><span class="loading-spinner"></span> 加载题目...</div>';
-
+  
   // Clear previous discuss
   document.getElementById('ivMessages').innerHTML='';
   document.getElementById('ivResult').style.display='none';
-
+  
   try{
     const p=await(await fetch(API+'/interview/problems/'+id)).json();
     ivCurrentProblem=p;
     document.getElementById('ivTopTitle').textContent=`#${p.leetcode_id} ${p.title}`;
     document.getElementById('ivLcLink').href=p.url||'#';
-
+    
     const diffClass={Easy:'easy',Medium:'medium',Hard:'hard'}[p.difficulty]||'';
     document.getElementById('ivProblemArea').innerHTML=
       `<span class="iv-difficulty ${diffClass}">${p.difficulty}</span>
        <span style="font-size:.7rem;color:var(--text2);margin-left:8px">${esc(p.category)}</span>
        <span style="font-size:.7rem;color:var(--text2);margin-left:8px">${(p.tags||[]).map(t=>'#'+t).join(' ')}</span>
        <div style="margin-top:12px">${p.description||'<em>无描述</em>'}</div>`;
-
+    
     // Set code snippet
     if(p.python_snippet){
       ivEditor&&ivEditor.setValue(p.python_snippet);
@@ -1964,14 +1964,14 @@ async function ivOpenProblem(id){
     const lang=document.getElementById('ivLang').value;
     if(ivEditor)ivEditor.setOption('mode',ivLangModes[lang]||'python');
     ivStartTimer();
-
+    
     // Mark as attempted
     if(p.status==='todo'){
       fetch(API+'/interview/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({leetcode_id:id,status:'attempted'})});
       const lp=ivProblems.find(x=>x.leetcode_id===id);
       if(lp)lp.status='attempted';
     }
-
+    
     // Switch to problem tab
     document.querySelector('#ivLeft .iv-tab[data-tab="problem"]')?.click();
     // Load submissions for this problem
@@ -1982,7 +1982,7 @@ async function ivOpenProblem(id){
 }
 
 let IV_SCHEDULE = [];
-// 面试数据从 JSON 文件加载,狗蛋只需更新 /var/www/chat/data/interview-schedule.json
+// 面试数据从 JSON 文件加载，狗蛋只需更新 /var/www/chat/data/interview-schedule.json
 fetch('/data/interview-schedule.json?t='+Date.now()).then(r=>r.json()).then(d=>{IV_SCHEDULE=d;if(ivCurrentView==='schedule')renderSchedule();});
 function ivShowSchedule(){
   ivCurrentView='schedule';
@@ -2117,20 +2117,20 @@ async function ivSubmit(){
   document.getElementById('ivResultStatus').innerHTML='<span class="loading-spinner"></span> 评测中...';
   document.getElementById('ivResultBody').textContent='';
 
-  const prompt=`评判以下代码,题目是 "${ivCurrentProblem.title}" (LeetCode #${ivCurrentProblem.leetcode_id}, ${ivCurrentProblem.difficulty})。
+  const prompt=`评判以下代码，题目是 "${ivCurrentProblem.title}" (LeetCode #${ivCurrentProblem.leetcode_id}, ${ivCurrentProblem.difficulty})。
 
-代码:
+代码：
 \`\`\`
 ${code}
 \`\`\`
-用时:${elapsed}
+用时：${elapsed}
 
-评判要求:
-1. 正确性(能否通过所有case,包括边界)
+评判要求：
+1. 正确性（能否通过所有case，包括边界）
 2. 时间/空间复杂度
 3. 代码质量
 4. 改进建议
-5. 最终:✅ 通过 / ⚠️ 部分通过 / ❌ 未通过`;
+5. 最终：✅ 通过 / ⚠️ 部分通过 / ❌ 未通过`;
 
   try{
     const sp=`你是LeetCode评测教练。严格但公正。用中文简洁回答。`;
@@ -2140,7 +2140,7 @@ ${code}
     const passed=reply.includes('✅');
     document.getElementById('ivResultStatus').innerHTML=passed?'<span style="color:var(--green)">✅ Accepted</span>':'<span style="color:var(--orange)">⚠️ Review</span>';
     document.getElementById('ivResultBody').innerHTML=simpleMarkdown(reply);
-
+    
     // Save submission
     const sub = {
       leetcode_id: ivCurrentProblem.leetcode_id,
@@ -2155,7 +2155,7 @@ ${code}
     fetch(API+'/interview/submissions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sub)}).then(()=>{
       if(ivCurrentProblem)ivLoadSubmissions(ivCurrentProblem.leetcode_id);
     });
-
+    
     // Update progress if passed
     if(passed&&ivCurrentProblem){
       fetch(API+'/interview/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({leetcode_id:ivCurrentProblem.leetcode_id,status:'solved'})});
@@ -2171,12 +2171,12 @@ ${code}
 function ivHint(){
   if(!ivCurrentProblem)return;
   document.querySelector('#ivLeft .iv-tab[data-tab="discuss"]').click();
-  ivSendDiscuss(`关于 "${ivCurrentProblem.title}" 这道题,给我一个提示,但不要直接给答案`);
+  ivSendDiscuss(`关于 "${ivCurrentProblem.title}" 这道题，给我一个提示，但不要直接给答案`);
 }
 function ivSolution(){
   if(!ivCurrentProblem)return;
   document.querySelector('#ivLeft .iv-tab[data-tab="discuss"]').click();
-  ivSendDiscuss(`请给出 "${ivCurrentProblem.title}" (LeetCode #${ivCurrentProblem.leetcode_id}) 的完整解答:思路分析、Python代码、复杂度分析`);
+  ivSendDiscuss(`请给出 "${ivCurrentProblem.title}" (LeetCode #${ivCurrentProblem.leetcode_id}) 的完整解答：思路分析、Python代码、复杂度分析`);
 }
 
 async function ivSendDiscuss(msg){
@@ -2184,7 +2184,7 @@ async function ivSendDiscuss(msg){
   el.innerHTML+=`<div class="coach-msg user">${esc(msg)}</div><div class="coach-msg assistant" id="ivLoading"><span class="loading-spinner"></span> 思考中...</div>`;
   el.scrollTop=el.scrollHeight;
   try{
-    const sp=`你是LeetCode面试教练。简洁专业,用中文回答。代码用Python。`;
+    const sp=`你是LeetCode面试教练。简洁专业，用中文回答。代码用Python。`;
     const res=await fetch('/v1/responses',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'github-copilot/claude-sonnet-4',instructions:sp,input:msg,stream:false})});
     const data=await res.json();
     const reply=data.output?.find(o=>o.type==='message')?.content?.[0]?.text||data.output_text||'暂时无法回答';
@@ -2214,7 +2214,7 @@ async function ivShowReview(){
   document.getElementById('ivTopTitle').textContent='📊 提交记录';
   document.querySelectorAll('.iv-vt').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.iv-vt')[1].classList.add('active');
-
+  
   // Load all submissions
   document.getElementById('ivReviewContent').innerHTML='<div class="iv-review-empty"><span class="loading-spinner"></span> 加载中...</div>';
   try{allSubmissions=await(await fetch(API+'/interview/submissions')).json()}catch{allSubmissions=[]}
@@ -2231,7 +2231,7 @@ function ivReviewFilterDiff(el){
 function renderReview(){
   const el=document.getElementById('ivReviewContent');
   const search=(document.getElementById('ivReviewSearch')?.value||'').toLowerCase();
-
+  
   // Group submissions by leetcode_id, keep latest per problem
   const byProblem={};
   for(const s of allSubmissions){
@@ -2239,7 +2239,7 @@ function renderReview(){
     if(!byProblem[s.leetcode_id])byProblem[s.leetcode_id]={subs:[],info:s};
     byProblem[s.leetcode_id].subs.push(s);
   }
-
+  
   // Enrich with problem info from ivProblems
   const items=[];
   for(const [lid,data] of Object.entries(byProblem)){
@@ -2254,17 +2254,17 @@ function renderReview(){
       subs:data.subs
     });
   }
-
+  
   // Filter
   let filtered=items;
   if(ivReviewDiffFilter!=='all')filtered=filtered.filter(i=>i.difficulty===ivReviewDiffFilter);
   if(search)filtered=filtered.filter(i=>i.title.toLowerCase().includes(search)||String(i.leetcode_id).includes(search)||i.category.toLowerCase().includes(search)||(i.tags||[]).some(t=>t.toLowerCase().includes(search)));
-
+  
   if(!filtered.length){
-    el.innerHTML='<div class="iv-review-empty">'+(!allSubmissions.length?'还没有提交记录,去刷几道题吧 🎯':'没有匹配的题解')+'</div>';
+    el.innerHTML='<div class="iv-review-empty">'+(!allSubmissions.length?'还没有提交记录，去刷几道题吧 🎯':'没有匹配的题解')+'</div>';
     return;
   }
-
+  
   // Group by category
   const cats={};
   for(const item of filtered){
@@ -2273,9 +2273,9 @@ function renderReview(){
   }
   // Sort categories, within each sort by leetcode_id
   const catOrder=Object.keys(cats).sort();
-
+  
   const diffBadge=d=>`<span class="iv-ri-diff ${d}">${d}</span>`;
-
+  
   el.innerHTML=catOrder.map(cat=>{
     const problems=cats[cat].sort((a,b)=>a.leetcode_id-b.leetcode_id);
     return`<div class="iv-review-cat">
