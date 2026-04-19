@@ -1309,7 +1309,7 @@ async function handleBtw(question){
 }
 
 // === SEND ===
-function perfLog(type,durationMs,extra){/* perf logging disabled */}
+function perfLog(type,durationMs,extra){try{fetch('/api/perf/log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,durationMs:Math.round(durationMs),...(extra||{})})}).catch(()=>{});}catch{}}
 async function sendMessage(){
   const text=input.value.trim();const images=[...pendingImages];
   if(!text&&!images.length)return;
@@ -1375,7 +1375,7 @@ async function sendMessage(){
       buf+=decoder.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();
       for(const line of lines){if(!line.startsWith('data: '))continue;const data=line.slice(6);if(data==='[DONE]')break;
         try{const parsed=JSON.parse(data);const choice=parsed.choices?.[0];
-        const delta=choice?.delta?.content;if(delta){if(!typingRemoved){removeTyping(chatId);if(currentId===chatId)el=appendMsg('assistant','',agent,false);typingRemoved=true;_perfTTFT=performance.now()-_perfStart;}full+=delta;_perfFull=full;if(el&&currentId===chatId){el.textContent=full;el.classList.add('raw');messagesEl.scrollTop=messagesEl.scrollHeight;}
+        const delta=choice?.delta?.content;if(delta){if(!typingRemoved){removeTyping(chatId);if(currentId===chatId)el=appendMsg('assistant','',agent,false);typingRemoved=true;_perfTTFT=performance.now()-_perfStart;perfLog('ttft',_perfTTFT);}full+=delta;_perfFull=full;if(el&&currentId===chatId){el.textContent=full;el.classList.add('raw');messagesEl.scrollTop=messagesEl.scrollHeight;}
         // Periodic save during streaming (every 3s)
         if(Date.now()-lastStreamSave>3000){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;}else{chat.messages.push({role:'assistant',content:full,_streaming:true});}chat.updatedAt=Date.now();save(chatId);lastStreamSave=Date.now();}
         }}catch{}}}
@@ -1404,6 +1404,10 @@ async function sendMessage(){
       msgEl.onclick=async()=>{msgEl.onclick=null;errEl.textContent='⏳ 正在尝试恢复...';if(await tryRecover()){msgEl.remove();}else{msgEl.remove();input.value=lastUserMsg;sendMessage();}};
     }
   }finally{
+    const _perfTotal=performance.now()-_perfStart;
+    if(_perfToolCount)perfLog('tool',_perfToolTotalMs,{count:_perfToolCount,pauses:_perfPauses.length>10?_perfPauses.slice(0,10):_perfPauses});
+    perfLog('streaming',_perfStreaming,{chars:_perfFull.length,speed:_perfStreaming>0?Math.round(_perfFull.length/(_perfStreaming/1000)):0});
+    perfLog('total',_perfTotal,{ttft:Math.round(_perfTTFT),http:Math.round(_perfHttpMs),streaming:Math.round(_perfStreaming),toolPauses:_perfToolCount,toolMs:Math.round(_perfToolTotalMs),chars:_perfFull.length});
   }
   streamingChats.delete(chatId);chat.updatedAt=Date.now();save();renderSidebar();
   if(currentId===chatId)streamBadge.classList.remove('show');
