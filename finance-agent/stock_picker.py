@@ -12,6 +12,7 @@ from data_collector import (
 )
 from performance_tracker import classify_sector, record_recommendation
 from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier, kelly_position_size, get_stop_loss_blacklist, get_sector_stop_loss_penalty
+from entry_quality import enrich_candidates_with_entry_quality, adjust_score_by_entry_quality
 
 
 # === 信号持续性数据库 (Signal Persistence) ===
@@ -1241,6 +1242,7 @@ def get_money_flow_candidates() -> list:
                     'score': min(info['count'] * 4, 12),
                 })
             if len(candidates) >= 35:  # v5.52优化: 从30改为35, +17%
+                break  # v5.52: 超过35个候选就停止
     except Exception as e:
         print(f"火箭发射获取失败: {e}")
 
@@ -1345,11 +1347,15 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
         if sig_base in learned_adj:
             quality_w *= learned_adj[sig_base]
         
-        # v5.49: MACD+RSI信号加权逻辑 — 基于回测最好成绩提升权重
-        # 回测数据: 17.1% 收益, 2.35 Sharpe, 60% 胜率 → 权重提升30%
+        # v5.53: MACD+RSI信号加权逻辑 — 激进权重提升
+        # 回测TOP1: 17.1% 收益, 2.35 Sharpe, 60% 胜率, 4.08%回撤 → 权重提升到1.5x
+        # 新增: MACD金叉+RSI上升 = 双信号 → 额外+15%权重
         if 'MACD' in c['signal'] or 'RSI' in c['signal']:
             from config import MACD_RSI_SIGNAL_BOOST
-            quality_w *= MACD_RSI_SIGNAL_BOOST  # 1.3x提升
+            quality_w *= MACD_RSI_SIGNAL_BOOST  # 1.5x激进提升
+            # 如果同时包含MACD和RSI双重信号,额外加强
+            if 'MACD' in c['signal'] and 'RSI' in c['signal']:
+                quality_w *= 1.15  # MACD+RSI双信号 +15%额外权重
         weighted_score = int(c['score'] * quality_w)
         if code in merged:
             merged[code]['signals'].append(c['signal'])
@@ -1365,7 +1371,7 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     # 排序取top
     ranked = sorted(merged.values(), key=lambda x: -x['score'])[:15]
 
-    # v5.49: 科技成长赛道权重优化 (+20%)
+    # v5.53: 科技成长赛道权重激进优化 (+30%)
     # 逻辑: 科技相关板块持续表现优异，基于回测数据提升权重
     try:
         from config import TECH_GROWTH_SECTORS, TECH_GROWTH_WEIGHT_BOOST
@@ -2383,6 +2389,15 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
 
     # 过滤
     tradeable = filter_tradeable(ranked)
+    
+    # v5.53: 入场质量评分系统集成
+    try:
+        tradeable = enrich_candidates_with_entry_quality(tradeable)  # 计算入场质量分
+        tradeable = adjust_score_by_entry_quality(tradeable, (0.8, 1.3))  # 权重调整0.8x-1.3x
+        high_quality_count = sum(1 for c in tradeable if c.get('entry_quality_score', 0) >= 65)
+        print(f"  ✅ v5.53入场质量评分: {len(tradeable)}只候选, {high_quality_count}只达到优质(≥65分)")
+    except Exception as e:
+        print(f"  ⚠️ 入场质量评分失败: {e}")
 
     return {
         'candidates': tradeable,

@@ -21,8 +21,8 @@ DB_PATH = "/home/nikefd/finance-agent/data/trading.db"
 # 报告输出
 REPORT_DIR = "/home/nikefd/finance-agent/reports"
 
-# =================== v5.49 深度优化: 回测驱动参数 ===================
-# MACD+RSI策略参数 (基于回测: 17.1% 收益, 2.35 Sharpe, 60% 胜率)
+# =================== v5.53 深度优化IV: 回测驱动参数强化 ===================
+# MACD+RSI策略参数 (基于回测TOP1: 17.1% 收益, 2.35 Sharpe, 60% 胜率, 4.08%回撤)
 MACD_PARAMS = {
     'fast': 12,
     'slow': 26,
@@ -36,10 +36,11 @@ RSI_PARAMS = {
     'overbought_threshold': 70  # 超买门槛
 }
 
-# MACD+RSI 信号权重提升
-MACD_RSI_SIGNAL_BOOST = 1.3  # 相比其他信号提升30%
+# v5.53: MACD+RSI 信号权重激进提升 (1.3x → 1.5x)
+# 理由: 回测数据显示MACD+RSI最优(17.1%+2.35Sharpe),直接加权确保权重覆盖
+MACD_RSI_SIGNAL_BOOST = 1.5  # 从1.3提升到1.5 (+15%额外权重)
 
-# 科技成长赛道权重优化
+# 科技成长赛道权重激进优化 (0.20 → 0.30)
 TECH_GROWTH_SECTORS = [
     '软件服务',
     '芯片',
@@ -47,12 +48,14 @@ TECH_GROWTH_SECTORS = [
     '电子产品',
     '通信设备',
     '互联网',
-    '计算机'
+    '计算机',
+    '人工智能',
+    '半导体'
 ]
-TECH_GROWTH_WEIGHT_BOOST = 0.20  # +20%权重
+TECH_GROWTH_WEIGHT_BOOST = 0.30  # 从0.20提升到0.30 (+50%权重加成)
 
 # 信号持续性要求
-MIN_SIGNAL_PERSISTENCE_DAYS = 3  # 至少连续3天才算持续性信号(从2天升级)
+MIN_SIGNAL_PERSISTENCE_DAYS = 3  # 至少连续3天才算持续性信号
 
 # 低胜率信号黑名单
 LOW_WIN_RATE_THRESHOLD = 0.40  # 胜率<40%
@@ -65,3 +68,19 @@ KELLY_WIN_RATE_BOOST = 0.05    # 胜率每高5%，仓位+1%(max 30%)
 # 高Sharpe持仓保留
 HIGH_SHARPE_THRESHOLD = 1.5    # Sharpe>1.5的持仓加强保留
 HIGH_SHARPE_STOP_LOSS_RELAX = 0.02  # 止损容错放宽+2%
+
+# =================== v5.53: 入场质量评分系统 ===================
+# 4维×25分模型: 趋势对齐 + 位置优势 + 量价确认 + 动量确认
+ENTRY_QUALITY_THRESHOLD = 65  # 入场质量通过门槛 (0-100分)
+
+# v5.53: 过滤器动态松绑参数
+HIGH_CASH_RATIO_THRESHOLD = 0.95  # 现金>95%触发激进模式
+LOSS_STREAK_THRESHOLD = 7          # 连亏≥7次触发微仓试单
+MICRO_POSITION_SIZE = 0.025        # 连亏微仓: 固定2.5%
+
+# v5.53: 支撑位强化参数
+VP_SUPPORT_STRENGTH_THRESHOLD = 1.5  # Volume Profile支撑强度系数
+Z_SCORE_EXTREME_THRESHOLD = -2.0     # 统计极度超卖门槛
+Z_SCORE_EXTREME_BONUS_BEAR = 12      # 熊市Z<-2加12分
+Z_SCORE_EXTREME_BONUS_NORMAL = 8     # 普通市Z<-2加8分
+FIB_618_SUPPORT_BONUS = 7            # FIB 0.618支撑+7分
