@@ -240,6 +240,18 @@ textarea::placeholder{color:var(--text-sec)}
   .memory-welcome{flex:1;overflow:auto}
   .mem-back{display:none!important}
 }
+/* Chat search */
+.chat-search{padding:8px 12px 4px;position:relative}
+.chat-search input{width:100%;padding:7px 28px 7px 30px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.8rem;outline:none;font-family:inherit;box-sizing:border-box}
+.chat-search input:focus{border-color:var(--accent)}
+.chat-search .icon{position:absolute;left:22px;top:50%;transform:translateY(-50%);font-size:.75rem;color:var(--text-sec);pointer-events:none}
+.chat-search .clear{position:absolute;right:20px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-sec);font-size:1rem;padding:2px 6px;display:none;font-family:inherit}
+.chat-search .clear:hover{color:var(--text)}
+.chat-search.has-value .clear{display:block}
+.chat-item .snippet{display:block;font-size:.7rem;color:var(--text-sec);margin-top:3px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-item mark{background:rgba(255,220,0,.35);color:inherit;padding:0 2px;border-radius:2px}
+.msg.search-hit{animation:searchHitFlash 1.6s ease-out}
+@keyframes searchHitFlash{0%{background:rgba(255,220,0,.35)}100%{background:transparent}}
 /* Skills panel */
 .skills-header{padding:14px 20px;border-bottom:1px solid var(--border);background:var(--sidebar-bg)}
 .skills-search-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
@@ -405,6 +417,7 @@ textarea::placeholder{color:var(--text-sec)}
 <div class="overlay" id="overlay"></div>
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header"><button class="new-chat-btn" id="newChatBtn"><span>＋</span><span>新建对话</span></button></div>
+  <div class="chat-search" id="chatSearchBox"><span class="icon">🔍</span><input type="text" id="chatSearchInput" placeholder="搜索对话（标题/内容）" autocomplete="off"><button class="clear" id="chatSearchClear" title="清空">✕</button></div>
 
   <div class="chat-list" id="chatList"></div>
   <div class="sidebar-footer">
@@ -1176,25 +1189,60 @@ function getAgent(id){return AGENTS.find(a=>a.id===id)||AGENTS[0];}
 // Agent selection removed - use @mention in chat instead
 
 // === SIDEBAR ===
+let chatSearchQuery='';
+function escReg(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+function highlightText(text,q){if(!q)return esc(text);const re=new RegExp('('+escReg(q)+')','gi');return esc(text).replace(re,'<mark>$1</mark>');}
+function findSnippet(text,q,radius=30){const lower=text.toLowerCase(),idx=lower.indexOf(q.toLowerCase());if(idx<0)return '';const start=Math.max(0,idx-radius),end=Math.min(text.length,idx+q.length+radius);return (start>0?'…':'')+text.substring(start,end)+(end<text.length?'…':'');}
+function chatMatches(c,q){
+  if(!q)return {match:true,snippet:'',msgIdx:-1};
+  const lq=q.toLowerCase();
+  if((c.title||'').toLowerCase().includes(lq))return {match:true,snippet:'',msgIdx:-1};
+  for(let i=0;i<c.messages.length;i++){
+    const m=c.messages[i];const txt=typeof m.content==='string'?m.content:'';
+    if(txt.toLowerCase().includes(lq))return {match:true,snippet:findSnippet(txt,q),msgIdx:i};
+  }
+  return {match:false};
+}
 function renderSidebar(){
   const today=new Date().toDateString(),yesterday=new Date(Date.now()-86400000).toDateString();
-  let html='',lastGroup='';
+  const q=chatSearchQuery.trim();
+  let html='',lastGroup='',shown=0;
   [...chats].sort((a,b)=>b.updatedAt-a.updatedAt).forEach(c=>{
+    const hit=chatMatches(c,q);if(!hit.match)return;shown++;
     const d=new Date(c.updatedAt).toDateString();
     let g=d===today?'今天':d===yesterday?'昨天':new Date(c.updatedAt).toLocaleDateString('zh-CN',{month:'short',day:'numeric'});
+    if(q)g='搜索结果';
     if(g!==lastGroup){html+=`<div style="padding:6px 12px 3px;font-size:11px;color:var(--text-sec);font-weight:600">${g}</div>`;lastGroup=g;}
     const a=getAgent(c.agentId),s=streamingChats.has(c.id);
-    html+=`<div class="chat-item ${c.id===currentId?'active':''}" data-id="${c.id}"><div class="agent-dot" style="background:${a.color}"></div><div class="info"><span class="title">${esc(c.title)}${s?' ⏳':''}</span><span class="meta">${a.emoji} ${a.name}</span></div><div class="actions"><button class="edit-btn" data-edit="${c.id}" title="编辑标题">✏️</button><button class="delete" data-del="${c.id}">✕</button></div></div>`;
+    const titleHtml=q?highlightText(c.title,q):esc(c.title);
+    const snippetHtml=(q&&hit.snippet)?`<span class="snippet">${highlightText(hit.snippet,q)}</span>`:'';
+    const jumpAttr=hit.msgIdx>=0?` data-jump-msg="${hit.msgIdx}"`:'';
+    html+=`<div class="chat-item ${c.id===currentId?'active':''}" data-id="${c.id}"${jumpAttr}><div class="agent-dot" style="background:${a.color}"></div><div class="info"><span class="title">${titleHtml}${s?' ⏳':''}</span><span class="meta">${a.emoji} ${a.name}</span>${snippetHtml}</div><div class="actions"><button class="edit-btn" data-edit="${c.id}" title="编辑标题">✏️</button><button class="delete" data-del="${c.id}">✕</button></div></div>`;
   });
-  chatList.innerHTML=html||'<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px">暂无对话</div>';
+  if(!shown){
+    chatList.innerHTML=q?`<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px">未找到匹配「${esc(q)}」的对话</div>`:'<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px">暂无对话</div>';
+  }else{chatList.innerHTML=html;}
 }
 chatList.addEventListener('click',e=>{
   const del=e.target.closest('[data-del]');
   if(del){e.stopPropagation();const id=del.dataset.del;chats=chats.filter(c=>c.id!==id);save();fetch('/api/chats/'+encodeURIComponent(id),{method:'DELETE'}).catch(()=>{});if(currentId===id){currentId=null;renderChat();}renderSidebar();return;}
   const edit=e.target.closest('[data-edit]');
   if(edit){e.stopPropagation();startEditSidebar(edit.dataset.edit);return;}
-  const item=e.target.closest('.chat-item');if(item)switchChat(item.dataset.id);
+  const item=e.target.closest('.chat-item');if(item){const jumpIdx=item.dataset.jumpMsg?parseInt(item.dataset.jumpMsg,10):-1;switchChat(item.dataset.id,jumpIdx);}
 });
+// Search wiring
+(function(){
+  const box=$('chatSearchBox'),inp=$('chatSearchInput'),clr=$('chatSearchClear');
+  if(!inp)return;
+  let t=null;
+  inp.addEventListener('input',()=>{
+    chatSearchQuery=inp.value;
+    box.classList.toggle('has-value',!!inp.value);
+    clearTimeout(t);t=setTimeout(()=>renderSidebar(),120);
+  });
+  clr.addEventListener('click',()=>{inp.value='';chatSearchQuery='';box.classList.remove('has-value');renderSidebar();inp.focus();});
+  inp.addEventListener('keydown',e=>{if(e.key==='Escape'){inp.value='';chatSearchQuery='';box.classList.remove('has-value');renderSidebar();inp.blur();}});
+})();
 $('clearAllBtn').addEventListener('click',()=>{if(confirm('确定清空所有对话？此操作不可撤销！')){fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json','X-Backup':'true'},body:JSON.stringify(chats)}).catch(()=>{});chats=[];save();currentId=null;renderChat();renderSidebar();}});
 $('logoutBtn').addEventListener('click',async()=>{await fetch('/auth/logout');window.location.href='/login';});
 
@@ -1222,7 +1270,7 @@ function startEditTopTitle(){
 topTitle.addEventListener('dblclick',startEditTopTitle);
 // --- end title editing ---
 function newChat(){const c={id:'chat_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),title:'新对话',agentId:'main',messages:[],createdAt:Date.now(),updatedAt:Date.now()};chats.unshift(c);save();switchChat(c.id);}
-function switchChat(id){currentId=id;closeSidebar();renderChat();renderSidebar();input.focus();}
+function switchChat(id,jumpMsgIdx){currentId=id;closeSidebar();renderChat();renderSidebar();input.focus();if(typeof jumpMsgIdx==='number'&&jumpMsgIdx>=0){requestAnimationFrame(()=>{const nodes=messagesEl.querySelectorAll('.message');const target=nodes[jumpMsgIdx];if(target){target.scrollIntoView({behavior:'smooth',block:'center'});target.classList.add('search-hit');setTimeout(()=>target.classList.remove('search-hit'),1700);}});}}
 function renderChat(){
   const c=getChat(currentId);
   if(!c){topTitle.textContent='OpenClaw';agentBadge.textContent='';streamBadge.classList.remove('show');renderWelcome();return;}
