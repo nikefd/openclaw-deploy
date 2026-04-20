@@ -265,7 +265,8 @@ def kelly_position_size(sector: str, confidence: int) -> float:
             if cash_ratio > 0.90 and not is_extreme_bear:
                 # Kelly上限从0.25/0.15/0.10等提升2.5%
                 params['max_kelly'] = min(params['max_kelly'] + 0.025, 0.35)
-                adjusted = min(adjusted * (1 + 0.06), params['max_kelly'])
+                # v5.52优化: 激进系数从1.06→1.10 (+4% → +10%资金效率提升)
+                adjusted = min(adjusted * (1 + 0.10), params['max_kelly'])
     except:
         pass  # 账户查询失败时保持默认
     

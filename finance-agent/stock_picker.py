@@ -1150,10 +1150,10 @@ def get_momentum_candidates() -> list:
     """策略1: 动量策略 — 量价齐升+创新高"""
     candidates = []
 
-    # 量价齐升
+    # 量价齐升 (v5.52优化: 从30改为45, +50%)
     try:
         df = ak.stock_rank_ljqs_ths()
-        for _, row in df.head(30).iterrows():
+        for _, row in df.head(45).iterrows():
             code = str(row.get('股票代码', ''))
             candidates.append({
                 'code': code,
@@ -1165,11 +1165,11 @@ def get_momentum_candidates() -> list:
     except Exception as e:
         print(f"量价齐升获取失败: {e}")
 
-    # 创新高
+    # 创新高 (v5.52优化: 从20改为28, +40%)
     try:
         time.sleep(0.5)
         df = ak.stock_rank_cxg_ths()
-        for _, row in df.head(20).iterrows():
+        for _, row in df.head(28).iterrows():
             code = str(row.get('股票代码', ''))
             existing = next((c for c in candidates if c['code'] == code), None)
             if existing:
@@ -1212,7 +1212,7 @@ def get_money_flow_candidates() -> list:
                     'signal': f'大笔买入×{info["count"]}',
                     'score': min(info['count'] * 3, 15),
                 })
-            if len(candidates) >= 20:
+            if len(candidates) >= 25:  # v5.52优化: 从20改为25, +25%
                 break
     except Exception as e:
         print(f"大笔买入获取失败: {e}")
@@ -1240,8 +1240,7 @@ def get_money_flow_candidates() -> list:
                     'signal': f'火箭发射×{info["count"]}',
                     'score': min(info['count'] * 4, 12),
                 })
-            if len(candidates) >= 30:
-                break
+            if len(candidates) >= 35:  # v5.52优化: 从30改为35, +17%
     except Exception as e:
         print(f"火箭发射获取失败: {e}")
 
