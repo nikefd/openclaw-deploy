@@ -1282,9 +1282,6 @@ function renderMarkdown(md){
 }
 
 async function addToLearn(articleId){
-  alert('此功能暂时不可用');
-  return;
-  /*
   const article=allNews.find(a=>a.id===articleId);
   if(!article){alert('找不到文章');return}
   const btn=event.target;
@@ -1354,7 +1351,6 @@ async function addToLearn(articleId){
     btn.disabled=false;btn.textContent='📚 加入学习';
     alert('生成失败: '+e.message);
   }
-  */
 }
 
 // Mermaid code cleaner – fixes common LLM output issues
