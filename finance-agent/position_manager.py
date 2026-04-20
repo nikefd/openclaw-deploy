@@ -235,6 +235,40 @@ def kelly_position_size(sector: str, confidence: int) -> float:
     except:
         pass  # 性能数据不可用时省略
     
+    # v5.50 新增: 现金闲置激进模式
+    # 当现金>90% 且不是极端熊市 时，Kelly上限上提2.5%(0.25→0.35)
+    # 逻辑: 现金过剩说明选股过于保守，应激进消耗闲置
+    try:
+        from trading_engine import get_account
+        acc = get_account()
+        if acc:
+            total_value = acc.get('total_value', 1e6)
+            cash = acc.get('cash', total_value)
+            cash_ratio = cash / total_value if total_value > 0 else 1.0
+            
+            # 简单熊市检测：最近10天亏损>50%次数
+            is_extreme_bear = False
+            try:
+                import sqlite3
+                conn = sqlite3.connect(DB_PATH)
+                c = conn.cursor()
+                cutoff = (date.today() - timedelta(days=10)).isoformat()
+                c.execute("""SELECT COUNT(*) FROM trades WHERE direction='SELL' AND reason LIKE '%止损%' AND trade_date >= ?""", (cutoff,))
+                sl_count = c.fetchone()[0] or 0
+                conn.close()
+                if sl_count > 5:  # 10天内止损>5次说明是熊市
+                    is_extreme_bear = True
+            except:
+                pass
+            
+            # 激进激励: 现金>90% + 不是极端熊市
+            if cash_ratio > 0.90 and not is_extreme_bear:
+                # Kelly上限从0.25/0.15/0.10等提升2.5%
+                params['max_kelly'] = min(params['max_kelly'] + 0.025, 0.35)
+                adjusted = min(adjusted * (1 + 0.06), params['max_kelly'])
+    except:
+        pass  # 账户查询失败时保持默认
+    
     # 限制在合理范围
     return min(adjusted, params['max_kelly'])
 
@@ -739,9 +773,33 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         # 时间止损盈利上限: 牛市只清微利(<1.5%)，震荡/熊市清<3%
         time_stop_profit_cap = 0.015 if regime == 'bull' else 0.03
         
+        # v5.50 新增: 市场暴跌日止损容错机制
+        # 当市场跌停>5只或指数日跌>3% 时，整日不触发时间止损（保护风险资产度过回调）
+        from datetime import datetime as dt
+        today_market_crash = False
+        try:
+            from data_collector import get_market_sentiment, get_stock_daily
+            sentiment = get_market_sentiment()
+            limit_down_count = sentiment.get('limit_down_count', 0) or 0
+            
+            if limit_down_count > 5:
+                today_market_crash = True
+            else:
+                # 检查指数跌幅
+                idx_df = get_stock_daily('000001', 10)
+                if idx_df is not None and len(idx_df) >= 2:
+                    today_close = float(idx_df.iloc[-1]['收盘'])
+                    yest_close = float(idx_df.iloc[-2]['收盘'])
+                    idx_chg = (today_close - yest_close) / yest_close
+                    if idx_chg < -0.03:
+                        today_market_crash = True
+        except:
+            pass
+        
         if buy_date:
             hold_days_ts = _trading_days_since(buy_date)
-            if hold_days_ts >= 0 and hold_days_ts >= time_stop_days and time_stop_loss_floor <= pnl_pct <= time_stop_profit_cap:
+            # v5.50: 暴跌日容错 - 跳过时间止损检查
+            if not today_market_crash and hold_days_ts >= 0 and hold_days_ts >= time_stop_days and time_stop_loss_floor <= pnl_pct <= time_stop_profit_cap:
                     actions.append({
                         "action": "SELL",
                         "symbol": pos['symbol'],

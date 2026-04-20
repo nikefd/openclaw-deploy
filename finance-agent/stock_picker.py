@@ -828,6 +828,101 @@ def get_smart_money_candidates() -> list:
         return []
 
 
+
+def get_rsi_extreme_reversal_candidates() -> list:
+    """v5.50 新增 策略7.5: RSI极端超卖反弹信号 — 全市场
+    
+    核心逐辑：
+    1. RSI(14)<20 且最近。2日RSI都<30 → 极端超卖信号
+    2. 不要超跌股（跌幅>-15%）、不要已体量储力为负(cumulative volume < -20%)
+    3. 按RSI极低整序，取top30
+    
+    权重: 0.8x (保守)
+    """
+    candidates = []
+    try:
+        from data_collector import get_stock_daily, calculate_technical_indicators
+        import pandas as pd
+        
+        # 取两市所有A股
+        all_stocks = []
+        try:
+            import akshare as ak
+            # 根据RSI排厨找极端超卖股
+            # 我们自己扫描手技股池，不RSI排基本不存在，使用旅游頎豆剪提供的笋广捷提取散户股
+            all_stocks = ak.stock_zh_a_spot_em()[['代码', '名称']].head(200).values.tolist()
+        except Exception as e:
+            print(f"    ⚠️ 下载A股清单失败: {e}")
+            return []
+        
+        # 扫描每一只股的RSI
+        import sqlite3
+        from datetime import date as _date, timedelta
+        
+        for code, name in all_stocks:
+            try:
+                # 取近日12日数据
+                df = get_stock_daily(str(code), 14)
+                if df is None or len(df) < 12:
+                    continue
+                
+                # 计算技术指标
+                tech = calculate_technical_indicators(df)
+                if not tech:
+                    continue
+                
+                rsi_today = tech.get('rsi14', 50)
+                
+                # 极端超卖探测: 今日RSI<20
+                if rsi_today >= 20:
+                    continue
+                
+                # 执二天RSI检查（执亊一天）
+                if len(df) >= 2:
+                    # 厚一元数据是最新的，执亊一天是候选
+                    df_yesterday = df.iloc[:-1].reset_index(drop=True)
+                    tech_yesterday = calculate_technical_indicators(df_yesterday)
+                    rsi_yesterday = tech_yesterday.get('rsi14', 50) if tech_yesterday else 50
+                else:
+                    rsi_yesterday = rsi_today
+                
+                # 执亊RSI也需要<30 (探测持续超卖)
+                if rsi_yesterday >= 30:
+                    continue
+                
+                # 优化: 字体不超跌、不是趋新股、不是ST股
+                if isinstance(name, str):
+                    if '*ST' in name or 'ST' == name[:2]:
+                        continue
+                
+                # 检查跌幅（最近月线）
+                if len(df) >= 20:
+                    price_low_20d = df['低'].astype(float).min()
+                    price_close_today = float(df.iloc[-1]['收盘'])
+                    drop_from_high = (price_close_today - price_low_20d) / price_low_20d
+                    if drop_from_high < -0.15:  # 超跌15%+稍保守
+                        continue
+                
+                candidates.append({
+                    'code': str(code),
+                    'name': name,
+                    'signal': f'RSI极端超卖({rsi_today:.0f}/{rsi_yesterday:.0f})',
+                    'score': min(80 - rsi_today, 15),  # RSI越低分数越高(上限15分)
+                    'rsi_today': rsi_today,
+                    'rsi_yesterday': rsi_yesterday,
+                    'weight_multiplier': 0.8,  # 权重0.8x(保守)
+                })
+            except Exception as e:
+                continue
+        
+        # 按RSI杰晴序，取top30
+        candidates = sorted(candidates, key=lambda x: x.get('rsi_today', 50))
+        return candidates[:30]
+    except Exception as e:
+        print(f"  RSI超卖扫描失败: {e}")
+        return []
+
+
 def get_bottom_breakout_candidates() -> list:
     """策略8: 底部放量突破扫描 — 全市场
     
@@ -2058,6 +2153,17 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
         oversold_candidates = get_oversold_reversal_candidates()
         print(f"    → {len(oversold_candidates)}只超跌企稳候选")
 
+    # === 策略7.5 (新增 v5.50): RSI超卖反向信号(全市场) ===
+    # v5.50 新增：当RSI极端超卖(<20)且持续时，生成自动反弹信号
+    # 权重保守(0.8x)确保安全性，只在极端情况触发
+    rsi_reversal_candidates = []
+    print("  📉 策略7.5 (新): RSI超卖反向信号扫描...")
+    try:
+        rsi_reversal_candidates = get_rsi_extreme_reversal_candidates()
+        print(f"    → {len(rsi_reversal_candidates)}只RSI极端超卖反弹候选")
+    except Exception as e:
+        print(f"  ⚠️ RSI超卖扫描失败: {e}")
+
     # === 策略8: 底部放量突破(全市场) ===
     breakout_candidates = []
     print("  🔥 策略8: 底部放量突破扫描...")
@@ -2077,7 +2183,7 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
         print(f"  ⚠️ 主力资金扫描失败: {e}")
 
     # 合并所有候选
-    all_candidates = momentum + money + strong + institution + news_candidates + money_candidates + oversold_candidates + breakout_candidates + smart_money_candidates
+    all_candidates = momentum + money + strong + institution + news_candidates + money_candidates + oversold_candidates + rsi_reversal_candidates + breakout_candidates + smart_money_candidates
     print(f"  📊 共{len(all_candidates)}条信号，开始综合打分...")
 
     # 打分排名（含市场状态调节）

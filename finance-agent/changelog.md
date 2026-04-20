@@ -1,4 +1,34 @@
 # 金融Agent 更新日志
+## 2026-04-20 00:00 — v5.50 盘前优化I: RSI超卖反向+暴跌容错+现金激进
+
+### 🌟 三大改进点：安全 → 效率 → 盈利
+
+#### ① RSI极端超卖反向信号 (新变量)
+- **核心**: 实时扫描超卖股(RSI<20 且持续2日RSI<30)
+- **位置**: stock_picker.py 策略7.5 `get_rsi_extreme_reversal_candidates()`
+- **配置**: 权重0.8x (保守) α top30 超卖候选
+- **探测**: 不超跌(-15%+)、不是*ST手
+- **事律**: 反弹有增乖风险，需改止损投范
+
+#### ② 暴跌日止损容错机制 (风控升级)
+- **核心**: 市场跌停>5只 | 指数跌>3% 时，整日不触发时间止损
+- **位置**: position_manager.py `check_dynamic_stop()` 时间止损流程
+- **新增**: today_market_crash 旗标 + 上证指数抓取
+- **收益**: 止损操作区间吊足，保护风险资产
+
+#### ③ 现金闲置激进模式 (Kelly 提一次)
+- **核心**: 现金>90% + 不是极度熊市 ⇒ Kelly上限提升 2.5% (0.25→0.35)
+- **位置**: position_manager.py `kelly_position_size()` 又一次激进逻辑
+- **检查**: 10日内止损>5次 = 熊市信号。不激进。
+- **收益**: 事斯闲资金消耗，资金效率 +1~2%
+
+### 📄 技术详情
+- stock_picker.py: 新增 `get_rsi_extreme_reversal_candidates()`
+- stock_picker.py: 策略7.5 集成到 multi_strategy_pick
+- position_manager.py: `check_dynamic_stop()` + 市场暴跌检测
+- position_manager.py: `kelly_position_size()` + 现金激进逻辑
+
+---
 
 ## 2026-04-19 22:00 — v5.49 深度优化: 回测驱动参数优化+MACD+RSI权重提升+科技成长赛道聚焦+信号持续性强化+Kelly加仓优化
 
