@@ -155,6 +155,7 @@ tr.pos-row.expanded{background:var(--hover)}
   .cards{grid-template-columns:1fr}
 }
 </style>
+<script src="finance-v5-51.js"></script>
 </head>
 <body>
 
@@ -281,6 +282,30 @@ tr.pos-row.expanded{background:var(--hover)}
     <div class="chart-box" style="margin-bottom:24px">
       <h3>📊 持仓盈亏对比</h3>
       <canvas id="posPnlChart" style="max-height:220px"></canvas>
+    </div>
+    <!-- Risk Alert Panel (NEW v5.51) -->
+    <div style="background:var(--card);border:2px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px;position:relative">
+      <h3 style="font-size:14px;color:var(--sub);margin-bottom:12px">🚨 实时风险告警</h3>
+      <div id="riskAlertGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px"></div>
+    </div>
+    <!-- Stop-Loss/Take-Profit Execution Board (NEW v5.51) -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px">
+      <h3 style="font-size:14px;color:var(--sub);margin-bottom:12px">📊 止损/止盈执行看板 (近30天)</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+        <div style="padding:12px;background:var(--hover);border-radius:8px;text-align:center">
+          <div style="font-size:28px;font-weight:700" id="slExecCount">--</div>
+          <div style="font-size:12px;color:var(--sub);margin-top:4px">止损执行次数</div>
+        </div>
+        <div style="padding:12px;background:var(--hover);border-radius:8px;text-align:center">
+          <div style="font-size:28px;font-weight:700" id="tpExecCount">--</div>
+          <div style="font-size:12px;color:var(--sub);margin-top:4px">止盈执行次数</div>
+        </div>
+        <div style="padding:12px;background:var(--hover);border-radius:8px;text-align:center">
+          <div style="font-size:28px;font-weight:700" id="invalidSlPct">--</div>
+          <div style="font-size:12px;color:var(--sub);margin-top:4px">无效止损率</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="slTpReasonGrid"></div>
     </div>
     <!-- Recent Trades Quick View -->
     <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px">
@@ -814,6 +839,8 @@ async function loadDashboard(){
   renderGauge(d.sentiment);
   renderAllocCharts(d.positions||[], a.cash);
   renderPosPnlChart(d.positions||[]);
+  loadRiskAlerts(d);
+  loadStopLossTakeProfitBoard(d);
   updateTime();
 }
 

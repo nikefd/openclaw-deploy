@@ -897,6 +897,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/trade-calendar' && req.method === 'GET') return handleTradeCalendar(req, res);
     if (pathname === '/api/finance/strategy-contribution' && req.method === 'GET') return handleStrategyContribution(req, res);
     if (pathname === '/api/finance/recent-trades' && req.method === 'GET') return handleRecentTrades(req, res);
+    if (pathname === '/api/finance/risk-alerts' && req.method === 'GET') return handleRiskAlerts(req, res);
+    if (pathname === '/api/finance/sl-tp-board' && req.method === 'GET') return handleSlTpBoard(req, res);
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);
@@ -1024,3 +1026,104 @@ function handleCapitalUtilization(req, res) {
 }
 
 server.listen(PORT, () => log(`Finance API server running on port ${PORT}`));
+
+// === v5.51 新增: 风险告警面板 ===
+function handleRiskAlerts(req, res) {
+  const accounts = querySqlite('SELECT * FROM account ORDER BY id DESC LIMIT 1');
+  const positions = querySqlite('SELECT * FROM positions');
+  const trades = querySqlite("SELECT * FROM trades ORDER BY trade_date DESC, id DESC LIMIT 20");
+  
+  const account = accounts[0] || { cash: 0, total_value: 0, initial_capital: INITIAL_CAPITAL };
+  const alerts = [];
+  
+  // 1. 现金占比过高告警
+  const cashRatio = account.total_value ? account.cash / account.total_value * 100 : 0;
+  if (cashRatio > 95) alerts.push({ level: 'high', label: '现金闲置严重', value: cashRatio.toFixed(1) + '%' });
+  else if (cashRatio > 85) alerts.push({ level: 'medium', label: '现金占比过高', value: cashRatio.toFixed(1) + '%' });
+  
+  // 2. 持仓集中度告警
+  if (positions.length > 0) {
+    const posValues = positions.map(p => (p.current_price || 0) * (p.shares || 0));
+    const totalPos = posValues.reduce((s, v) => s + v, 0);
+    const maxPos = totalPos > 0 ? Math.max(...posValues) / totalPos * 100 : 0;
+    if (maxPos > 40) alerts.push({ level: 'high', label: '单持仓过集中', value: maxPos.toFixed(1) + '%' });
+    else if (maxPos > 30) alerts.push({ level: 'medium', label: '仓位集中度偏高', value: maxPos.toFixed(1) + '%' });
+  }
+  
+  // 3. 连亏检测 (近期卖出胜率)
+  if (trades.length > 0) {
+    const losses = trades.filter(t => t.direction === 'SELL' && t.pnl && t.pnl < 0).length;
+    const total = trades.filter(t => t.direction === 'SELL').length;
+    if (total > 0) {
+      const lossRatio = losses / total * 100;
+      if (lossRatio > 70) alerts.push({ level: 'high', label: '连续亏损', value: '最近' + total + '笔中' + losses + '笔亏' });
+      else if (lossRatio > 50) alerts.push({ level: 'medium', label: '亏损率偏高', value: lossRatio.toFixed(0) + '%' });
+    }
+  }
+  
+  // 4. 回撤告警
+  const snapshots = querySqlite('SELECT * FROM daily_snapshots ORDER BY date DESC LIMIT 30');
+  if (snapshots.length > 1) {
+    let peak = 0;
+    for (let s of snapshots) {
+      if (s.total_value > peak) peak = s.total_value;
+    }
+    const current = snapshots[0].total_value || 0;
+    const dd = peak > 0 ? (current - peak) / peak * 100 : 0;
+    if (dd < -8) alerts.push({ level: 'high', label: '回撤过深', value: dd.toFixed(2) + '%' });
+    else if (dd < -5) alerts.push({ level: 'medium', label: '回撤预警', value: dd.toFixed(2) + '%' });
+    else alerts.push({ level: 'low', label: '回撤正常', value: dd.toFixed(2) + '%' });
+  }
+  
+  sendJson(res, { alerts });
+}
+
+// === v5.51 新增: 止损/止盈执行看板 ===
+function handleSlTpBoard(req, res) {
+  const allSells = querySqlite("SELECT * FROM trades WHERE direction='SELL' ORDER BY trade_date DESC");
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const recent = allSells.filter(t => new Date(t.trade_date) >= thirtyDaysAgo);
+  
+  const slTrades = recent.filter(t => t.reason && (t.reason.includes('止损') || t.reason.includes('stop') || t.reason.includes('Stop')));
+  const tpTrades = recent.filter(t => t.reason && (t.reason.includes('止盈') || t.reason.includes('profit') || t.reason.includes('take')));
+  
+  // 统计止损原因
+  const slReasons = {};
+  slTrades.forEach(t => {
+    let reason = '未知止损';
+    if (t.reason) {
+      if (t.reason.includes('支撑')) reason = '支撑破位';
+      else if (t.reason.includes('时间')) reason = '时间止损';
+      else if (t.reason.includes('早期')) reason = '早期止损';
+      else if (t.reason.includes('追踪')) reason = '追踪止损';
+      else if (t.reason.includes('动态')) reason = '动态止损';
+    }
+    slReasons[reason] = (slReasons[reason] || 0) + 1;
+  });
+  
+  // 统计止盈原因
+  const tpReasons = {};
+  tpTrades.forEach(t => {
+    let reason = '未知止盈';
+    if (t.reason) {
+      if (t.reason.includes('阶梯')) reason = '阶梯止盈';
+      else if (t.reason.includes('半仓')) reason = '半仓止盈';
+      else if (t.reason.includes('连亏')) reason = '连亏锁利';
+      else if (t.reason.includes('高位')) reason = '高位减仓';
+      else if (t.reason.includes('暴涨')) reason = '暴涨冲高';
+    }
+    tpReasons[reason] = (tpReasons[reason] || 0) + 1;
+  });
+  
+  const invalidSlRatio = recent.length > 0 ? Math.min(Math.round(slTrades.length / recent.length * 100), 100) : 0;
+  
+  sendJson(res, {
+    sl_count: slTrades.length,
+    tp_count: tpTrades.length,
+    invalid_sl_pct: Math.max(0, 100 - invalidSlRatio * 1.5),
+    sl_reasons: slReasons,
+    tp_reasons: tpReasons
+  });
+}
+
