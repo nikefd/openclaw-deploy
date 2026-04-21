@@ -825,11 +825,62 @@ function applyTheme(t){document.documentElement.setAttribute('data-theme',t);loc
 function toggleTheme(){applyTheme(getTheme()==='dark'?'light':'dark')}
 applyTheme(getTheme());
 
-// ─── Nav ───
-function showHub(){document.getElementById('hubView').style.display='';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));history.pushState({},'','/agents/')}
-function showPanel(n){document.getElementById('hubView').style.display='none';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+n).classList.add('active');history.pushState({},'','/agents/'+n);if(n==='ai-news'){loadNewsList().then(()=>loadTracks())}if(n==='fitness'){loadClimbingCoach()}if(n==='interview'){loadIVData()}}
-const ip=location.pathname.replace(/\/+$/,'');
-if(ip==='/agents/ai-news')showPanel('ai-news');else if(ip==='/agents/fitness')showPanel('fitness');else if(ip==='/agents/interview')showPanel('interview');
+// ─── Nav / Router ───
+// URL 结构:
+//   /agents/                         -> hub
+//   /agents/ai-news                  -> ai-news 新闻 tab
+//   /agents/ai-news/sources          -> ai-news 数据来源 tab
+//   /agents/ai-news/learn            -> ai-news 学习中心 tab
+//   /agents/ai-news/learn/:guideId   -> 学习中心里打开某篇 guide
+//   /agents/ai-news/article/:id      -> 文章解读 reader
+//   /agents/fitness, /agents/interview, /agents/vibe ...
+let _suppressRoute=false; // avoid popstate feedback when we're the ones pushing
+function _push(url){if(location.pathname+location.search===url)return;history.pushState({},'',url)}
+function _replace(url){if(location.pathname+location.search===url)return;history.replaceState({},'',url)}
+
+function showHub(push=true){document.getElementById('hubView').style.display='';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));if(push)_push('/agents/')}
+function showPanel(n,push=true){document.getElementById('hubView').style.display='none';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));const pe=document.getElementById('panel-'+n);if(!pe){showHub(push);return}pe.classList.add('active');if(push)_push('/agents/'+n);if(n==='ai-news'&&!window._aiNewsLoaded){window._aiNewsLoaded=true;loadNewsList().then(()=>loadTracks())}if(n==='fitness'&&!window._fitnessLoaded){window._fitnessLoaded=true;loadClimbingCoach()}if(n==='interview'&&!window._ivLoaded){window._ivLoaded=true;loadIVData()}}
+
+// Parse URL -> state, then apply. Called on load and popstate.
+function applyRoute(){
+  _suppressRoute=true;
+  try{
+    const path=location.pathname.replace(/\/+$/,'');
+    // /agents or /agents/ -> hub
+    if(path===''||path==='/agents'){showHub(false);return}
+    const parts=path.split('/').filter(Boolean); // ['agents','ai-news',...]
+    if(parts[0]!=='agents'){showHub(false);return}
+    const panel=parts[1];
+    if(!panel){showHub(false);return}
+    // Always show the panel first (no push)
+    showPanel(panel,false);
+    if(panel!=='ai-news')return;
+    const sub=parts[2];
+    if(!sub){switchAiTab('news',false);closeReader(false);return}
+    if(sub==='sources'){switchAiTab('sources',false);closeReader(false);return}
+    if(sub==='learn'){
+      switchAiTab('learn',false);
+      closeReader(false);
+      const gid=parts[3];
+      if(gid){
+        // open guide after guides load
+        const tryOpen=()=>{if(typeof allGuides!=='undefined'&&allGuides&&allGuides.length){openGuide(decodeURIComponent(gid),false)}else{setTimeout(tryOpen,200)}};
+        tryOpen();
+      }
+      return;
+    }
+    if(sub==='article'){
+      switchAiTab('news',false);
+      const aid=parts[3];
+      if(aid){
+        const tryOpen=()=>{if(typeof allNews!=='undefined'&&allNews&&allNews.length){openReader(decodeURIComponent(aid),false)}else{setTimeout(tryOpen,200)}};
+        tryOpen();
+      }
+    }
+  }finally{_suppressRoute=false}
+}
+window.addEventListener('popstate',applyRoute);
+applyRoute();
 
 // ─── Learning Tracks ───
 let allTracks=[];
@@ -941,7 +992,7 @@ var allGuides=[];
 var activeGuideId=null;
 var guideSortMode='category';
 
-function switchAiTab(tab){
+function switchAiTab(tab,push=true){
   const panel=document.getElementById('panel-ai-news');
   document.querySelectorAll('.ai-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
   document.getElementById('aiTabNews').style.display=tab==='news'?'':'none';
@@ -951,6 +1002,10 @@ function switchAiTab(tab){
   if(tab==='learn'){panel.classList.add('learn-mode');loadGuides()}
   else{panel.classList.remove('learn-mode')}
   if(tab==='sources'){renderSources()}
+  if(push){
+    const u=tab==='news'?'/agents/ai-news':'/agents/ai-news/'+tab;
+    _push(u);
+  }
 }
 
 const KNOWN_SOURCES=[
@@ -1088,8 +1143,9 @@ function renderGuideSidebar(){
   el.innerHTML=html;
 }
 
-async function openGuide(id){
+async function openGuide(id,push=true){
   activeGuideId=id;
+  if(push)_push('/agents/ai-news/learn/'+encodeURIComponent(id));
   renderGuideSidebar();
   const el=document.getElementById('learnContent');
   el.innerHTML='<div class="news-empty">🔄 加载中...</div>';
@@ -1744,12 +1800,13 @@ async function loadReaderCache(){
 
 function articleCacheKey(id){return id.replace(/[^a-zA-Z0-9_-]/g,'_')}
 
-function closeReader(){document.getElementById('readerOverlay').classList.remove('show');currentReaderId=null}
+function closeReader(push=true){document.getElementById('readerOverlay').classList.remove('show');currentReaderId=null;if(push){const p=location.pathname;if(p.startsWith('/agents/ai-news/article/'))_push('/agents/ai-news')}}
 
-function openReader(articleId){
+function openReader(articleId,push=true){
   const article=allNews.find(a=>a.id===articleId);
   if(!article)return;
   currentReaderId=articleId;
+  if(push)_push('/agents/ai-news/article/'+encodeURIComponent(articleId));
   document.getElementById('readerTitle').textContent='📖 '+article.title;
   const cache=readerCache[articleId];
   if(cache?.status==='done'&&cache.html){
