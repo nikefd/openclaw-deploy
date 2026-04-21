@@ -78,6 +78,16 @@ HIGH_CASH_RATIO_THRESHOLD = 0.95  # 现金>95%触发激进模式
 LOSS_STREAK_THRESHOLD = 7          # 连亏≥7次触发微仓试单
 MICRO_POSITION_SIZE = 0.025        # 连亏微仓: 固定2.5%
 
+# v5.54 盘前优化①: 现金高占比动态入场门槛激活
+# 问题: 现金98%+但入场质量要求仍为65分 -> 候选数不足(5-8只)
+# 解决: 现金占比逐级激活更宽松的入场门槛
+ENTRY_QUALITY_DYNAMIC_THRESHOLDS = {
+    'normal': 65,      # 正常: >=65分
+    'high_cash': 55,   # 现金75-95%: >=55分 (-10分宽松)
+    'extreme_cash': 45 # 现金>95%: >=45分 (-20分激进)
+}
+# 预期: 候选数 +40%, 资金利用率从4%->8~12%
+
 # v5.53: 支撑位强化参数
 VP_SUPPORT_STRENGTH_THRESHOLD = 1.5  # Volume Profile支撑强度系数
 Z_SCORE_EXTREME_THRESHOLD = -2.0     # 统计极度超卖门槛

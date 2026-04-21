@@ -1,6 +1,8 @@
 """
 v5.53 入场质量评分系统 — 4维×25分模型
 评估"现在买这只股票好不好" (当下时机而非股票本身)
+
+v5.54 盘前优化①: 现金高占比动态入场阈值激活
 """
 
 def calculate_entry_quality_score(tech_indicators: dict, market_context: dict = None) -> tuple:
@@ -180,12 +182,55 @@ def adjust_score_by_entry_quality(candidates: list, multiplier_range: tuple = (0
 
 
 # ============================================================
-# 集成函数: 在stock_picker中调用
+# v5.54 新增: 动态入场质量阈值
 # ============================================================
+
+def get_dynamic_entry_quality_threshold(cash_ratio: float = None) -> int:
+    """
+    v5.54 盘前优化①: 根据现金占比动态调整入场质量阈值
+    
+    现金占比 < 75% → 65分 (正常严格模式)
+    现金占比 75-95% → 55分 (宽松模式, -10分)
+    现金占比 > 95% → 45分 (激进模式, -20分快速消耗现金)
+    
+    预期效果: 候选数 +40%, 资金利用率 4% → 8-12%
+    """
+    try:
+        from config import ENTRY_QUALITY_DYNAMIC_THRESHOLDS
+        
+        if cash_ratio is None:
+            # 自动从DB查询当前现金占比
+            try:
+                import sqlite3
+                from config import DB_PATH
+                conn = sqlite3.connect(DB_PATH)
+                c = conn.cursor()
+                c.execute('SELECT SUM(cash_after) FROM trades ORDER BY id DESC LIMIT 1')
+                current_cash = c.fetchone()[0] or 1_000_000
+                c.execute('SELECT SUM(quantity*price) FROM positions WHERE status="OPEN"')
+                current_holdings = c.fetchone()[0] or 0
+                conn.close()
+                total_value = current_cash + current_holdings
+                cash_ratio = current_cash / total_value if total_value > 0 else 0.98
+            except:
+                cash_ratio = 0.95  # 异常时默认高现金
+        
+        if cash_ratio > 0.95:
+            thresh = ENTRY_QUALITY_DYNAMIC_THRESHOLDS.get('extreme_cash', 45)
+        elif cash_ratio > 0.75:
+            thresh = ENTRY_QUALITY_DYNAMIC_THRESHOLDS.get('high_cash', 55)
+        else:
+            thresh = ENTRY_QUALITY_DYNAMIC_THRESHOLDS.get('normal', 65)
+        
+        return thresh
+    except:
+        return 65
+
 
 def enrich_candidates_with_entry_quality(candidates: list) -> list:
     """
     为候选股添加入场质量评分
+    v5.54: 支持动态阈值 (根据现金占比自动调整)
     集成点: stock_picker.py multi_strategy_pick() 之后
     """
     for cand in candidates:
@@ -196,5 +241,10 @@ def enrich_candidates_with_entry_quality(candidates: list) -> list:
         score, breakdown = calculate_entry_quality_score(cand['technical'])
         cand['entry_quality_score'] = score
         cand['entry_quality_breakdown'] = breakdown
+    
+    # v5.54: 计算并记录动态阈值
+    dynamic_threshold = get_dynamic_entry_quality_threshold()
+    for cand in candidates:
+        cand['_entry_quality_threshold'] = dynamic_threshold
     
     return candidates
