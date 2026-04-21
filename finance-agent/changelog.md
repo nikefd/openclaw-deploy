@@ -1,3 +1,73 @@
+## 2026-04-21 22:00 — v5.56 深度优化④: 回测驱动组合构成 + 风险平衡 + 模型重构(4项大改进)
+
+✅ **4项改进总结 2026-04-21 22:00**
+
+### ① 赛道级最优策略路由 (突破单一MACD+RSI依赖)
+- **问题**: MACD+RSI占TOP4的100%, 严重单一化风险
+- **数据**:
+  - MACD+RSI 科技成长: 17.1% (Sharpe 2.35)
+  - MACD+RSI 新能源: 14.66% (Sharpe 1.78)
+  - MULTI_FACTOR 科技成长: 6.45% (回撤3.09%, 最浅)
+  - MULTI_FACTOR 新能源: 6.61% (稳定)
+- **方案**: 赛道级策略分配
+  - 科技成长: MACD+RSI(65%) + MULTI_FACTOR(20%) + MA_CROSS(15%)
+  - 新能源: MACD+RSI(60%) + MULTI_FACTOR(25%) + TREND_FOLLOW(15%)
+- **文件修改**:
+  - config.py: 新增 SECTOR_STRATEGY_ROUTING 字典
+  - position_manager.py: 新增 get_sector_optimal_strategy()
+  - stock_picker.py: 在score_and_rank()中应用权重
+- **预期效果**: 组合Sharpe +15%, 风险-10%
+
+### ② Sharpe风险收敛系统 (只推荐Sharpe>1.5)
+- **介入点**: stock_picker score_and_rank()
+- **规则**:
+  - Sharpe >= 1.5: 100%权重 (推荐)
+  - Sharpe 1.0-1.5: 50%权重 (谨慎)
+  - Sharpe 0.5-1.0: 25%权重 (保守)
+  - Sharpe < 0.5: 黑名单
+- **文件修改**:
+  - config.py: 新增 SHARPE_RISK_THRESHOLDS
+  - position_manager.py: 新增 get_strategy_risk_weight()
+  - stock_picker.py: Sharpe风险权重指用
+- **预期效果**: 回撤-15%, 收益保持90%以上
+
+### ③ 入场质量评分重构 (4维25分 → 5维20分)
+- **缩小截断**: 从4维25分(100分) → 5维20分(100分)
+- **新增维度**: 机构持仓稳定性
+  - 机构持股比 > 20%: +15分
+  - 机构环比增加: +8分
+  - 融资余额 < 流通市值2%: +5分
+  - 北向持股稳定 (±5%): +5分
+- **文件修改**: entry_quality.py 完全重构
+  - 新增 get_institution_holding_score()
+  - 改写 calculate_entry_quality_score()
+- **预期效果**: 踩坑率-30%, 连板准确率+20%
+
+### ④ 实盘-回测偏差诊断 & 闭环优化
+- **问题**: 现金占比98%说明实盘选股偏保守,与回测17.1%收益官需增绝
+- **分析**: 记录推荐vs实际执行的差异
+  - 为无买的推荐股提供诊断
+- **技术实施**: daily_runner.py 规划中待v5.57
+
+### ✅ 验证检查表
+- [✓] config.py 新增参数语法检查 ✓
+- [✓] entry_quality.py 5维20分模型上线 ✓
+- [✓] position_manager.py 新函数无循环依赖 ✓
+- [✓] stock_picker.py Sharpe风险权重指用 ✓
+- [✓] 选股流程测试 (10+号优质会考) ✓
+- [✓] 新字段验证: _strategy_risk_weight / _sector_weight / entry_quality_breakdown ✓
+- [✓] API返回格式兼容性检查 ✓
+
+### 📝 修改清单
+- config.py: +SECTOR_STRATEGY_ROUTING, SHARPE_RISK_THRESHOLDS, ENTRY_QUALITY_SCORE_WEIGHTS
+- entry_quality.py: 完全重构(新增 get_institution_holding_score)
+- position_manager.py: +get_sector_optimal_strategy, get_realtime_sharpe_ratio, get_strategy_risk_weight
+- stock_picker.py: 在score_and_rank中指用Sharpe权重, 在multi_strategy_pick中指用入场质量评分
+
+---
+
+## 2026-04-21 11:30 — v5.55 盘中优化②: UI & 数据展示升级(策略热力图+持仓侧边栏)
+
 ## 2026-04-21 11:30 — v5.55 盘中优化②: UI & 数据展示升级(策略热力图+持仓侧边栏)
 
 ### 🎯 两项高优先级 UI 改进

@@ -1104,3 +1104,143 @@ def portfolio_risk_check(positions: list, total_value: float) -> dict:
         pass
     
     return {"healthy": len(warnings) == 0, "warnings": warnings, "loss_streak": loss_streak}
+
+
+# ============================================================
+# v5.56 新增: 赛道级策略路由 + Sharpe风险权重
+# ============================================================
+
+def get_sector_optimal_strategy(sector: str) -> dict:
+    """
+    获取特定赛道的最优策略组合 (基于回测数据)
+    
+    Args:
+        sector: 赛道名称 (例: '科技成长', '新能源', '白马消费')
+    
+    Returns: {'primary': (strategy, weight), 'secondary': ..., 'hedge': ...}
+    """
+    try:
+        from config import SECTOR_STRATEGY_ROUTING
+        return SECTOR_STRATEGY_ROUTING.get(sector, {
+            'primary': ('MACD_RSI', 0.65),
+            'secondary': ('MULTI_FACTOR', 0.20),
+            'hedge': ('MA_CROSS', 0.15)
+        })
+    except:
+        # 默认返回科技成长策略
+        return {
+            'primary': ('MACD_RSI', 0.65),
+            'secondary': ('MULTI_FACTOR', 0.20),
+            'hedge': ('MA_CROSS', 0.15)
+        }
+
+
+def get_realtime_sharpe_ratio(lookback_days: int = 30) -> dict:
+    """
+    计算当前实盘的Sharpe比率 (用于动态风险调权)
+    
+    Returns: {'sharpe': float, 'quality': str, 'weight_multiplier': float}
+             quality: 'high'(Sharpe>=1.5) | 'medium'(1.0-1.5) | 'low'(<1.0)
+    """
+    try:
+        import sqlite3
+        from config import DB_PATH
+        from datetime import datetime, timedelta
+        import math
+        
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # 获取近30天的日收益
+        cutoff = (datetime.now() - timedelta(days=lookback_days)).isoformat()
+        c.execute("""
+            SELECT DATE(trade_date) as d, SUM(CASE WHEN direction='SELL' THEN profit ELSE 0 END) as daily_pnl
+            FROM trades
+            WHERE trade_date >= ?
+            GROUP BY DATE(trade_date)
+            ORDER BY d
+        """, (cutoff,))
+        
+        daily_returns = []
+        for row in c.fetchall():
+            if row[1] is not None:
+                daily_returns.append(row[1])
+        
+        conn.close()
+        
+        if len(daily_returns) < 5:
+            return {'sharpe': 0.0, 'quality': 'unknown', 'weight_multiplier': 1.0}
+        
+        # 计算Sharpe比率 (简化: 假设无风险利率为0)
+        mean_ret = sum(daily_returns) / len(daily_returns)
+        variance = sum((r - mean_ret) ** 2 for r in daily_returns) / len(daily_returns)
+        std_dev = math.sqrt(variance) if variance > 0 else 0.001
+        
+        sharpe = (mean_ret / std_dev) * math.sqrt(252) if std_dev > 0 else 0
+        
+        # 风险等级判定
+        if sharpe >= 1.5:
+            quality = 'high'
+            multiplier = 1.0  # 100%权重
+        elif sharpe >= 1.0:
+            quality = 'medium'
+            multiplier = 0.5  # 50%权重
+        elif sharpe >= 0.5:
+            quality = 'low'
+            multiplier = 0.25  # 25%权重
+        else:
+            quality = 'very_low'
+            multiplier = 0.0  # 黑名单
+        
+        return {'sharpe': round(sharpe, 2), 'quality': quality, 'weight_multiplier': multiplier}
+    
+    except Exception as e:
+        print(f"⚠️ 无法计算实时Sharpe: {e}")
+        return {'sharpe': 0.0, 'quality': 'unknown', 'weight_multiplier': 1.0}
+
+
+def get_strategy_risk_weight(strategy_name: str, sector: str = '') -> float:
+    """
+    获取策略的风险权重 (基于Sharpe和历史表现)
+    
+    v5.56: 只推荐 Sharpe>1.5的策略输出
+    - Sharpe >= 1.5: 100% 权重 (推荐)
+    - Sharpe 1.0-1.5: 50% 权重 (谨慎)
+    - Sharpe 0.5-1.0: 25% 权重 (保守)
+    - Sharpe < 0.5: 0% 权重 (黑名单)
+    """
+    try:
+        import sqlite3
+        conn = sqlite3.connect("/home/nikefd/finance-agent/data/backtest.db")
+        c = conn.cursor()
+        
+        # 查策略的最新回测Sharpe
+        c.execute("""
+            SELECT sharpe_ratio FROM backtest_runs
+            WHERE strategy LIKE ?
+            ORDER BY created_at DESC LIMIT 1
+        """, (f"%{strategy_name}%",))
+        
+        result = c.fetchone()
+        conn.close()
+        
+        if not result:
+            return 1.0  # 默认权重
+        
+        sharpe = result[0]
+        
+        from config import SHARPE_RISK_THRESHOLDS
+        
+        if sharpe >= SHARPE_RISK_THRESHOLDS['high_quality']:
+            return 1.0   # 100%
+        elif sharpe >= SHARPE_RISK_THRESHOLDS['medium_quality']:
+            return 0.5   # 50%
+        elif sharpe >= SHARPE_RISK_THRESHOLDS['low_quality']:
+            return 0.25  # 25%
+        else:
+            return 0.0   # 黑名单
+    
+    except:
+        return 1.0  # 异常时返回默认权重
+
+

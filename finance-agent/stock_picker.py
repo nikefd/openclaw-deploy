@@ -1370,6 +1370,35 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
 
     # 排序取top
     ranked = sorted(merged.values(), key=lambda x: -x['score'])[:15]
+    
+    # v5.56: 应用Sharpe风险权重 (策略级别滤波)
+    # 只推荐Sharpe>=1.5的策略,<1.0的黑名单
+    try:
+        from position_manager import get_strategy_risk_weight
+        for cand in ranked:
+            # 提取候选的主要策略
+            signals = cand.get('signals', [])
+            strategy = 'MULTI_FACTOR'  # 默认
+            if signals:
+                if 'MACD' in signals[0]:
+                    strategy = 'MACD_RSI'
+                elif 'RSI' in signals[0]:
+                    strategy = 'MACD_RSI'
+                elif 'MA' in signals[0]:
+                    strategy = 'MA_CROSS'
+            
+            risk_weight = get_strategy_risk_weight(strategy)
+            
+            if risk_weight == 0.0:
+                cand['score'] = 0  # 黑名单
+                cand['_risk_status'] = 'blacklist'
+            else:
+                cand['score'] = int(cand.get('score', 0) * risk_weight)
+                cand['_strategy_risk_weight'] = risk_weight
+                if risk_weight < 1.0:
+                    cand['_risk_status'] = 'caution'
+    except Exception as e:
+        pass  # Sharpe风险过滤异常时忽略
 
     # v5.53: 科技成长赛道权重激进优化 (+30%)
     # 逻辑: 科技相关板块持续表现优异，基于回测数据提升权重
@@ -2193,6 +2222,24 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
 
     # 打分排名（含市场状态调节）
     ranked = score_and_rank(all_candidates, regime=regime)
+
+    # ========== v5.56 深度优化: 入场质量5维评分集成 ==========
+    # 新增维度: 机构持仓稳定性,预防踩坑,提高连板准确率
+    try:
+        from entry_quality import enrich_candidates_with_entry_quality, get_dynamic_entry_quality_threshold
+        ranked = enrich_candidates_with_entry_quality(ranked)
+        
+        # 获取动态阈值并过滤
+        dynamic_threshold = get_dynamic_entry_quality_threshold()
+        ranked_filtered = [c for c in ranked if c.get('entry_quality_score', 0) >= dynamic_threshold]
+        
+        if len(ranked_filtered) > 0:
+            ranked = ranked_filtered
+            print(f"  ✅ 入场质量过滤: {len(ranked_filtered)}/{len(ranked)}只符合条件(阈值{dynamic_threshold}分)")
+        else:
+            print(f"  ⚠️ 入场质量严格,所有候选都低于{dynamic_threshold}分,保留全部但标记低质")
+    except Exception as e:
+        print(f"  ⚠️ 入场质量评分异常: {e}")
 
     # === 波动率环境自适应 ===
     # 高波动环境: 偏好均值回归(超跌/支撑位买入), 压缩趋势追涨权重

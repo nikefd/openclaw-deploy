@@ -94,3 +94,50 @@ Z_SCORE_EXTREME_THRESHOLD = -2.0     # 统计极度超卖门槛
 Z_SCORE_EXTREME_BONUS_BEAR = 12      # 熊市Z<-2加12分
 Z_SCORE_EXTREME_BONUS_NORMAL = 8     # 普通市Z<-2加8分
 FIB_618_SUPPORT_BONUS = 7            # FIB 0.618支撑+7分
+
+# =================== v5.56 深度优化④: 赛道级策略路由 + 风险平衡 + 机构稳定性评分 ===================
+
+# v5.56: 赛道级最优策略路由表 (基于回测数据,突破单一MACD+RSI依赖)
+SECTOR_STRATEGY_ROUTING = {
+    '科技成长': {
+        'primary': ('MACD_RSI', 0.65),      # MACD+RSI 权重65% [17.1% Sharpe 2.35]
+        'secondary': ('MULTI_FACTOR', 0.20),  # 多因子 权重20% [风险管理]
+        'hedge': ('MA_CROSS', 0.15)        # 均线反向 权重15% [高波动对冲]
+    },
+    '新能源': {
+        'primary': ('MACD_RSI', 0.60),      # MACD+RSI 权重60% [14.66% Sharpe 1.78]
+        'secondary': ('MULTI_FACTOR', 0.25),  # 多因子 权重25% [稳定性]
+        'hedge': ('TREND_FOLLOW', 0.15)    # 趋势 权重15% [势能捕捉]
+    },
+    '白马消费': {
+        'primary': ('MULTI_FACTOR', 0.50),    # 多因子 50% [低回撤]
+        'secondary': ('TREND_FOLLOW', 0.30),  # 趋势 30%
+        'hedge': ('MA_CROSS', 0.20)        # 均线 20%
+    }
+}
+
+# v5.56: Sharpe 风险分级 (动态调权)
+SHARPE_RISK_THRESHOLDS = {
+    'high_quality': 1.5,    # Sharpe >= 1.5: 100%权重(推荐)
+    'medium_quality': 1.0,  # Sharpe 1.0-1.5: 50%权重(谨慎)
+    'low_quality': 0.5,     # Sharpe 0.5-1.0: 25%权重(保守)
+    # Sharpe < 0.5: 黑名单(除非特殊)
+}
+
+# v5.56: 机构持仓稳定性阈值 (入场质量新维度)
+INSTITUTION_HOLDING_THRESHOLDS = {
+    'high_hold_pct': 0.20,              # 机构持股>20%算优质 +15分
+    'institution_increase_bonus': 8,    # 机构环比增加 +8分
+    'margin_balance_pct': 0.02,         # 融资余额<2% +5分
+    'northbound_stable_range': 0.05,    # 北向持股±5%算稳定 +5分
+}
+
+# v5.56: 新的入场质量评分权重 (5维×20分模型)
+# 从 (趋势25+位置25+量价25+动量25) → (趋势20+位置20+量价20+动量20+机构20)
+ENTRY_QUALITY_SCORE_WEIGHTS = {
+    'trend': 20,           # 趋势对齐 (从25降到20)
+    'position': 20,        # 位置优势 (从25降到20)
+    'volume': 20,          # 量价确认 (从25降到20)
+    'momentum': 20,        # 动量确认 (从25降到20)
+    'institution': 20,     # 机构稳定性 (新增)
+}
