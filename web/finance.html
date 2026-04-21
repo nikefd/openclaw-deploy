@@ -86,6 +86,31 @@ th.sortable.desc::after{content:'↓';opacity:1}
 .pick-card .prices .lbl{font-size:11px;color:var(--sub)}
 .pick-card .reason{margin-top:12px;font-size:13px;color:var(--sub);line-height:1.6}
 
+/* SIDEBAR DETAILS */
+.pos-detail-sidebar{position:fixed;right:-400px;top:0;width:400px;height:100vh;background:var(--card);border-left:1px solid var(--border);box-shadow:-2px 0 8px rgba(0,0,0,.1);transition:right .3s ease;z-index:150;overflow-y:auto}
+.pos-detail-sidebar.show{right:0}
+.pos-detail-close{position:absolute;top:12px;right:12px;width:32px;height:32px;border:none;background:var(--hover);border-radius:8px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+.pos-detail-close:hover{background:var(--border)}
+.pos-detail-header{padding:20px 20px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start}
+.pos-detail-title{font-size:18px;font-weight:700}
+.pos-detail-subtitle{font-size:12px;color:var(--sub);margin-top:4px}
+.pos-detail-body{padding:20px}
+.pos-detail-row{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.pos-detail-row:last-child{border-bottom:none}
+.pos-detail-label{color:var(--sub);font-size:12px}
+.pos-detail-value{font-size:14px;font-weight:600}
+.pos-detail-value.up{color:var(--up)}
+.pos-detail-value.down{color:var(--down)}
+
+/* STRATEGY HEATMAP */
+.strategy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.strategy-tile{background:var(--hover);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center;transition:all .2s}
+.strategy-tile.hot{background:#ffe0e0;border-color:#ff6b6b}
+.strategy-tile.cold{background:#e0f0ff;border-color:#4361ee}
+.strategy-tile .name{font-size:12px;color:var(--sub);margin-bottom:6px}
+.strategy-tile .value{font-size:20px;font-weight:700;margin-bottom:6px}
+.strategy-tile .label{font-size:10px;color:var(--sub)}
+
 /* FILTERS */
 .filters{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
 .filters select,.filters input{padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font);background:var(--card)}
@@ -2038,6 +2063,24 @@ async function loadStrategyContribution(){
 // Init
 refreshAll();
 setInterval(refreshAll,300000);
+</script>
+// v5.55 UI Enhancements - Strategy Heatmap & Position Sidebar
+let posData=[];
+async function loadStrategyContribution(){
+  try{const d=await fetch('/api/finance/strategy-contribution').then(r=>r.json());const g=document.getElementById('strategyContribGrid');
+  if(!g||!d.strategies)return;let html='';d.strategies.forEach(s=>{
+    const c=s.total_pnl>1000?'#e63946':s.total_pnl<-1000?'#2ec4b6':'#4361ee';
+    html+=`<div style="background:${c}15;border-left:4px solid ${c};border-radius:10px;padding:12px"><div style="font-size:13px;font-weight:600;margin-bottom:4px">${s.name}</div><div style="font-size:20px;color:${c};font-weight:700">¥${s.total_pnl.toLocaleString()}</div><div style="font-size:11px;color:var(--sub)">${s.trades}笔|${s.win_rate}%胜率</div></div>`;
+  });g.innerHTML=html;}catch(e){}
+}
+function showPosSidebar(symbol){const p=posData?.find(x=>x.symbol===symbol);if(!p)return;const s=document.getElementById('posDetailSidebar')||createPosSidebar();
+  s.innerHTML=`<button onclick="closeSidebar()" style="position:absolute;top:12px;right:12px;width:32px;height:32px;border:none;background:var(--hover);border-radius:8px;cursor:pointer;font-size:18px">×</button><div style="padding:20px"><div style="font-size:18px;font-weight:700;margin-bottom:12px">${p.name||p.symbol}</div><div style="color:var(--sub);margin-bottom:16px;font-size:12px">${p.symbol}</div>${[['持仓',p.shares+' 股'],['成本','¥'+(p.avg_cost?.toFixed(2)||'')],['现价','¥'+(p.current_price?.toFixed(2)||'')],['天数',(p.holding_days||'--')+' 天'],['盈亏',(p.pnl_pct>=0?'+':'')+p.pnl_pct?.toFixed(2)+'% (¥'+p.pnl?.toFixed(0)+')'],['最高','¥'+(p.peak_price?.toFixed(2)||'--')],['回撤',p.peak_drawdown?.toFixed(1)+'%']].map(([k,v])=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)"><span style="color:var(--sub);font-size:12px">${k}</span><span style="font-weight:600">${v}</span></div>`).join('')}</div>`;
+  s.style.right='0';
+}
+function createPosSidebar(){const s=document.createElement('div');s.id='posDetailSidebar';s.style.cssText='position:fixed;right:-400px;top:0;width:400px;height:100vh;background:var(--card);border-left:1px solid var(--border);transition:right .3s;z-index:150;overflow-y:auto;padding-top:12px';document.body.appendChild(s);return s;}
+function closeSidebar(){const s=document.querySelector('#posDetailSidebar');if(s)s.style.right='-400px';}
+const oRefresh=window.refreshAll;window.refreshAll=async function(){oRefresh&&await oRefresh();loadStrategyContribution();try{const d=await fetch('/api/finance/dashboard').then(r=>r.json());if(d.positions)posData=d.positions;}catch(e){}};
+refreshAll();setInterval(refreshAll,300000);
 </script>
 </body>
 </html>

@@ -987,10 +987,13 @@ function handleStrategyContribution(req, res) {
       if (r.pnl > 0) stratMap['\u5176\u4ed6'].wins++;
     }
   });
-  const strategies = Object.entries(stratMap).map(([name, d]) => ({
-    name, pnl: Math.round(d.pnl * 100) / 100, count: d.count,
-    win_rate: d.count > 0 ? Math.round(d.wins / d.count * 100) : 0
-  })).sort((a, b) => b.pnl - a.pnl);
+  const strategies = Object.entries(stratMap).map(([name, d]) => {
+    const wins = results.filter(r => (r.buyReason + ' ' + r.sellReason).toLowerCase().includes(name.toLowerCase()) && r.pnl > 0);
+    const losses = results.filter(r => (r.buyReason + ' ' + r.sellReason).toLowerCase().includes(name.toLowerCase()) && r.pnl <= 0);
+    const avgWin = wins.length > 0 ? Math.round(wins.reduce((s, r) => s + r.pnl, 0) / wins.length) : 0;
+    const avgLoss = losses.length > 0 ? Math.round(Math.abs(losses.reduce((s, r) => s + r.pnl, 0) / losses.length)) : 0;
+    return { name, total_pnl: Math.round(d.pnl * 100) / 100, trades: d.count, win_rate: d.count > 0 ? Math.round(d.wins / d.count * 100) : 0, avg_win: avgWin, avg_loss: avgLoss };
+  }).sort((a, b) => b.total_pnl - a.total_pnl);
   sendJson(res, { strategies });
 }
 
