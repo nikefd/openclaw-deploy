@@ -1790,9 +1790,9 @@ async function askCoach(text) {
 
 
 // ─── Article Reader ───
+var currentReaderId=null;
 const readerCache={};  // articleId -> {status:'loading'|'done'|'error', html:''}
 const readArticleIds=new Set();  // server-side cached IDs
-let currentReaderId=null;
 
 async function loadReaderCache(){
   try{const ids=await(await fetch(API+'/ai-news/reader')).json();ids.forEach(id=>{readArticleIds.add(id);readerCache[id]={status:'done',html:''}})}catch{}
@@ -1800,7 +1800,7 @@ async function loadReaderCache(){
 
 function articleCacheKey(id){return id.replace(/[^a-zA-Z0-9_-]/g,'_')}
 
-function closeReader(push=true){document.getElementById('readerOverlay').classList.remove('show');currentReaderId=null;if(push){const p=location.pathname;if(p.startsWith('/agents/ai-news/article/'))_push('/agents/ai-news')}}
+function closeReader(push=true){const ov=document.getElementById('readerOverlay');if(ov)ov.classList.remove('show');currentReaderId=null;if(push){const p=location.pathname;if(p.startsWith('/agents/ai-news/article/'))_push('/agents/ai-news')}}
 
 function openReader(articleId,push=true){
   const article=allNews.find(a=>a.id===articleId);
