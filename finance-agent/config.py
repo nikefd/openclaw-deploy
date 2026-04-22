@@ -171,3 +171,37 @@ CASH_RATIO_STRATEGY_BOOST = {
 # Sharpe实时权重应用阈值 (v5.57: 新增确保权重被应用)
 APPLY_SHARPE_WEIGHTS_IN_RANKING = True  # 在stock_picker score_and_rank()中强制应用
 SHARPE_WEIGHT_MULTIPLIER = 1.5  # Sharpe权重乘数(相对其他指标权重)
+
+# =================== v5.59 盤後優化③: 超激進模式 + 加倉/追蹤止損強化 ===================
+# 問題: 現金98%+但持倉利用率仅1.57%, 需要超激進模式快速消耗現金
+
+# 超激進模式參數 (現金>98%時激活)
+EXTREME_CASH_RATIO = 0.98           # 現金占比>98%觸發超激進
+EXTREME_CASH_TARGET_ALLOCATION = 0.12  # 目標配置12%持倉(快速消耗現金)
+EXTREME_CASH_ENTRY_QUALITY = 35     # 超激進下的入場質量閾值(45→35, -28%)
+EXTREME_CASH_SIGNAL_BOOST = {
+    'MACD_RSI': 2.2,        # MACD+RSI權重 1.8x → 2.2x (+22%)
+    'MULTI_FACTOR': 1.4,    # 多因子 1.2x → 1.4x (+17%)
+    'TREND_FOLLOW': 1.5,    # 趨勢跟隨 1.3x → 1.5x (+15%)
+    'MA_CROSS': 1.2,
+}
+
+# 加倉參數 (position_manager.py新增)
+POSITION_ADDING_CONDITIONS = {
+    'min_hold_days': 3,         # 持倉至少3天才加倉
+    'min_profit_pct': 0.02,     # 浮盈>2%時開始考慮加倉
+    'max_add_pct': 0.30,        # 最多加倉到原頭寸的130%
+    'kelly_add_ratio': 0.5,     # Kelly建議仓位×50%用於加倉
+}
+
+# 追蹤止損參數 (position_manager.py新增)
+TRAILING_STOP_LOSS = {
+    'peak_retracement_pct': 0.05,  # 從峰值回撤>5%觸發
+    'lock_ratio': 0.95,             # 鎖定95%峰值
+    'time_stop_hours': 8,           # 8小時無新高止損
+    'enabled': True,                # 啟用追蹤止損
+}
+
+# 候選池擴展 (stock_picker.py調參)
+MOMENTUM_SIGNAL_TARGET = 55         # 從45提升至55只 (+22%)
+VOLUME_SIGNAL_TARGET = 30           # 從25提升至30只 (+20%)
