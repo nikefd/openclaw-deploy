@@ -1400,6 +1400,59 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     except Exception as e:
         pass  # Sharpe风险过滤异常时忽略
 
+    # v5.57 盘前优化①: 现金高占比下的策略权重激进度自适应调配
+    # 问题: 现金98%+，但策略权重仍为正常模式，导致选股不够激进
+    # 解决: 根据现金占比动态调整各策略的权重系数
+    _cash_ratio = 0.75
+    _cash_boost_mode = 'normal'
+    try:
+        import sqlite3
+        from config import DB_PATH, CASH_RATIO_STRATEGY_BOOST
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute('SELECT SUM(cash_after), SUM(quantity*price) FROM trades ORDER BY id DESC LIMIT 1')
+        row = c.fetchone()
+        current_cash = row[0] if row and row[0] else 1_000_000
+        current_holdings = row[1] if row and row[1] else 0
+        conn.close()
+        total_value = current_cash + current_holdings
+        _cash_ratio = current_cash / total_value if total_value > 0 else 0.95
+        
+        # 根据现金占比决定激进模式
+        if _cash_ratio > 0.95:
+            _cash_boost_mode = 'high'  # 激进模式: 现金>95%
+        elif _cash_ratio > 0.75:
+            _cash_boost_mode = 'medium'  # 中等模式: 现金75-95%
+        else:
+            _cash_boost_mode = 'normal'  # 保守模式: 现金<75%
+    except:
+        _cash_boost_mode = 'normal'
+    
+    # 应用现金占比策略权重调整
+    try:
+        from config import CASH_RATIO_STRATEGY_BOOST
+        cash_boost_weights = CASH_RATIO_STRATEGY_BOOST.get(_cash_boost_mode, {})
+        for stock in ranked:
+            # 提取策略类型
+            strategy_type = 'MULTI_FACTOR'  # 默认
+            signals = stock.get('signals', [])
+            if signals:
+                sig_str = ''.join(signals).upper()
+                if 'MACD' in sig_str or 'RSI' in sig_str:
+                    strategy_type = 'MACD_RSI'
+                elif 'TREND' in sig_str or 'FOLLOW' in sig_str:
+                    strategy_type = 'TREND_FOLLOW'
+                elif 'MA' in sig_str or 'CROSS' in sig_str:
+                    strategy_type = 'MA_CROSS'
+            
+            # 获取现金占比下的权重系数
+            boost = cash_boost_weights.get(strategy_type, 1.0)
+            if boost != 1.0:
+                stock['score'] = int(stock['score'] * boost)
+                stock['_cash_boost'] = f"{_cash_boost_mode}({boost}x)"
+    except:
+        pass
+
     # v5.53: 科技成长赛道权重激进优化 (+30%)
     # 逻辑: 科技相关板块持续表现优异，基于回测数据提升权重
     try:

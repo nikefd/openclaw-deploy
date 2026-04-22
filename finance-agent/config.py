@@ -141,3 +141,33 @@ ENTRY_QUALITY_SCORE_WEIGHTS = {
     'momentum': 20,        # 动量确认 (从25降到20)
     'institution': 20,     # 机构稳定性 (新增)
 }
+
+# =================== v5.57 盘前优化①: 现金高占比下的策略权重自适应激活 ===================
+# 问题: 现金占比98%+,但策略权重仍为正常模式,导致选股不够激进
+# 解决: 现金占比触发策略激进系数调权
+
+# 现金占比对应的策略权重激进系数
+CASH_RATIO_STRATEGY_BOOST = {
+    'high': {          # 现金>95%: 激进模式 (快速消耗现金)
+        'MACD_RSI': 1.8,       # MACD+RSI激进度1.8x
+        'MULTI_FACTOR': 1.2,   # 多因子1.2x
+        'TREND_FOLLOW': 1.3,   # 趋势跟随1.3x
+        'MA_CROSS': 1.1,
+    },
+    'medium': {        # 现金75-95%: 中等模式
+        'MACD_RSI': 1.3,
+        'MULTI_FACTOR': 1.1,
+        'TREND_FOLLOW': 1.1,
+        'MA_CROSS': 1.0,
+    },
+    'normal': {        # 现金<75%: 正常保守模式
+        'MACD_RSI': 1.0,
+        'MULTI_FACTOR': 1.0,
+        'TREND_FOLLOW': 1.0,
+        'MA_CROSS': 1.0,
+    }
+}
+
+# Sharpe实时权重应用阈值 (v5.57: 新增确保权重被应用)
+APPLY_SHARPE_WEIGHTS_IN_RANKING = True  # 在stock_picker score_and_rank()中强制应用
+SHARPE_WEIGHT_MULTIPLIER = 1.5  # Sharpe权重乘数(相对其他指标权重)

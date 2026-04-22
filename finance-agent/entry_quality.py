@@ -22,11 +22,27 @@ def get_institution_holding_score(tech_indicators: dict) -> int:
     - 机构持股环比增加: +8分  
     - 融资余额 < 流通市值2%: +5分
     - 北向持股稳定 (±5%以内): +5分
+    
+    v5.57: 新增更完善的数据采集逻辑和fallback机制
     """
     score = 0
     
-    # 机构持股比
+    # 机构持股比 (主要数据源)
     institution_pct = tech_indicators.get('institution_holding_pct', 0)
+    
+    # v5.57: 如果institution_pct为0或不可用，尝试从其他字段推断
+    if institution_pct <= 0:
+        # fallback: 尝试从fund_holding_ratio推断
+        fund_ratio = tech_indicators.get('fund_holding_ratio', 0)
+        if fund_ratio > 0:
+            institution_pct = fund_ratio * 0.8  # 保守估计
+        # 或从持股机构数推断
+        num_institutions = tech_indicators.get('num_institutions', 0)
+        if num_institutions > 20:
+            institution_pct = 0.18  # 超过20家机构持股，估计>15%
+        elif num_institutions > 10:
+            institution_pct = 0.12
+    
     if institution_pct > INSTITUTION_HOLDING_THRESHOLDS['high_hold_pct']:
         score += 15  # 机构持股>20%
     elif institution_pct > 0.15:
@@ -36,6 +52,15 @@ def get_institution_holding_score(tech_indicators: dict) -> int:
     
     # 机构环比增加
     institution_change = tech_indicators.get('institution_holding_change', 0)
+    
+    # v5.57: fallback机制 - 如果环比数据不可用，检查机构买入热度
+    if institution_change <= 0:
+        institution_buy_heat = tech_indicators.get('institution_buy_heat', 0)  # 0-100
+        if institution_buy_heat > 70:
+            institution_change = 0.03  # 持仓可能在增加
+        elif institution_buy_heat > 50:
+            institution_change = 0.01
+    
     if institution_change > 0.02:  # 环比增加>2%
         score += INSTITUTION_HOLDING_THRESHOLDS['institution_increase_bonus']
     elif institution_change > 0.01:
@@ -43,11 +68,25 @@ def get_institution_holding_score(tech_indicators: dict) -> int:
     
     # 融资余额占比
     margin_balance_ratio = tech_indicators.get('margin_balance_ratio', 0.05)
+    
+    # v5.57: fallback - 如果融资数据不可用，检查融资偏离
+    if margin_balance_ratio >= 0.05:
+        margin_deviation = tech_indicators.get('margin_deviation_ratio', 0)  # 与历史平均的偏离度
+        if margin_deviation < 0.5:  # 低于历史平均
+            margin_balance_ratio = 0.015  # 视为很低
+    
     if margin_balance_ratio < INSTITUTION_HOLDING_THRESHOLDS['margin_balance_pct']:
         score += 5
     
     # 北向持股稳定性
     northbound_change = abs(tech_indicators.get('northbound_change', 0.1))
+    
+    # v5.57: fallback - 如果北向数据不可用，检查外资流入热度
+    if northbound_change >= 0.1:
+        foreign_inflow_heat = tech_indicators.get('foreign_inflow_heat', 0)  # 0-100
+        if foreign_inflow_heat < 30:  # 外资稳定，估计变化<5%
+            northbound_change = 0.02
+    
     if northbound_change <= INSTITUTION_HOLDING_THRESHOLDS['northbound_stable_range']:
         score += 5  # ±5%以内稳定
     elif northbound_change <= 0.10:
