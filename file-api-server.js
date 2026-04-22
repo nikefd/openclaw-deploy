@@ -1,9 +1,51 @@
-const http=require('http'),fs=require('fs'),path=require('path');
+const http=require('http'),fs=require('fs'),path=require('path'),zlib=require('zlib');
 const {exec}=require('child_process');
+// Strip large base64 payloads (images/attachments) from a chat for the summary list.
+// Keeps message text for client-side search; marks messages so UI can lazy-load full content.
+function stripHeavy(chat){
+  if(!chat||!Array.isArray(chat.messages))return chat;
+  let hadHeavy=false;
+  const messages=chat.messages.map(m=>{
+    if(!m||typeof m!=='object')return m;
+    const out={...m};
+    let touched=false;
+    if(Array.isArray(out.images)&&out.images.length){
+      // Keep count, drop base64 data
+      const n=out.images.length;
+      out.images=Array(n).fill('[image]');
+      touched=true;
+    }
+    if(Array.isArray(out.attachments)&&out.attachments.length){
+      out.attachments=out.attachments.map(a=>{
+        if(!a||typeof a!=='object')return a;
+        const { data, content, base64, ...rest }=a;
+        if(data||content||base64)touched=true;
+        return rest;
+      });
+    }
+    if(typeof out.image==='string'&&out.image.length>200){out.image='[image]';touched=true;}
+    if(touched){out._stripped=true;hadHeavy=true;}
+    return out;
+  });
+  return hadHeavy?{...chat,messages,_stripped:true}:chat;
+}
+function sendJson(req,res,obj){
+  const body=typeof obj==='string'?obj:JSON.stringify(obj);
+  const ae=String(req.headers['accept-encoding']||'');
+  if(/\bgzip\b/.test(ae)&&body.length>1024){
+    zlib.gzip(body,(err,buf)=>{
+      if(err){res.end(body);return;}
+      res.setHeader('Content-Encoding','gzip');
+      res.setHeader('Vary','Accept-Encoding');
+      res.end(buf);
+    });
+  }else{res.end(body);}
+}
 const EXEC_ENV=Object.assign({},process.env,{PATH:'/home/nikefd/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:'+process.env.PATH});
 const PORT=7682,ROOT=process.env.HOME;
 const CHATS_FILE=path.join(ROOT,'.openclaw','chat-history.json');
 const CHATS_DIR=path.join(ROOT,'.openclaw','chats');
+const PERF_LOG_FILE=path.join(ROOT,'.openclaw','perf-log.json');
 function readBody(req){return new Promise((ok,no)=>{let d='';req.on('data',c=>d+=c);req.on('end',()=>ok(d));req.on('error',no);});}
 http.createServer(async(req,res)=>{
   res.setHeader('Content-Type','application/json');
@@ -20,6 +62,18 @@ http.createServer(async(req,res)=>{
       }).filter(x=>!x.name.startsWith('.')).sort((a,b)=>a.type!==b.type?(a.type==='dir'?-1:1):a.name.localeCompare(b.name));
       res.end(JSON.stringify({path:r,parent:path.dirname(r),entries:e}));
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
+  }else if(url.pathname==='/api/files/download'){
+    const fp=url.searchParams.get('path');
+    if(!fp){res.writeHead(400);res.end('need path');return;}
+    const r=path.resolve(fp);
+    if(!r.startsWith(ROOT)){res.writeHead(403);res.end('forbidden');return;}
+    try{
+      const s=fs.statSync(r);
+      if(s.size>50*1048576){res.writeHead(413);res.end('too big');return;}
+      const name=path.basename(r);
+      res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Disposition':`attachment; filename="${encodeURIComponent(name)}"`, 'Content-Length':s.size});
+      fs.createReadStream(r).pipe(res);
+    }catch(e){res.writeHead(500);res.end(e.message);}
   }else if(url.pathname==='/api/files/read'){
     const fp=url.searchParams.get('path');
     if(!fp){res.writeHead(400);res.end('{"error":"need path"}');return;}
@@ -29,21 +83,24 @@ http.createServer(async(req,res)=>{
       res.end(JSON.stringify({path:r,size:s.size,content:fs.readFileSync(r,'utf-8')}));
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/chats'&&req.method==='GET'){
-    // Read all chats from individual files in CHATS_DIR, fallback to legacy CHATS_FILE
+    // Default: return stripped list (no base64 images/attachments) + gzip.
+    // Pass ?full=1 to get raw legacy behavior (heavy — avoid in UI).
+    const wantFull=url.searchParams.get('full')==='1';
     try{
       fs.mkdirSync(CHATS_DIR,{recursive:true});
       const files=fs.readdirSync(CHATS_DIR).filter(f=>f.endsWith('.json'));
+      let all=[];
       if(files.length>0){
-        const all=files.map(f=>{try{return JSON.parse(fs.readFileSync(path.join(CHATS_DIR,f),'utf-8'));}catch{return null;}}).filter(Boolean);
-        all.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
-        res.end(JSON.stringify(all));
+        all=files.map(f=>{try{return JSON.parse(fs.readFileSync(path.join(CHATS_DIR,f),'utf-8'));}catch{return null;}}).filter(Boolean);
       }else if(fs.existsSync(CHATS_FILE)){
         // Migrate legacy file to individual files
         const legacy=JSON.parse(fs.readFileSync(CHATS_FILE,'utf-8'));
         for(const c of legacy){if(c&&c.id){try{fs.writeFileSync(path.join(CHATS_DIR,c.id+'.json'),JSON.stringify(c),'utf-8');}catch{}}}
-        legacy.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
-        res.end(JSON.stringify(legacy));
-      }else{res.end('[]');}
+        all=legacy;
+      }
+      all.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+      const out=wantFull?all:all.map(stripHeavy);
+      sendJson(req,res,out);
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/chats'&&req.method==='POST'){
     // Legacy bulk save — still supported but also writes individual files
@@ -54,8 +111,18 @@ http.createServer(async(req,res)=>{
       fs.mkdirSync(path.dirname(CHATS_FILE),{recursive:true});
       fs.writeFileSync(CHATS_FILE,body,'utf-8');res.end('{"ok":true}');}
     catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
-  }else if(url.pathname.startsWith('/api/chats/')&&req.method==='PUT'){
-    // Save single chat: PUT /api/chats/:id
+  }else if(url.pathname.startsWith('/api/chats/')&&req.method==='GET'){
+    // Fetch a single chat (full content, including images) for lazy-load.
+    const chatId=url.pathname.slice('/api/chats/'.length);
+    if(!chatId){res.writeHead(400);res.end('{"error":"need chat id"}');return;}
+    try{
+      const fp=path.join(CHATS_DIR,chatId+'.json');
+      if(!fs.existsSync(fp)){res.writeHead(404);res.end('{"error":"not found"}');return;}
+      const data=fs.readFileSync(fp,'utf-8');
+      sendJson(req,res,data);
+    }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
+  }else if(url.pathname.startsWith('/api/chats/')&&(req.method==='PUT'||req.method==='POST')){
+    // Save single chat: PUT/POST /api/chats/:id (POST for sendBeacon compat)
     const chatId=url.pathname.slice('/api/chats/'.length);
     if(!chatId){res.writeHead(400);res.end('{"error":"need chat id"}');return;}
     try{
@@ -203,7 +270,6 @@ http.createServer(async(req,res)=>{
       else res.end(JSON.stringify({error:'token not found in config'}));
     }catch(ex){res.writeHead(500);res.end(JSON.stringify({error:'cannot read config: '+ex.message}));}
   }else if(url.pathname==='/api/gateway/info'&&req.method==='GET'){
-    // Return connection info for new nodes
     const hostname=require('os').hostname();
     exec('curl -s ifconfig.me 2>/dev/null',(e,ip)=>{
       const publicIp=(ip||'').trim();
@@ -218,5 +284,34 @@ http.createServer(async(req,res)=>{
         hint:`# 在远程机器上运行:\nnpm install -g openclaw\nexport OPENCLAW_GATEWAY_TOKEN=<token>\nopenclaw node run --host zhangyangbin.com --port 18789`
       }));
     });
+  }else if(url.pathname==='/api/perf/log'&&req.method==='POST'){
+    readBody(req).then(body=>{
+      try{
+        const data=JSON.parse(body);
+        data.timestamp=Date.now();
+        let logs=[];
+        try{
+          if(fs.existsSync(PERF_LOG_FILE)){
+            const existing=fs.readFileSync(PERF_LOG_FILE,'utf-8');
+            logs=JSON.parse(existing);
+            if(!Array.isArray(logs))logs=[];
+          }
+        }catch{}
+        logs.push(data);
+        if(logs.length>10000)logs=logs.slice(-10000);
+        fs.mkdirSync(path.dirname(PERF_LOG_FILE),{recursive:true});
+        fs.writeFileSync(PERF_LOG_FILE,JSON.stringify(logs),'utf-8');
+        res.end(JSON.stringify({ok:true}));
+      }catch(e){res.writeHead(400);res.end(JSON.stringify({error:e.message}));}
+    }).catch(e=>{res.writeHead(400);res.end(JSON.stringify({error:e.message}));});
+  }else if(url.pathname==='/api/perf/log'&&req.method==='GET'){
+    try{
+      if(fs.existsSync(PERF_LOG_FILE)){
+        const logs=fs.readFileSync(PERF_LOG_FILE,'utf-8');
+        res.end(logs);
+      }else{
+        res.end(JSON.stringify([]));
+      }
+    }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else{res.writeHead(404);res.end('{"error":"not found"}');}
 }).listen(PORT,'127.0.0.1',()=>console.log('ok'));

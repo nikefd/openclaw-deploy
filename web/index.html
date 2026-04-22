@@ -1177,6 +1177,8 @@ function save(chatId){
     clearTimeout(_saveTimers[id]);
     _saveTimers[id]=setTimeout(()=>{
       const chat=chats.find(c=>c.id===id);
+      // Safety: don't PUT a stripped snapshot back — would erase images on the server.
+      if(chat&&chat._stripped){return;}
       if(chat){fetch('/api/chats/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat)}).then(()=>{chat._lastSaved=chat.updatedAt;}).catch(()=>{});}
       delete _saveTimers[id];
     },300);
@@ -1270,7 +1272,23 @@ function startEditTopTitle(){
 topTitle.addEventListener('dblclick',startEditTopTitle);
 // --- end title editing ---
 function newChat(){const c={id:'chat_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),title:'新对话',agentId:'main',messages:[],createdAt:Date.now(),updatedAt:Date.now()};chats.unshift(c);save();switchChat(c.id);}
-function switchChat(id,jumpMsgIdx){currentId=id;closeSidebar();renderChat();renderSidebar();input.focus();if(typeof jumpMsgIdx==='number'&&jumpMsgIdx>=0){requestAnimationFrame(()=>{const nodes=messagesEl.querySelectorAll('.message');const target=nodes[jumpMsgIdx];if(target){target.scrollIntoView({behavior:'smooth',block:'center'});target.classList.add('search-hit');setTimeout(()=>target.classList.remove('search-hit'),1700);}});}}
+async function hydrateChat(id){
+  // If chat was loaded as a stripped summary (no image base64), fetch full content on demand.
+  const c=getChat(id);if(!c||!c._stripped)return;
+  try{
+    const r=await fetch('/api/chats/'+encodeURIComponent(id));
+    if(!r.ok)return;
+    const full=await r.json();
+    if(!full||!full.id)return;
+    const idx=chats.findIndex(x=>x.id===id);
+    if(idx<0)return;
+    // Only replace if server copy isn't older than local unsaved edits
+    if((chats[idx].updatedAt||0)>(full.updatedAt||0)+1000)return;
+    chats[idx]=full;
+    if(currentId===id)renderChat();
+  }catch{}
+}
+function switchChat(id,jumpMsgIdx){currentId=id;closeSidebar();renderChat();renderSidebar();input.focus();hydrateChat(id);if(typeof jumpMsgIdx==='number'&&jumpMsgIdx>=0){requestAnimationFrame(()=>{const nodes=messagesEl.querySelectorAll('.message');const target=nodes[jumpMsgIdx];if(target){target.scrollIntoView({behavior:'smooth',block:'center'});target.classList.add('search-hit');setTimeout(()=>target.classList.remove('search-hit'),1700);}});}}
 function renderChat(){
   const c=getChat(currentId);
   if(!c){topTitle.textContent='OpenClaw';agentBadge.textContent='';streamBadge.classList.remove('show');renderWelcome();return;}
@@ -1364,6 +1382,8 @@ async function sendMessage(){
   // /btw side-question: don't add to history
   if(text.startsWith('/btw ')){const q=text.slice(5).trim();if(q){input.value='';input.style.height='auto';sendBtn.disabled=true;handleBtw(q);return;}}
   if(!currentId)newChat();
+  // If current chat is still a stripped summary, hydrate first so save() won't be blocked.
+  if(currentId){const _c=getChat(currentId);if(_c&&_c._stripped){await hydrateChat(currentId);}}
   // Prepend node context if remote node selected
   let finalText=text;
   if(currentNode&&currentNode!=='local'){
