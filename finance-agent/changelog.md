@@ -1,3 +1,52 @@
+## 2026-04-22 03:30 — v5.58 盘中优化②: UI体验升级 + 现金占比可视化 + 绩效统计(2项改进)
+
+✅ **2项改进总结 2026-04-22 03:30**
+
+### ① 现金占比+策略激进度面板 (UI新增)
+- **需求**: v5.57已实现现金占比动态策略权重调配,但UI无法展示该优化的效果
+- **方案**: 在仪表板新增可视化面板
+  - 实时显示当前现金占比(%)
+  - 显示对应的策略模式(激进🔥/均衡⚡/保守🛑)
+  - 展示当前生效的权重倍数调配(MACD_RSI、TREND_FOLLOW、MULTI_FACTOR)
+  - 显示模式对应的说明文本
+- **文件修改**:
+  - finance-api-server.js: 新增handleCashAllocationProfile()函数 + /api/finance/cash-profile端点
+  - finance.html: 在仪表板summaryCards后新增cashProfileWrap面板(3列布局)
+  - finance-v5-51.js: 新增loadCashProfile()函数
+- **预期效果**: 用户直观理解当前策略模式 | 资金配置合理性更清晰
+
+### ② 绩效统计面板 (数据洞察新增)
+- **需求**: 现有仪表板缺少策略有效性对比、赛道分布等多维度洞察
+- **方案**: 新增绩效统计面板展示:
+  - 策略胜率排行(Top5): 按胜率降序排列,并标记有效性(✅强势/⚠️一般/❌薄弱)
+  - 赛道分布图表: 显示最近交易笔数前6的赛道及交易量
+  - 入场质量评分均值: 显示最近30笔交易的平均入场质量评分
+- **文件修改**:
+  - finance-api-server.js: 新增handlePerformanceStats()函数 + /api/finance/perf-stats端点
+  - finance.html: 在cashProfileWrap后新增perfStatsWrap面板
+  - finance-v5-51.js: 新增loadPerformanceStats()函数
+- **预期效果**: 策略有效性排序一览无遗 | 资金流向赛道分布可控
+
+### ✅ 验证检查表
+- [✓] finance-api-server.js 新增2个handler + 2个路由端点 ✓
+- [✓] finance.html UI新增现金占比面板 + 绩效统计面板 ✓
+- [✓] finance-v5-51.js 新增2个async函数 + 集成到loadDashboard() ✓
+- [✓] API端点 /api/finance/cash-profile 返回现金占比+策略模式+权重倍数 ✓
+- [✓] API端点 /api/finance/perf-stats 返回策略胜率+赛道分布+入场质量 ✓
+- [✓] JS语法检查 ✓ (node -c 通过)
+
+### 📝 修改清单
+- finance-api-server.js: +handleCashAllocationProfile (36行) +handlePerformanceStats (85行) +2路由
+- finance.html: +cashProfileWrap面板 +perfStatsWrap面板 + 调用loadCashProfile()/loadPerformanceStats()
+- finance-v5-51.js: +loadCashProfile() (32行) +loadPerformanceStats() (54行) 版本升级到v5.52
+
+### 🎯 下一步优化方向
+- 回测系统集成: 支持新策略权重的实时回测对比
+- 新闻情绪实时分析: AI分析市场新闻与入场信号的相关性
+- 赛道级风险预警: 当某赛道亏损超阈值时,自动降权该赛道
+
+---
+
 ## 2026-04-22 00:00 — v5.57 盘前优化①: 现金高占比下的策略激进度自适应 + 机构数据完善(3项改进)
 
 ✅ **3项改进总结 2026-04-22 00:00**

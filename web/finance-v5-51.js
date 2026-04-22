@@ -1,8 +1,75 @@
 /**
- * 金融Agent UI增强 v5.51
+ * 金融Agent UI增强 v5.52
  * - 风险告警面板
  * - 止损/止盈执行看板
+ * - 改进①②：现金占比+策略激进度面板 + 绩效统计
  */
+
+// === 改进① 现金占比+策略激进度 (v5.52) ===
+async function loadCashProfile() {
+  try {
+    const data = await api('/api/finance/cash-profile');
+    if (!data) return;
+    
+    document.getElementById('cashRatioVal').textContent = data.cash_ratio + '%';
+    document.getElementById('cashAmount').textContent = (data.cash_amount / 10000).toFixed(1) + '万';
+    document.getElementById('totalValue').textContent = (data.total_value / 10000).toFixed(1) + '万';
+    
+    const modeLabel = {
+      'aggressive': '🔥 激进',
+      'balanced': '⚡ 均衡',
+      'conservative': '🛑 保守'
+    }[data.strategy_mode] || data.strategy_mode;
+    
+    document.getElementById('strategyMode').textContent = modeLabel;
+    document.getElementById('modeDesc').textContent = data.mode_description || '';
+    
+    const boostHtml = Object.entries(data.strategy_boost || {})
+      .map(([k, v]) => `<div>• ${k}: ${v.toFixed(2)}x</div>`)
+      .join('');
+    document.getElementById('boostInfo').innerHTML = boostHtml || '--';
+  } catch(e) {
+    console.error('loadCashProfile', e);
+  }
+}
+
+// === 改进② 绩效统计 (v5.52) ===
+async function loadPerformanceStats() {
+  try {
+    const data = await api('/api/finance/perf-stats');
+    if (!data) return;
+    
+    // 策略胜率
+    const strategyWinRateHtml = Object.entries(data.strategies || {})
+      .sort((a, b) => (b[1].win_rate || 0) - (a[1].win_rate || 0))
+      .slice(0, 5)
+      .map(([name, stats]) => {
+        const indicator = stats.effectiveness === 'strong' ? '✅' : stats.effectiveness === 'fair' ? '⚠️' : '❌';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)">
+          <span>${name}</span>
+          <span style="font-weight:600;color:${stats.win_rate >= 50 ? 'var(--up)' : 'var(--down)'};">${indicator} ${stats.win_rate.toFixed(1)}%</span>
+        </div>`;
+      })
+      .join('');
+    document.getElementById('strategyWinRate').innerHTML = strategyWinRateHtml || '<div style="color:var(--sub)">--</div>';
+    
+    // 赛道分布
+    const sectorDistHtml = Object.entries(data.sectors || {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([sector, count]) => `<div style="background:var(--hover);padding:6px 8px;border-radius:6px;text-align:center">
+        <div style="font-size:12px;font-weight:600">${count}笔</div>
+        <div style="font-size:10px;color:var(--sub);margin-top:2px">${sector || '未分类'}</div>
+      </div>`)
+      .join('');
+    document.getElementById('sectorDist').innerHTML = sectorDistHtml || '--';
+    
+    // 入场质量评分
+    document.getElementById('entryQualityAvg').textContent = (data.entry_quality_avg || 0).toFixed(1) + '/100';
+  } catch(e) {
+    console.error('loadPerformanceStats', e);
+  }
+}
 
 // === 风险告警面板 (v5.51) ===
 async function loadRiskAlerts(d){

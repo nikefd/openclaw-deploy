@@ -714,6 +714,113 @@ function handleRunStatus(req, res) {
   sendJson(res, { status: runState.status, log: logContent });
 }
 
+// === 改进① 现金占比+策略激进度 ===
+function handleCashAllocationProfile(req, res) {
+  const accounts = querySqlite('SELECT * FROM account ORDER BY id DESC LIMIT 1');
+  const account = accounts[0] || { cash: 0, total_value: 1000000 };
+  
+  const cash_ratio = account.total_value > 0 ? (account.cash / account.total_value * 100) : 0;
+  
+  // Determine strategy mode based on cash ratio
+  let strategy_mode = 'normal';
+  let strategy_boost = {};
+  if (cash_ratio > 95) {
+    strategy_mode = 'aggressive';
+    strategy_boost = { 'MACD_RSI': 1.8, 'TREND_FOLLOW': 1.3, 'MULTI_FACTOR': 1.2 };
+  } else if (cash_ratio > 75) {
+    strategy_mode = 'balanced';
+    strategy_boost = { 'MACD_RSI': 1.3, 'TREND_FOLLOW': 1.1, 'MULTI_FACTOR': 1.0 };
+  } else {
+    strategy_mode = 'conservative';
+    strategy_boost = { 'MACD_RSI': 1.0, 'TREND_FOLLOW': 1.0, 'MULTI_FACTOR': 0.9 };
+  }
+  
+  sendJson(res, {
+    cash_ratio: Math.round(cash_ratio * 100) / 100,
+    cash_amount: Math.round(account.cash),
+    total_value: Math.round(account.total_value),
+    strategy_mode,
+    strategy_boost,
+    mode_description: strategy_mode === 'aggressive' ? '资金利用率低，激进入场' :
+                     strategy_mode === 'balanced' ? '均衡持仓，适度出击' :
+                     '已建仓，风险管理优先'
+  });
+}
+
+// === 改进② 绩效统计 (策略胜率、赛道分布、入场质量) ===
+function handlePerformanceStats(req, res) {
+  try {
+    // Strategy win rate analysis
+    const trades = querySqlite('SELECT * FROM trades ORDER BY trade_date ASC, id ASC');
+    if (!trades || !trades.length) {
+      return sendJson(res, { strategies: {}, sectors: {}, entry_quality: {} });
+    }
+    
+    // Build buy history by strategy
+    const strategyMap = {}; // strategy -> {total, wins, losses, pnls}
+    const buyMap = {}; // symbol -> {price, shares}
+    
+    trades.forEach(t => {
+      const strategy = t.strategy || 'unknown';
+      if (!strategyMap[strategy]) strategyMap[strategy] = { total: 0, wins: 0, losses: 0, pnls: [] };
+      
+      if (t.direction === 'BUY') {
+        buyMap[t.symbol] = { price: t.price, shares: t.shares, date: t.trade_date };
+      } else if (t.direction === 'SELL' && buyMap[t.symbol]) {
+        const pnl = (t.price - buyMap[t.symbol].price) * t.shares;
+        strategyMap[strategy].total++;
+        strategyMap[strategy].pnls.push(pnl);
+        if (pnl > 0) strategyMap[strategy].wins++;
+        else strategyMap[strategy].losses++;
+      }
+    });
+    
+    // Compute strategy stats
+    const strategies = {};
+    Object.entries(strategyMap).forEach(([strat, data]) => {
+      if (data.total === 0) return;
+      const avgPnl = data.pnls.reduce((a, b) => a + b, 0) / data.total;
+      strategies[strat] = {
+        total_trades: data.total,
+        win_rate: Math.round(data.wins / data.total * 10000) / 100,
+        wins: data.wins,
+        losses: data.losses,
+        avg_pnl: Math.round(avgPnl * 100) / 100,
+        effectiveness: data.wins / data.total >= 0.5 ? 'strong' : data.wins / data.total >= 0.3 ? 'fair' : 'weak'
+      };
+    });
+    
+    // Sector distribution
+    const sectorMap = {};
+    trades.forEach(t => {
+      const sector = t.sector || 'unknown';
+      if (!sectorMap[sector]) sectorMap[sector] = 0;
+      sectorMap[sector]++;
+    });
+    
+    // Entry quality score trend (sample from last 30 trades)
+    const recentTrades = trades.slice(-30);
+    let totalQuality = 0, validCount = 0;
+    recentTrades.forEach(t => {
+      if (t.entry_quality_score) {
+        totalQuality += parseFloat(t.entry_quality_score);
+        validCount++;
+      }
+    });
+    
+    sendJson(res, {
+      strategies,
+      sectors: sectorMap,
+      entry_quality_avg: validCount > 0 ? Math.round(totalQuality / validCount * 100) / 100 : 0,
+      recent_sample_size: recentTrades.length,
+      total_trades_analyzed: trades.length
+    });
+  } catch(e) {
+    log('performance-stats error: ' + e.message);
+    sendJson(res, { strategies: {}, sectors: {}, entry_quality: {} });
+  }
+}
+
 // --- Router ---
 
 const server = http.createServer((req, res) => {
@@ -894,6 +1001,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/trade-outcomes' && req.method === 'GET') return handleTradeOutcomes(req, res);
     if (pathname === '/api/finance/indicator-attribution' && req.method === 'GET') return handleIndicatorAttribution(req, res);
     if (pathname === '/api/finance/capital-utilization' && req.method === 'GET') return handleCapitalUtilization(req, res);
+    if (pathname === '/api/finance/cash-profile' && req.method === 'GET') return handleCashAllocationProfile(req, res);
+    if (pathname === '/api/finance/perf-stats' && req.method === 'GET') return handlePerformanceStats(req, res);
     if (pathname === '/api/finance/trade-calendar' && req.method === 'GET') return handleTradeCalendar(req, res);
     if (pathname === '/api/finance/strategy-contribution' && req.method === 'GET') return handleStrategyContribution(req, res);
     if (pathname === '/api/finance/recent-trades' && req.method === 'GET') return handleRecentTrades(req, res);
