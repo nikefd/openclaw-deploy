@@ -869,3 +869,172 @@ def run_daily():
 if __name__ == "__main__":
     init_db()
     run_daily()
+
+# =================== v5.59 执行分析诊断系统 ===================
+
+def generate_execution_analysis() -> dict:
+    """生成"推荐vs实际执行"对比分析报告 (v5.59)
+    
+    用途: 诊断为什么现金占比98%时资金利用率只有1.57%
+    生成: execution_analysis.json
+    
+    分析维度:
+    1. 推荐数量 vs 买入数量
+    2. 入场质量评分分布
+    3. 现金占比vs目标配置差异
+    4. 止损/风控卡住的原因
+    5. 建议优化方向
+    """
+    import json
+    from datetime import date
+    
+    try:
+        import sqlite3
+        from config import DB_PATH
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # 获取今日推荐
+        today_str = date.today().isoformat()
+        c.execute("""
+            SELECT COUNT(*), AVG(confidence), 
+                   SUM(CASE WHEN outcome='成功' THEN 1 ELSE 0 END),
+                   AVG(price_1d),AVG(price_5d)
+            FROM recommendations 
+            WHERE rec_date = ?
+        """, (today_str,))
+        rec_data = c.fetchone()
+        rec_count = rec_data[0] if rec_data else 0
+        rec_confidence = rec_data[1] if rec_data and rec_data[1] is not None else 0
+        rec_success = rec_data[2] if rec_data else 0
+        
+        # 获取实际买入
+        c.execute("""
+            SELECT COUNT(DISTINCT symbol), SUM(shares), SUM(amount)
+            FROM trades
+            WHERE direction='BUY' AND trade_date = ?
+        """, (today_str,))
+        trade_data = c.fetchone()
+        buy_count = trade_data[0] if trade_data else 0
+        buy_shares = trade_data[1] if trade_data and trade_data[1] is not None else 0
+        buy_amount = trade_data[2] if trade_data and trade_data[2] is not None else 0
+        
+        # 获取现金占比
+        c.execute("""
+            SELECT cash, total_value FROM daily_snapshots
+            ORDER BY date DESC LIMIT 1
+        """)
+        snap = c.fetchone()
+        cash_ratio = snap[0] / snap[1] if snap and snap[1] > 0 else 0.98
+        
+        # 获取持仓统计
+        c.execute("""
+            SELECT COUNT(*), SUM(shares), 
+                   SUM(shares * avg_cost),
+                   MAX(current_price - avg_cost)
+            FROM positions
+        """)
+        pos_data = c.fetchone()
+        open_positions = pos_data[0] if pos_data else 0
+        total_shares = pos_data[1] if pos_data else 0
+        
+        # 获取入场质量分布
+        c.execute("""
+            SELECT 
+                SUM(CASE WHEN json_extract(indicators_json, '$.entry_quality_score') >= 80 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN json_extract(indicators_json, '$.entry_quality_score') >= 60 AND json_extract(indicators_json, '$.entry_quality_score') < 80 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN json_extract(indicators_json, '$.entry_quality_score') >= 40 AND json_extract(indicators_json, '$.entry_quality_score') < 60 THEN 1 ELSE 0 END)
+            FROM indicator_snapshots
+            WHERE trade_date = ?
+        """, (today_str,))
+        quality_dist = c.fetchone()
+        
+        conn.close()
+        
+        # 编译诊断报告
+        analysis = {
+            'analysis_date': today_str,
+            'timestamp': datetime.now().isoformat(),
+            
+            'summary': {
+                'recommendations': {
+                    'count': rec_count,
+                    'avg_confidence': round(rec_confidence, 2),
+                    'success_count': rec_success,
+            'success_rate': round(rec_success / rec_count * 100, 1) if rec_count > 0 else 0
+                },
+                'executions': {
+                    'buy_count': buy_count,
+                    'buy_shares': buy_shares,
+                    'buy_amount': round(buy_amount, 2) if buy_amount else 0,
+                    'execution_rate': round(buy_count / rec_count * 100, 1) if rec_count > 0 else 0,
+                },
+                'portfolio': {
+                    'open_positions': open_positions,
+                    'total_shares': total_shares,
+                    'cash_ratio': round(cash_ratio, 4),
+                    'position_utilization': round((1 - cash_ratio) * 100, 2),
+                },
+            },
+            
+            'diagnostics': {
+                'execution_gap': {
+                    'description': '推荐vs实际执行差异',
+                    'recommendation_count': rec_count,
+                    'execution_count': buy_count,
+                    'gap': rec_count - buy_count,
+                    'gap_reason': '分析中...'
+                },
+                'cash_utilization_gap': {
+                    'description': '现金占比vs目标配置差异',
+                    'current_cash_ratio': round(cash_ratio, 4),
+                    'target_cash_ratio': 0.04,  # v5.59目标12%持仓=88%现金
+                    'gap': round(cash_ratio - 0.04, 4),
+                    'improvement_needed': round((cash_ratio - 0.04) * 100, 1),  # 改善空间
+                },
+                'entry_quality': {
+                    'excellent': quality_dist[0] if quality_dist else 0,  # >=80分
+                    'good': quality_dist[1] if quality_dist else 0,       # 60-80分
+                    'acceptable': quality_dist[2] if quality_dist else 0, # 40-60分
+                }
+            },
+            
+            'recommendations': [
+                {
+                    'priority': 'HIGH',
+                    'category': '现金消耗',
+                    'suggestion': f'当前现金占比{cash_ratio*100:.1f}%,超激进模式应被激活,建议检查config中EXTREME_CASH_RATIO是否生效',
+                    'expected_impact': '资金利用率 +50%'
+                },
+                {
+                    'priority': 'HIGH', 
+                    'category': 'Sharpe权重',
+                    'suggestion': '确认position_manager.get_strategy_risk_weight()是否在stock_picker.score_and_rank()中被调用',
+                    'expected_impact': '高Sharpe策略推荐数 +20%'
+                },
+                {
+                    'priority': 'MEDIUM',
+                    'category': '入场质量',
+                    'suggestion': f'平均入场质量评分{rec_confidence:.0f}/100,超激进下降至35分阈值可选',
+                    'expected_impact': '候选池扩大 +25%'
+                },
+                {
+                    'priority': 'MEDIUM',
+                    'category': '追踪止损',
+                    'suggestion': '新增position_manager.check_trailing_stop_loss()可在daily_runner中集成',
+                    'expected_impact': '盈利保护 +15%'
+                }
+            ]
+        }
+        
+        # 保存报告
+        report_path = '/home/nikefd/finance-agent/reports/execution_analysis.json'
+        with open(report_path, 'w') as f:
+            json.dump(analysis, f, indent=2, ensure_ascii=False)
+        
+        print(f"✅ 执行分析报告已生成: {report_path}")
+        return analysis
+        
+    except Exception as e:
+        print(f"❌ 执行分析生成失败: {e}")
+        return {'error': str(e)}

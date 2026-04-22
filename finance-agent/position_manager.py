@@ -1244,3 +1244,194 @@ def get_strategy_risk_weight(strategy_name: str, sector: str = '') -> float:
         return 1.0  # 异常时返回默认权重
 
 
+
+# =================== v5.59 新增函数: 加仓/追踪止损/现金利用率 ===================
+
+def get_cash_utilization_rate() -> float:
+    """计算当前现金占比 (v5.59: 用于超激进模式判断)
+    
+    Returns: 现金占总资产的比例 (0.0-1.0)
+    """
+    try:
+        import sqlite3
+        from config import DB_PATH
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # 获取最新的账户快照
+        c.execute('SELECT cash, total_value FROM daily_snapshots ORDER BY date DESC LIMIT 1')
+        row = c.fetchone()
+        conn.close()
+        
+        if not row or row[1] <= 0:
+            return 0.98  # 默认高现金占比
+        
+        cash, total_value = row
+        return cash / total_value
+    except:
+        return 0.95  # 异常时返回保守估计
+
+
+def check_position_adding_condition(pos: dict, current_price: float) -> dict:
+    """检查是否满足加仓条件 (v5.59)
+    
+    条件:
+    - 持仓至少3天
+    - 浮盈 > 2%
+    - 技术面仍然强势
+    
+    Returns: {should_add: bool, reason: str, add_quantity: int, add_amount: float}
+    """
+    from config import POSITION_ADDING_CONDITIONS
+    from data_collector import get_stock_daily, calculate_technical_indicators
+    
+    should_add = False
+    reason = ""
+    add_quantity = 0
+    add_amount = 0.0
+    
+    try:
+        # 条件1: 持仓天数
+        hold_days = _trading_days_since(pos['buy_date'])
+        if hold_days < POSITION_ADDING_CONDITIONS['min_hold_days']:
+            reason = f"持仓仅{hold_days}天,需≥{POSITION_ADDING_CONDITIONS['min_hold_days']}"
+            return {'should_add': False, 'reason': reason, 'add_quantity': 0, 'add_amount': 0}
+        
+        # 条件2: 浮盈百分比
+        pnl_pct = (current_price - pos['avg_cost']) / pos['avg_cost']
+        if pnl_pct < POSITION_ADDING_CONDITIONS['min_profit_pct']:
+            reason = f"浮盈{pnl_pct*100:.1f}%,需≥{POSITION_ADDING_CONDITIONS['min_profit_pct']*100:.1f}%"
+            return {'should_add': False, 'reason': reason, 'add_quantity': 0, 'add_amount': 0}
+        
+        # 条件3: 技术面强势检查
+        df = get_stock_daily(pos['symbol'], 30)
+        if df is None or df.empty:
+            reason = "数据获取失败"
+            return {'should_add': False, 'reason': reason, 'add_quantity': 0, 'add_amount': 0}
+        
+        tech = calculate_technical_indicators(df)
+        if not tech:
+            reason = "指标计算失败"
+            return {'should_add': False, 'reason': reason, 'add_quantity': 0, 'add_amount': 0}
+        
+        # 检查技术面信号
+        strong_signals = 0
+        if tech.get('trend') in ['多头', '强势']:
+            strong_signals += 1
+        if tech.get('macd_signal') in ['bullish', 'golden_cross']:
+            strong_signals += 1
+        if tech.get('rsi14', 50) < 60:
+            strong_signals += 1
+        if tech.get('obv_trend', 0) > 5:
+            strong_signals += 1
+        
+        if strong_signals < 2:
+            reason = f"技术面信号仅{strong_signals}个,需≥2个"
+            return {'should_add': False, 'reason': reason, 'add_quantity': 0, 'add_amount': 0}
+        
+        # 计算加仓数量
+        kelly_ratio = kelly_position_size(pos['symbol']) / pos.get('expected_kelly_size', 1000)
+        kelly_ratio = min(kelly_ratio, POSITION_ADDING_CONDITIONS['max_add_pct'])
+        
+        add_quantity = int(pos['shares'] * kelly_ratio * POSITION_ADDING_CONDITIONS['kelly_add_ratio'])
+        add_amount = add_quantity * current_price
+        
+        if add_quantity > 0:
+            should_add = True
+            reason = f"满足加仓条件: 持{hold_days}d+浮盈{pnl_pct*100:.1f}%+{strong_signals}个强信号"
+        else:
+            reason = "加仓数量为0"
+        
+        return {
+            'should_add': should_add,
+            'reason': reason,
+            'add_quantity': add_quantity,
+            'add_amount': add_amount,
+            'hold_days': hold_days,
+            'pnl_pct': pnl_pct,
+            'tech_signals': strong_signals
+        }
+    except Exception as e:
+        return {
+            'should_add': False,
+            'reason': f"检查异常: {str(e)}",
+            'add_quantity': 0,
+            'add_amount': 0
+        }
+
+
+def check_trailing_stop_loss(pos: dict, current_price: float, peak_price: float = None) -> dict:
+    """追踪止损检查 (v5.59)
+    
+    追踪止损逻辑:
+    - 从峰值回撤 > 5% 触发止损
+    - 或 8小时无新高 触发止损
+    - 锁定95%的峰值收益
+    
+    Returns: {should_stop: bool, reason: str, stop_price: float}
+    """
+    from config import TRAILING_STOP_LOSS
+    
+    if not TRAILING_STOP_LOSS.get('enabled', False):
+        return {'should_stop': False, 'reason': '追踪止损未启用', 'stop_price': None}
+    
+    try:
+        if peak_price is None:
+            peak_price = pos.get('peak_price', current_price)
+        
+        # 条件1: 从峰值回撤
+        retracement = (peak_price - current_price) / peak_price
+        if retracement > TRAILING_STOP_LOSS['peak_retracement_pct']:
+            stop_price = peak_price * (1 - TRAILING_STOP_LOSS['peak_retracement_pct'])
+            return {
+                'should_stop': True,
+                'reason': f"从峰值{peak_price:.2f}回撤{retracement*100:.1f}%>5%",
+                'stop_price': stop_price,
+                'peak_price': peak_price,
+                'retracement_pct': retracement
+            }
+        
+        # 条件2: 时间止损 (8小时无新高)
+        last_update = pos.get('updated_at')
+        if last_update:
+            try:
+                from datetime import datetime as dt_parser
+                last_time = dt_parser.fromisoformat(last_update)
+                hours_since = (datetime.now() - last_time).total_seconds() / 3600
+                if hours_since > TRAILING_STOP_LOSS['time_stop_hours']:
+                    return {
+                        'should_stop': True,
+                        'reason': f"{hours_since:.1f}小时无新高",
+                        'stop_price': current_price,
+                        'hours_since_update': hours_since
+                    }
+            except:
+                pass
+        
+        return {'should_stop': False, 'reason': '未触发追踪止损', 'stop_price': None}
+    except Exception as e:
+        return {'should_stop': False, 'reason': f"检查异常: {str(e)}", 'stop_price': None}
+
+
+def get_extreme_cash_mode_boost() -> dict:
+    """获取超激进模式下的权重加成 (v5.59)
+    
+    返回每个策略在超激进模式下的权重倍数
+    现金占比 > 98% 时激活
+    
+    Returns: {'MACD_RSI': 2.2, 'MULTI_FACTOR': 1.4, ...}
+    """
+    from config import EXTREME_CASH_RATIO, EXTREME_CASH_SIGNAL_BOOST
+    
+    cash_util = get_cash_utilization_rate()
+    
+    if cash_util > EXTREME_CASH_RATIO:
+        return EXTREME_CASH_SIGNAL_BOOST  # 返回超激进权重
+    else:
+        # 返回正常权重 (都是1.0)
+        return {
+            'MACD_RSI': 1.0,
+            'MULTI_FACTOR': 1.0,
+            'TREND_FOLLOW': 1.0,
+            'MA_CROSS': 1.0,
+        }

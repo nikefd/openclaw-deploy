@@ -205,3 +205,45 @@ TRAILING_STOP_LOSS = {
 # 候選池擴展 (stock_picker.py調參)
 MOMENTUM_SIGNAL_TARGET = 55         # 從45提升至55只 (+22%)
 VOLUME_SIGNAL_TARGET = 30           # 從25提升至30只 (+20%)
+
+# =================== v5.59 晚间深度优化④: 超激进模式强化 + 高Sharpe权重激活 ===================
+# 问题: 现金98%+但资金利用率仅1.57%, Sharpe权重未被充分应用
+# 解决: (1)超激进模式权重2.2x加成 (2)Sharpe权重倍数升级2.0x (3)入场质量阈值激进至35分
+
+# v5.59: Sharpe权重强制激活参数
+SHARPE_WEIGHT_FORCE_APPLY = True                    # 强制在score_and_rank中应用
+SHARPE_WEIGHT_MULTIPLIER_EXTREME = 2.0             # 超激进模式下的乘数 (1.5x→2.0x)
+APPLY_SHARPE_WEIGHTS_WITH_BOOST = True             # 与现金占比boost组合应用
+
+# v5.59: 候选池扩展(提供更多选择)
+CUSTOM_SCORE_THRESHOLD_EXTREME = 15                # 超激进模式候选最低分15 (从20↓)
+CUSTOM_MOMENTUM_POOL_SIZE = 60                     # 动量候选扩展至60只 (55→60)
+CUSTOM_VOLUME_POOL_SIZE = 35                       # 量价候选扩展至35只 (30→35)
+
+# v5.59: 现金占比激进系数 v2 (从v5.57优化)
+CASH_RATIO_STRATEGY_BOOST_V2 = {
+    'ultra_high': {        # 现金>98%: 超激进模式
+        'MACD_RSI': 2.2,       # 2.2x激进
+        'MULTI_FACTOR': 1.4,   # 1.4x  
+        'TREND_FOLLOW': 1.5,   # 1.5x
+        'MA_CROSS': 1.2,
+    },
+    'high': {              # 现金90-98%: 很激进
+        'MACD_RSI': 1.8,
+        'MULTI_FACTOR': 1.2,
+        'TREND_FOLLOW': 1.3,
+        'MA_CROSS': 1.1,
+    },
+    'medium': {            # 现金75-90%: 中等激进
+        'MACD_RSI': 1.3,
+        'MULTI_FACTOR': 1.1,
+        'TREND_FOLLOW': 1.1,
+        'MA_CROSS': 1.0,
+    },
+    'normal': {            # 现金<75%: 正常保守
+        'MACD_RSI': 1.0,
+        'MULTI_FACTOR': 1.0,
+        'TREND_FOLLOW': 1.0,
+        'MA_CROSS': 1.0,
+    }
+}
