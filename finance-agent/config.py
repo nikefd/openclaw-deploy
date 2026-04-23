@@ -206,6 +206,28 @@ TRAILING_STOP_LOSS = {
 MOMENTUM_SIGNAL_TARGET = 55         # 從45提升至55只 (+22%)
 VOLUME_SIGNAL_TARGET = 30           # 從25提升至30只 (+20%)
 
+# =================== v5.60 盤前優化①: 市場情緒動態入場質量調節 ===================
+# 問題: 入場質量閾值固定在35-65分，未根據市場情緒動態調整
+# 解決: 高情緒(>80)時降低閾值刺激買入; 恐慌情緒(<30)時提高閾值避免追高
+
+SENTIMENT_ENTRY_QUALITY_ADJUSTMENT = {
+    'greedy': {'threshold_adj': -5, 'sentiment_range': (80, 100)},      # 貪婪(>80): 質量-5分 (激進)
+    'optimistic': {'threshold_adj': 0, 'sentiment_range': (65, 80)},   # 樂觀(65-80): 不調整
+    'neutral': {'threshold_adj': 0, 'sentiment_range': (45, 65)},      # 中性(45-65): 不調整
+    'cautious': {'threshold_adj': 3, 'sentiment_range': (30, 45)},     # 謹慎(30-45): 質量+3分 (保守)
+    'panic': {'threshold_adj': 8, 'sentiment_range': (0, 30)},         # 恐慌(<30): 質量+8分 (防守)
+}
+
+# =================== v5.60 盤前優化②: 融資融券異動入場獎勵 ===================
+# 新增: 融資餘額大幅下降(減倉意願) → 底部確認信號 +8分
+#      融資餘額大幅上升(借錢買入) → 參與度上升信號 +5分
+MARGIN_ADJUSTMENT_BONUS = {
+    'margin_decline_bonus': 8,      # 融資餘額環比下降 >10% → +8分 (底部確認)
+    'margin_increase_bonus': 5,     # 融資餘額環比上升 >10% → +5分 (參與度)
+    'margin_decline_threshold': 0.10,   # 環比下降門檻
+    'margin_increase_threshold': 0.10,  # 環比上升門檻
+}
+
 # =================== v5.59 晚间深度优化④: 超激进模式强化 + 高Sharpe权重激活 ===================
 # 问题: 现金98%+但资金利用率仅1.57%, Sharpe权重未被充分应用
 # 解决: (1)超激进模式权重2.2x加成 (2)Sharpe权重倍数升级2.0x (3)入场质量阈值激进至35分

@@ -846,7 +846,9 @@ def run_daily():
     except Exception as _e:
         print(f"  ⚠️ 轮动替换检查失败: {_e}")
 
-    # 7. 保存快照
+    # v5.60: 追踪止损 & 加倉检查 (新增) — 参数已在config.py定义
+    # 注: 实际加倉邏輯已在 check_winner_scaling() 和 check_staged_entry() 实现
+    pass  # 占位符
     save_daily_snapshot(
         sentiment_score=sentiment.get('sentiment_score', 0),
         notes=json.dumps({'picks': [p.get('symbol','') for p in final_picks], 'stats': pick_stats, 'regime': regime}, ensure_ascii=False)[:500]

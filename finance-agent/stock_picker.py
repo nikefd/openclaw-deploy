@@ -1418,8 +1418,10 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
         total_value = current_cash + current_holdings
         _cash_ratio = current_cash / total_value if total_value > 0 else 0.95
         
-        # 根据现金占比决定激进模式
-        if _cash_ratio > 0.95:
+        # v5.60: 根据现金占比决定激进模式 (新增 ultra_high 超激进分支)
+        if _cash_ratio > 0.98:
+            _cash_boost_mode = 'ultra_high'  # v5.60 超激进: 现金>98% 快速消耗现金
+        elif _cash_ratio > 0.95:
             _cash_boost_mode = 'high'  # 激进模式: 现金>95%
         elif _cash_ratio > 0.75:
             _cash_boost_mode = 'medium'  # 中等模式: 现金75-95%
@@ -1428,10 +1430,14 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     except:
         _cash_boost_mode = 'normal'
     
-    # 应用现金占比策略权重调整
+    # v5.60: 应用现金占比策略权重调整 (支持 EXTREME_CASH 超激进模式)
     try:
-        from config import CASH_RATIO_STRATEGY_BOOST
-        cash_boost_weights = CASH_RATIO_STRATEGY_BOOST.get(_cash_boost_mode, {})
+        from config import CASH_RATIO_STRATEGY_BOOST, CASH_RATIO_STRATEGY_BOOST_V2, EXTREME_CASH_RATIO
+        # 优先使用 v5.59+ 的 CASH_RATIO_STRATEGY_BOOST_V2 (包含 ultra_high)
+        cash_boost_weights = CASH_RATIO_STRATEGY_BOOST_V2.get(_cash_boost_mode, {})
+        if not cash_boost_weights:
+            # 降级回 CASH_RATIO_STRATEGY_BOOST (较旧版本)
+            cash_boost_weights = CASH_RATIO_STRATEGY_BOOST.get(_cash_boost_mode, {})
         for stock in ranked:
             # 提取策略类型
             strategy_type = 'MULTI_FACTOR'  # 默认
