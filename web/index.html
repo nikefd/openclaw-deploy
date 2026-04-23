@@ -1435,7 +1435,19 @@ async function sendMessage(){
       try{await fetch('/api/chat/send',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({chatId,model:`openclaw${agentIdToUse !== 'main' ? '/' + agentIdToUse : ''}`,messages:[{role:'user',content:msgContent}]})});}catch(e){console.warn('[ff] submit:',e.message);}
       removeTyping(chatId);
       let el=null;if(currentId===chatId){el=appendMsg('assistant','…',agent,false);el.classList.add('raw');}
-      let lastText='',stable=0,tries=0;const MAX=200;
+      // 打字机队列：轮询拿到新 text 后，按 ~25ms/字的速度逐个追加，视觉上像流式
+      let displayed='',pendingFull='',typingTimer=null,finished=false;
+      const pump=()=>{
+        if(displayed.length>=pendingFull.length){typingTimer=null;return;}
+        // 一次最多追 3 个字，长回复不至于太慢
+        const batch=Math.min(3,pendingFull.length-displayed.length);
+        displayed=pendingFull.slice(0,displayed.length+batch);
+        if(el&&currentId===chatId){el.textContent=displayed;messagesEl.scrollTop=messagesEl.scrollHeight;}
+        // 未结束时留最后一点在最后一批打完后由轮询忽按下一轮填充
+        typingTimer=setTimeout(pump, finished?15:25);
+      };
+      const startPump=()=>{if(!typingTimer)pump();};
+      let stable=0,tries=0;const MAX=200;
       while(tries++<MAX){
         await new Promise(r=>setTimeout(r,1500));
         try{
@@ -1443,12 +1455,16 @@ async function sendMessage(){
           if(!r.ok)continue;
           const d=await r.json();
           const t=d.text||'';
-          if(t&&t!==lastText){full=t;_perfFull=t;lastText=t;stable=0;if(el&&currentId===chatId){el.textContent=t;messagesEl.scrollTop=messagesEl.scrollHeight;}}
+          if(t&&t!==pendingFull){pendingFull=t;full=t;_perfFull=t;stable=0;startPump();}
           else if(t){stable++;}
-          if(d.stopReason&&d.stopReason!=='inFlight'&&d.stopReason!=='streaming'&&t)break;
-          if(stable>=3&&t)break;
+          const done=d.stopReason&&d.stopReason!=='inFlight'&&d.stopReason!=='streaming'&&t;
+          if(done||(stable>=3&&t)){finished=true;break;}
         }catch{}
       }
+      // 等打字机追完剩余
+      finished=true;
+      while(displayed.length<pendingFull.length){await new Promise(r=>setTimeout(r,20));}
+      if(typingTimer){clearTimeout(typingTimer);typingTimer=null;}
       if(full){
         const existingAst=chat.messages[chat.messages.length-1];
         if(existingAst?.role==='assistant'){existingAst.content=full;delete existingAst._streaming;}else{chat.messages.push({role:'assistant',content:full});}
