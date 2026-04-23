@@ -1499,30 +1499,46 @@ window.addEventListener('beforeunload',()=>{
     }
   }
 });
+// 切回来后，对所有 streaming 中的 chat 做轮询恢复（不止当前 chat）
+// 轮询：每 1.5s 拉一次后端 history，内容连续 2 次不再增长 = 生成完了
+async function recoverStreamingChat(chatId){
+  const chat=chats.find(c=>c.id===chatId);if(!chat)return;
+  let prevLen=-1,stableCount=0,tries=0;
+  const MAX_TRIES=80; // 2 分钟上限（80*1.5s）
+  while(tries++<MAX_TRIES){
+    try{
+      const rr=await fetch(`/v1/sessions/${encodeURIComponent(chatId)}/history?limit=2`,{headers:{'Authorization':`Bearer ${TOKEN}`}});
+      if(!rr.ok)break;
+      const hd=await rr.json();
+      const last=hd.messages?.filter(m=>m.role==='assistant').pop();
+      const curLen=last?.content?.length||0;
+      if(curLen>0){
+        // 实时更新界面
+        const lastMsg=chat.messages[chat.messages.length-1];
+        if(lastMsg?.role==='assistant'){lastMsg.content=last.content;lastMsg._streaming=true;}
+        else{chat.messages.push({role:'assistant',content:last.content,_streaming:true});}
+        chat.updatedAt=Date.now();save(chatId);
+        if(currentId===chatId){removeTyping(chatId);renderChat();}
+      }
+      if(curLen===prevLen&&curLen>0){stableCount++;if(stableCount>=2)break;}
+      else{stableCount=0;prevLen=curLen;}
+    }catch{break;}
+    await new Promise(r=>setTimeout(r,1500));
+  }
+  // 收尾
+  const lastMsg=chat.messages[chat.messages.length-1];
+  if(lastMsg?._streaming)delete lastMsg._streaming;
+  streamingChats.delete(chatId);
+  chat.updatedAt=Date.now();save(chatId);renderSidebar();
+  if(currentId===chatId){streamBadge.classList.remove('show');renderChat();}
+}
 document.addEventListener('visibilitychange',async()=>{
-  if(document.hidden||!currentId||!streamingChats.has(currentId))return;
-  const chat=chats.find(c=>c.id===currentId);if(!chat)return;
-  // Wait a moment to see if stream naturally resumes
-  await new Promise(r=>setTimeout(r,2000));
-  if(!streamingChats.has(currentId))return; // stream finished normally
-  // Still "streaming" after 2s — likely dead. Try recover from backend.
-  try{
-    const rr=await fetch(`/v1/sessions/${encodeURIComponent(currentId)}/history?limit=2`,{headers:{'Authorization':`Bearer ${TOKEN}`}});
-    if(!rr.ok)return;
-    const hd=await rr.json();
-    const last=hd.messages?.filter(m=>m.role==='assistant').pop();
-    if(last?.content){
-      removeTyping(currentId);
-      // Remove partial assistant message if any
-      const lastMsg=chat.messages[chat.messages.length-1];
-      if(lastMsg?.role==='assistant')chat.messages.pop();
-      chat.messages.push({role:'assistant',content:last.content});
-      streamingChats.delete(currentId);
-      chat.updatedAt=Date.now();save();renderSidebar();
-      streamBadge.classList.remove('show');
-      renderChat();
-    }
-  }catch{}
+  if(document.hidden)return;
+  // 对所有 streaming 中的 chat 都恢复（切 app 回来 SSE 必断）
+  await new Promise(r=>setTimeout(r,800)); // 等一下看是否自然恢复
+  for(const chatId of Array.from(streamingChats)){
+    recoverStreamingChat(chatId); // 并行跑，不 await
+  }
 });
 
 
