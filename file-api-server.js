@@ -359,16 +359,27 @@ http.createServer(async(req,res)=>{
       const fd=fs.openSync(jsonlPath,'r');const buf=Buffer.alloc(stat.size-readFrom);
       fs.readSync(fd,buf,0,buf.length,readFrom);fs.closeSync(fd);
       const lines=buf.toString('utf-8').split('\n').filter(Boolean);
+      // 兼容两种格式：
+      //   A) 旧格式：{role:'assistant', content:...}
+      //   B) openclaw 内部格式：{type:'message', message:{role:'assistant', content:[{type:'text',text:...}]}, timestamp, stopReason}
       const msgs=[];
-      for(const ln of lines){try{const m=JSON.parse(ln);if(m.role==='assistant'||m.role==='user')msgs.push(m);}catch{}}
-      // 提取最后一条 assistant 的文本
+      for(const ln of lines){
+        try{
+          const o=JSON.parse(ln);
+          if(o.type==='message'&&o.message&&(o.message.role==='assistant'||o.message.role==='user')){
+            msgs.push({role:o.message.role,content:o.message.content,stopReason:o.stopReason||o.message.stopReason,timestamp:o.timestamp});
+          }else if(o.role==='assistant'||o.role==='user'){
+            msgs.push(o);
+          }
+        }catch{}
+      }
       const lastAsst=[...msgs].reverse().find(m=>m.role==='assistant');
       let text='',stopReason=null,isStreaming=false;
       if(lastAsst){
         stopReason=lastAsst.stopReason||null;
         isStreaming=!lastAsst.stopReason||lastAsst.stopReason==='inFlight'||lastAsst.stopReason==='streaming';
         if(Array.isArray(lastAsst.content)){
-          text=lastAsst.content.filter(c=>c.type==='text').map(c=>c.text).join('');
+          text=lastAsst.content.filter(c=>c&&c.type==='text').map(c=>c.text).join('');
         }else if(typeof lastAsst.content==='string'){text=lastAsst.content;}
       }
       res.end(JSON.stringify({chatId,text,stopReason,isStreaming,ts:lastAsst?.timestamp||null}));
@@ -384,18 +395,21 @@ http.createServer(async(req,res)=>{
       // 读 token
       let token='';
       try{const cfg=JSON.parse(fs.readFileSync(path.join(ROOT,'.openclaw','openclaw.json'),'utf-8'));token=cfg?.gateway?.auth?.token||'';}catch{}
-      // 立即返回 accepted
-      res.writeHead(202,{'Content-Type':'application/json'});
-      res.end(JSON.stringify({accepted:true,chatId}));
-      // 后台调 gateway（不 await，不阻塞）
+      // 先把 gateway 请求发出去，再回 202（避免 res.end 后的微任务调度被吞）
       const payload={model:j.model||'openclaw',stream:false,user:chatId,messages:j.messages||[]};
-      const gwReq=http.request({host:'127.0.0.1',port:18789,path:'/v1/chat/completions',method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'}},gwRes=>{
-        let buf='';gwRes.on('data',c=>buf+=c);gwRes.on('end',()=>{/* gateway 已写 session history，前端轮询取 */});
+      console.log('[chat/send] dispatch chatId='+chatId+' model='+payload.model+' msgs='+payload.messages.length);
+      const gwReq=http.request({host:'127.0.0.1',port:18789,path:'/v1/chat/completions',method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Connection':'close'}},gwRes=>{
+        let buf='';gwRes.on('data',c=>buf+=c);
+        gwRes.on('end',()=>{console.log('[chat/send] gw done chatId='+chatId+' status='+gwRes.statusCode+' bytes='+buf.length);});
       });
-      gwReq.on('error',e=>console.error('[chat/send] gw error:',e.message));
-      gwReq.setTimeout(600000); // 10分钟超时（仅内部连接）
+      gwReq.on('error',e=>console.error('[chat/send] gw error chatId='+chatId+':',e.message));
+      gwReq.on('timeout',()=>{console.error('[chat/send] gw TIMEOUT chatId='+chatId);gwReq.destroy(new Error('timeout'));});
+      gwReq.setTimeout(600000);
       gwReq.write(JSON.stringify(payload));
       gwReq.end();
+      // 再返回 202
+      res.writeHead(202,{'Content-Type':'application/json'});
+      res.end(JSON.stringify({accepted:true,chatId}));
     }catch(e){try{res.writeHead(500);res.end(JSON.stringify({error:e.message}));}catch{}}
   }else{res.writeHead(404);res.end('{"error":"not found"}');}
 }).listen(PORT,'127.0.0.1',()=>{
