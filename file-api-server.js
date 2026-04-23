@@ -204,6 +204,15 @@ http.createServer(async(req,res)=>{
       res.end(JSON.stringify({ok:true,path:r,size:s.size}));
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   // === NODE MANAGEMENT API ===
+  }else if(url.pathname==='/api/tasks/list'&&req.method==='GET'){
+    const qs=url.searchParams;
+    const args=['tasks','list','--json'];
+    const rt=qs.get('runtime');if(rt)args.push('--runtime',rt);
+    const st=qs.get('status');if(st)args.push('--status',st);
+    exec('openclaw '+args.join(' ')+' 2>&1',{env:EXEC_ENV,maxBuffer:10*1024*1024},(e,o)=>{
+      if(e){res.writeHead(500);res.end(JSON.stringify({error:e.message,raw:o}));return;}
+      try{JSON.parse(o);res.end(o);}catch{res.writeHead(500);res.end(JSON.stringify({error:'parse error',raw:o}));}
+    });
   }else if(url.pathname==='/api/nodes/status'&&req.method==='GET'){
     exec('openclaw nodes status --json 2>&1',{env:EXEC_ENV},(e,o)=>{
       if(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));return;}
