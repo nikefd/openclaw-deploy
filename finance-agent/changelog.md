@@ -108,3 +108,33 @@ TRAILING_STOP_LOSS = {
 - [✓] API端點 /api/finance/perf-stats 返回策略勝率+賽道分佈+入場質量 ✓
 - [✓] JS語法檢查 ✓ (node -c 通過)
 
+
+## 2026-04-23 03:35 — v5.60 盤中優化④: 持仓风险热力图(UI增强)
+
+✅ **盤中UI体验升级完成**
+
+### 改进③ 持仓风险热力图 (新增)
+- **需求**: 用户需要快速识别持仓中的风险等级，避免高风险持仓叠加
+- **方案**: 在仪表板新增持仓风险热力图面板
+  - 计算风险评分: 基于回撤率(40%) + 持仓天数(30%) + 价格变化(30%)
+  - 显示每个持仓的风险等级: 🟢低/🟡中/🔴高
+  - 展示平均风险评分 (0-100)
+  - 快速识别需要止损或加仓的持仓
+- **文件修改**:
+  - finance-api-server.js: 新增handlePositionRiskHeatmap()函数 + /api/finance/position-risk-heatmap端点
+  - finance.html: 在每日收益热力图后新增持仓风险热力图面板
+  - finance-v5-51.js: 新增loadPositionRiskHeatmap()函数
+- **集成**:
+  - loadDashboard()中添加loadPositionRiskHeatmap()调用
+- **预期效果**: 一眼识别风险等级 | 更好的风险管理决策 | UI更专业
+
+### ✅ 验证检查表
+- [✓] finance-api-server.js 新增风险热力图handler ✓
+- [✓] API路由 /api/finance/position-risk-heatmap 已注册 ✓
+- [✓] finance.html UI面板已添加 ✓
+- [✓] finance-v5-51.js 新增loadPositionRiskHeatmap()函数 ✓
+- [✓] loadDashboard()中已集成调用 ✓
+- [ ] 本地测试 ← 下一步执行
+- [ ] git同步 ← 下一步执行
+- [ ] systemctl restart finance-api ← 下一步执行
+

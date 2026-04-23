@@ -293,6 +293,15 @@ tr.pos-row.expanded{background:var(--hover)}
         <canvas id="sectorAllocChart" style="max-height:260px"></canvas>
       </div>
     </div>
+    <!-- 改进③ 持仓风险热力图 (v5.60) -->
+    <div class="heatmap-wrap" style="margin-bottom:24px">
+      <h3>🔴 持仓风险热力图</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:16px" id="positionRiskGrid"></div>
+      <div style="margin-top:12px;padding:12px;background:var(--hover);border-radius:8px;text-align:center;font-size:12px">
+        <div style="color:var(--sub);margin-bottom:4px">平均风险评分</div>
+        <div id="avgRiskScore" style="font-size:24px;font-weight:700">--</div>
+      </div>
+    </div>
     <!-- Returns Heatmap -->
     <div class="heatmap-wrap">
       <h3>📅 每日收益热力图 (近30个交易日)</h3>
@@ -905,6 +914,7 @@ async function loadDashboard(){
   loadStopLossTakeProfitBoard(d);
   loadCashProfile();
   loadPerformanceStats();
+  loadPositionRiskHeatmap();
   updateTime();
 }
 

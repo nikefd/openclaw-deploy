@@ -747,6 +747,59 @@ function handleCashAllocationProfile(req, res) {
   });
 }
 
+// === 改进③ 持仓风险热力图 (v5.60) ===
+function handlePositionRiskHeatmap(req, res) {
+  try {
+    const positions = querySqlite('SELECT * FROM positions');
+    if (!positions || !positions.length) {
+      return sendJson(res, { heatmap: [], avg_risk_score: 0 });
+    }
+
+    const heatmap = positions.map(p => {
+      // 风险评分公式：基于回撤率、持仓天数、波动率
+      const drawdown_risk = Math.abs(p.peak_drawdown || 0); // 从峰值的回撤%
+      const holding_days_risk = Math.max(0, 30 - (p.holding_days || 0)) / 30 * 30; // 持仓越久风险越低
+      const price_change_risk = Math.abs((p.current_price - p.avg_cost) / p.avg_cost * 100); // 价格变化幅度
+      
+      // 综合风险评分 (0-100)
+      let risk_score = (drawdown_risk * 0.4 + holding_days_risk * 0.3 + price_change_risk * 0.3);
+      risk_score = Math.min(100, Math.max(0, risk_score));
+      
+      // 风险等级
+      let risk_level = 'low';
+      let risk_icon = '🟢';
+      if (risk_score >= 70) {
+        risk_level = 'high';
+        risk_icon = '🔴';
+      } else if (risk_score >= 40) {
+        risk_level = 'medium';
+        risk_icon = '🟡';
+      }
+      
+      return {
+        symbol: p.symbol,
+        name: p.name,
+        risk_score: Math.round(risk_score * 100) / 100,
+        risk_level,
+        risk_icon,
+        drawdown: Math.round((p.peak_drawdown || 0) * 100) / 100,
+        shares: p.shares,
+        holding_days: p.holding_days || 0,
+        pnl_pct: p.pnl_pct || 0
+      };
+    });
+
+    const avg_risk_score = heatmap.length > 0 
+      ? Math.round(heatmap.reduce((sum, p) => sum + p.risk_score, 0) / heatmap.length * 100) / 100 
+      : 0;
+
+    sendJson(res, { heatmap, avg_risk_score });
+  } catch (e) {
+    log(`handlePositionRiskHeatmap error: ${e.message}`);
+    sendError(res, e.message);
+  }
+}
+
 // === 改进② 绩效统计 (策略胜率、赛道分布、入场质量) ===
 function handlePerformanceStats(req, res) {
   try {
@@ -1003,6 +1056,7 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/capital-utilization' && req.method === 'GET') return handleCapitalUtilization(req, res);
     if (pathname === '/api/finance/cash-profile' && req.method === 'GET') return handleCashAllocationProfile(req, res);
     if (pathname === '/api/finance/perf-stats' && req.method === 'GET') return handlePerformanceStats(req, res);
+    if (pathname === '/api/finance/position-risk-heatmap' && req.method === 'GET') return handlePositionRiskHeatmap(req, res);
     if (pathname === '/api/finance/trade-calendar' && req.method === 'GET') return handleTradeCalendar(req, res);
     if (pathname === '/api/finance/strategy-contribution' && req.method === 'GET') return handleStrategyContribution(req, res);
     if (pathname === '/api/finance/recent-trades' && req.method === 'GET') return handleRecentTrades(req, res);

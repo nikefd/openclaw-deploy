@@ -72,6 +72,29 @@ async function loadPerformanceStats() {
 }
 
 // === 风险告警面板 (v5.51) ===
+// === 改进③ 持仓风险热力图 (v5.60) ===
+async function loadPositionRiskHeatmap() {
+  try {
+    const data = await api('/api/finance/position-risk-heatmap');
+    if (!data || !data.heatmap) return;
+    const grid = document.getElementById('positionRiskGrid');
+    if (!grid) return;
+    const html = data.heatmap.map(pos => {
+      let bgColor = 'rgba(46,196,182,0.1)', borderColor = '#2ec4b6', textColor = '#2ec4b6';
+      if (pos.risk_level === 'high') {
+        bgColor = 'rgba(230,57,70,0.1)'; borderColor = '#e63946'; textColor = '#e63946';
+      } else if (pos.risk_level === 'medium') {
+        bgColor = 'rgba(244,162,97,0.1)'; borderColor = '#f4a261'; textColor = '#f4a261';
+      }
+      return `<div style="background:${bgColor};border:1px solid ${borderColor};border-radius:12px;padding:12px;text-align:center"><div style="font-size:24px;margin-bottom:4px">${pos.risk_icon}</div><div style="font-size:13px;font-weight:600;margin-bottom:2px">${pos.symbol}</div><div style="font-size:11px;color:var(--sub);margin-bottom:6px">${pos.name}</div><div style="font-size:18px;font-weight:700;color:${textColor};margin-bottom:4px">${pos.risk_score}</div><div style="font-size:10px;color:var(--sub);padding-top:6px;border-top:1px solid ${borderColor}33">回撤: ${pos.drawdown}% | 持仓: ${pos.holding_days}d</div></div>`;
+    }).join('');
+    grid.innerHTML = html;
+    document.getElementById('avgRiskScore').textContent = data.avg_risk_score.toFixed(2);
+  } catch(e) {
+    console.error('loadPositionRiskHeatmap', e);
+  }
+}
+
 async function loadRiskAlerts(d){
   try{
     const rd=await api('/api/finance/risk-alerts');
