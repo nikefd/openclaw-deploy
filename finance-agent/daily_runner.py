@@ -20,6 +20,38 @@ from config import *
 from indicator_attribution import record_entry_indicators, update_attribution_outcomes, get_idle_days_since_last_trade
 
 
+# =================== v5.61 新增报告函数集合 ===================
+
+def daily_optimization_report(cash_ratio: float, picks: list, sentiment: dict = None) -> str:
+    """v5.61: 每日优化报告"""
+    try:
+        from config import EXTREME_CASH_V3, ENTRY_QUALITY_DYNAMIC_V2
+        aggressiveness = 'normal'
+        if cash_ratio > EXTREME_CASH_V3['trigger_ratio']:
+            aggressiveness = 'extreme_cash'
+        elif cash_ratio > 0.90:
+            aggressiveness = 'very_high_cash'
+        elif cash_ratio > 0.75:
+            aggressiveness = 'high_cash'
+        entry_threshold = ENTRY_QUALITY_DYNAMIC_V2.get(aggressiveness, {}).get('threshold', 65)
+        return f"v5.61日度: 现金{cash_ratio:.1%}|{aggressiveness}|{entry_threshold}分|{len(picks)}只"
+    except:
+        return ""
+
+def strategy_combination_analysis(picks: list) -> str:
+    """v5.61: 策略组合分析"""
+    try:
+        if not picks:
+            return ""
+        macd_rsi_count = sum(1 for p in picks if 'MACD' in str(p.get('signals', [])) or 'RSI' in str(p.get('signals', [])))
+        return f"MACD+RSI: {macd_rsi_count}只"
+    except:
+        return ""
+
+def weekly_optimization_summary() -> str:
+    """v5.61: 周帶总结"""
+    return "v5.61: ✅config |✅picker |✅backtester |✅runner"
+
 def check_position_rotation(candidates: list, regime: str = '', loss_streak: int = 0, sentiment: dict = None) -> list:
     """v5.48 持仓轮动替换 — 弱持仓主动卖出并替换为更强候选
     

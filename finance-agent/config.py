@@ -269,3 +269,167 @@ CASH_RATIO_STRATEGY_BOOST_V2 = {
         'MA_CROSS': 1.0,
     }
 }
+
+# =================== v5.61 晚间深度优化①: 超激进模式V3 强化版 ===================
+# 问题: 现金98%+但资金利用率1.57%, Sharpe权重2.0x虽有但应用不足
+# 解决: (1)MACD权重升至2.5x (2)Sharpe权重升至2.5x (3)入场质量降至30分 (4)融资融券+12分
+
+# v5.61: 超激进模式V3参数矩阵
+EXTREME_CASH_V3_MODE = {
+    'enabled': True,                    # v5.61启用
+    'trigger_ratio': 0.98,              # 现金>98%触发
+    'target_allocation': 0.12,          # 目标持仓12%
+    'entry_quality_threshold': 30,      # 入场质量30分(从35↓)
+    'candidate_pool_target': 75,        # 候选池75只(从60↑)
+}
+
+# v5.61: 策略权重激进系数 v3 (超激进增强版)
+CASH_RATIO_STRATEGY_BOOST_V3 = {
+    'extreme': {           # 现金>98%: 超激进模式V3 (v5.61新增)
+        'MACD_RSI': 2.5,       # 2.5x (+13% vs v5.59)
+        'MULTI_FACTOR': 1.5,   # 1.5x (+7% vs v5.59)
+        'TREND_FOLLOW': 1.6,   # 1.6x (+7% vs v5.59)
+        'MA_CROSS': 1.3,       # 1.3x (+8% vs v5.59)
+    },
+    'ultra_high': {        # 现金>98% 备选方案(保守)
+        'MACD_RSI': 2.2,       # 2.2x激进
+        'MULTI_FACTOR': 1.4,   # 1.4x  
+        'TREND_FOLLOW': 1.5,   # 1.5x
+        'MA_CROSS': 1.2,
+    },
+    'high': {              # 现金90-98%: 很激进
+        'MACD_RSI': 1.8,
+        'MULTI_FACTOR': 1.2,
+        'TREND_FOLLOW': 1.3,
+        'MA_CROSS': 1.1,
+    },
+    'medium': {            # 现金75-90%: 中等激进
+        'MACD_RSI': 1.3,
+        'MULTI_FACTOR': 1.1,
+        'TREND_FOLLOW': 1.1,
+        'MA_CROSS': 1.0,
+    },
+    'normal': {            # 现金<75%: 正常保守
+        'MACD_RSI': 1.0,
+        'MULTI_FACTOR': 1.0,
+        'TREND_FOLLOW': 1.0,
+        'MA_CROSS': 1.0,
+    }
+}
+
+# v5.61: Sharpe权重强制激活参数
+SHARPE_WEIGHT_FORCE_APPLY_V3 = True                    # 强制在stock_picker中应用
+SHARPE_WEIGHT_MULTIPLIER_V3 = 2.5                      # 倍数升至2.5x (从2.0x)
+APPLY_SHARPE_WEIGHTS_WITH_EXTREME_MODE = True          # 与极端模式组合应用
+
+# v5.61: 融资融券高级判别 (融资异变信号)
+MARGIN_SIGNAL_V2 = {
+    'margin_decline_premium': 12,       # 融资余额环比-20% + 融资融券比<20% → +12分 (底部确认)
+    'margin_increase_premium': 8,       # 融资余额环比+15% + 融资创新高 → +8分 (参与度)
+    'margin_decline_threshold': 0.20,   # 环比下降门槛 (-20%)
+    'margin_increase_threshold': 0.15,  # 环比上升门槛 (+15%)
+    'margin_ratio_threshold': 0.20,     # 融资融券比门槛 (20%)
+}
+
+# v5.61: 赛道差异化权重路由 v2 (按回测数据优化)
+SECTOR_STRATEGY_ROUTING_V2 = {
+    '科技成长': {
+        'primary': ('MACD_RSI', 2.5),      # MACD+RSI 权重2.5x (v5.61新增)
+        'secondary': ('MULTI_FACTOR', 1.5),  # 多因子 权重1.5x (从1.2x↑)
+        'hedge': ('MA_CROSS', 0.9)         # 均线 权重0.9x (对冲)
+    },
+    '新能源': {
+        'primary': ('MACD_RSI', 2.0),      # MACD+RSI 权重2.0x
+        'secondary': ('MULTI_FACTOR', 1.3),  # 多因子 权重1.3x
+        'hedge': ('TREND_FOLLOW', 1.2)    # 趋势 权重1.2x
+    },
+    '白马消费': {
+        'primary': ('MULTI_FACTOR', 1.5),    # 多因子 1.5x
+        'secondary': ('TREND_FOLLOW', 1.3),  # 趋势 1.3x
+        'hedge': ('MA_CROSS', 1.0)        # 均线 1.0x
+    },
+    '主板': {
+        'primary': ('MULTI_FACTOR', 1.3),    # 多因子
+        'secondary': ('TREND_FOLLOW', 1.1),
+        'hedge': ('MA_CROSS', 1.0)
+    }
+}
+
+# v5.61: 入场质量阈值动态调节 v2 (极限模式激活)
+ENTRY_QUALITY_DYNAMIC_V2 = {
+    'extreme': 30,         # 现金>98%超激进: 30分 (v5.61新增,从35↓)
+    'high_cash': 40,       # 现金75-98%: 40分 (从55↓)
+    'normal': 55,          # 正常: 55分 (从65↓)
+}
+
+# v5.61: 候选池规模扩展参数
+CANDIDATE_POOL_EXPANDED = {
+    'momentum_target': 75,      # 动量候选 75只 (从55↑ +36%)
+    'volume_target': 40,        # 量价候选 40只 (从30↑ +33%)
+    'custom_score_threshold_extreme': 15,  # 极端模式最低分 15 (从20↓)
+    'apply_margin_bonus': True, # 应用融资融券+12分
+}
+
+# =================== v5.61 深度优化：超激进权重升级 + Sharpe倍数提升 + 融资融券高级判别 ===================
+# 目标: 资金利用率 1.57% → 8-12%, 日均选股 8-12只 → 15-20只, Sharpe保持2.35+
+# 方案: (1) Sharpe权重倍数 2.0x → 2.5x (强制应用)
+#       (2) 超激进模式入场质量 35分 → 30分 (-14%)
+#       (3) 候选池扩展 60只 → 75只 (+25%)
+#       (4) 融资融券高级判别: 融资环比-20%+融资融券比<20% → +12分
+#       (5) MACD_RSI权重 2.2x → 2.5x (+14%)
+
+# v5.61: EXTREME_CASH_V3 - 超激进模式强化 (Sharpe权重2.5x)
+EXTREME_CASH_V3 = {
+    'enabled': True,                                    # 启用v5.61超激进模式
+    'trigger_ratio': 0.98,                             # 现金>98%触发
+    'entry_quality_threshold': 30,                     # 入场质量30分 (从35↓ -14%)
+    'candidate_pool_size': 75,                         # 候选池75只 (从60↑ +25%)
+    'sharpe_weight_multiplier': 2.5,                   # Sharpe权重倍数 2.5x (从2.0x↑ +25%)
+    'macd_rsi_weight': 2.5,                            # MACD+RSI权重 2.5x (从2.2x↑ +14%)
+    'signal_boost_aggressive': {
+        'MACD_RSI': 2.5,                               # MACD+RSI 2.5x激进
+        'MULTI_FACTOR': 1.5,                           # 多因子 1.5x (从1.4x)
+        'TREND_FOLLOW': 1.6,                           # 趋势跟随 1.6x (从1.5x)
+        'MA_CROSS': 1.3,                               # MA交叉 1.3x (从1.2x)
+    }
+}
+
+# v5.61: 融资融券高级判别参数
+MARGIN_SIGNAL_V2 = {
+    'margin_decline_threshold': 0.20,                  # 融资环比下降>20% 触发底部确认
+    'margin_fusion_ratio_max': 0.20,                   # 融资融券比<20% 算健康
+    'margin_decline_bonus': 12,                        # 融资环比-20%+融资融券比<20% → +12分 (从8↑)
+    'margin_increase_threshold': 0.15,                 # 融资环比上升>15% 触发参与度
+    'margin_increase_bonus': 6,                        # 融资环比上升 → +6分 (从5↑)
+}
+
+# v5.61: 入场质量动态分级 V2 (优化现金占比对应的门槛)
+ENTRY_QUALITY_DYNAMIC_V2 = {
+    'extreme_cash': {'threshold': 30, 'cash_range': (0.98, 1.0)},   # 现金>98%: 30分 (激进)
+    'very_high_cash': {'threshold': 40, 'cash_range': (0.90, 0.98)}, # 现金90-98%: 40分
+    'high_cash': {'threshold': 50, 'cash_range': (0.75, 0.90)},     # 现金75-90%: 50分
+    'normal': {'threshold': 65, 'cash_range': (0, 0.75)},           # 现金<75%: 65分 (保守)
+}
+
+# v5.61: 赛道差异化权重强化
+SECTOR_WEIGHT_BOOST_V2 = {
+    '科技成长': {                                        # 基础权重 30% (从20%)
+        'base_weight': 0.30,
+        'macd_boost': 2.5,                             # MACD权重 2.5x (从2.0x)
+        'description': '技术面强劲,MACD+RSI最优'
+    },
+    '新能源': {
+        'base_weight': 0.25,                           # 基础权重 25% (从18%)
+        'macd_boost': 2.0,                             # MACD权重 2.0x
+        'description': '政策支持,趋势确定'
+    },
+    '白马消费': {
+        'base_weight': 0.20,                           # 基础权重 20% (保持)
+        'multi_factor_boost': 1.5,                     # 多因子权重 1.5x
+        'description': '基本面稳健,多因子优化'
+    }
+}
+
+# v5.61: Sharpe权重应用强制激活
+APPLY_SHARPE_MULTIPLIER_FORCE = True                    # 强制应用Sharpe权重倍数
+SHARPE_WEIGHT_MULTIPLIER_V3 = 2.5                       # v5.61升级: 2.5x (从2.0x)

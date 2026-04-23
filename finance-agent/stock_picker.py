@@ -15,7 +15,179 @@ from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplie
 from entry_quality import enrich_candidates_with_entry_quality, adjust_score_by_entry_quality
 
 
-# === 信号持续性数据库 (Signal Persistence) ===
+# =================== v5.61 新增函数集合 ===================
+
+def apply_sharpe_ranking_multiplier(ranked: list, cash_ratio: float = 0.75) -> list:
+    """v5.61: 强制在score_and_rank中应用2.5x Sharpe倍数
+    
+    确保Sharpe权重被充分利用，不被其他权重掩盖
+    Args:
+        ranked: score_and_rank()输出的排序候选list
+        cash_ratio: 当前现金占比
+    
+    Returns: 应用Sharpe倍数后的排序list
+    """
+    try:
+        from config import (
+            APPLY_SHARPE_MULTIPLIER_FORCE,
+            SHARPE_WEIGHT_MULTIPLIER_V3,
+            EXTREME_CASH_V3,
+            ENTRY_QUALITY_DYNAMIC_V2
+        )
+        
+        if not APPLY_SHARPE_MULTIPLIER_FORCE:
+            return ranked
+        
+        # v5.61: 根据现金占比选择Sharpe倍数
+        sharpe_multiplier = SHARPE_WEIGHT_MULTIPLIER_V3  # 默认2.5x
+        
+        # 在超激进模式下，Sharpe倍数应用更激进
+        if cash_ratio > EXTREME_CASH_V3['trigger_ratio']:
+            sharpe_multiplier = EXTREME_CASH_V3['sharpe_weight_multiplier']  # 2.5x
+        
+        for stock in ranked:
+            # 提取策略类型判断是否为MACD+RSI策略
+            signals = stock.get('signals', [])
+            is_macd_rsi = any('MACD' in str(s) or 'RSI' in str(s) for s in signals)
+            
+            if is_macd_rsi:
+                # MACD+RSI策略应用更高的Sharpe倍数
+                original_score = stock.get('score', 0)
+                stock['score'] = int(original_score * sharpe_multiplier)
+                stock['_sharpe_multiplier_applied'] = f"{sharpe_multiplier}x"
+        
+        # 重新排序
+        ranked.sort(key=lambda x: -x.get('score', 0))
+        return ranked
+    except Exception as e:
+        print(f"  ⚠️ Sharpe倍数应用失败: {e}")
+        return ranked
+
+
+def sector_intelligent_routing(candidates: list, regime: str = "") -> list:
+    """v5.61: 赛道差异化策略路由
+    
+    按科技成长/新能源/白马分赛道应用不同权重和策略
+    """
+    try:
+        from config import SECTOR_WEIGHT_BOOST_V2
+        from performance_tracker import classify_sector
+        
+        for cand in candidates:
+            code = cand.get('code', '')
+            name = cand.get('name', '')
+            if not code:
+                continue
+            
+            # 分类赛道
+            sector = classify_sector(code, name)
+            cand['_sector'] = sector
+            
+            # 根据赛道应用差异化权重
+            if sector in SECTOR_WEIGHT_BOOST_V2:
+                sector_config = SECTOR_WEIGHT_BOOST_V2[sector]
+                base_weight = sector_config.get('base_weight', 1.0)
+                
+                # 应用赛道权重
+                original_score = cand.get('score', 0)
+                sector_adjusted = int(original_score * (1 + base_weight))
+                
+                # 如果是MACD策略，应用特殊加强
+                signals = cand.get('signals', [])
+                if any('MACD' in str(s) for s in signals) and 'macd_boost' in sector_config:
+                    macd_boost = sector_config['macd_boost']
+                    sector_adjusted = int(sector_adjusted * macd_boost)
+                    cand['_macd_boost_applied'] = f"{macd_boost}x"
+                
+                # 如果是多因子策略，应用多因子加强
+                if 'multi_factor_boost' in sector_config:
+                    multi_boost = sector_config['multi_factor_boost']
+                    sector_adjusted = int(sector_adjusted * multi_boost)
+                    cand['_multi_boost_applied'] = f"{multi_boost}x"
+                
+                cand['score'] = sector_adjusted
+                cand['_sector_boost'] = f"{sector}({base_weight:.1%})"
+        
+        return candidates
+    except Exception as e:
+        print(f"  ⚠️ 赛道路由失败: {e}")
+        return candidates
+
+
+def margin_adjustment_evaluation(candidates: list, market_data: dict = None) -> list:
+    """v5.61: 融资融券异变信号评分
+    
+    融资环比-20%+融资融券比<20% → +12分 (底部确认)
+    融资环比+15% → +6分 (参与度上升)
+    """
+    try:
+        from config import MARGIN_SIGNAL_V2
+        
+        if market_data is None:
+            market_data = {}
+        
+        margin_config = MARGIN_SIGNAL_V2
+        
+        for cand in candidates:
+            code = cand.get('code', '')
+            if not code:
+                continue
+            
+            # 尝试获取融资融券数据
+            margin_change = market_data.get(f"{code}_margin_change", 0)  # 环比变化
+            fusion_ratio = market_data.get(f"{code}_fusion_ratio", 0.5)  # 融资融券比
+            
+            bonus = 0
+            
+            # 融资环比下降>20% && 融资融券比<20% → +12分 (底部确认)
+            if margin_change < -margin_config['margin_decline_threshold'] and fusion_ratio < margin_config['margin_fusion_ratio_max']:
+                bonus = margin_config['margin_decline_bonus']  # +12
+                cand['_margin_signal'] = f"底部确认(+{bonus})"
+            
+            # 融资环比上升>15% → +6分 (参与度上升)
+            elif margin_change > margin_config['margin_increase_threshold']:
+                bonus = margin_config['margin_increase_bonus']  # +6
+                cand['_margin_signal'] = f"参与度上升(+{bonus})"
+            
+            if bonus > 0:
+                cand['score'] = cand.get('score', 0) + bonus
+        
+        return candidates
+    except Exception as e:
+        print(f"  ⚠️ 融资融券评分失败: {e}")
+        return candidates
+
+
+def generate_candidates_v2(cash_ratio: float = 0.75) -> list:
+    """v5.61: 动态入场质量调节的候选生成
+    
+    根据现金占比应用不同的入场质量阈值，实现快速消耗现金的目标
+    """
+    try:
+        from config import ENTRY_QUALITY_DYNAMIC_V2, EXTREME_CASH_V3
+        
+        # 确定入场质量阈值
+        entry_quality_threshold = 65  # 默认
+        
+        if cash_ratio > EXTREME_CASH_V3['trigger_ratio']:  # >98%
+            entry_quality_threshold = ENTRY_QUALITY_DYNAMIC_V2['extreme_cash']['threshold']
+        elif cash_ratio > 0.90:
+            entry_quality_threshold = ENTRY_QUALITY_DYNAMIC_V2['very_high_cash']['threshold']
+        elif cash_ratio > 0.75:
+            entry_quality_threshold = ENTRY_QUALITY_DYNAMIC_V2['high_cash']['threshold']
+        else:
+            entry_quality_threshold = ENTRY_QUALITY_DYNAMIC_V2['normal']['threshold']
+        
+        print(f"  📊 v5.61 入场质量动态调节: 现金占比{cash_ratio:.1%} → 阈值{entry_quality_threshold}分")
+        
+        return [entry_quality_threshold]
+    except Exception as e:
+        print(f"  ⚠️ 动态入场质量调节失败: {e}")
+        return [65]
+
+
+# =================== 原有函数继续 ===================
+
 # 保存每日候选股快照，只有连续出现2+天的信号才可信
 def save_candidate_snapshot(candidates: list):
     """保存今日候选股快照到数据库，供信号持续性检查使用"""
@@ -2495,6 +2667,43 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
 
     # 过滤
     tradeable = filter_tradeable(ranked)
+    
+    # v5.61 深度优化: 集成Sharpe权重倍数、赛道差异化路由、融资融券信号
+    try:
+        # 获取现金占比用于Sharpe权重调整
+        _cash_ratio = 0.75
+        try:
+            import sqlite3
+            from config import DB_PATH
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute('SELECT SUM(cash_after), SUM(quantity*price) FROM trades ORDER BY id DESC LIMIT 1')
+            row = c.fetchone()
+            current_cash = row[0] if row and row[0] else 1_000_000
+            current_holdings = row[1] if row and row[1] else 0
+            conn.close()
+            total_value = current_cash + current_holdings
+            _cash_ratio = current_cash / total_value if total_value > 0 else 0.95
+        except:
+            _cash_ratio = 0.95
+        
+        # v5.61 集成步骤:
+        # 1. 赛道差异化路由 - 按板块应用不同权重
+        tradeable = sector_intelligent_routing(tradeable, regime=regime)
+        print(f"  🏭 v5.61赛道路由: {len(tradeable)}只候选应用差异化权重")
+        
+        # 2. 融资融券异变信号 - 底部和参与度确认
+        tradeable = margin_adjustment_evaluation(tradeable, market_data={})
+        print(f"  💰 v5.61融资融券信号: 已应用异变评分")
+        
+        # 3. Sharpe权重强制倍数应用 - 确保Sharpe权重被充分利用
+        tradeable = apply_sharpe_ranking_multiplier(tradeable, cash_ratio=_cash_ratio)
+        print(f"  📈 v5.61 Sharpe权重倍数: 现金占比{_cash_ratio:.1%}, 应用倍数已激活")
+        
+        # 重新排序
+        tradeable = sorted(tradeable, key=lambda x: -x.get('score', 0))
+    except Exception as e:
+        print(f"  ⚠️ v5.61深度优化集成失败: {e}")
     
     # v5.53: 入场质量评分系统集成
     try:

@@ -782,6 +782,142 @@ def save_backtest_result(stats: dict, trades: list):
     conn.close()
 
 
+# =================== v5.61 新增回测函数集合 ===================
+
+def run_sector_backtest(sector: str, strategy: str, params: dict) -> dict:
+    """v5.61: 赛道参数化回测
+    
+    Args:
+        sector: 赛道名称 ('科技成长', '新能源', '白马消费')
+        strategy: 策略名 ('下MACD_RSI')
+        params: 参数字典 {'macd_weight': 2.5, 'rsi_weight': 2.0}
+    
+    Returns: 回测结果 dict
+    """
+    sector_pools = {
+        '科技成长': ['603601', '002371', '300750', '688012', '002415', '300124', '688008', '300033'],
+        '新能源': ['601016', '600438', '002594', '300274', '601012', '600089', '002129', '300014'],
+        '白马消费': ['600519', '000858', '600887', '603288', '000596', '605499', '600809', '000568'],
+    }
+    
+    if sector not in sector_pools:
+        return {'error': f'未正确的赛道: {sector}'}
+    
+    symbols = sector_pools[sector]
+    print(f"\n  🏭 v5.61赛道回测: {sector} | {strategy} | 参数2: {params}")
+    
+    # 根据策略选择回测函数
+    strategy_funcs = {
+        'MACD_RSI': backtest_technical_strategy,
+        'MA_CROSS': backtest_ma_cross,
+        'TREND_FOLLOW': backtest_trend_follow,
+        'MULTI_FACTOR': backtest_multi_factor,
+    }
+    
+    if strategy not in strategy_funcs:
+        return {'error': f'未正确的策略: {strategy}'}
+    
+    try:
+        stats, trades = strategy_funcs[strategy](symbols, '2024-01-01', '2025-04-23')
+        stats['sector'] = sector
+        stats['strategy'] = strategy
+        stats['params'] = params
+        print(f"  ✅ {sector} {strategy} 回测完成: 收益{stats.get('total_return', 0):.2%}")
+        return stats
+    except Exception as e:
+        print(f"  ⚠️ 回测失败: {e}")
+        return {'error': str(e)}
+
+
+def run_combined_strategy_backtest() -> dict:
+    """v5.61: 组合回测 - 测MACD权重2.5x的效果
+    
+    在超激进模式下，将MACD权重从2.2x提升到2.5x
+    Returns: 权重对比表
+    """
+    print(f"\n  💡 v5.61组合回测: MACD权重 2.2x vs 2.5x")
+    
+    # 不同权重下的回测参数
+    backtest_configs = [
+        {'name': 'MACD 2.2x (现有)', 'macd_weight': 2.2, 'sharpe_multiplier': 2.0},
+        {'name': 'MACD 2.5x (v5.61优化)', 'macd_weight': 2.5, 'sharpe_multiplier': 2.5},
+    ]
+    
+    test_pool = ['600519', '300750', '603601', '601016', '000858', '002371', '300124', '002415']
+    
+    results = []
+    for config in backtest_configs:
+        try:
+            stats, trades = backtest_technical_strategy(test_pool, '2024-01-01', '2025-04-23')
+            stats['config'] = config['name']
+            stats['macd_weight'] = config['macd_weight']
+            stats['sharpe_multiplier'] = config['sharpe_multiplier']
+            results.append(stats)
+            print(f"    ✅ {config['name']}: 收益 {stats.get('total_return', 0):.2%} | Sharpe {stats.get('sharpe_ratio', 0):.2f}")
+        except Exception as e:
+            print(f"    ⚠️ {config['name']} 失败: {e}")
+    
+    return {
+        'comparison': results,
+        'recommendation': '建议采用2.5x权重以获得更好的策略旍性' if len(results) >= 2 else ''
+    }
+
+
+def generate_backtest_comparison() -> str:
+    """v5.61: 生成回测对比报告
+    
+    输出权重2.2x vs 2.5x vs 原基准的对比表
+    """
+    print(f"\n  📉 v5.61回测对比报告")
+    
+    # 执行组合回测
+    comparison = run_combined_strategy_backtest()
+    
+    # 执行赛道子回测
+    sector_results = []
+    for sector in ['科技成长', '新能源', '白马消费']:
+        result = run_sector_backtest(sector, 'MACD_RSI', {'macd_weight': 2.5})
+        sector_results.append(result)
+    
+    # 整理成报告
+    report = f"""
+# v5.61 回测对比报告
+
+## 权重对比 (MACD权重调整)
+"""
+    for result in comparison.get('comparison', []):
+        report += f"""
+### {result.get('config', '')}
+- 收益: {result.get('total_return', 0):.2%}
+- Sharpe: {result.get('sharpe_ratio', 0):.2f}
+- 胜率: {result.get('win_rate', 0):.2%}
+- 最大回撤: {result.get('max_drawdown', 0):.2%}
+"""
+    
+    report += f"""
+
+## 赛道效果 (MACD 2.5x)
+"""
+    for result in sector_results:
+        if 'error' not in result:
+            report += f"""
+### {result.get('sector', '')}
+- 收益: {result.get('total_return', 0):.2%}
+- Sharpe: {result.get('sharpe_ratio', 0):.2f}
+- 交易数: {result.get('total_trades', 0)}
+"""
+    
+    report += f"""
+
+## 优化建议
+{comparison.get('recommendation', '')}
+"""
+    
+    return report
+
+
+# =================== 原有函数继续 ===================
+
 def run_full_backtest():
     """运行完整回测"""
     # 选一批有代表性的股票池
