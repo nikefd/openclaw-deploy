@@ -1428,6 +1428,39 @@ async function sendMessage(){
     // Always use openclaw format for API calls
     const payload={model:`openclaw${agentIdToUse !== 'main' ? '/' + agentIdToUse : ''}`,stream:true,user:chatId,messages:[{role:'user',content:msgContent}]};
     console.log('[DEBUG] Sending payload, content type:', Array.isArray(msgContent)?'multipart ('+msgContent.length+' parts)':'text', 'parts:', Array.isArray(msgContent)?msgContent.map(p=>p.type+':'+(p.type==='image_url'?p.image_url.url.slice(0,50)+'...':p.text)):'N/A');
+    // 📱 移动端 fire-and-forget + 轮询（根治切 app 中断）
+    const _isMobile=/iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
+    if(_isMobile){
+      const agentForApi=agentIdToUse==='main'?'opus':agentIdToUse;
+      try{await fetch('/api/chat/send',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({chatId,model:`openclaw${agentIdToUse !== 'main' ? '/' + agentIdToUse : ''}`,messages:[{role:'user',content:msgContent}]})});}catch(e){console.warn('[ff] submit:',e.message);}
+      removeTyping(chatId);
+      let el=null;if(currentId===chatId){el=appendMsg('assistant','…',agent,false);el.classList.add('raw');}
+      let lastText='',stable=0,tries=0;const MAX=200;
+      while(tries++<MAX){
+        await new Promise(r=>setTimeout(r,1500));
+        try{
+          const r=await fetch(`/api/chat/history?chatId=${encodeURIComponent(chatId)}&agent=${encodeURIComponent(agentForApi)}`);
+          if(!r.ok)continue;
+          const d=await r.json();
+          const t=d.text||'';
+          if(t&&t!==lastText){full=t;_perfFull=t;lastText=t;stable=0;if(el&&currentId===chatId){el.textContent=t;messagesEl.scrollTop=messagesEl.scrollHeight;}}
+          else if(t){stable++;}
+          if(d.stopReason&&d.stopReason!=='inFlight'&&d.stopReason!=='streaming'&&t)break;
+          if(stable>=3&&t)break;
+        }catch{}
+      }
+      if(full){
+        const existingAst=chat.messages[chat.messages.length-1];
+        if(existingAst?.role==='assistant'){existingAst.content=full;delete existingAst._streaming;}else{chat.messages.push({role:'assistant',content:full});}
+        if(el&&currentId===chatId){el.innerHTML=renderMd(full);el.classList.remove('raw');const ad=document.createElement('div');ad.className='msg-actions';const ttsBtn=agent?.tts?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';ad.innerHTML=`${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button>`;el.parentElement.appendChild(ad);}
+        chat.updatedAt=Date.now();save(chatId);
+      }
+      streamingChats.delete(chatId);renderSidebar();
+      if(currentId===chatId)streamBadge.classList.remove('show');
+      sendBtn.disabled=!input.value.trim();input.focus();
+      return;
+    }
+    // 🖥️ PC 端继续流式（下面原有逻辑）
     // keepalive: 手机切 app/锁屏 浏览器不会 kill fetch（body 需 <64KB）
     const _payloadStr=JSON.stringify(payload);
     const _useKeepalive=_payloadStr.length<60000;

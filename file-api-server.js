@@ -341,6 +341,62 @@ http.createServer(async(req,res)=>{
         res.end(JSON.stringify([]));
       }
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
+  }else if(url.pathname==='/api/chat/history'&&req.method==='GET'){
+    // 轮询拉取某个 chatId 的最新回复（直读 JSONL，不走 gateway）
+    try{
+      const chatId=url.searchParams.get('chatId');
+      const agentId=url.searchParams.get('agent')||'opus';
+      if(!chatId){res.writeHead(400);res.end(JSON.stringify({error:'chatId required'}));return;}
+      const sessionsMap=JSON.parse(fs.readFileSync(path.join(ROOT,'.openclaw','agents',agentId,'sessions','sessions.json'),'utf-8'));
+      const key=`agent:${agentId}:openai-user:${chatId}`;
+      const entry=sessionsMap[key];
+      if(!entry){res.end(JSON.stringify({messages:[],status:'no-session'}));return;}
+      const jsonlPath=path.join(ROOT,'.openclaw','agents',agentId,'sessions',entry.sessionId+'.jsonl');
+      if(!fs.existsSync(jsonlPath)){res.end(JSON.stringify({messages:[],status:'no-file'}));return;}
+      // 只读最后 ~64KB，够拿到最后一条 assistant
+      const stat=fs.statSync(jsonlPath);
+      const readFrom=Math.max(0,stat.size-65536);
+      const fd=fs.openSync(jsonlPath,'r');const buf=Buffer.alloc(stat.size-readFrom);
+      fs.readSync(fd,buf,0,buf.length,readFrom);fs.closeSync(fd);
+      const lines=buf.toString('utf-8').split('\n').filter(Boolean);
+      const msgs=[];
+      for(const ln of lines){try{const m=JSON.parse(ln);if(m.role==='assistant'||m.role==='user')msgs.push(m);}catch{}}
+      // 提取最后一条 assistant 的文本
+      const lastAsst=[...msgs].reverse().find(m=>m.role==='assistant');
+      let text='',stopReason=null,isStreaming=false;
+      if(lastAsst){
+        stopReason=lastAsst.stopReason||null;
+        isStreaming=!lastAsst.stopReason||lastAsst.stopReason==='inFlight'||lastAsst.stopReason==='streaming';
+        if(Array.isArray(lastAsst.content)){
+          text=lastAsst.content.filter(c=>c.type==='text').map(c=>c.text).join('');
+        }else if(typeof lastAsst.content==='string'){text=lastAsst.content;}
+      }
+      res.end(JSON.stringify({chatId,text,stopReason,isStreaming,ts:lastAsst?.timestamp||null}));
+    }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
+  }else if(url.pathname==='/api/chat/send'&&req.method==='POST'){
+    // 根治方案：fire-and-forget 。前端只用来触发生成，不等响应流。
+    // 本服务器进程内部调 gateway，连接稳定，不受手机切 app 影响。
+    try{
+      const body=await readBody(req);
+      const j=JSON.parse(body||'{}');
+      const chatId=j.chatId||j.user;
+      if(!chatId){res.writeHead(400);res.end(JSON.stringify({error:'chatId required'}));return;}
+      // 读 token
+      let token='';
+      try{const cfg=JSON.parse(fs.readFileSync(path.join(ROOT,'.openclaw','openclaw.json'),'utf-8'));token=cfg?.gateway?.auth?.token||'';}catch{}
+      // 立即返回 accepted
+      res.writeHead(202,{'Content-Type':'application/json'});
+      res.end(JSON.stringify({accepted:true,chatId}));
+      // 后台调 gateway（不 await，不阻塞）
+      const payload={model:j.model||'openclaw',stream:false,user:chatId,messages:j.messages||[]};
+      const gwReq=http.request({host:'127.0.0.1',port:18789,path:'/v1/chat/completions',method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'}},gwRes=>{
+        let buf='';gwRes.on('data',c=>buf+=c);gwRes.on('end',()=>{/* gateway 已写 session history，前端轮询取 */});
+      });
+      gwReq.on('error',e=>console.error('[chat/send] gw error:',e.message));
+      gwReq.setTimeout(600000); // 10分钟超时（仅内部连接）
+      gwReq.write(JSON.stringify(payload));
+      gwReq.end();
+    }catch(e){try{res.writeHead(500);res.end(JSON.stringify({error:e.message}));}catch{}}
   }else{res.writeHead(404);res.end('{"error":"not found"}');}
 }).listen(PORT,'127.0.0.1',()=>{
   console.log('ok');
