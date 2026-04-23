@@ -1432,6 +1432,13 @@ async function sendMessage(){
     const _isMobile=/iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent);
     if(_isMobile){
       const agentForApi=agentIdToUse==='main'?'opus':agentIdToUse;
+      // 先拿 baseline：发消息前，gateway 里最后一条 assistant 是上一轮的。
+      // 本轮新回复必须比 baseline 更新（或者 stopReason 划过去再回来）
+      let baselineTs='',baselineText='';
+      try{
+        const r0=await fetch(`/api/chat/history?chatId=${encodeURIComponent(chatId)}&agent=${encodeURIComponent(agentForApi)}`);
+        if(r0.ok){const d0=await r0.json();baselineTs=d0.ts||'';baselineText=d0.text||'';}
+      }catch{}
       try{await fetch('/api/chat/send',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({chatId,model:`openclaw${agentIdToUse !== 'main' ? '/' + agentIdToUse : ''}`,messages:[{role:'user',content:msgContent}]})});}catch(e){console.warn('[ff] submit:',e.message);}
       removeTyping(chatId);
       let el=null;if(currentId===chatId){el=appendMsg('assistant','…',agent,false);el.classList.add('raw');}
@@ -1447,7 +1454,7 @@ async function sendMessage(){
         typingTimer=setTimeout(pump, finished?15:25);
       };
       const startPump=()=>{if(!typingTimer)pump();};
-      let stable=0,tries=0;const MAX=200;
+      let stable=0,tries=0,sawNew=false;const MAX=200;
       while(tries++<MAX){
         await new Promise(r=>setTimeout(r,1500));
         try{
@@ -1455,6 +1462,11 @@ async function sendMessage(){
           if(!r.ok)continue;
           const d=await r.json();
           const t=d.text||'';
+          const ts=d.ts||'';
+          // 判断本轮新回复：ts 比 baseline 新 或 没变但文本变了（流式更新同一条 assistant）
+          const isNew=(ts&&ts!==baselineTs)||(t&&t!==baselineText);
+          if(!isNew){continue;}
+          sawNew=true;
           if(t&&t!==pendingFull){pendingFull=t;full=t;_perfFull=t;stable=0;startPump();}
           else if(t){stable++;}
           const done=d.stopReason&&d.stopReason!=='inFlight'&&d.stopReason!=='streaming'&&t;
