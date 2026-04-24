@@ -9,6 +9,7 @@ import {
 } from './config.js';
 
 import { loadDemoCodes, createDemoCode, deleteDemoCode, wireDemosTab } from './panels/demo.js';
+import { loadSkillsPanel, setSkillFilter, filterSkills, openSkill, closeSkillDetail } from './panels/skills.js';
 
 // Expose to legacy inline script (which still lives in index.html for now).
 Object.assign(window, {
@@ -17,6 +18,8 @@ Object.assign(window, {
   AGENTS, MODELS,
   // panels/demo
   loadDemoCodes, createDemoCode, deleteDemoCode,
+  // panels/skills
+  loadSkillsPanel, setSkillFilter, filterSkills, openSkill, closeSkillDetail,
 });
 
 // Wire lazy-load hooks once DOM is ready. <script type="module"> is deferred,
@@ -31,5 +34,5 @@ onReady(() => {
 });
 
 // Marker so we can verify module loaded in devtools.
-window.__ocRefactor = { step: '3a', loadedAt: Date.now() };
-console.info('[oc-refactor] modules loaded', APP_VERSION, '(step 3a: demo panel)');
+window.__ocRefactor = { step: '3b', loadedAt: Date.now() };
+console.info('[oc-refactor] modules loaded', APP_VERSION, '(step 3b: demo + skills panels)');
