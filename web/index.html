@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OpenClaw Chat</title>
+<meta name="version" content="2026-04-24-b8a6988">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -658,6 +662,9 @@ echo '{"version":1,"defaults":{"security":"full"}}' > ~/.openclaw/exec-approvals
   </div>
 </div>
 <script>
+// Version check — if user is loading a stale cached build, force reload with cache-busting.
+const APP_VERSION='2026-04-24-b8a6988';
+(()=>{try{const prev=localStorage.getItem('oc_app_version');if(prev&&prev!==APP_VERSION){localStorage.setItem('oc_app_version',APP_VERSION);if(!location.search.includes('_v='))location.replace(location.pathname+'?_v='+Date.now());return;}localStorage.setItem('oc_app_version',APP_VERSION);}catch{}})();
 const API='/v1/chat/completions',TOKEN='17043bad6b19491dfa222d681d43584fbc3e8dd3781edfbc';
 const STORAGE_KEY='oc_chats_v2',AGENT_KEY='oc_selected_agent',THEME_KEY='oc_theme';
 const AGENTS=[
