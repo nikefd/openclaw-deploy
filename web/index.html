@@ -4,17 +4,414 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OpenClaw Chat</title>
-<meta name="version" content="2026-04-24-b8a6988">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
-<link rel="stylesheet" href="./assets/css/chat.css?v=1">
-<script type="module" src="./assets/js/main.js?v=9"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root,[data-theme="dark"]{
+  --bg:#343541;--sidebar-bg:#202123;--hover:#2a2b32;--input-bg:#40414f;
+  --text:#ececf1;--text-sec:#8e8ea0;--user-bg:#343541;--asst-bg:#444654;
+  --accent:#10a37f;--border:#4e4f60;--danger:#ef4444;--code-bg:#1e1e1e;
+}
+[data-theme="light"]{
+  --bg:#fff;--sidebar-bg:#f7f7f8;--hover:#ececf1;--input-bg:#f4f4f4;
+  --text:#1a1a1a;--text-sec:#6b6c7b;--user-bg:#fff;--asst-bg:#f7f7f8;
+  --accent:#10a37f;--border:#e5e5e5;--danger:#ef4444;--code-bg:#f5f5f5;
+}
+body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;overflow:hidden;transition:background .3s,color .3s;position:fixed;width:100%;top:0;left:0}
+
+.sidebar{width:260px;background:var(--sidebar-bg);display:flex;flex-direction:column;flex-shrink:0;transition:margin-left .3s,background .3s}
+.sidebar.hidden{margin-left:-260px}
+.sidebar-header{padding:12px;border-bottom:1px solid var(--border)}
+.new-chat-btn{width:100%;padding:10px 14px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .2s}
+.new-chat-btn:hover{background:var(--hover)}
+.agent-section{padding:8px 12px;border-bottom:1px solid var(--border)}
+.agent-section label{font-size:11px;color:var(--text-sec);font-weight:600;display:block;margin-bottom:6px}
+.agent-grid{display:flex;flex-direction:column;gap:3px}
+.agent-chip{padding:7px 10px;border-radius:6px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;transition:background .15s;border:1px solid transparent}
+.agent-chip:hover{background:var(--hover)}
+.agent-chip.active{background:var(--hover);border-color:var(--accent)}
+.agent-chip .emoji{font-size:15px;width:22px;text-align:center}
+.sidebar-footer{padding:8px 12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:3px}
+.sidebar-footer-btn{padding:7px 10px;border-radius:6px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;background:none;border:none;color:var(--text);width:100%;text-align:left;transition:background .15s}
+.sidebar-footer-btn .emoji{font-size:15px;width:22px;text-align:center;flex-shrink:0}
+.sidebar-footer-btn:hover{background:var(--hover)}
+.chat-list{flex:1;overflow-y:auto;padding:8px}
+.chat-list::-webkit-scrollbar{width:4px}
+.chat-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.chat-item{padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;margin-bottom:2px;transition:background .15s}
+.chat-item:hover{background:var(--hover)}
+.chat-item.active{background:var(--hover)}
+.chat-item .agent-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.chat-item .info{flex:1;overflow:hidden;min-width:0}
+.chat-item .title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.chat-item .meta{font-size:10px;color:var(--text-sec);margin-top:1px}
+.chat-item .actions{opacity:0;display:flex;gap:2px;flex-shrink:0}
+.chat-item:hover .actions{opacity:1}
+.chat-item .edit-btn,.chat-item .delete{background:none;border:none;color:var(--text-sec);cursor:pointer;font-size:13px;padding:0 3px}
+.chat-item .edit-btn:hover{color:var(--accent)}
+.chat-item .delete:hover{color:var(--danger)}
+.chat-item .title-edit{background:var(--input-bg);border:1px solid var(--accent);border-radius:4px;color:var(--text);font-size:13px;padding:1px 4px;width:100%;outline:none;font-family:inherit}
+.topbar-title{font-size:15px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.topbar-title:hover{opacity:.8}
+.topbar-title-edit{font-size:15px;font-weight:600;flex:1;background:var(--input-bg);border:1px solid var(--accent);border-radius:6px;color:var(--text);padding:2px 8px;outline:none;font-family:inherit}
+
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{background:var(--sidebar-bg);padding:8px 16px;display:flex;align-items:center;border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;transition:background .3s}
+.toggle-btn{background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px}
+/* topbar-title moved to chat-item block */
+.topbar .agent-badge{font-size:12px;color:var(--accent);background:rgba(16,163,127,.15);padding:3px 8px;border-radius:6px}
+.topbar .dot{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite}
+.model-selector:hover{background:rgba(16,163,127,.25);border-color:var(--accent)}
+.model-dropdown{padding:6px 0;}
+.model-dropdown .model-option{padding:8px 12px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px;transition:background .15s;color:var(--text)}
+.model-dropdown .model-option:hover{background:var(--hover)}
+.model-dropdown .model-option.active{background:rgba(16,163,127,.2);color:var(--accent);font-weight:600}
+.model-dropdown .model-option .cost{font-size:10px;color:var(--text-sec);margin-left:auto}
+.topbar{position:relative}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Tabs */
+.tab-bar{display:flex;background:var(--sidebar-bg);border-bottom:1px solid var(--border);flex-shrink:0;transition:background .3s}
+.tab{padding:8px 20px;font-size:13px;cursor:pointer;color:var(--text-sec);border-bottom:2px solid transparent;transition:all .2s;display:flex;align-items:center;gap:6px}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* Panel container */
+.panels{flex:1;overflow:hidden;position:relative}
+.panel{position:absolute;inset:0;display:none;flex-direction:column}
+.panel.active{display:flex}
+#panel-terminal.active{flex-direction:column}
+
+/* Chat panel */
+.messages{flex:1;overflow-y:auto;scroll-behavior:smooth}
+.message{padding:20px 0;border-bottom:1px solid rgba(128,128,128,.1);transition:background .3s}
+.message:last-child{border-bottom:none}
+.message.user{background:var(--user-bg)}.message.assistant{background:var(--asst-bg)}
+.msg-inner{max-width:768px;margin:0 auto;padding:0 24px;display:flex;gap:14px;align-items:flex-start}
+.avatar{width:32px;height:32px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600}
+.user .avatar{background:#5436DA}.assistant .avatar{background:var(--accent)}
+.msg-text{flex:1;line-height:1.7;font-size:15px;word-break:break-word}
+.msg-text.raw{white-space:pre-wrap}
+.msg-text p{margin:0.5em 0}.msg-text p:first-child{margin-top:0}.msg-text p:last-child{margin-bottom:0}
+.msg-text pre{background:var(--code-bg);border-radius:8px;padding:12px 16px;overflow-x:auto;margin:8px 0;position:relative}
+.msg-text pre code{font-family:'Fira Code','Cascadia Code','Consolas',monospace;font-size:13px;line-height:1.6;background:none;padding:0;border-radius:0;color:inherit}
+.msg-text code{font-family:'Fira Code','Cascadia Code','Consolas',monospace;font-size:0.9em;background:var(--code-bg);padding:2px 6px;border-radius:4px}
+.msg-text ul,.msg-text ol{margin:0.5em 0;padding-left:1.5em}
+.msg-text li{margin:0.25em 0}
+.msg-text blockquote{border-left:3px solid var(--accent);margin:0.5em 0;padding:4px 12px;color:var(--text-sec)}
+.msg-text table{border-collapse:collapse;margin:8px 0;width:100%;overflow-x:auto;display:block}
+.msg-text th,.msg-text td{border:1px solid var(--border);padding:6px 12px;text-align:left;font-size:14px}
+.msg-text th{background:var(--hover);font-weight:600}
+.msg-text h1,.msg-text h2,.msg-text h3,.msg-text h4{margin:0.6em 0 0.3em}
+.msg-text h1{font-size:1.3em}.msg-text h2{font-size:1.15em}.msg-text h3{font-size:1.05em}
+.msg-text hr{border:none;border-top:1px solid var(--border);margin:12px 0}
+.msg-text a{color:var(--accent);text-decoration:underline}
+.copy-code-btn{position:absolute;top:6px;right:6px;background:var(--hover);color:var(--text-sec);border:none;padding:3px 8px;border-radius:4px;font-size:12px;cursor:pointer;opacity:0;transition:opacity .2s}
+.msg-text pre:hover .copy-code-btn{opacity:1}
+.msg-actions{margin-top:6px;display:flex;gap:6px}
+.tts-btn{background:none;border:1px solid var(--border);color:var(--text-sec);padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .2s}
+.tts-btn:hover,.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tts-btn.speaking{border-color:var(--danger);color:var(--danger)}
+.copy-btn{background:none;border:1px solid var(--border);color:var(--text-sec);padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;transition:all .2s}
+.copy-btn.copied{border-color:var(--accent);color:var(--accent)}
+.typing-dots span{display:inline-block;width:7px;height:7px;background:var(--text-sec);border-radius:50%;margin-right:4px;animation:bounce 1.4s infinite ease-in-out}
+.typing-dots span:nth-child(1){animation-delay:0s}.typing-dots span:nth-child(2){animation-delay:.2s}.typing-dots span:nth-child(3){animation-delay:.4s}
+.typing-indicator{display:flex;align-items:center;gap:10px}
+.typing-text{color:var(--text-sec);font-size:13px;animation:fade-pulse 2s infinite}
+@keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+@keyframes fade-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;padding:40px}
+.welcome .logo{font-size:48px}.welcome h2{font-size:24px;font-weight:600}
+.welcome p{color:var(--text-sec);font-size:14px;text-align:center}
+.welcome .agents-hint{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;justify-content:center}
+.welcome .agents-hint span{background:var(--input-bg);padding:6px 12px;border-radius:8px;font-size:13px;cursor:pointer;transition:background .2s}
+.welcome .agents-hint span:hover{background:var(--hover)}
+
+.input-area{padding:12px 24px 16px;background:var(--bg);flex-shrink:0;transition:background .3s}
+.input-wrap{max-width:768px;margin:0 auto;position:relative}
+textarea{width:100%;background:var(--input-bg);border:1px solid var(--border);border-radius:12px;padding:12px 110px 12px 16px;color:var(--text);font-size:15px;font-family:inherit;line-height:1.5;resize:none;outline:none;max-height:200px;overflow-y:auto;transition:background .3s,border-color .3s}
+textarea:focus{border-color:var(--accent)}
+textarea::placeholder{color:var(--text-sec)}
+.input-btns{position:absolute;right:8px;bottom:8px;display:flex;gap:4px}
+.input-btns button{width:32px;height:32px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;border:none;font-size:15px}
+.send-btn{background:var(--accent)}
+.send-btn:disabled{opacity:.3;cursor:not-allowed}
+.send-btn svg{fill:#fff;width:16px;height:16px}
+
+.footer-text{text-align:center;font-size:11px;color:var(--text-sec);margin-top:5px}
+.attach-btn{background:none;border:1px solid var(--border)!important;color:var(--text-sec);font-size:15px}
+.attach-btn:hover{border-color:var(--accent)!important;color:var(--accent)}
+.img-preview-area{display:flex;gap:8px;flex-wrap:wrap;padding:0 0 8px;max-height:160px;overflow-y:auto}
+.img-preview-item{position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+.img-preview-item img{width:100%;height:100%;object-fit:cover}
+.img-preview-item .img-remove{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;line-height:1}
+.msg-images{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.msg-images img{max-width:300px;max-height:300px;border-radius:8px;cursor:pointer;transition:transform .2s}
+.msg-images img:hover{transform:scale(1.02)}
+.img-lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:center;justify-content:center;cursor:zoom-out}
+.img-lightbox.show{display:flex}
+.img-lightbox img{max-width:90vw;max-height:90vh;border-radius:8px}
+
+/* Terminal panel */
+/* BTW side-question modal */
+.btw-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;align-items:center;justify-content:center}
+.btw-overlay.show{display:flex}
+.btw-modal{background:var(--bg);border:1px solid var(--border);border-radius:16px;width:90%;max-width:640px;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.btw-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.btw-header .btw-label{font-size:14px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:6px}
+.btw-header .btw-close{background:none;border:none;color:var(--text-sec);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:6px}
+.btw-header .btw-close:hover{background:var(--hover);color:var(--text)}
+.btw-question{padding:12px 18px;font-size:14px;color:var(--text-sec);border-bottom:1px solid var(--border);flex-shrink:0;white-space:pre-wrap}
+.btw-body{flex:1;overflow-y:auto;padding:16px 18px}
+.btw-body .msg-text{line-height:1.7;font-size:15px;word-break:break-word}
+.btw-body .typing-indicator{display:flex;align-items:center;gap:10px}
+.btw-body .typing-dots span{display:inline-block;width:7px;height:7px;background:var(--text-sec);border-radius:50%;margin-right:4px;animation:bounce 1.4s infinite ease-in-out}
+.btw-body .typing-dots span:nth-child(1){animation-delay:0s}.btw-body .typing-dots span:nth-child(2){animation-delay:.2s}.btw-body .typing-dots span:nth-child(3){animation-delay:.4s}
+.btw-footer{padding:10px 18px;border-top:1px solid var(--border);text-align:right;flex-shrink:0}
+.btw-footer button{background:var(--input-bg);border:1px solid var(--border);color:var(--text);padding:6px 16px;border-radius:8px;cursor:pointer;font-size:13px}
+.btw-footer button:hover{border-color:var(--accent);color:var(--accent)}
+
+.terminal-frame{width:100%;height:100%;border:none;background:#1e1e1e}
+
+/* Files panel — VS Code style */
+.files-panel{display:flex;height:100%}
+.file-tree{width:280px;background:var(--sidebar-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transition:background .3s}
+.file-tree::-webkit-scrollbar{width:4px}
+.file-tree::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.file-tree-header{padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-sec);display:flex;align-items:center;justify-content:between}
+.file-tree-header span{flex:1}
+.file-tree-header button{background:none;border:none;color:var(--text-sec);cursor:pointer;font-size:14px;padding:2px 4px;border-radius:4px;transition:all .15s}
+.file-tree-header button:hover{background:var(--hover);color:var(--text)}
+.file-breadcrumb{padding:6px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text-sec);display:flex;align-items:center;gap:2px;flex-wrap:nowrap;overflow-x:auto;white-space:nowrap}
+.file-breadcrumb::-webkit-scrollbar{height:0}
+.file-breadcrumb .bc-sep{color:var(--border);margin:0 1px}
+.file-breadcrumb .bc-part{cursor:pointer;color:var(--text-sec);padding:2px 4px;border-radius:3px;transition:all .15s}
+.file-breadcrumb .bc-part:hover{background:var(--hover);color:var(--accent)}
+.file-breadcrumb .bc-part:last-child{color:var(--text);font-weight:600}
+.file-entries{flex:1;overflow-y:auto;padding:4px 0}
+.file-entry{padding:4px 8px 4px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;transition:background .1s;border-left:2px solid transparent;user-select:none}
+.file-entry:hover{background:var(--hover)}
+.file-entry.active{background:rgba(16,163,127,.12);border-left-color:var(--accent)}
+.file-entry .f-icon{width:18px;height:18px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px}
+.file-entry .f-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-entry .f-size{font-size:10px;color:var(--text-sec);flex-shrink:0;min-width:45px;text-align:right}
+.file-entry .f-name.dir{font-weight:500}
+
+/* File viewer */
+.file-viewer{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.file-tabs{display:flex;background:var(--sidebar-bg);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0;transition:background .3s}
+.file-tabs::-webkit-scrollbar{height:0}
+.file-tab{padding:8px 14px;font-size:12px;cursor:pointer;color:var(--text-sec);border-right:1px solid var(--border);display:flex;align-items:center;gap:6px;white-space:nowrap;transition:all .15s;min-width:0;max-width:180px;position:relative}
+.file-tab:hover{color:var(--text)}
+.file-tab.active{color:var(--text);background:var(--bg);border-bottom:2px solid var(--accent)}
+.file-tab .tab-icon{font-size:12px;flex-shrink:0}
+.file-tab .tab-name{overflow:hidden;text-overflow:ellipsis}
+.file-tab .tab-close{opacity:0;background:none;border:none;color:var(--text-sec);cursor:pointer;font-size:12px;padding:0 2px;border-radius:3px;flex-shrink:0;transition:all .1s}
+.file-tab:hover .tab-close{opacity:.7}
+.file-tab .tab-close:hover{opacity:1;background:var(--hover);color:var(--danger)}
+.file-viewer-body{flex:1;overflow:auto;display:flex;background:var(--code-bg);transition:background .3s}
+.file-viewer-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-sec);font-size:14px;gap:8px;background:var(--code-bg)}
+.file-viewer-empty .empty-icon{font-size:48px;opacity:.3}
+.line-numbers{padding:12px 8px 12px 12px;text-align:right;color:var(--text-sec);opacity:.4;font-family:'Fira Code','Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;white-space:pre;user-select:none;flex-shrink:0;min-width:48px}
+.file-content{flex:1;padding:12px 16px 12px 8px;font-family:'Fira Code','Cascadia Code','Consolas',monospace;font-size:12px;line-height:1.65;white-space:pre;overflow-x:auto;color:var(--text);min-width:0}
+.file-info-bar{padding:4px 12px;background:var(--sidebar-bg);border-top:1px solid var(--border);font-size:11px;color:var(--text-sec);display:flex;gap:16px;flex-shrink:0;transition:background .3s}
+.file-info-bar span{display:flex;align-items:center;gap:4px}
+
+.messages::-webkit-scrollbar{width:6px}
+.messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.streaming-badge{display:none;font-size:11px;color:var(--accent);padding:2px 8px;border:1px solid var(--accent);border-radius:12px;animation:pulse 1.5s infinite}
+.streaming-badge.show{display:inline-block}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99}
+.overlay.show{display:block}
+@media(max-width:768px){
+  .sidebar{position:fixed;z-index:100;height:100%}
+  .sidebar.hidden{margin-left:-260px}
+  .files-panel{flex-direction:column}
+  .file-tree{width:100%;height:45%;border-right:none;border-bottom:1px solid var(--border)}
+  .toggle-btn{font-size:24px;padding:10px;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
+  .topbar{padding:6px 10px;position:sticky;top:0;z-index:50}
+  .memory-panel{flex-direction:column}
+  .memory-sidebar{width:100%;height:45%;border-right:none;border-bottom:1px solid var(--border);overflow-y:auto}
+  .memory-editor{flex:1;overflow:auto}
+  .memory-welcome{flex:1;overflow:auto}
+  .mem-back{display:none!important}
+}
+/* Chat search */
+.chat-search{padding:8px 12px 4px;position:relative}
+.chat-search input{width:100%;padding:7px 28px 7px 30px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.8rem;outline:none;font-family:inherit;box-sizing:border-box}
+.chat-search input:focus{border-color:var(--accent)}
+.chat-search .icon{position:absolute;left:22px;top:50%;transform:translateY(-50%);font-size:.75rem;color:var(--text-sec);pointer-events:none}
+.chat-search .clear{position:absolute;right:20px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-sec);font-size:1rem;padding:2px 6px;display:none;font-family:inherit}
+.chat-search .clear:hover{color:var(--text)}
+.chat-search.has-value .clear{display:block}
+.chat-item .snippet{display:block;font-size:.7rem;color:var(--text-sec);margin-top:3px;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chat-item mark{background:rgba(255,220,0,.35);color:inherit;padding:0 2px;border-radius:2px}
+.msg.search-hit{animation:searchHitFlash 1.6s ease-out}
+@keyframes searchHitFlash{0%{background:rgba(255,220,0,.35)}100%{background:transparent}}
+/* Skills panel */
+.skills-header{padding:14px 20px;border-bottom:1px solid var(--border);background:var(--sidebar-bg)}
+.skills-search-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.skills-search-row input{flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.85rem;outline:none}
+.skills-search-row input:focus{border-color:var(--accent)}
+.skills-counts{font-size:.75rem;color:var(--text-sec);white-space:nowrap}
+.skills-filters{display:flex;gap:6px}
+.skill-filter{padding:4px 12px;font-size:.72rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-sec);cursor:pointer;transition:all .15s;font-family:inherit}
+.skill-filter:hover{background:var(--hover)}
+.skill-filter.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.skills-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;padding:16px 20px;align-content:start}
+.skill-card{background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;transition:all .15s}
+.skill-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.skill-card .sk-icon{font-size:1.4rem;margin-bottom:4px}
+.skill-card .sk-name{font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:4px}
+.skill-card .sk-desc{font-size:.72rem;color:var(--text-sec);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.skill-card .sk-tags{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}
+.skill-card .sk-tag{font-size:.63rem;padding:2px 8px;border-radius:4px;background:var(--hover);color:var(--text-sec)}
+.skill-card .sk-tag.on{background:rgba(16,163,127,.12);color:var(--accent)}
+.skill-card .sk-tag.custom{background:rgba(99,102,241,.12);color:#6366f1}
+.skill-detail{position:absolute;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:10;display:flex;flex-direction:column}
+.skill-detail-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--sidebar-bg)}
+.skill-detail-header button{background:none;border:none;color:var(--accent);cursor:pointer;font-size:.85rem;font-family:inherit}
+.skill-detail-body{padding:20px;flex:1;overflow-y:auto;font-size:.82rem;line-height:1.8;color:var(--text)}
+.skill-detail-body pre{background:var(--input-bg);padding:12px;border-radius:8px;overflow-x:auto;font-size:.75rem;border:1px solid var(--border)}
+.skill-detail-body h1,.skill-detail-body h2,.skill-detail-body h3{margin:16px 0 8px}
+.skill-detail-body h1{font-size:1.1rem}.skill-detail-body h2{font-size:.95rem}.skill-detail-body h3{font-size:.85rem}
+.skill-detail-body code{background:var(--hover);padding:1px 5px;border-radius:3px;font-size:.78rem}
+.skill-detail-body ul{padding-left:20px}
+.memory-panel{display:flex;height:100%}
+.memory-sidebar{width:280px;background:var(--sidebar-bg);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0}
+.memory-sidebar h3{padding:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-sec);border-bottom:1px solid var(--border)}
+.memory-arch{margin:8px 12px;background:var(--input-bg);border-radius:8px;font-size:12px;overflow:hidden}
+.memory-arch-toggle{padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:6px;font-weight:600;color:var(--text);transition:background .15s}
+.memory-arch-toggle:hover{background:var(--hover)}
+.memory-arch-body{padding:0 12px 10px;color:var(--text-sec);line-height:1.8;display:none}
+.memory-arch.open .memory-arch-body{display:block}
+.memory-arch.open .memory-arch-toggle span:last-child{transform:rotate(90deg)}
+.memory-arch-body strong{color:var(--text)}
+.memory-cron{margin:8px 12px;padding:12px;background:var(--input-bg);border-radius:8px;font-size:12px}
+.memory-cron label{color:var(--text-sec);font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.memory-cron-row{display:flex;gap:8px;align-items:center}
+.memory-cron input[type=time]{padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;outline:none}
+.memory-cron input[type=time]:focus{border-color:var(--accent)}
+.memory-cron .cron-save{padding:6px 12px;border-radius:6px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:12px;transition:opacity .2s}
+.memory-cron .cron-save:hover{opacity:.9}
+.memory-cron .cron-status{font-size:11px;color:var(--accent);margin-top:6px}
+.memory-category{padding:8px 0}
+.memory-category-title{padding:4px 12px;font-size:12px;font-weight:600;color:var(--text-sec);display:flex;align-items:center;gap:6px}
+.memory-file{padding:6px 12px 6px 28px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .15s}
+.memory-file:hover{background:var(--hover)}
+.memory-file.active{background:rgba(16,163,127,.12);color:var(--accent)}
+.memory-file .mem-size{font-size:10px;color:var(--text-sec);margin-left:auto}
+.memory-editor{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.memory-editor-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--sidebar-bg)}
+.memory-editor-header .mem-title{flex:1;font-size:14px;font-weight:600}
+.memory-editor-header button{padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text);transition:all .2s}
+.memory-editor-header button:hover{border-color:var(--accent);color:var(--accent)}
+.memory-editor-header .save-btn{background:var(--accent);color:#fff;border-color:var(--accent)}
+.memory-editor-header .save-btn:hover{opacity:.9}
+.mem-back{display:none;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text);transition:all .2s;align-items:center;gap:4px}
+.mem-back:hover{border-color:var(--accent);color:var(--accent)}
+.memory-editor-header .delete-btn{color:var(--danger);border-color:var(--danger)}
+.memory-editor-header .delete-btn:hover{background:var(--danger);color:#fff}
+.memory-content{flex:1;overflow:auto;padding:16px 20px;font-size:14px;line-height:1.7;white-space:pre-wrap;font-family:inherit}
+.memory-textarea{flex:1;width:100%;border:none;background:var(--bg);color:var(--text);font-size:14px;line-height:1.7;padding:16px 20px;resize:none;outline:none;font-family:'Fira Code','Cascadia Code','Consolas',monospace}
+.memory-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-sec);gap:8px}
+.memory-empty .mem-icon{font-size:48px;opacity:.3}
+.memory-welcome{flex:1;overflow:auto}
+.memory-stats{padding:12px;background:var(--input-bg);border-radius:8px;margin:8px 12px;font-size:12px;color:var(--text-sec);line-height:1.8}
+.memory-stats strong{color:var(--text)}
+
+/* Expert Panel (帮帮团) */
+.expert-toggle{background:none;border:1px solid var(--border);color:var(--text-sec);font-size:12px;padding:3px 8px;border-radius:6px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:4px}
+.expert-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.expert-toggle.active{border-color:var(--accent);color:var(--accent);background:rgba(16,163,127,.15)}
+.expert-panel{width:0;overflow:hidden;background:var(--sidebar-bg);border-left:1px solid var(--border);display:flex;flex-direction:column;transition:width .3s;flex-shrink:0}
+.expert-panel.open{width:360px}
+.expert-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0}
+.expert-header h3{font-size:14px;font-weight:600;flex:1}
+.expert-header .expert-close{background:none;border:none;color:var(--text-sec);cursor:pointer;font-size:16px;padding:2px 6px;border-radius:4px}
+.expert-header .expert-close:hover{background:var(--hover);color:var(--text)}
+.expert-teams{padding:8px 12px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0}
+.expert-team-chip{padding:5px 10px;border-radius:16px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text-sec);transition:all .2s;display:flex;align-items:center;gap:4px}
+.expert-team-chip:hover{border-color:var(--accent);color:var(--text)}
+.expert-team-chip.active{border-color:var(--accent);color:var(--accent);background:rgba(16,163,127,.12)}
+.expert-body{flex:1;overflow-y:auto;padding:8px}
+.expert-body::-webkit-scrollbar{width:4px}
+.expert-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.expert-card{background:var(--input-bg);border-radius:10px;padding:12px;margin-bottom:8px;border:1px solid transparent;transition:border-color .2s}
+.expert-card .expert-role{font-size:12px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.expert-card .expert-role .role-icon{font-size:16px}
+.expert-card .expert-content{font-size:13px;line-height:1.7;color:var(--text-sec);white-space:pre-wrap;word-break:break-word}
+.expert-card .expert-content.streaming{border-left:2px solid var(--accent);padding-left:8px}
+.expert-card.thinking{border-color:var(--accent);animation:expert-pulse 2s infinite}
+@keyframes expert-pulse{0%,100%{border-color:rgba(16,163,127,.3)}50%{border-color:rgba(16,163,127,.7)}}
+.expert-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-sec);font-size:13px;gap:8px;padding:20px;text-align:center}
+.expert-empty .expert-empty-icon{font-size:40px;opacity:.3}
+.expert-hint{padding:8px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--text-sec);text-align:center;flex-shrink:0}
+@media(max-width:768px){
+  .expert-panel.open{width:100%;position:fixed;right:0;top:0;bottom:0;z-index:110}
+}
+
+/* Nodes panel */
+.nodes-container{max-width:900px;margin:0 auto;padding:24px;overflow-y:auto;height:100%}
+.nodes-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.nodes-header h2{font-size:20px;display:flex;align-items:center;gap:8px}
+.nodes-refresh{background:none;border:1px solid var(--border);color:var(--text-sec);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s}
+.nodes-refresh:hover{border-color:var(--accent);color:var(--accent)}
+.node-card{background:var(--input-bg);border-radius:12px;padding:16px;margin-bottom:12px;border:1px solid var(--border);transition:border-color .2s}
+.node-card.connected{border-color:var(--accent)}
+.node-card.pending{border-color:#f59e0b}
+.node-card-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.node-card-header .node-status{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.node-card-header .node-status.online{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.5)}
+.node-card-header .node-status.offline{background:var(--text-sec)}
+.node-card-header .node-status.pending{background:#f59e0b;animation:pulse 2s infinite}
+.node-card-header .node-name{font-weight:600;font-size:15px;flex:1}
+.node-card-header .node-platform{font-size:12px;color:var(--text-sec);background:var(--bg);padding:2px 8px;border-radius:4px}
+.node-meta{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--text-sec);margin-bottom:10px}
+.node-meta span{display:flex;align-items:center;gap:4px}
+.node-actions{display:flex;gap:8px}
+.node-actions button{padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text);transition:all .2s}
+.node-actions button:hover{border-color:var(--accent);color:var(--accent)}
+.node-actions .approve-btn{background:var(--accent);color:#fff;border-color:var(--accent)}
+.node-actions .approve-btn:hover{opacity:.9}
+.node-actions .reject-btn{color:var(--danger);border-color:var(--danger)}
+.node-actions .reject-btn:hover{background:var(--danger);color:#fff}
+.connect-guide{background:var(--input-bg);border-radius:12px;padding:20px;margin-bottom:16px}
+.connect-guide h3{font-size:14px;margin-bottom:14px;color:var(--text-sec)}
+.connect-guide pre{background:var(--code-bg);padding:14px;border-radius:8px;font-size:13px;line-height:1.7;overflow-x:auto;color:var(--text);font-family:'Fira Code','Cascadia Code','Consolas',monospace;white-space:pre-wrap;word-break:break-all}
+.connect-guide .copy-cmd{display:inline-block;margin-top:8px;background:none;border:1px solid var(--border);color:var(--text-sec);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:11px;transition:all .2s}
+.connect-guide .copy-cmd:hover{border-color:var(--accent);color:var(--accent)}
+.connect-guide .step{display:flex;gap:10px;margin-bottom:12px;align-items:flex-start}
+.connect-guide .step-num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.connect-guide .step-text{font-size:13px;line-height:1.7}
+.node-selector{display:flex;gap:6px;align-items:center;padding:0 12px;flex-shrink:0}
+.node-selector label{font-size:11px;color:var(--text-sec);font-weight:600}
+.node-selector select{padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:12px;outline:none;cursor:pointer}
+.node-selector select:focus{border-color:var(--accent)}
+/* Remote terminal */
+.remote-term{display:flex;flex-direction:column;height:100%;background:#1e1e1e;color:#ccc;font-family:'Fira Code','Cascadia Code','Consolas',monospace;font-size:13px}
+.remote-term-output{flex:1;overflow-y:auto;padding:12px;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.remote-term-output::-webkit-scrollbar{width:4px}
+.remote-term-output::-webkit-scrollbar-thumb{background:#555;border-radius:2px}
+.remote-term-input{display:flex;align-items:center;padding:8px 12px;border-top:1px solid #333;background:#181818;gap:6px;flex-shrink:0}
+.remote-term-input .prompt{color:#10a37f;font-weight:600;flex-shrink:0}
+.remote-term-input input{flex:1;background:none;border:none;color:#ccc;font-family:inherit;font-size:13px;outline:none}
+.remote-term-cwd{padding:4px 12px;background:#252525;font-size:11px;color:#888;border-bottom:1px solid #333;flex-shrink:0}
+
+/* @mention popup */
+.mention-popup{position:absolute;bottom:calc(100% + 4px);left:0;width:260px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:4px;display:none;z-index:100;box-shadow:0 -4px 16px rgba(0,0,0,.15);max-height:240px;overflow-y:auto}
+.mention-popup.show{display:block}
+.mention-item{padding:8px 12px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:13px;transition:background .1s}
+.mention-item:hover,.mention-item.selected{background:var(--hover)}
+.mention-item .m-emoji{font-size:16px;width:22px;text-align:center}
+.mention-item .m-name{font-weight:600}
+.mention-item .m-desc{font-size:11px;color:var(--text-sec);margin-left:auto}
+.mention-tag{background:rgba(16,163,127,.15);color:var(--accent);padding:1px 4px;border-radius:4px;font-weight:600}
+</style>
 </head>
 <body>
 <div class="overlay" id="overlay"></div>
@@ -261,9 +658,6 @@ echo '{"version":1,"defaults":{"security":"full"}}' > ~/.openclaw/exec-approvals
   </div>
 </div>
 <script>
-// Version check — if user is loading a stale cached build, force reload with cache-busting.
-const APP_VERSION='2026-04-24-b8a6988';
-(()=>{try{const prev=localStorage.getItem('oc_app_version');if(prev&&prev!==APP_VERSION){localStorage.setItem('oc_app_version',APP_VERSION);if(!location.search.includes('_v='))location.replace(location.pathname+'?_v='+Date.now());return;}localStorage.setItem('oc_app_version',APP_VERSION);}catch{}})();
 const API='/v1/chat/completions',TOKEN='17043bad6b19491dfa222d681d43584fbc3e8dd3781edfbc';
 const STORAGE_KEY='oc_chats_v2',AGENT_KEY='oc_selected_agent',THEME_KEY='oc_theme';
 const AGENTS=[
@@ -367,15 +761,240 @@ document.querySelectorAll('.tab').forEach(tab=>{
       if(currentNode==='local'){const f=document.getElementById('terminalFrame');if(f)f.src='/terminal/';}
       terminalLoaded=true;
     }
-    if(tab.dataset.tab==='files'&&!getFilesLoaded()){if(currentNode==='local')loadFiles();else loadRemoteFiles();}
-    if(tab.dataset.tab==='memory') loadMemoryPanel(); // module self-guards
-    if(tab.dataset.tab==='skills') loadSkillsPanel(); // module has its own loaded-guard
-    if(tab.dataset.tab==='nodes'){if(!getNodesLoaded())loadNodes();startNodesAutoRefresh();}
+    if(tab.dataset.tab==='files'&&!filesLoaded){if(currentNode==='local')loadFiles();else loadRemoteFiles();}
+    if(tab.dataset.tab==='memory'&&!memoryLoaded) loadMemoryPanel();
+    if(tab.dataset.tab==='skills'&&!skillsLoaded) loadSkillsPanel();
+    if(tab.dataset.tab==='nodes'){if(!nodesLoaded)loadNodes();startNodesAutoRefresh();}
     else{stopNodesAutoRefresh();}
   });
 });
 
-// === MEMORY PANEL === (moved to assets/js/panels/memory.js in refactor step 3c)
+// === MEMORY PANEL ===
+// === Skills Panel ===
+let skillsData=[], skillFilter='all', skillsLoaded=false;
+const SK_ICONS={'discord':'💬','github':'🐙','gh-issues':'🐛','weather':'🌤','tmux':'🖥','video-frames':'🎬','healthcheck':'🛡','skill-creator':'✨','node-connect':'🔗','coding-agent':'🤖','himalaya':'📧','slack':'💼','spotify-player':'🎵','voice-call':'📞','sag':'🔊','camsnap':'📷','notion':'📓','obsidian':'💎','trello':'📋','1password':'🔐','gog':'📬','xurl':'🐦','summarize':'📝','nano-pdf':'📄','oracle':'🔮','sonoscli':'🔈','openhue':'💡','peekaboo':'👀','gemini':'♊','clawhub':'🦞','web-dev-rules':'🚧','mermaid-fix':'🧜','memory-ops':'🧠'};
+const ACTIVE_SKILLS=new Set(['discord','gh-issues','github','healthcheck','skill-creator','node-connect','tmux','video-frames','weather']);
+
+async function loadSkillsPanel(){
+  if(skillsLoaded)return;skillsLoaded=true;
+  const builtinPath='/home/nikefd/.npm-global/lib/node_modules/openclaw/skills';
+  const customPath='/home/nikefd/.openclaw/workspace/skills';
+  const WORKSPACE='/home/nikefd/.openclaw/workspace';
+  async function scanDir(basePath,isBuiltin){
+    try{
+      const r=await fetch('/api/files/list?path='+encodeURIComponent(basePath));
+      const d=await r.json();
+      if(!d.entries)return;
+      for(const e of d.entries){
+        if(e.type!=='directory'&&e.type!=='dir')continue;
+        let desc='';
+        try{
+          const sr=await fetch('/api/files/read?path='+encodeURIComponent(e.path+'/SKILL.md'));
+          const sd=await sr.json();
+          if(sd.content){const m=sd.content.match(/description:\s*["']?(.+?)["']?\s*$/m)||sd.content.match(/^#\s*(.+)/m);if(m)desc=m[1].substring(0,150);}
+        }catch(x){}
+        skillsData.push({name:e.name,description:desc||'暂无描述',active:isBuiltin?ACTIVE_SKILLS.has(e.name):true,builtin:isBuiltin,icon:SK_ICONS[e.name]||'🧩'});
+      }
+    }catch(e){}
+  }
+  await Promise.all([scanDir(builtinPath,true),scanDir(customPath,false)]);
+  skillsData.sort((a,b)=>(b.active-a.active)||(a.builtin-b.builtin)||a.name.localeCompare(b.name));
+  renderSkillsGrid();
+}
+
+function setSkillFilter(f){skillFilter=f;document.querySelectorAll('#panel-skills .skill-filter').forEach(b=>b.classList.toggle('active',b.dataset.filter===f));renderSkillsGrid();}
+function filterSkills(){renderSkillsGrid();}
+window.setSkillFilter=setSkillFilter;window.filterSkills=filterSkills;
+
+function getVisibleSkills(){
+  const q=(document.getElementById('skillSearch')?.value||'').toLowerCase();
+  return skillsData.filter(s=>{
+    if(q&&!s.name.includes(q)&&!s.description.toLowerCase().includes(q))return false;
+    if(skillFilter==='active')return s.active;
+    if(skillFilter==='builtin')return s.builtin;
+    if(skillFilter==='custom')return !s.builtin;
+    return true;
+  });
+}
+
+function escH(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function renderSkillsGrid(){
+  const grid=document.getElementById('skillsGrid');
+  const vis=getVisibleSkills();
+  const ct=document.getElementById('skillsCounts');
+  if(ct)ct.textContent=skillsData.length+' 个技能 · '+skillsData.filter(s=>s.active).length+' 已启用 · '+skillsData.filter(s=>!s.builtin).length+' 自定义';
+  if(!vis.length){grid.innerHTML='<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--text-sec)">🔍 没有匹配的技能</div>';return}
+  grid.innerHTML=vis.map(s=>'<div class="skill-card" onclick="openSkill(\''+s.name+'\')"><div class="sk-icon">'+s.icon+'</div><div class="sk-name">'+escH(s.name)+'</div><div class="sk-desc">'+escH(s.description)+'</div><div class="sk-tags">'+(s.active?'<span class="sk-tag on">✅ 已启用</span>':'<span class="sk-tag">未启用</span>')+(s.builtin?'<span class="sk-tag">📦 内置</span>':'<span class="sk-tag custom">🛠 自定义</span>')+'</div></div>').join('');
+}
+
+async function openSkill(name){
+  const detail=document.getElementById('skillDetail');
+  detail.style.display='flex';
+  document.getElementById('skillDetailTitle').textContent=name;
+  const body=document.getElementById('skillDetailBody');
+  body.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-sec)">🔄 加载中...</div>';
+  const paths=['/home/nikefd/.openclaw/workspace/skills/'+name+'/SKILL.md','/home/nikefd/.npm-global/lib/node_modules/openclaw/skills/'+name+'/SKILL.md'];
+  let content='';
+  for(const p of paths){try{const r=await fetch('/api/files/read?path='+encodeURIComponent(p));const d=await r.json();if(d.content){content=d.content;break;}}catch(e){}}
+  if(!content){body.innerHTML='<div style="padding:40px;text-align:center;color:var(--text-sec)">📄 SKILL.md 未找到</div>';return}
+  let h=escH(content);
+  h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(m,l,c)=>'<pre><code>'+c+'</code></pre>');
+  h=h.replace(/^### (.+)$/gm,'<h3>$1</h3>');h=h.replace(/^## (.+)$/gm,'<h2>$1</h2>');h=h.replace(/^# (.+)$/gm,'<h1>$1</h1>');
+  h=h.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');h=h.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  h=h.replace(/`([^`]+)`/g,'<code>$1</code>');
+  h=h.replace(/^- (.+)$/gm,'<li>$1</li>');
+  h=h.replace(/\n\n/g,'<br><br>');
+  body.innerHTML=h;
+}
+window.openSkill=openSkill;
+
+function closeSkillDetail(){document.getElementById('skillDetail').style.display='none';}
+window.closeSkillDetail=closeSkillDetail;
+
+let memoryLoaded=false, memoryEditing=false, currentMemFile=null;
+const WORKSPACE='/home/nikefd/.openclaw/workspace';
+const MEMORY_FILES={
+  longTerm:[{name:'MEMORY.md',path:WORKSPACE+'/MEMORY.md',icon:'📌'}],
+  identity:[
+    {name:'IDENTITY.md',path:WORKSPACE+'/IDENTITY.md',icon:'🪪'},
+    {name:'SOUL.md',path:WORKSPACE+'/SOUL.md',icon:'👻'},
+    {name:'USER.md',path:WORKSPACE+'/USER.md',icon:'👤'},
+    {name:'TOOLS.md',path:WORKSPACE+'/TOOLS.md',icon:'🔧'}
+  ]
+};
+async function loadMemoryPanel(){
+  memoryLoaded=true;
+  try{
+    const r=await fetch('/api/files/list?path='+encodeURIComponent(WORKSPACE+'/memory'));
+    const data=await r.json();
+    const allFiles=(data.entries||[]).filter(e=>e.type==='file'&&e.name.endsWith('.md')).sort((a,b)=>b.name.localeCompare(a.name));
+    MEMORY_FILES.daily=allFiles.map(f=>({name:f.name,path:f.path,icon:'📝',size:f.size}));
+  }catch(e){MEMORY_FILES.daily=[];}
+  try{
+    const r2=await fetch('/api/files/list?path='+encodeURIComponent(WORKSPACE+'/memory/projects'));
+    const data2=await r2.json();
+    const projFiles=(data2.entries||[]).filter(e=>e.type==='file'&&e.name.endsWith('.md')).sort((a,b)=>a.name.localeCompare(b.name));
+    const projIcons={'finance':'🚨','climbing':'🧗','interview':'💼','village':'🏘','ai-frontier':'🔭'};
+    MEMORY_FILES.projects=projFiles.map(f=>{const base=f.name.replace('.md','');return{name:f.name,path:f.path,icon:projIcons[base]||'📂',size:f.size};});
+  }catch(e){MEMORY_FILES.projects=[];}
+  renderMemorySidebar();
+}
+const MEMORY_CRON_ID='6348b819-41af-43f6-bbcc-8e5bbf70e33f';
+let memoryCronTime='23:00';
+function toggleMemArch(){document.querySelector('.memory-arch')?.classList.toggle('open');}
+async function saveMemoryCronTime(){
+  const input=document.getElementById('cronTimeInput');
+  if(!input)return;
+  const [hh,mm]=input.value.split(':').map(Number);
+  const statusEl=document.getElementById('cronStatus');
+  try{
+    const r=await fetch('/v1/cron/jobs/'+MEMORY_CRON_ID,{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({schedule:{kind:'cron',expr:`${mm} ${hh} * * *`,tz:'Asia/Shanghai'}})
+    });
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    memoryCronTime=input.value;
+    if(statusEl)statusEl.textContent='✅ 已保存';
+    setTimeout(()=>{if(statusEl)statusEl.textContent='';},2000);
+  }catch(e){
+    if(statusEl)statusEl.textContent='❌ 保存失败: '+e.message;
+  }
+}
+window.toggleMemArch=toggleMemArch;
+window.saveMemoryCronTime=saveMemoryCronTime;
+function showMemWelcome(){
+  currentMemFile=null;renderMemorySidebar();
+  const panel=document.querySelector('.memory-panel');
+  const welcome=document.getElementById('memoryWelcome');
+  const editor=document.querySelector('.memory-editor');
+  panel.classList.remove('mem-viewing');panel.classList.add('mem-welcome');
+  if(welcome)welcome.style.display='';
+  if(editor)editor.style.display='none';
+}
+function memGoBack(){
+  const panel=document.querySelector('.memory-panel');
+  panel.classList.remove('mem-viewing','mem-welcome');
+  currentMemFile=null;renderMemorySidebar();
+  const welcome=document.getElementById('memoryWelcome');
+  const editor=document.querySelector('.memory-editor');
+  if(welcome)welcome.style.display='none';
+  if(editor)editor.style.display='none';
+}
+window.showMemWelcome=showMemWelcome;
+window.memGoBack=memGoBack;
+function renderMemorySidebar(){
+  const sidebar=document.querySelector('.memory-sidebar');
+  if(!sidebar)return;
+  const totalFiles=1+(MEMORY_FILES.daily||[]).length+MEMORY_FILES.identity.length;
+  let totalSize=0;
+  [MEMORY_FILES.longTerm,MEMORY_FILES.daily||[],MEMORY_FILES.identity].flat().forEach(f=>{if(f.size)totalSize+=f.size;});
+  const projCount=(MEMORY_FILES.projects||[]).length;
+  let html=`<h3 style="cursor:pointer" onclick="showMemWelcome()">🧠 记忆管理</h3>`;
+  html+=`<div class="memory-stats"><strong>${totalFiles+projCount}</strong> 个文件`;
+  if(totalSize>0)html+=` · <strong>${(totalSize/1024).toFixed(1)}</strong> KB`;
+  html+=`</div>`;
+  html+=`<div class="memory-category"><div class="memory-category-title">📌 长期记忆</div>`;
+  MEMORY_FILES.longTerm.forEach(f=>{
+    html+=`<div class="memory-file${currentMemFile===f.path?' active':''}" onclick="openMemFile('${f.path}')">${f.icon} ${f.name}${f.size?`<span class="mem-size">${(f.size/1024).toFixed(1)}K</span>`:''}</div>`;
+  });
+  html+=`</div>`;
+  if(MEMORY_FILES.projects&&MEMORY_FILES.projects.length){
+    html+=`<div class="memory-category"><div class="memory-category-title">📂 项目记忆 (${MEMORY_FILES.projects.length})</div>`;
+    MEMORY_FILES.projects.forEach(f=>{
+      html+=`<div class="memory-file${currentMemFile===f.path?' active':''}" onclick="openMemFile('${f.path}')">${f.icon} ${f.name}${f.size?`<span class="mem-size">${(f.size/1024).toFixed(1)}K</span>`:''}</div>`;
+    });
+    html+=`</div>`;
+  }
+  if(MEMORY_FILES.daily&&MEMORY_FILES.daily.length){
+    html+=`<div class="memory-category"><div class="memory-category-title">📝 每日记录 (${MEMORY_FILES.daily.length})</div>`;
+    MEMORY_FILES.daily.forEach(f=>{
+      html+=`<div class="memory-file${currentMemFile===f.path?' active':''}" onclick="openMemFile('${f.path}')">${f.icon} ${f.name}${f.size?`<span class="mem-size">${(f.size/1024).toFixed(1)}K</span>`:''}</div>`;
+    });
+    html+=`</div>`;
+  }
+  html+=`<div class="memory-category"><div class="memory-category-title">🪪 身份文件</div>`;
+  MEMORY_FILES.identity.forEach(f=>{
+    html+=`<div class="memory-file${currentMemFile===f.path?' active':''}" onclick="openMemFile('${f.path}')">${f.icon} ${f.name}</div>`;
+  });
+  html+=`</div>`;
+  html+=`<div class="memory-cron"><label>⏰ 每日自动整理</label><div class="memory-cron-row"><input type="time" id="cronTimeInput" value="${memoryCronTime}"><button class="cron-save" onclick="saveMemoryCronTime()">保存</button></div><div class="cron-status" id="cronStatus"></div></div>`;
+  sidebar.innerHTML=html;
+}
+async function openMemFile(fp){
+  currentMemFile=fp;memoryEditing=false;renderMemorySidebar();
+  const panel=document.querySelector('.memory-panel');
+  const editor=document.querySelector('.memory-editor');
+  const welcome=document.getElementById('memoryWelcome');
+  if(welcome)welcome.style.display='none';
+  editor.style.display='flex';
+  panel.classList.remove('mem-welcome');panel.classList.add('mem-viewing');
+  try{
+    const r=await fetch('/api/files/read?path='+encodeURIComponent(fp));
+    const data=await r.json();
+    if(data.error)throw new Error(data.error);
+    editor.innerHTML=`<div class="memory-editor-header"><button class="mem-back" onclick="memGoBack()">← 返回</button><span class="mem-title">${fp.split('/').pop()}</span><button onclick="startMemEdit()">✏️ 编辑</button></div><div class="memory-content">${escapeHtml(data.content)}</div>`;
+    editor.dataset.content=data.content;editor.dataset.path=fp;
+  }catch(e){editor.innerHTML=`<div class="memory-empty"><div class="mem-icon">❌</div><div>加载失败: ${e.message}</div></div>`;}
+}
+function escapeHtml(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function startMemEdit(){
+  memoryEditing=true;const editor=document.querySelector('.memory-editor');
+  const content=editor.dataset.content||'',fp=editor.dataset.path||'';
+  editor.innerHTML=`<div class="memory-editor-header"><span class="mem-title">${fp.split('/').pop()}</span><button onclick="cancelMemEdit()">取消</button><button class="save-btn" onclick="saveMemFile()">💾 保存</button></div><textarea class="memory-textarea" id="memTextarea">${escapeHtml(content)}</textarea>`;
+}
+function cancelMemEdit(){if(currentMemFile)openMemFile(currentMemFile);}
+async function saveMemFile(){
+  const textarea=document.getElementById('memTextarea'),editor=document.querySelector('.memory-editor'),fp=editor.dataset.path;
+  if(!fp||!textarea)return;
+  try{
+    const r=await fetch('/api/files/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:fp,content:textarea.value})});
+    const data=await r.json();if(data.error)throw new Error(data.error);
+    editor.dataset.content=textarea.value;openMemFile(fp);
+  }catch(e){alert('保存失败: '+e.message);}
+}
+window.openMemFile=openMemFile;window.startMemEdit=startMemEdit;window.cancelMemEdit=cancelMemEdit;window.saveMemFile=saveMemFile;
 
 // === TTS ===
 let curUtter=null;
@@ -389,7 +1008,157 @@ function speakText(text,btn){
 }
 window.speakText=speakText;
 
-// === FILES === (moved to assets/js/panels/files.js in refactor step 4b)
+// === FILES ===
+let filesLoaded=false,currentDir='',openTabs=[],activeTab=null;
+const FILE_ICONS={
+  js:'🟨',ts:'🔷',py:'🐍',rb:'💎',go:'🔵',rs:'🦀',
+  html:'🌐',css:'🎨',json:'📋',xml:'📰',yaml:'⚙️',yml:'⚙️',toml:'⚙️',
+  md:'📝',txt:'📄',log:'📜',csv:'📊',
+  sh:'⚡',bash:'⚡',zsh:'⚡',fish:'⚡',
+  png:'🖼',jpg:'🖼',gif:'🖼',svg:'🖼',webp:'🖼',ico:'🖼',
+  pdf:'📕',zip:'📦',tar:'📦',gz:'📦',
+  env:'🔒',lock:'🔒',gitignore:'👁',dockerfile:'🐳',
+  conf:'⚙️',cfg:'⚙️',ini:'⚙️',service:'⚙️',
+};
+const LANG_MAP={
+  js:'JavaScript',ts:'TypeScript',py:'Python',rb:'Ruby',go:'Go',rs:'Rust',
+  html:'HTML',css:'CSS',json:'JSON',xml:'XML',yaml:'YAML',yml:'YAML',toml:'TOML',
+  md:'Markdown',txt:'Text',log:'Log',csv:'CSV',
+  sh:'Shell',bash:'Shell',zsh:'Shell',
+};
+function fileIcon(name,isDir){
+  if(isDir) return '📁';
+  const ext=name.split('.').pop().toLowerCase();
+  return FILE_ICONS[ext]||'📄';
+}
+function fileLang(name){
+  const ext=name.split('.').pop().toLowerCase();
+  return LANG_MAP[ext]||ext.toUpperCase()||'Text';
+}
+function fmtSize(b){
+  if(b==null) return '';
+  if(b<1024) return b+' B';
+  if(b<1048576) return (b/1024).toFixed(1)+' KB';
+  return (b/1048576).toFixed(1)+' MB';
+}
+
+async function loadFiles(dir){
+  filesLoaded=true;
+  const url=dir?`/api/files/list?path=${encodeURIComponent(dir)}`:'/api/files/list';
+  try{
+    const r=await fetch(url);const d=await r.json();
+    currentDir=d.path;
+    // Breadcrumb
+    const parts=d.path.split('/').filter(Boolean);
+    let bc='';let accum='';
+    parts.forEach((p,i)=>{
+      accum+='/'+p;
+      if(i>0)bc+='<span class="bc-sep">›</span>';
+      bc+=`<span class="bc-part" onclick="loadFiles('${accum}')">${p}</span>`;
+    });
+    $('fileBreadcrumb').innerHTML=bc;
+    // Entries
+    let html='';
+    if(d.parent&&d.parent!==d.path){
+      html+=`<div class="file-entry" onclick="loadFiles('${d.parent}')"><span class="f-icon">⬆️</span><span class="f-name dir">..</span><span class="f-size"></span></div>`;
+    }
+    d.entries.forEach(e=>{
+      const icon=fileIcon(e.name,e.type==='dir');
+      const size=e.type==='file'?fmtSize(e.size):'';
+      const cls=e.type==='dir'?'dir':'';
+      const click=e.type==='dir'?`loadFiles('${e.path}')`:`viewFile('${e.path}','${e.name}')`;
+      html+=`<div class="file-entry" data-path="${e.path}" onclick="${click}"><span class="f-icon">${icon}</span><span class="f-name ${cls}">${esc(e.name)}</span><span class="f-size">${size}</span></div>`;
+    });
+    $('fileEntries').innerHTML=html||'<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px">📂 空目录</div>';
+    highlightActiveFile();
+  }catch(e){$('fileEntries').innerHTML=`<div style="padding:16px;color:var(--danger)">❌ 加载失败: ${e.message}</div>`;}
+}
+window.loadFiles=loadFiles;
+
+function renderFileTabs(){
+  let html='';
+  openTabs.forEach(t=>{
+    const icon=fileIcon(t.name,false);
+    const isActive=activeTab===t.path;
+    html+=`<div class="file-tab ${isActive?'active':''}" data-path="${t.path}" onclick="switchTab('${t.path}')">
+      <span class="tab-icon">${icon}</span><span class="tab-name">${esc(t.name)}</span>
+      <button class="tab-close" onclick="event.stopPropagation();closeTab('${t.path}')">✕</button>
+    </div>`;
+  });
+  $('fileTabs').innerHTML=html;
+}
+
+function switchTab(fp){
+  activeTab=fp;
+  renderFileTabs();
+  const tab=openTabs.find(t=>t.path===fp);
+  if(tab&&tab.content!=null) renderFileContent(tab);
+  highlightActiveFile();
+}
+
+function closeTab(fp){
+  openTabs=openTabs.filter(t=>t.path!==fp);
+  if(activeTab===fp){activeTab=openTabs.length?openTabs[openTabs.length-1].path:null;}
+  renderFileTabs();
+  if(activeTab){const t=openTabs.find(x=>x.path===activeTab);if(t)renderFileContent(t);}
+  else{$('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">📄</div><div>选择文件查看内容</div><div style="font-size:12px;opacity:.6">从左侧目录中点击文件</div></div>`;$('fileInfoBar').style.display='none';}
+  highlightActiveFile();
+}
+window.switchTab=switchTab;window.closeTab=closeTab;
+
+function downloadCurrentFile(){
+  const tab=openTabs.find(t=>t.path===activeTab);
+  if(!tab)return;
+  const a=document.createElement('a');
+  a.href='/api/files/download?path='+encodeURIComponent(tab.path);
+  a.download=tab.name;a.click();
+}
+
+function renderFileContent(tab){
+  const lines=tab.content.split('\n');
+  const lineNums=lines.map((_,i)=>i+1).join('\n');
+  $('fileViewerBody').innerHTML=`<div class="line-numbers">${lineNums}</div><div class="file-content">${esc(tab.content)}</div>`;
+  $('fileInfoBar').style.display='flex';
+  $('fileInfoLang').textContent='📝 '+fileLang(tab.name);
+  $('fileInfoLines').textContent='📏 '+lines.length+' 行';
+  $('fileInfoSize').textContent='💾 '+fmtSize(tab.size);
+  $('fileInfoPath').textContent=tab.path;
+  // Sync scroll between line numbers and content
+  const body=$('fileViewerBody');
+  body.onscroll=()=>{body.querySelector('.line-numbers').style.transform=`translateY(0)`};
+}
+
+async function viewFile(fp,name){
+  // Check if already open
+  let tab=openTabs.find(t=>t.path===fp);
+  if(!tab){
+    tab={path:fp,name:name,content:null,size:0};
+    openTabs.push(tab);
+  }
+  activeTab=fp;
+  renderFileTabs();
+  if(tab.content!=null){renderFileContent(tab);highlightActiveFile();return;}
+  // Loading state
+  $('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">⏳</div><div>加载中...</div></div>`;
+  try{
+    const r=await fetch(`/api/files/read?path=${encodeURIComponent(fp)}`);
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    tab.content=d.content;tab.size=d.size;
+    if(activeTab===fp)renderFileContent(tab);
+  }catch(e){
+    $('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">❌</div><div>${e.message}</div></div>`;
+  }
+  highlightActiveFile();
+}
+window.viewFile=viewFile;
+
+function highlightActiveFile(){
+  document.querySelectorAll('.file-entry').forEach(el=>{
+    el.classList.toggle('active',el.dataset.path===activeTab);
+  });
+}
+
 // === STORAGE ===
 let _saveTimers={};
 // Conservative visibility-flush: only beacon the CURRENTLY STREAMING chat.
@@ -1066,13 +1835,206 @@ input.addEventListener('paste',e=>{
 
 // Lightbox
 function openLightbox(src){$('lightboxImg').src=src;$('imgLightbox').classList.add('show');}
-// === FILE UPLOAD === (moved to assets/js/panels/files.js in refactor step 4b)
-// === DEMO CODES === (moved to assets/js/panels/demo.js in refactor step 3a)
+// === FILE UPLOAD ===
+function uploadFiles(){$('uploadInput').click();}
+window.uploadFiles=uploadFiles;
+$('uploadInput').addEventListener('change',async e=>{
+  const files=e.target.files;if(!files.length)return;
+  const fd=new FormData();
+  for(const f of files)fd.append('file',f);
+  try{
+    const targetDir=currentDir||'';
+    const url=targetDir?'/api/files/upload?dir='+encodeURIComponent(targetDir):'/api/files/upload';
+    const r=await fetch(url,{method:'POST',body:fd});
+    const d=await r.json();
+    if(d.ok){
+      const names=d.files.map(f=>f.name).join(', ');
+      alert('✅ 上传成功: '+names);
+      loadFiles(currentDir);
+    }else{alert('❌ 上传失败: '+(d.error||'unknown'));}
+  }catch(err){alert('❌ 上传失败: '+err.message);}
+  $('uploadInput').value='';
+});
 
+// === DEMO CODES ===
+let demosLoaded=false;
+async function loadDemoCodes(){
+  demosLoaded=true;
+  try{
+    const r=await fetch('/auth/demo-codes');
+    if(!r.ok)throw new Error('Failed');
+    const codes=await r.json();
+    renderDemoCodes(codes);
+  }catch(e){$('demoCodes').innerHTML=`<div style="color:var(--danger);padding:12px">❌ 加载失败</div>`;}
+}
+
+function renderDemoCodes(codes){
+  const now=Date.now();
+  if(!codes.length){$('demoCodes').innerHTML='';$('demoEmpty').style.display='block';return;}
+  $('demoEmpty').style.display='none';
+  $('demoCodes').innerHTML=codes.sort((a,b)=>b.createdAt-a.createdAt).map(c=>{
+    const expired=c.expiresAt<=now;
+    const expStr=new Date(c.expiresAt).toLocaleString('zh-CN');
+    const createdStr=new Date(c.createdAt).toLocaleString('zh-CN');
+    const accessH=Math.round((c.accessDurationMs||0)/3600000);
+    const statusColor=expired?'var(--danger)':'var(--accent)';
+    const statusText=expired?'已过期':'有效';
+    const usedText=c.usedCount?`已使用 ${c.usedCount} 次`:'未使用';
+    const link='https://zhangyangbin.com/demos/village/';
+    return `<div style="background:var(--input-bg);border-radius:10px;padding:16px;border-left:3px solid ${statusColor}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-family:monospace;font-size:22px;font-weight:700;letter-spacing:3px;color:${expired?'var(--text-sec)':'var(--text)'}">${c.code}</span>
+          <span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${expired?'rgba(239,68,68,.15)':'rgba(16,163,127,.15)'};color:${statusColor}">${statusText}</span>
+        </div>
+        <button onclick="deleteDemoCode('${c.code}')" style="background:none;border:none;color:var(--text-sec);cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px;transition:all .15s" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-sec)'" title="删除">🗑</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-sec);display:flex;flex-wrap:wrap;gap:12px">
+        ${c.label?`<span>📝 ${esc(c.label)}</span>`:''}
+        <span>📅 创建: ${createdStr}</span>
+        <span>⏰ 过期: ${expStr}</span>
+        <span>🕐 访问时长: ${accessH}h</span>
+        <span>👤 ${usedText}</span>
+      </div>
+      ${!expired?`<div style="margin-top:10px;font-size:12px;color:var(--text-sec)">
+        🔗 链接: <span style="color:var(--accent);cursor:pointer" onclick="navigator.clipboard.writeText('${link}');this.textContent='已复制!';setTimeout(()=>this.textContent='${link}',1500)">${link}</span>
+        &nbsp;|&nbsp; 码: <span style="color:var(--accent);cursor:pointer;font-family:monospace" onclick="navigator.clipboard.writeText('${c.code}');this.textContent='已复制!';setTimeout(()=>this.textContent='${c.code}',1500)">${c.code}</span>
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+async function createDemoCode(){
+  const label=$('demoLabel').value.trim();
+  const durationHours=parseInt($('demoDuration').value);
+  const accessDurationHours=parseInt($('demoAccessDuration').value);
+  $('demoCreateBtn').disabled=true;
+  try{
+    const r=await fetch('/auth/demo-codes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label,durationHours,accessDurationHours})});
+    if(!r.ok)throw new Error('Failed');
+    $('demoLabel').value='';
+    loadDemoCodes();
+  }catch(e){alert('创建失败');}
+  $('demoCreateBtn').disabled=false;
+}
+
+async function deleteDemoCode(code){
+  if(!confirm('确定删除此访问码？'))return;
+  try{
+    await fetch('/auth/demo-codes?code='+code,{method:'DELETE'});
+    loadDemoCodes();
+  }catch(e){alert('删除失败');}
+}
+window.createDemoCode=createDemoCode;window.deleteDemoCode=deleteDemoCode;
+
+// Hook demos tab
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    if(tab.dataset.tab==='demos'&&!demosLoaded) loadDemoCodes();
+  });
+});
 
 window.openLightbox=openLightbox;
 
-// === NODES MANAGEMENT === (moved to assets/js/panels/nodes.js in refactor step 4d)
+// === NODES MANAGEMENT ===
+let nodesLoaded=false, knownNodes=[];
+
+async function loadNodes(){
+  nodesLoaded=true;
+  try{
+    const [statusRes, devicesRes, infoRes]=await Promise.all([
+      fetch('/api/nodes/status'),
+      fetch('/api/devices/list'),
+      fetch('/api/gateway/info')
+    ]);
+    const status=await statusRes.json();
+    const devices=await devicesRes.json();
+    const info=await infoRes.json();
+    
+    knownNodes=status.nodes||[];
+    
+    // Render connect command (auto-fill token)
+    const cmdEl=document.getElementById('connectCmd');
+    if(cmdEl){
+      cmdEl.textContent='export OPENCLAW_GATEWAY_TOKEN=<点击下方显示Token>\nopenclaw node run --host '+info.host+' --port 443 --tls';
+      fetch('/api/gateway/token').then(r=>r.json()).then(d=>{
+        if(d.token&&cmdEl){cmdEl.textContent='export OPENCLAW_GATEWAY_TOKEN='+d.token+'\nopenclaw node run --host '+info.host+' --port 443 --tls';}
+      }).catch(()=>{});
+    }
+    
+    // Render pending
+    const pendingEl=document.getElementById('nodesPending');
+    const allPending=devices.pending||[];
+    if(allPending.length){
+      pendingEl.innerHTML='<h3 style="font-size:14px;color:#f59e0b;margin-bottom:10px">\u23f3 待审批的配对请求</h3>'+
+        allPending.map(d=>'<div class="node-card pending"><div class="node-card-header"><div class="node-status pending"></div><span class="node-name">'+esc(d.displayName||d.deviceId?.slice(0,12)||'Unknown')+'</span><span class="node-platform">'+(d.platform||'unknown')+'</span></div><div class="node-meta"><span>\ud83d\udd11 '+(d.deviceId?.slice(0,16)||'N/A')+'...</span><span>\ud83d\udccb 角色: '+((d.roles||[d.role]).join(', '))+'</span></div><div class="node-actions"><button class="approve-btn" onclick="approveDevice(\''+(d.requestId||d.deviceId)+'\')">✅ 批准</button><button class="reject-btn" onclick="rejectDevice(\''+(d.requestId||d.deviceId)+'\')">❌ 拒绝</button></div></div>').join('');
+    }else{pendingEl.innerHTML='';}
+    
+    // Render known nodes
+    const nodesEl=document.getElementById('nodesConnected');
+    const nodes=status.nodes||[];
+    if(nodes.length){
+      nodesEl.innerHTML='<h3 style="font-size:14px;color:var(--text-sec);margin-bottom:10px">\ud83d\udce1 已知节点</h3>'+
+        nodes.map(n=>{
+          const online=n.connected||n.status==='connected';
+          const caps=(n.capabilities||n.caps||[]).join(', ')||'N/A';
+          const lastSeen=n.lastConnectMs?new Date(n.lastConnectMs).toLocaleString('zh-CN'):'\u4ece\u672a';
+          return '<div class="node-card '+(online?'connected':'')+'"><div class="node-card-header"><div class="node-status '+(online?'online':'offline')+'"></div><span class="node-name">'+esc(n.displayName||n.name||n.nodeId?.slice(0,12)||'Node')+'</span><span class="node-platform">'+(n.platform||'unknown')+'</span></div><div class="node-meta"><span>'+(online?'\ud83d\udfe2 在线':'\ud83d\udd34 离线')+'</span><span>\ud83d\udd50 最后连接: '+lastSeen+'</span><span>\ud83d\udd27 能力: '+caps+'</span></div></div>';
+        }).join('');
+    }else{
+      nodesEl.innerHTML='<div style="text-align:center;padding:20px;color:var(--text-sec);font-size:13px">\u6682\u65e0\u5df2\u8fde\u63a5\u8282\u70b9\uff0c\u6309\u7167\u4e0b\u65b9\u6307\u5f15\u63a5\u5165\u65b0\u673a\u5668</div>';
+    }
+    
+    // Update selectors
+    updateNodeSelectors(nodes);
+  }catch(e){
+    document.getElementById('nodesConnected').innerHTML='<div style="color:var(--danger);padding:12px">\u274c 加载失败: '+e.message+'</div>';
+  }
+}
+
+async function approveDevice(id){
+  try{
+    const r=await fetch('/api/devices/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId:id})});
+    const d=await r.json();
+    if(d.ok){alert('\u2705 已批准');loadNodes();}else alert('\u274c 失败: '+(d.error||JSON.stringify(d)));
+  }catch(e){alert('\u274c '+e.message);}
+}
+async function rejectDevice(id){
+  if(!confirm('\u786e\u5b9a\u62d2\u7edd\u6b64\u914d\u5bf9\u8bf7\u6c42\uff1f'))return;
+  try{
+    const r=await fetch('/api/devices/reject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId:id})});
+    const d=await r.json();
+    if(d.ok){alert('\u5df2\u62d2\u7edd');loadNodes();}else alert('\u274c 失败: '+(d.error||JSON.stringify(d)));
+  }catch(e){alert('\u274c '+e.message);}
+}
+function copyConnectCmd(){
+  const el=document.getElementById('connectCmd');
+  if(el)navigator.clipboard.writeText(el.textContent).then(()=>{
+    const btn=el.nextElementSibling?.querySelector('.copy-cmd')||el.parentElement.querySelector('.copy-cmd');
+    if(btn){btn.textContent='\u2705 已复制';setTimeout(()=>btn.textContent='\ud83d\udccb 复制命令',1500);}
+  });
+}
+let tokenVisible=false;
+async function toggleToken(){
+  const display=document.getElementById('tokenDisplay');
+  const val=document.getElementById('tokenValue');
+  const btn=document.getElementById('tokenToggleBtn');
+  if(tokenVisible){display.style.display='none';btn.textContent='\ud83d\udd11 显示 Token';tokenVisible=false;return;}
+  btn.textContent='\u23f3 加载中...';
+  try{
+    const r=await fetch('/api/gateway/token');
+    const d=await r.json();
+    if(d.token){val.textContent=d.token;display.style.display='block';btn.textContent='\ud83d\udd12 隐藏 Token';tokenVisible=true;}
+    else{alert('\u274c 获取失败: '+(d.error||'unknown'));btn.textContent='\ud83d\udd11 显示 Token';}
+  }catch(e){alert('\u274c '+e.message);btn.textContent='\ud83d\udd11 显示 Token';}
+}
+function copyToken(){
+  const val=document.getElementById('tokenValue');
+  if(val)navigator.clipboard.writeText(val.textContent).then(()=>{
+    const btn=val.nextElementSibling;if(btn){btn.textContent='\u2705';setTimeout(()=>btn.textContent='\ud83d\udccb',1500);}
+  });
+}
+window.toggleToken=toggleToken;window.copyToken=copyToken;
 function switchTermNode(){
   const sel=document.getElementById('termNodeSelect');
   const frame=document.getElementById('terminalFrame');
@@ -1084,11 +2046,25 @@ function switchFileNode(){
   if(sel.value==='local'){loadFiles();}
   else{document.getElementById('fileEntries').innerHTML='<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px"><div style="font-size:32px;margin-bottom:8px">\ud83c\udf10</div><div>远程节点: <strong>'+esc(sel.value)+'</strong></div><div style="margin-top:8px;font-size:12px">远程文件浏览暂通过主对话操作</div></div>';}
 }
+window.loadNodes=loadNodes;window.approveDevice=approveDevice;window.rejectDevice=rejectDevice;window.copyConnectCmd=copyConnectCmd;
+
+// Auto-refresh nodes when on nodes tab (check for new pairing requests)
+let nodesAutoRefresh=null;
+function startNodesAutoRefresh(){
+  if(nodesAutoRefresh)return;
+  nodesAutoRefresh=setInterval(()=>{
+    const panel=document.getElementById('panel-nodes');
+    if(panel&&panel.classList.contains('active'))loadNodes();
+  },5000);
+}
+function stopNodesAutoRefresh(){
+  if(nodesAutoRefresh){clearInterval(nodesAutoRefresh);nodesAutoRefresh=null;}
+}
+
 function onChatNodeChange(){}
 window.onChatNodeChange=onChatNodeChange;
 
 let currentNode='local';
-window.currentNode=currentNode;
 
 // Update global node selector
 function updateNodeSelectors(nodes){
@@ -1105,7 +2081,6 @@ function switchGlobalNode(){
   // Save current chats for old node
   localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));
   currentNode=newNode;
-  window.currentNode=currentNode;
   // Load chats for new node
   const saved=localStorage.getItem(STORAGE_KEY+'_'+currentNode);
   chats=saved?JSON.parse(saved):[];
@@ -1146,18 +2121,238 @@ function switchGlobalNode(){
     terminalLoaded=true;
   }
   // Update files
-  if(currentNode==='local'){resetFilesLoaded();if(document.querySelector('[data-tab="files"]').classList.contains('active'))loadFiles();}
-  else{resetRemoteFileCwd();if(document.querySelector('[data-tab="files"]').classList.contains('active'))loadRemoteFiles();}
+  if(currentNode==='local'){filesLoaded=false;if(document.querySelector('[data-tab="files"]').classList.contains('active'))loadFiles();}
+  else{remoteFileCwd='~';if(document.querySelector('[data-tab="files"]').classList.contains('active'))loadRemoteFiles();}
 }
 window.switchGlobalNode=switchGlobalNode;
 
-// === REMOTE === (moved to assets/js/panels/remote.js in refactor step 4c)
+let remoteTermCwd='~';
+async function runRemoteCmd(cmd){
+  const output=document.getElementById('remoteTermOutput');
+  const cwdEl=document.getElementById('remoteTermCwd');
+  output.innerHTML+=`<span style="color:#10a37f">$ </span><span style="color:#e5e5e5">${esc(cmd)}</span>\n`;
+  output.innerHTML+=`<span style="color:#888">执行中...</span>`;
+  output.scrollTop=output.scrollHeight;
+  // Handle cd
+  let execCmd=cmd;
+  if(cmd.startsWith('cd ')){
+    execCmd=cmd+' && pwd';
+  }else{
+    execCmd='cd '+remoteTermCwd+' 2>/dev/null; '+cmd;
+  }
+  try{
+    const r=await fetch('/api/nodes/exec',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({node:currentNode,command:execCmd})});
+    const d=await r.json();
+    // Remove "执行中..."
+    output.innerHTML=output.innerHTML.replace(/<span style="color:#888">执行中...<\/span>$/,'');
+    if(d.ok!==false){
+      if(d.stdout)output.innerHTML+=esc(d.stdout);
+      if(d.stderr)output.innerHTML+=`<span style="color:#f59e0b">${esc(d.stderr)}</span>`;
+      if(d.exitCode&&d.exitCode!==0)output.innerHTML+=`<span style="color:#ef4444">[exit ${d.exitCode}]</span>\n`;
+      // Update cwd if cd command
+      if(cmd.startsWith('cd ')&&d.stdout){
+        remoteTermCwd=d.stdout.trim().split('\n').pop();
+        if(cwdEl)cwdEl.textContent=remoteTermCwd;
+      }
+    }else{
+      output.innerHTML+=`<span style="color:#ef4444">${esc(d.error||'执行失败')}</span>\n`;
+    }
+    output.innerHTML+='\n';
+  }catch(e){
+    output.innerHTML=output.innerHTML.replace(/<span style="color:#888">执行中...<\/span>$/,'');
+    output.innerHTML+=`<span style="color:#ef4444">❌ ${esc(e.message)}</span>\n\n`;
+  }
+  output.scrollTop=output.scrollHeight;
+  document.getElementById('remoteTermInput')?.focus();
+}
+
+// Remote file browser
+let remoteFileCwd='~';
+async function loadRemoteFiles(dir){
+  if(currentNode==='local'){loadFiles(dir);return;}
+  const target=dir||remoteFileCwd;
+  const entries=document.getElementById('fileEntries');
+  const breadcrumb=document.getElementById('fileBreadcrumb');
+  entries.innerHTML='<div style="padding:16px;text-align:center;color:var(--text-sec)">加载中...</div>';
+  try{
+    const r=await fetch('/api/nodes/exec',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({node:currentNode,command:`cd ${target} 2>/dev/null && pwd && echo "---SPLIT---" && ls -laF --color=never`})});
+    const d=await r.json();
+    if(d.ok===false)throw new Error(d.error||'failed');
+    const parts=(d.stdout||'').split('---SPLIT---');
+    const pwd=(parts[0]||'').trim();
+    const listing=(parts[1]||'').trim();
+    if(pwd)remoteFileCwd=pwd;
+    // Breadcrumb
+    const bParts=pwd.split('/').filter(Boolean);
+    let bc='',acc='';
+    bParts.forEach((p,i)=>{acc+='/'+p;if(i>0)bc+='<span class="bc-sep">›</span>';bc+=`<span class="bc-part" onclick="loadRemoteFiles('${acc}')">${p}</span>`;});
+    breadcrumb.innerHTML=bc;
+    // Parse ls output
+    const lines=listing.split('\n').filter(l=>l&&!l.startsWith('total'));
+    let html='';
+    // Parent dir
+    const parent=pwd.split('/').slice(0,-1).join('/')||'/';
+    if(pwd!=='/'){
+      html+='<div class="file-entry" onclick="loadRemoteFiles(\''+parent+'\')"><span class="f-icon">⬆️</span><span class="f-name dir">..</span><span class="f-size"></span></div>';
+    }
+    lines.forEach(line=>{
+      const m=line.match(/\S+\s+\S+\s+\S+\s+\S+\s+(\S+)\s+\S+\s+\S+\s+\S+\s+(.+)/);
+      if(!m)return;
+      const size=parseInt(m[1])||0;
+      let name=m[2].trim();
+      const isDir=name.endsWith('/');
+      const isLink=name.includes(' -> ');
+      if(isDir)name=name.replace(/\/$/,'');
+      const linkTarget=isLink?name.split(' -> ')[1]:'';
+      const baseName=isLink?name.split(' -> ')[0]:name;
+      if(baseName==='.'||baseName==='..')return;
+      const icon=isDir?'📁':fileIcon(baseName,false);
+      const fmtSz=isDir?'':fmtSize(size);
+      const fp=pwd+(pwd.endsWith('/')?'':'/')+baseName;
+      const click=isDir?`loadRemoteFiles('${fp}')`:`viewRemoteFile('${fp}','${esc(baseName)}')`;
+      html+=`<div class="file-entry" onclick="${click}"><span class="f-icon">${icon}</span><span class="f-name ${isDir?'dir':''}">${esc(baseName)}${isLink?' → '+esc(linkTarget):''}</span><span class="f-size">${fmtSz}</span></div>`;
+    });
+    entries.innerHTML=html||'<div style="padding:20px;text-align:center;color:var(--text-sec)">📂 空目录</div>';
+  }catch(e){
+    entries.innerHTML=`<div style="padding:16px;color:var(--danger)">❌ ${esc(e.message)}</div>`;
+  }
+}
+
+async function viewRemoteFile(fp,name){
+  let tab=openTabs.find(t=>t.path===fp);
+  if(!tab){tab={path:fp,name:name,content:null,size:0};openTabs.push(tab);}
+  activeTab=fp;renderFileTabs();
+  if(tab.content!=null){renderFileContent(tab);return;}
+  $('fileViewerBody').innerHTML='<div class="file-viewer-empty"><div class="empty-icon">⏳</div><div>加载中...</div></div>';
+  try{
+    const r=await fetch('/api/nodes/exec',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({node:currentNode,command:`cat ${JSON.stringify(fp)} 2>&1 | head -5000`})});
+    const d=await r.json();
+    if(d.ok===false)throw new Error(d.error||'failed');
+    tab.content=d.stdout||'';tab.size=(d.stdout||'').length;
+    if(activeTab===fp)renderFileContent(tab);
+  }catch(e){
+    $('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">❌</div><div>${esc(e.message)}</div></div>`;
+  }
+}
+window.loadRemoteFiles=loadRemoteFiles;window.viewRemoteFile=viewRemoteFile;
+
 // Migrate: save initial chats as local node chats
 if(!localStorage.getItem(STORAGE_KEY+'_local')&&chats.length){
   localStorage.setItem(STORAGE_KEY+'_local',JSON.stringify(chats));
 }
 
-// === EXPERT PANEL === (moved to assets/js/panels/experts.js in refactor step 4a)
+// === EXPERT PANEL (帮帮团) ===
+const EXPERT_TEAMS=[
+  {id:'code-review',name:'代码审查',icon:'🔍',experts:[
+    {id:'arch',name:'架构师',icon:'🏗️',prompt:'你是一位资深软件架构师。从架构设计、可扩展性、设计模式角度分析用户的问题。简洁直接，给出具体建议。用中文回答。'},
+    {id:'security',name:'安全专家',icon:'🔒',prompt:'你是一位网络安全专家。从安全漏洞、最佳安全实践角度分析用户的问题。指出潜在风险并给出修复建议。用中文回答。'},
+    {id:'perf',name:'性能专家',icon:'⚡',prompt:'你是一位性能优化专家。从性能瓶颈、内存使用、算法复杂度角度分析。给出具体的优化建议和预期改进。用中文回答。'},
+  ]},
+  {id:'writing',name:'写作',icon:'✍️',experts:[
+    {id:'editor',name:'编辑',icon:'📝',prompt:'你是一位资深文字编辑。从文章结构、逻辑流畅度、表达精准度角度给出修改建议。用中文回答。'},
+    {id:'copywriter',name:'文案',icon:'💡',prompt:'你是一位创意文案。从吸引力、传播性、情感共鸣角度给出建议，提供替代方案。用中文回答。'},
+    {id:'seo',name:'SEO专家',icon:'📈',prompt:'你是一位SEO和内容营销专家。从搜索优化、关键词、可读性角度给出建议。用中文回答。'},
+  ]},
+  {id:'product',name:'产品',icon:'📦',experts:[
+    {id:'pm',name:'产品经理',icon:'📋',prompt:'你是一位资深产品经理。从用户需求、产品逻辑、优先级角度分析问题，给出可行方案。用中文回答。'},
+    {id:'ux',name:'UX设计师',icon:'🎨',prompt:'你是一位UX设计师。从用户体验、交互设计、可用性角度给出建议。用中文回答。'},
+    {id:'data',name:'数据分析师',icon:'📊',prompt:'你是一位数据分析师。从数据驱动决策、指标设计、A/B测试角度给出建议。用中文回答。'},
+  ]},
+  {id:'debate',name:'辩论',icon:'⚖️',experts:[
+    {id:'pro',name:'正方',icon:'👍',prompt:'你扮演辩论正方。为用户的观点/方案找到最强有力的支持论据，从积极角度分析。用中文回答。'},
+    {id:'con',name:'反方',icon:'👎',prompt:'你扮演辩论反方。找出用户观点/方案的潜在问题和反对理由，扮演魔鬼代言人。用中文回答。'},
+    {id:'judge',name:'裁判',icon:'⚖️',prompt:'你是中立的裁判。综合正反两方观点，给出平衡的总结和你的判断。用中文回答。'},
+  ]},
+];
+
+let expertPanelOpen=false, selectedTeam=null, expertAborts=[];
+
+function toggleExpertPanel(){
+  expertPanelOpen=!expertPanelOpen;
+  $('expertPanel').classList.toggle('open',expertPanelOpen);
+  $('expertToggle').classList.toggle('active',expertPanelOpen);
+  if(expertPanelOpen&&!selectedTeam) renderExpertTeams();
+}
+
+$('expertToggle').addEventListener('click',toggleExpertPanel);
+
+function renderExpertTeams(){
+  $('expertTeams').innerHTML=EXPERT_TEAMS.map(t=>
+    `<button class="expert-team-chip ${selectedTeam===t.id?'active':''}" onclick="selectExpertTeam('${t.id}')">${t.icon} ${t.name}</button>`
+  ).join('');
+}
+
+function selectExpertTeam(teamId){
+  selectedTeam=teamId;
+  renderExpertTeams();
+  const team=EXPERT_TEAMS.find(t=>t.id===teamId);
+  if(!team)return;
+  $('expertBody').innerHTML=`<div class="expert-empty"><div class="expert-empty-icon">${team.icon}</div><div><strong>${team.name}</strong> 团队已就绪</div><div style="margin-top:8px">${team.experts.map(e=>`<span style="margin:0 4px">${e.icon} ${e.name}</span>`).join('')}</div><div style="margin-top:12px;font-size:12px">发送消息后，专家会同时分析</div></div>`;
+}
+window.selectExpertTeam=selectExpertTeam;
+
+function cancelExpertRequests(){
+  expertAborts.forEach(a=>a.abort());
+  expertAborts=[];
+}
+
+async function queryExperts(userMessage, chatHistory){
+  if(!expertPanelOpen||!selectedTeam)return;
+  const team=EXPERT_TEAMS.find(t=>t.id===selectedTeam);
+  if(!team)return;
+  
+  cancelExpertRequests();
+  
+  // Render placeholder cards
+  $('expertBody').innerHTML=team.experts.map(e=>
+    `<div class="expert-card thinking" id="expert-${e.id}"><div class="expert-role"><span class="role-icon">${e.icon}</span>${e.name}</div><div class="expert-content streaming">思考中...</div></div>`
+  ).join('');
+  
+  // Fire parallel requests
+  team.experts.forEach(async(expert)=>{
+    const abort=new AbortController();
+    expertAborts.push(abort);
+    const card=document.getElementById('expert-'+expert.id);
+    if(!card)return;
+    const contentEl=card.querySelector('.expert-content');
+    
+    try{
+      const msgs=[
+        {role:'system',content:expert.prompt+'\n\n请简洁回答，控制在200字以内。'},
+        ...chatHistory.slice(-6).map(m=>({role:m.role,content:m.content})),
+        {role:'user',content:userMessage}
+      ];
+      
+    const res=await fetch(API,{method:'POST',signal:abort.signal,headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({model:'openclaw',stream:true,messages:msgs})});
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      
+      card.classList.remove('thinking');
+      const reader=res.body.getReader(),decoder=new TextDecoder();
+      let full='',buf='';
+      while(true){
+        const{done,value}=await reader.read();if(done)break;
+        buf+=decoder.decode(value,{stream:true});
+        const lines=buf.split('\n');buf=lines.pop();
+        for(const line of lines){
+          if(!line.startsWith('data: '))continue;
+          const data=line.slice(6);if(data==='[DONE]')break;
+          try{const delta=JSON.parse(data).choices?.[0]?.delta?.content;
+            if(delta){full+=delta;contentEl.textContent=full;}}catch{}
+        }
+      }
+      if(!full)contentEl.textContent='（无回复）';
+      contentEl.classList.remove('streaming');
+    }catch(e){
+      card.classList.remove('thinking');
+      contentEl.classList.remove('streaming');
+      if(e.name!=='AbortError'){contentEl.textContent='❌ '+e.message;contentEl.style.color='var(--danger)';}
+    }
+  });
+}
+
 
 // @mention autocomplete
 const mentionPopup=$('mentionPopup');
