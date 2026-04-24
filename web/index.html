@@ -1684,7 +1684,14 @@ async function sendMessage(){
     perfLog('streaming',_perfStreaming,{chars:_perfFull.length,speed:_perfStreaming>0?Math.round(_perfFull.length/(_perfStreaming/1000)):0});
     perfLog('total',_perfTotal,{ttft:Math.round(_perfTTFT),http:Math.round(_perfHttpMs),streaming:Math.round(_perfStreaming),toolPauses:_perfToolCount,toolMs:Math.round(_perfToolTotalMs),chars:_perfFull.length});
   }
-  streamingChats.delete(chatId);chat.updatedAt=Date.now();save();renderSidebar();
+  streamingChats.delete(chatId);chat.updatedAt=Date.now();save();
+  // Flush immediately (bypass 300ms debounce) so reply is persisted even if user
+  // navigates away or mobile browser freezes JS before the debounced PUT fires.
+  if(currentNode==='local'&&!chat._stripped){
+    clearTimeout(_saveTimers[chatId]);delete _saveTimers[chatId];
+    try{fetch('/api/chats/'+encodeURIComponent(chatId),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat),keepalive:true}).then(()=>{chat._lastSaved=chat.updatedAt;}).catch(()=>{});}catch{}
+  }
+  renderSidebar();
   if(currentId===chatId)streamBadge.classList.remove('show');
   sendBtn.disabled=!input.value.trim();input.focus();
 }
