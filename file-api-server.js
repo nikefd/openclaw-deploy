@@ -84,7 +84,10 @@ http.createServer(async(req,res)=>{
   }else if(url.pathname==='/api/chats'&&req.method==='GET'){
     // Default: return stripped list (no base64 images/attachments) + gzip.
     // Pass ?full=1 to get raw legacy behavior (heavy — avoid in UI).
+    // Pass ?since=<ms> to only return chats with updatedAt > since (incremental sync).
     const wantFull=url.searchParams.get('full')==='1';
+    const sinceRaw=url.searchParams.get('since');
+    const since=sinceRaw?parseInt(sinceRaw,10):0;
     try{
       fs.mkdirSync(CHATS_DIR,{recursive:true});
       const files=fs.readdirSync(CHATS_DIR).filter(f=>f.endsWith('.json'));
@@ -97,8 +100,12 @@ http.createServer(async(req,res)=>{
         for(const c of legacy){if(c&&c.id){try{fs.writeFileSync(path.join(CHATS_DIR,c.id+'.json'),JSON.stringify(c),'utf-8');}catch{}}}
         all=legacy;
       }
+      if(since&&!isNaN(since)){
+        all=all.filter(c=>(c.updatedAt||0)>since);
+      }
       all.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
       const out=wantFull?all:all.map(stripHeavy);
+      res.setHeader('X-Server-Time',String(Date.now()));
       sendJson(req,res,out);
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/chats'&&req.method==='POST'){
@@ -347,6 +354,8 @@ http.createServer(async(req,res)=>{
       const chatId=url.searchParams.get('chatId');
       const agentId=url.searchParams.get('agent')||'opus';
       if(!chatId){res.writeHead(400);res.end(JSON.stringify({error:'chatId required'}));return;}
+      // 附带 dispatch 状态：让前端知道 gateway 是还在忙、已结束、还是挂了
+      const dispatch=global.__chatDispatch?.[chatId]||null;
       const sessionsMap=JSON.parse(fs.readFileSync(path.join(ROOT,'.openclaw','agents',agentId,'sessions','sessions.json'),'utf-8'));
       const key=`agent:${agentId}:openai-user:${chatId}`;
       const entry=sessionsMap[key];
@@ -382,7 +391,7 @@ http.createServer(async(req,res)=>{
           text=lastAsst.content.filter(c=>c&&c.type==='text').map(c=>c.text).join('');
         }else if(typeof lastAsst.content==='string'){text=lastAsst.content;}
       }
-      res.end(JSON.stringify({chatId,text,stopReason,isStreaming,ts:lastAsst?.timestamp||null}));
+      res.end(JSON.stringify({chatId,text,stopReason,isStreaming,ts:lastAsst?.timestamp||null,dispatch}));
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/chat/send'&&req.method==='POST'){
     // 根治方案：fire-and-forget 。前端只用来触发生成，不等响应流。
@@ -398,12 +407,29 @@ http.createServer(async(req,res)=>{
       // 先把 gateway 请求发出去，再回 202（避免 res.end 后的微任务调度被吞）
       const payload={model:j.model||'openclaw',stream:false,user:chatId,messages:j.messages||[]};
       console.log('[chat/send] dispatch chatId='+chatId+' model='+payload.model+' msgs='+payload.messages.length);
+      // 记录 dispatch 状态，供 /api/chat/history 回报给前端
+      global.__chatDispatch=global.__chatDispatch||{};
+      global.__chatDispatch[chatId]={status:'pending',startedAt:Date.now(),error:null,httpStatus:null};
       const gwReq=http.request({host:'127.0.0.1',port:18789,path:'/v1/chat/completions',method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Connection':'close'}},gwRes=>{
         let buf='';gwRes.on('data',c=>buf+=c);
-        gwRes.on('end',()=>{console.log('[chat/send] gw done chatId='+chatId+' status='+gwRes.statusCode+' bytes='+buf.length);});
+        gwRes.on('end',()=>{
+          console.log('[chat/send] gw done chatId='+chatId+' status='+gwRes.statusCode+' bytes='+buf.length);
+          const d=global.__chatDispatch[chatId]||{};
+          d.httpStatus=gwRes.statusCode;
+          d.endedAt=Date.now();
+          if(gwRes.statusCode>=400){d.status='error';d.error='HTTP '+gwRes.statusCode+': '+buf.slice(0,300);}
+          else{d.status='done';}
+        });
       });
-      gwReq.on('error',e=>console.error('[chat/send] gw error chatId='+chatId+':',e.message));
-      gwReq.on('timeout',()=>{console.error('[chat/send] gw TIMEOUT chatId='+chatId);gwReq.destroy(new Error('timeout'));});
+      gwReq.on('error',e=>{
+        console.error('[chat/send] gw error chatId='+chatId+':',e.message);
+        const d=global.__chatDispatch[chatId]||{};d.status='error';d.error=e.message;d.endedAt=Date.now();
+      });
+      gwReq.on('timeout',()=>{
+        console.error('[chat/send] gw TIMEOUT chatId='+chatId);
+        const d=global.__chatDispatch[chatId]||{};d.status='error';d.error='timeout';d.endedAt=Date.now();
+        gwReq.destroy(new Error('timeout'));
+      });
       gwReq.setTimeout(600000);
       gwReq.write(JSON.stringify(payload));
       gwReq.end();

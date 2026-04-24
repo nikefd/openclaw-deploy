@@ -1179,13 +1179,72 @@ function save(chatId){
       const chat=chats.find(c=>c.id===id);
       // Safety: don't PUT a stripped snapshot back — would erase images on the server.
       if(chat&&chat._stripped){return;}
-      if(chat){fetch('/api/chats/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat)}).then(()=>{chat._lastSaved=chat.updatedAt;}).catch(()=>{});}
+      if(chat){fetch('/api/chats/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat)}).then(()=>{chat._lastSaved=chat.updatedAt;try{if(window._ocChatBC)window._ocChatBC.postMessage({type:'updated',chatId:id});}catch{}}).catch(()=>{});}
       delete _saveTimers[id];
     },300);
   }
 }
 function getChat(id){return chats.find(c=>c.id===id);}
 function getAgent(id){return AGENTS.find(a=>a.id===id)||AGENTS[0];}
+
+// === CROSS-TAB SYNC ===
+// Poll /api/chats?since=<lastSyncAt> every 12s to pick up changes from other
+// tabs/devices. Use BroadcastChannel for instant same-browser cross-tab sync.
+// Also syncs immediately when the tab becomes visible again.
+(function setupChatSync(){
+  if(typeof window==='undefined')return;
+  if(window._ocChatSyncInit)return;window._ocChatSyncInit=true;
+  let lastSyncAt=Date.now();
+  let syncing=false;
+  let bc=null;
+  try{bc=new BroadcastChannel('oc_chat_sync');window._ocChatBC=bc;}catch{}
+  async function syncNow(){
+    if(syncing)return;
+    if(currentNode&&currentNode!=='local')return; // only sync for local node chats
+    syncing=true;
+    try{
+      const r=await fetch('/api/chats?since='+encodeURIComponent(lastSyncAt),{cache:'no-store'});
+      if(!r.ok){syncing=false;return;}
+      const serverTime=r.headers.get('X-Server-Time');
+      const remote=await r.json();
+      if(Array.isArray(remote)&&remote.length>0){
+        // Detect changes for currentId BEFORE merge
+        let currentChanged=false;
+        if(currentId){
+          const local=chats.find(c=>c.id===currentId);
+          const rem=remote.find(c=>c.id===currentId);
+          if(rem){
+            const localMsgs=local?(local.messages||[]).length:0;
+            const remMsgs=(rem.messages||[]).length;
+            const localUpd=local?(local.updatedAt||0):0;
+            const remUpd=rem.updatedAt||0;
+            if(remMsgs>localMsgs||remUpd>localUpd)currentChanged=true;
+          }
+        }
+        const merged=mergeChats(chats,remote);
+        chats=merged;
+        try{localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));}catch{}
+        try{localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));}catch{}
+        renderSidebar();
+        if(currentChanged&&currentId){
+          if(typeof streamingChats!=='undefined'&&streamingChats.has(currentId)){
+            // streaming in progress — don't clobber main area
+          }else if(typeof hydrateChat==='function'){
+            try{hydrateChat(currentId);}catch{}
+          }
+        }
+      }
+      lastSyncAt=serverTime?parseInt(serverTime,10)||Date.now():Date.now();
+    }catch{}
+    syncing=false;
+  }
+  setInterval(syncNow,12000);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible')syncNow();
+  });
+  if(bc){bc.onmessage=(ev)=>{if(ev&&ev.data&&ev.data.type==='updated')syncNow();};}
+  window._ocSyncNow=syncNow;
+})();
 
 // === AGENTS ===
 // Agent selection removed - use @mention in chat instead
@@ -1454,7 +1513,8 @@ async function sendMessage(){
         typingTimer=setTimeout(pump, finished?15:25);
       };
       const startPump=()=>{if(!typingTimer)pump();};
-      let stable=0,tries=0,sawNew=false;const MAX=200;
+      let stable=0,tries=0,sawNew=false;const MAX=600;
+      const _pollStart=Date.now();
       // 📲 iOS/Android 切后台会暂停 setTimeout，切回来立刻唤醒一次 poll
       let _wakePoll=null;
       const _sleep=(ms)=>new Promise(r=>{const to=setTimeout(()=>{_wakePoll=null;r();},ms);_wakePoll=()=>{clearTimeout(to);_wakePoll=null;r();};});
@@ -1462,20 +1522,38 @@ async function sendMessage(){
       document.addEventListener('visibilitychange',_onVis);
       while(tries++<MAX){
         await _sleep(1500);
+        // 还没有开始吐字时，在占位符上显示 "模型思考中 (Ns)" 让用户知道没死
+        if(el&&currentId===chatId&&!displayed&&tries>5){
+          const _secs=Math.round((Date.now()-_pollStart)/1000);
+          el.textContent=`⏳ 模型正在思考… (${_secs}s, ${tries}/${MAX})`;
+        }
         try{
           const r=await fetch(`/api/chat/history?chatId=${encodeURIComponent(chatId)}&agent=${encodeURIComponent(agentForApi)}`);
           if(!r.ok)continue;
           const d=await r.json();
           const t=d.text||'';
           const ts=d.ts||'';
+          // 🚨 dispatch 失败，立刻停轮询并丢出错误
+          if(d.dispatch&&d.dispatch.status==='error'){
+            if(el&&currentId===chatId){el.textContent='⚠️ 生成失败：'+(d.dispatch.error||'unknown');el.classList.remove('raw');}
+            finished=true;full='';break;
+          }
           // 判断本轮新回复：ts 比 baseline 新 或 没变但文本变了（流式更新同一条 assistant）
           const isNew=(ts&&ts!==baselineTs)||(t&&t!==baselineText);
-          if(!isNew){continue;}
+          if(!isNew){
+            // 如果 dispatch 已经 done 但 jsonl 里还是旧文本，给 15s 宽容后丢错（工具调用 / gateway 落盘延迟）
+            if(d.dispatch&&d.dispatch.status==='done'&&d.dispatch.endedAt&&Date.now()-d.dispatch.endedAt>15000){
+              if(el&&currentId===chatId){el.textContent='⚠️ 没读到新回复（可能 gateway 没写 session）';el.classList.remove('raw');}
+              finished=true;full='';break;
+            }
+            continue;
+          }
           sawNew=true;
           if(t&&t!==pendingFull){pendingFull=t;full=t;_perfFull=t;stable=0;startPump();}
           else if(t){stable++;}
           const done=d.stopReason&&d.stopReason!=='inFlight'&&d.stopReason!=='streaming'&&t;
-          if(done||(stable>=3&&t)){finished=true;break;}
+          // stable>=6：文本 6 次不变才算完，避免工具调用中间静默误触发
+          if(done||(stable>=6&&t)){finished=true;break;}
         }catch{}
       }
       document.removeEventListener('visibilitychange',_onVis);
@@ -1509,7 +1587,19 @@ async function sendMessage(){
     let el=null,typingRemoved=false;
     const reader=res.body.getReader(),decoder=new TextDecoder();let buf='',lastStreamSave=Date.now();
     let _lastChunkTime=performance.now();
-    while(true){const{done,value}=await reader.read();if(done)break;
+    // 🔄 切后台回来 + reader 停顿 >60s → 主动取消并走 history 续接，避免 tab 切后台 reader 假死
+    let _needRecover=false;
+    const _pcVisHandler=()=>{
+      if(document.visibilityState==='visible'&&streamingChats.has(chatId)){
+        const gap=performance.now()-_lastChunkTime;
+        if(gap>60000){_needRecover=true;try{reader.cancel();}catch{}}
+      }
+    };
+    document.addEventListener('visibilitychange',_pcVisHandler);
+    try{
+    while(true){
+      if(_needRecover)throw new Error('visibility recover: reader stale >60s');
+      const{done,value}=await reader.read();if(done)break;
       const _now=performance.now(),_gap=_now-_lastChunkTime;
       if(typingRemoved&&_gap>3000){_perfPauses.push({gap:Math.round(_gap),at:Math.round(_now-_perfStart)});_perfToolCount++;_perfToolTotalMs+=_gap;}
       if(typingRemoved)_perfStreaming+=(_gap<3000?_gap:0);
@@ -1521,29 +1611,71 @@ async function sendMessage(){
         // Periodic save during streaming (every 3s)
         if(Date.now()-lastStreamSave>3000){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;}else{chat.messages.push({role:'assistant',content:full,_streaming:true});}chat.updatedAt=Date.now();save(chatId);lastStreamSave=Date.now();}
         }}catch{}}}
+    }finally{document.removeEventListener('visibilitychange',_pcVisHandler);}
     if(!typingRemoved)removeTyping(chatId);
     if(full){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;delete existingAst._streaming;}else{chat.messages.push({role:'assistant',content:full});}
       if(el&&currentId===chatId){el.innerHTML=renderMd(full);el.classList.remove('raw');const ad=document.createElement('div');ad.className='msg-actions';const ttsBtn=agent?.tts?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';ad.innerHTML=`${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button>`;el.parentElement.appendChild(ad);}
     }
   }catch(err){removeTyping(chatId);
     if(full){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;delete existingAst._streaming;}else{chat.messages.push({role:'assistant',content:full});}if(!el&&currentId===chatId){el=appendMsg('assistant',full,agent,false);}}
-    // Try to recover the reply from backend before showing error
-    async function tryRecover(){
-      try{
-        const rr=await fetch(`/v1/sessions/${encodeURIComponent(chatId)}/history?limit=2`,{headers:{'Authorization':`Bearer ${TOKEN}`}});
-        if(rr.ok){const hd=await rr.json();const last=hd.messages?.filter(m=>m.role==='assistant').pop();if(last?.content){
-          if(!full||last.content.length>full.length){
-            if(el)el.closest('.message').remove();
-            chat.messages=chat.messages.filter(m=>m.content!==full||m.role!=='assistant');
-            chat.messages.push({role:'assistant',content:last.content});
-            if(currentId===chatId){const nel=appendMsg('assistant',last.content,agent,false);const ad=document.createElement('div');ad.className='msg-actions';const ttsBtn=agent?.tts?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';ad.innerHTML=`${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button>`;nel.closest('.message').appendChild(ad);}
-            save();return true;}}}
-      }catch{}return false;
+    // 占位：轮询期间先给一个友好提示，避免用户看到红色 ❌
+    let _placeholderEl=null,_placeholderMsg=null;
+    if(currentId===chatId&&!el){
+      _placeholderEl=appendMsg('assistant','⏳ 正在尝试恢复回复…',agent,false);
+      _placeholderMsg=_placeholderEl.closest('.message');
+    }else if(el&&currentId===chatId){
+      _placeholderEl=el;_placeholderMsg=el.closest('.message');
     }
-    if(!await tryRecover()&&currentId===chatId){
+    // 长轮询 recover：最多 60 次 × 2s，只要拿到比 full 更长的 assistant 就采用
+    async function tryRecover(){
+      const MAX_R=60,INTERVAL=2000;
+      for(let i=1;i<=MAX_R;i++){
+        try{
+          const rr=await fetch(`/v1/sessions/${encodeURIComponent(chatId)}/history?limit=4`,{headers:{'Authorization':`Bearer ${TOKEN}`}});
+          if(rr.ok){
+            const hd=await rr.json();
+            const last=hd.messages?.filter(m=>m.role==='assistant').pop();
+            if(last?.content&&(!full||last.content.length>full.length)){
+              // 成功：清掉占位，渲染真实回复
+              if(_placeholderMsg){_placeholderMsg.remove();_placeholderEl=null;_placeholderMsg=null;}
+              if(el){try{el.closest('.message').remove();}catch{}}
+              chat.messages=chat.messages.filter(m=>!(m.role==='assistant'&&(m.content===full||m._streaming)));
+              chat.messages.push({role:'assistant',content:last.content});
+              if(currentId===chatId){
+                const nel=appendMsg('assistant',last.content,agent,false);
+                const ad=document.createElement('div');ad.className='msg-actions';
+                const ttsBtn=agent?.tts?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';
+                ad.innerHTML=`${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button>`;
+                nel.closest('.message').appendChild(ad);
+              }
+              save();return true;
+            }
+          }
+        }catch{}
+        // 轮询期间更新占位提示，让用户知道还在努力
+        if(_placeholderEl&&currentId===chatId){
+          try{_placeholderEl.textContent=`⏳ 正在恢复回复… (${i}/${MAX_R})`;}catch{}
+        }
+        if(i<MAX_R)await new Promise(r=>setTimeout(r,INTERVAL));
+      }
+      return false;
+    }
+    const _recovered=await tryRecover();
+    if(!_recovered&&currentId===chatId){
+      // 失败：把占位改成红色 ❌ 可点击重试
       const lastUserMsg=chat.messages.filter(m=>m.role==='user').pop()?.content||'';
-      const errEl=appendMsg('assistant','❌ '+err.message+'\n\n🔄 点击恢复回复 / 重试',agent,false);const msgEl=errEl.closest('.message');msgEl.classList.add('error-msg');msgEl.style.cursor='pointer';
-      msgEl.onclick=async()=>{msgEl.onclick=null;errEl.textContent='⏳ 正在尝试恢复...';if(await tryRecover()){msgEl.remove();}else{msgEl.remove();input.value=lastUserMsg;sendMessage();}};
+      if(_placeholderMsg){
+        _placeholderEl.textContent='❌ '+err.message+'\n\n🔄 点击恢复回复 / 重试';
+        _placeholderMsg.classList.add('error-msg');_placeholderMsg.style.cursor='pointer';
+        const _msgEl=_placeholderMsg,_errEl=_placeholderEl;
+        _msgEl.onclick=async()=>{_msgEl.onclick=null;_errEl.textContent='⏳ 正在尝试恢复...';if(await tryRecover()){_msgEl.remove();}else{_msgEl.remove();input.value=lastUserMsg;sendMessage();}};
+      }else{
+        const errEl=appendMsg('assistant','❌ '+err.message+'\n\n🔄 点击恢复回复 / 重试',agent,false);const msgEl=errEl.closest('.message');msgEl.classList.add('error-msg');msgEl.style.cursor='pointer';
+        msgEl.onclick=async()=>{msgEl.onclick=null;errEl.textContent='⏳ 正在尝试恢复...';if(await tryRecover()){msgEl.remove();}else{msgEl.remove();input.value=lastUserMsg;sendMessage();}};
+      }
+    }else if(_recovered&&_placeholderMsg){
+      // 成功但占位还在（理论上上面已经 remove 了，兜底一下）
+      try{_placeholderMsg.remove();}catch{}
     }
   }finally{
     const _perfTotal=performance.now()-_perfStart;
