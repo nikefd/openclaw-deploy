@@ -1160,39 +1160,6 @@ function highlightActiveFile(){
 
 // === STORAGE ===
 let _saveTimers={};
-// Flush a chat to server immediately (no debounce). Used on stream end and visibility change.
-function flushChatNow(chatId){
-  const id=chatId||currentId;
-  if(currentNode!=='local'||!id)return;
-  const chat=chats.find(c=>c.id===id);
-  if(!chat||chat._stripped)return;
-  clearTimeout(_saveTimers[id]);delete _saveTimers[id];
-  try{
-    fetch('/api/chats/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat),keepalive:true}).then(()=>{chat._lastSaved=chat.updatedAt;try{if(window._ocChatBC)window._ocChatBC.postMessage({type:'updated',chatId:id});}catch{}}).catch(()=>{});
-  }catch{}
-}
-// Fire-and-forget beacon for all unsaved chats (survives page hide on mobile)
-function flushAllChatsBeacon(){
-  if(currentNode!=='local')return;
-  for(const chat of chats){
-    if(chat._stripped)continue;
-    if(chat.updatedAt>((chat._lastSaved)||0)){
-      try{
-        const blob=new Blob([JSON.stringify(chat)],{type:'application/json'});
-        const ok=navigator.sendBeacon&&navigator.sendBeacon('/api/chats/'+encodeURIComponent(chat.id),blob);
-        if(ok)chat._lastSaved=chat.updatedAt;
-        else{
-          // Fallback: keepalive fetch
-          fetch('/api/chats/'+encodeURIComponent(chat.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat),keepalive:true}).then(()=>{chat._lastSaved=chat.updatedAt;}).catch(()=>{});
-        }
-      }catch{}
-    }
-  }
-}
-// On mobile, pagehide/visibilitychange=hidden fires when user switches apps or locks screen.
-// beforeunload is unreliable on mobile; these are the correct hooks.
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushAllChatsBeacon();});
-window.addEventListener('pagehide',flushAllChatsBeacon);
 function save(chatId){
   const id=chatId||currentId;
   // Strip large base64 image data before saving to avoid localStorage quota errors
@@ -1716,7 +1683,7 @@ async function sendMessage(){
     perfLog('streaming',_perfStreaming,{chars:_perfFull.length,speed:_perfStreaming>0?Math.round(_perfFull.length/(_perfStreaming/1000)):0});
     perfLog('total',_perfTotal,{ttft:Math.round(_perfTTFT),http:Math.round(_perfHttpMs),streaming:Math.round(_perfStreaming),toolPauses:_perfToolCount,toolMs:Math.round(_perfToolTotalMs),chars:_perfFull.length});
   }
-  streamingChats.delete(chatId);chat.updatedAt=Date.now();save();flushChatNow(chatId);renderSidebar();
+  streamingChats.delete(chatId);chat.updatedAt=Date.now();save();renderSidebar();
   if(currentId===chatId)streamBadge.classList.remove('show');
   sendBtn.disabled=!input.value.trim();input.focus();
 }
