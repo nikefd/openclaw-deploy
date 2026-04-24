@@ -29,6 +29,12 @@ import { fileIcon, fileLang, fmtSize } from './utils/format.js';
 import {
   loadRemoteFiles, viewRemoteFile, runRemoteCmd, resetRemoteFileCwd,
 } from './panels/remote.js';
+import {
+  loadNodes, approveDevice, rejectDevice, copyConnectCmd,
+  toggleToken, copyToken,
+  startNodesAutoRefresh, stopNodesAutoRefresh,
+  getKnownNodes, getNodesLoaded,
+} from './panels/nodes.js';
 
 // Expose to legacy inline script (which still lives in index.html for now).
 Object.assign(window, {
@@ -53,6 +59,11 @@ Object.assign(window, {
   fileIcon, fileLang, fmtSize,
   // panels/remote
   loadRemoteFiles, viewRemoteFile, runRemoteCmd, resetRemoteFileCwd,
+  // panels/nodes
+  loadNodes, approveDevice, rejectDevice, copyConnectCmd,
+  toggleToken, copyToken,
+  startNodesAutoRefresh, stopNodesAutoRefresh,
+  getKnownNodes, getNodesLoaded,
 });
 
 // Wire lazy-load hooks once DOM is ready. <script type="module"> is deferred,
@@ -69,5 +80,5 @@ onReady(() => {
 });
 
 // Marker so we can verify module loaded in devtools.
-window.__ocRefactor = { step: '4c', loadedAt: Date.now() };
-console.info('[oc-refactor] modules loaded', APP_VERSION, '(step 4c: + remote panel)');
+window.__ocRefactor = { step: '4d', loadedAt: Date.now() };
+console.info('[oc-refactor] modules loaded', APP_VERSION, '(step 4d: + nodes panel — all panels done!)');
