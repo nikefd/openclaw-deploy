@@ -2331,10 +2331,11 @@ async function sendMessage(){
     }finally{document.removeEventListener('visibilitychange',_pcVisHandler);}
     if(!typingRemoved)removeTyping(chatId);
     if(full){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;delete existingAst._streaming;}else{chat.messages.push({role:'assistant',content:full});}
+      chat.updatedAt=Date.now();save(chatId);  // 🔥 流式结束后必须 save，以前漏了导致短回复丢失
       if(el&&currentId===chatId){el.innerHTML=renderMd(full);el.classList.remove('raw');const ad=document.createElement('div');ad.className='msg-actions';const ttsBtn=agent?.tts?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';ad.innerHTML=`${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button>`;el.parentElement.appendChild(ad);}
     }
   }catch(err){removeTyping(chatId);
-    if(full){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;delete existingAst._streaming;}else{chat.messages.push({role:'assistant',content:full});}if(!el&&currentId===chatId){el=appendMsg('assistant',full,agent,false);}}
+    if(full){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;delete existingAst._streaming;}else{chat.messages.push({role:'assistant',content:full});}chat.updatedAt=Date.now();save(chatId);if(!el&&currentId===chatId){el=appendMsg('assistant',full,agent,false);}}
     // 占位：轮询期间先给一个友好提示，避免用户看到红色 ❌
     let _placeholderEl=null,_placeholderMsg=null;
     if(currentId===chatId&&!el){
