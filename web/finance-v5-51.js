@@ -147,3 +147,145 @@ async function loadStopLossTakeProfitBoard(d){
     if(gridEl)gridEl.innerHTML=gridHtml;
   }catch(e){console.error('loadStopLossTakeProfitBoard',e);}
 }
+
+// === 改进① 交易流畅度面板 (v5.62) ===
+async function loadTradeFlowMetrics() {
+  try {
+    const data = await api('/api/finance/trade-flow-metrics');
+    if (!data) return;
+    
+    document.getElementById('tradeFlowConsecWins').textContent = data.consecutive_wins || 0;
+    document.getElementById('tradeFlowConsecLosses').textContent = data.consecutive_losses || 0;
+    document.getElementById('tradeFlowWinRate').textContent = (data.overall_win_rate || 0).toFixed(1);
+    
+    // 当前走势
+    const dirLabel = {
+      'win': '📈 连胜中',
+      'loss': '📉 连败中',
+      'neutral': '⚖️ 中性'
+    }[data.current_sequence_direction] || '⚖️ 中性';
+    document.getElementById('tradeFlowDirection').textContent = dirLabel.split(' ')[0];
+    document.getElementById('tradeFlowDirLabel').textContent = dirLabel.split(' ')[1];
+    
+    // 成功率趋势折线图
+    if (document.getElementById('tradeFlowTrendChart')) {
+      const trend = data.success_rate_trend || [];
+      const ctx = document.getElementById('tradeFlowTrendChart').getContext('2d');
+      if (window.tradeFlowChart instanceof Chart) window.tradeFlowChart.destroy();
+      window.tradeFlowChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: trend.map((_, i) => i + 1),
+          datasets: [{
+            label: '成功率%',
+            data: trend,
+            borderColor: '#4361ee',
+            backgroundColor: 'rgba(67,97,238,0.1)',
+            borderWidth: 2,
+            tension: 0.4,
+            fill: true,
+            pointRadius: 4,
+            pointBackgroundColor: '#4361ee'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { min: 0, max: 100, ticks: { color: 'var(--sub)' } },
+            x: { ticks: { color: 'var(--sub)' } }
+          }
+        }
+      });
+    }
+  } catch(e) {
+    console.error('loadTradeFlowMetrics', e);
+  }
+}
+
+// === 改进② 策略性能对比面板 (v5.62) ===
+async function loadStrategyComparison() {
+  try {
+    const data = await api('/api/finance/strategy-comparison');
+    if (!data || !data.strategies) return;
+    
+    const strats = data.strategies;
+    const names = Object.keys(strats);
+    const winRates = names.map(k => (strats[k].win_rate || 0).toFixed(1));
+    const sharpes = names.map(k => Math.max(-5, Math.min(5, (strats[k].sharpe_ratio || 0).toFixed(2))));
+    const drawdowns = names.map(k => (strats[k].max_drawdown || 0).toFixed(2));
+    
+    // 对比柱状图
+    if (document.getElementById('strategyComparisonChart')) {
+      const ctx = document.getElementById('strategyComparisonChart').getContext('2d');
+      if (window.strategyComparisonChart instanceof Chart) window.strategyComparisonChart.destroy();
+      window.strategyComparisonChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: names,
+          datasets: [
+            {
+              label: '胜率 (%)',
+              data: winRates,
+              backgroundColor: '#4361ee',
+              yAxisID: 'y'
+            },
+            {
+              label: 'Sharpe',
+              data: sharpes,
+              backgroundColor: '#e63946',
+              yAxisID: 'y1'
+            },
+            {
+              label: '最大回撤 (%)',
+              data: drawdowns.map(d => -d),
+              backgroundColor: '#f4a261',
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { position: 'top' }
+          },
+          scales: {
+            y: {
+              position: 'left',
+              title: { display: true, text: '胜率 (%)' },
+              ticks: { color: 'var(--sub)' }
+            },
+            y1: {
+              position: 'right',
+              title: { display: true, text: 'Sharpe / 回撤' },
+              grid: { drawOnChartArea: false },
+              ticks: { color: 'var(--sub)' }
+            },
+            x: { ticks: { color: 'var(--sub)' } }
+          }
+        }
+      });
+    }
+    
+    // 详细对比表
+    const tableHtml = names.map(name => {
+      const s = strats[name];
+      let status = s.win_rate >= 50 ? '✅ 有效' : s.win_rate >= 30 ? '⚠️ 一般' : '❌ 无效';
+      return `<div style="background:var(--hover);border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:13px;font-weight:600;margin-bottom:8px">${name}</div>
+        <div style="font-size:11px;color:var(--sub);margin-bottom:4px">胜率</div>
+        <div style="font-size:18px;font-weight:700;color:${s.win_rate >= 50 ? 'var(--up)' : 'var(--down)'}">${s.win_rate.toFixed(1)}%</div>
+        <div style="font-size:11px;color:var(--sub);margin-top:4px;margin-bottom:4px">Sharpe: ${s.sharpe_ratio.toFixed(2)}</div>
+        <div style="font-size:11px;color:var(--sub);margin-bottom:4px">回撤: ${s.max_drawdown.toFixed(2)}%</div>
+        <div style="font-size:10px;padding-top:8px;border-top:1px solid var(--border);margin-top:8px;color:${s.win_rate >= 50 ? 'var(--up)' : 'var(--down)'}">${status}</div>
+      </div>`;
+    }).join('');
+    
+    const tableEl = document.getElementById('strategyComparisonTable');
+    if (tableEl) tableEl.innerHTML = tableHtml;
+  } catch(e) {
+    console.error('loadStrategyComparison', e);
+  }
+}

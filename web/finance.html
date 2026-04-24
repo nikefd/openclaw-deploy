@@ -463,6 +463,44 @@ tr.pos-row.expanded{background:var(--hover)}
       <div class="chart-box"><h3>按策略命中率</h3><canvas id="perfByStrategyChart"></canvas></div>
       <div class="chart-box"><h3>按板块命中率</h3><canvas id="perfBySectorChart"></canvas></div>
     </div>
+    <!-- 改进① 交易流畅度面板 -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px">
+      <h3 style="font-size:14px;color:var(--sub);margin-bottom:16px;display:flex;align-items:center;gap:8px">🔄 交易流畅度</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px">
+        <div style="background:var(--hover);padding:12px;border-radius:8px;text-align:center">
+          <div style="font-size:11px;color:var(--sub);margin-bottom:4px">📈 连胜序列</div>
+          <div id="tradeFlowConsecWins" style="font-size:24px;font-weight:700;color:var(--up)">--</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:2px">笔</div>
+        </div>
+        <div style="background:var(--hover);padding:12px;border-radius:8px;text-align:center">
+          <div style="font-size:11px;color:var(--sub);margin-bottom:4px">📉 连败序列</div>
+          <div id="tradeFlowConsecLosses" style="font-size:24px;font-weight:700;color:var(--down)">--</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:2px">笔</div>
+        </div>
+        <div style="background:var(--hover);padding:12px;border-radius:8px;text-align:center">
+          <div style="font-size:11px;color:var(--sub);margin-bottom:4px">💪 当前走势</div>
+          <div id="tradeFlowDirection" style="font-size:20px;font-weight:700">--</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:2px" id="tradeFlowDirLabel"></div>
+        </div>
+        <div style="background:var(--hover);padding:12px;border-radius:8px;text-align:center">
+          <div style="font-size:11px;color:var(--sub);margin-bottom:4px">🎯 整体胜率</div>
+          <div id="tradeFlowWinRate" style="font-size:24px;font-weight:700">--</div>
+          <div style="font-size:10px;color:var(--sub);margin-top:2px">%</div>
+        </div>
+      </div>
+      <div class="chart-box" style="background:transparent;border:none;padding:0">
+        <h3 style="font-size:12px;color:var(--sub);margin-bottom:8px;text-align:center">📊 成功率趋势 (最近10笔)</h3>
+        <canvas id="tradeFlowTrendChart" style="max-height:140px"></canvas>
+      </div>
+    </div>
+    <!-- 改进② 策略性能对比面板 -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px">
+      <h3 style="font-size:14px;color:var(--sub);margin-bottom:16px;display:flex;align-items:center;gap:8px">📊 策略性能对比</h3>
+      <div class="chart-box" style="background:transparent;border:none;padding:0;margin-bottom:0">
+        <canvas id="strategyComparisonChart" style="max-height:280px"></canvas>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:16px" id="strategyComparisonTable"></div>
+    </div>
     <div class="chart-box" style="margin-bottom:24px">
       <h3>📊 信号有效性分析 (近60天)</h3>
       <div id="signalAnalysisGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:12px"></div>
@@ -1758,6 +1796,8 @@ async function loadPerformance(){
   loadSignalPersistence();
   loadStopLossAnalysis();
   loadStrategyContribution();
+  loadTradeFlowMetrics();
+  loadStrategyComparison();
 }
 
 async function loadSignalAnalysis(){
