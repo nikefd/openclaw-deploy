@@ -1519,15 +1519,22 @@ async function sendMessage(){
         if(r0.ok){const d0=await r0.json();baselineTs=d0.ts||'';baselineText=d0.text||'';}
       }catch{}
       try{await fetch('/api/chat/send',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({chatId,model:`openclaw${agentIdToUse !== 'main' ? '/' + agentIdToUse : ''}`,messages:[{role:'user',content:msgContent}]})});}catch(e){console.warn('[ff] submit:',e.message);}
-      removeTyping(chatId);
-      let el=null;if(currentId===chatId){el=appendMsg('assistant','…',agent,false);el.classList.add('raw');}
+      // ✨ 保留 typing 指示器（“正在思考...”），等真有内容了再 removeTyping + 创建消息气泡
+      let el=null;
       // 打字机队列：轮询拿到新 text 后，按 ~25ms/字的速度逐个追加，视觉上像流式
       let displayed='',pendingFull='',typingTimer=null,finished=false;
+      const ensureEl=()=>{
+        if(el||currentId!==chatId)return;
+        removeTyping(chatId);
+        el=appendMsg('assistant','',agent,false);
+        el.classList.add('raw');
+      };
       const pump=()=>{
         if(displayed.length>=pendingFull.length){typingTimer=null;return;}
         // 一次最多追 3 个字，长回复不至于太慢
         const batch=Math.min(3,pendingFull.length-displayed.length);
         displayed=pendingFull.slice(0,displayed.length+batch);
+        ensureEl();
         if(el&&currentId===chatId){el.textContent=displayed;messagesEl.scrollTop=messagesEl.scrollHeight;}
         // 未结束时留最后一点在最后一批打完后由轮询忽按下一轮填充
         typingTimer=setTimeout(pump, finished?15:25);
@@ -1542,11 +1549,7 @@ async function sendMessage(){
       document.addEventListener('visibilitychange',_onVis);
       while(tries++<MAX){
         await _sleep(1500);
-        // 还没有开始吐字时，在占位符上显示 "模型思考中 (Ns)" 让用户知道没死
-        if(el&&currentId===chatId&&!displayed&&tries>5){
-          const _secs=Math.round((Date.now()-_pollStart)/1000);
-          el.textContent=`⏳ 模型正在思考… (${_secs}s, ${tries}/${MAX})`;
-        }
+        // 还没有开始吐字时，typing 指示器自然显示“正在思考...”，无需覆盖任何文字
         try{
           const r=await fetch(`/api/chat/history?chatId=${encodeURIComponent(chatId)}&agent=${encodeURIComponent(agentForApi)}`);
           if(!r.ok)continue;
@@ -1555,6 +1558,7 @@ async function sendMessage(){
           const ts=d.ts||'';
           // 🚨 dispatch 失败，立刻停轮询并丢出错误
           if(d.dispatch&&d.dispatch.status==='error'){
+            ensureEl();
             if(el&&currentId===chatId){el.textContent='⚠️ 生成失败：'+(d.dispatch.error||'unknown');el.classList.remove('raw');}
             finished=true;full='';break;
           }
@@ -1563,6 +1567,7 @@ async function sendMessage(){
           if(!isNew){
             // 如果 dispatch 已经 done 但 jsonl 里还是旧文本，给 15s 宽容后丢错（工具调用 / gateway 落盘延迟）
             if(d.dispatch&&d.dispatch.status==='done'&&d.dispatch.endedAt&&Date.now()-d.dispatch.endedAt>15000){
+              ensureEl();
               if(el&&currentId===chatId){el.textContent='⚠️ 没读到新回复（可能 gateway 没写 session）';el.classList.remove('raw');}
               finished=true;full='';break;
             }
@@ -1586,6 +1591,12 @@ async function sendMessage(){
         if(existingAst?.role==='assistant'){existingAst.content=full;delete existingAst._streaming;}else{chat.messages.push({role:'assistant',content:full});}
         if(el&&currentId===chatId){el.innerHTML=renderMd(full);el.classList.remove('raw');const ad=document.createElement('div');ad.className='msg-actions';const ttsBtn=agent?.tts?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';ad.innerHTML=`${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button>`;el.parentElement.appendChild(ad);}
         chat.updatedAt=Date.now();save(chatId);
+      }else{
+        // 超时/失败且还没创建消息气泡：清掉 typing 并提示
+        if(!el){
+          removeTyping(chatId);
+          if(currentId===chatId){const errEl=appendMsg('assistant','⚠️ 请求超时，点击重试',agent,false);errEl.style.cursor='pointer';errEl.onclick=()=>{errEl.parentElement.remove();input.value=text;sendMessage();};}
+        }
       }
       streamingChats.delete(chatId);renderSidebar();
       if(currentId===chatId)streamBadge.classList.remove('show');
