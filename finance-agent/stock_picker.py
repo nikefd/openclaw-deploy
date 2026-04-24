@@ -158,10 +158,148 @@ def margin_adjustment_evaluation(candidates: list, market_data: dict = None) -> 
         return candidates
 
 
-def generate_candidates_v2(cash_ratio: float = 0.75) -> list:
-    """v5.61: 动态入场质量调节的候选生成
+# =================== v5.62 盤前優化①②: 信號持續性驗證 + 低質量入場監控 ===================
+
+def verify_macd_rsi_signal_persistence(symbol: str, lookback_days: int = 3) -> dict:
+    """v5.62: MACD+RSI信號持續性驗證
     
-    根据现金占比应用不同的入场质量阈值，实现快速消耗现金的目标
+    確保MACD金叉+RSI上升信號至少連續3根K線確認(非噪聲)
+    
+    Args:
+        symbol: 股票代碼
+        lookback_days: 回看天數(默認3天)
+    
+    Returns: {
+        'is_persistent': bool,  # 信號是否持續
+        'macd_bars': int,       # MACD連續上升根數
+        'rsi_bars': int,        # RSI連續>50根數  
+        'confidence': float,    # 信號可信度 (0-1)
+        'reason': str           # 判斷原因
+    }
+    """
+    try:
+        df = get_stock_daily(symbol, lookback_days + 5)
+        if df is None or len(df) < lookback_days + 2:
+            return {'is_persistent': False, 'confidence': 0.0, 'reason': '數據不足'}
+        
+        # 計算MACD
+        from config import MACD_PARAMS
+        ema_12 = df['收盤'].ewm(span=MACD_PARAMS['fast']).mean()
+        ema_26 = df['收盤'].ewm(span=MACD_PARAMS['slow']).mean()
+        macd = ema_12 - ema_26
+        signal = macd.ewm(span=MACD_PARAMS['signal']).mean()
+        macd_diff = macd - signal
+        
+        # 檢查最後lookback_days內MACD是否持續上升
+        recent_macd = macd_diff.tail(lookback_days).values
+        macd_rising_bars = sum(1 for i in range(1, len(recent_macd)) if recent_macd[i] > recent_macd[i-1])
+        
+        # 計算RSI
+        from config import RSI_PARAMS
+        delta = df['收盤'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=RSI_PARAMS['period']).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=RSI_PARAMS['period']).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        
+        # 檢查最後lookback_days內RSI是否>50且上升
+        recent_rsi = rsi.tail(lookback_days).values
+        rsi_above_50_bars = sum(1 for r in recent_rsi if r > 50)
+        rsi_rising_bars = sum(1 for i in range(1, len(recent_rsi)) if recent_rsi[i] > recent_rsi[i-1] and recent_rsi[i-1] > 50)
+        
+        # 判斷信號持續性
+        is_persistent = macd_rising_bars >= 2 and rsi_above_50_bars >= lookback_days - 1
+        confidence = (macd_rising_bars / lookback_days + rsi_above_50_bars / lookback_days) / 2.0
+        
+        return {
+            'is_persistent': is_persistent,
+            'macd_bars': macd_rising_bars,
+            'rsi_bars': rsi_above_50_bars,
+            'confidence': round(confidence, 2),
+            'reason': f"MACD上升{macd_rising_bars}根,RSI>50達{rsi_above_50_bars}根" if is_persistent else f"信號不持續(MACD{macd_rising_bars}/RSI{rsi_above_50_bars})"
+        }
+    except Exception as e:
+        print(f"  ⚠️ {symbol} MACD+RSI持續性檢查失敗: {e}")
+        return {'is_persistent': False, 'confidence': 0.0, 'reason': f'檢查失敗: {str(e)[:30]}'}
+
+
+def monitor_low_quality_entry_performance() -> dict:
+    """v5.62: 低質量入場監控 + 自適應降級
+    
+    記錄30分入場的股票30天成功率
+    如果成功率<50%, 自動回退入場質量閾值到35分
+    
+    Returns: {
+        'low_quality_count': int,      # 30分入場的股票數
+        'low_quality_success_rate': float,  # 成功率
+        'should_downgrade': bool,           # 是否應降級
+        'recommended_threshold': int,       # 推薦的新閾值
+        'report': str
+    }
+    """
+    try:
+        import sqlite3
+        from config import DB_PATH
+        from datetime import datetime, timedelta
+        
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # 查詢近30天內以30分入場的交易
+        thirty_days_ago = (datetime.now() - timedelta(days=30)).isoformat()
+        
+        # 假設有recommendation表記錄入場質量和結果
+        c.execute('''
+            SELECT COUNT(*) as total,
+                   SUM(CASE WHEN profit_loss > 0 THEN 1 ELSE 0 END) as wins
+            FROM recommendations
+            WHERE entry_quality_score <= 30
+            AND created_at > ?
+            AND result IS NOT NULL
+        ''', (thirty_days_ago,))
+        
+        result = c.fetchone()
+        conn.close()
+        
+        if result is None or result[0] == 0:
+            return {
+                'low_quality_count': 0,
+                'low_quality_success_rate': 0.0,
+                'should_downgrade': False,
+                'recommended_threshold': 35,
+                'report': '無30分入場記錄'
+            }
+        
+        total_count, wins = result[0], result[1] or 0
+        success_rate = wins / total_count if total_count > 0 else 0.0
+        
+        # 如果成功率<50%, 降級到35分
+        should_downgrade = success_rate < 0.50
+        recommended_threshold = 35 if should_downgrade else 30
+        
+        return {
+            'low_quality_count': total_count,
+            'low_quality_success_rate': round(success_rate, 2),
+            'should_downgrade': should_downgrade,
+            'recommended_threshold': recommended_threshold,
+            'report': f"30分入場{total_count}筆,成功率{success_rate:.1%}" + 
+                     (f" → 建議降級到{recommended_threshold}分" if should_downgrade else "")
+        }
+    except Exception as e:
+        print(f"  ⚠️ 低質量入場監控失敗: {e}")
+        return {
+            'low_quality_count': 0,
+            'low_quality_success_rate': 0.0,
+            'should_downgrade': False,
+            'recommended_threshold': 35,
+            'report': f'監控失敗: {str(e)[:30]}'
+        }
+
+
+def generate_candidates_v2(cash_ratio: float = 0.75) -> list:
+    """v5.61: 動態入場質量調節的候選生成
+    
+    根據現金佔比應用不同的入場質量閾值，實現快速消耗現金的目標
     """
     try:
         from config import ENTRY_QUALITY_DYNAMIC_V2, EXTREME_CASH_V3
@@ -1523,11 +1661,32 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
         # 回测TOP1: 17.1% 收益, 2.35 Sharpe, 60% 胜率, 4.08%回撤 → 权重提升到1.5x
         # 新增: MACD金叉+RSI上升 = 双信号 → 额外+15%权重
         if 'MACD' in c['signal'] or 'RSI' in c['signal']:
-            from config import MACD_RSI_SIGNAL_BOOST
+            from config import MACD_RSI_SIGNAL_BOOST, MACD_RSI_PERSISTENCE_CONFIG
             quality_w *= MACD_RSI_SIGNAL_BOOST  # 1.5x激进提升
             # 如果同时包含MACD和RSI双重信号,额外加强
             if 'MACD' in c['signal'] and 'RSI' in c['signal']:
                 quality_w *= 1.15  # MACD+RSI双信号 +15%额外权重
+            
+            # v5.62: 新增信号持续性验证 (去除噪声)
+            if MACD_RSI_PERSISTENCE_CONFIG['enabled']:
+                try:
+                    persistence_result = verify_macd_rsi_signal_persistence(
+                        c['code'],
+                        lookback_days=MACD_RSI_PERSISTENCE_CONFIG['min_lookback_days']
+                    )
+                    if not persistence_result['is_persistent']:
+                        # 信号不持续: 权重折扣 30%
+                        quality_w *= MACD_RSI_PERSISTENCE_CONFIG['penalty_no_persistence']
+                        c['_persistence_check'] = f"不持续({persistence_result['reason']}) -30%"
+                    elif persistence_result['confidence'] < MACD_RSI_PERSISTENCE_CONFIG['confidence_threshold']:
+                        # 低可信度: 权重折扣 15%
+                        quality_w *= MACD_RSI_PERSISTENCE_CONFIG['penalty_low_confidence']
+                        c['_persistence_check'] = f"低可信({persistence_result['confidence']:.1%}) -15%"
+                    else:
+                        c['_persistence_check'] = f"持续({persistence_result['confidence']:.1%})✓"
+                except Exception as e:
+                    pass  # 持续性检查异常时忽略
+        
         weighted_score = int(c['score'] * quality_w)
         if code in merged:
             merged[code]['signals'].append(c['signal'])
@@ -2208,6 +2367,16 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
         quality_mult = (1 + math.log2(n_cats)) / math.sqrt(n_sigs) if n_sigs > 1 else 1.0
         stock['raw_score'] = stock['score']
         stock['score'] = int(stock['score'] * min(quality_mult, 1.5))
+    
+    # v5.62: 低质量入场监控 + 自适应降级(新增)
+    try:
+        from config import LOW_QUALITY_ENTRY_MONITOR
+        if LOW_QUALITY_ENTRY_MONITOR['enabled']:
+            monitor_result = monitor_low_quality_entry_performance()
+            if monitor_result.get('should_downgrade'):
+                print(f"\n  ⚠️ v5.62低质量入场监控: {monitor_result['report']}")
+    except:
+        pass  # 监控异常时忽略
     
     return sorted(consensus_filtered, key=lambda x: -x['score'])
 

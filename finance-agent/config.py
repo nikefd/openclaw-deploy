@@ -433,3 +433,39 @@ SECTOR_WEIGHT_BOOST_V2 = {
 # v5.61: Sharpe权重应用强制激活
 APPLY_SHARPE_MULTIPLIER_FORCE = True                    # 强制应用Sharpe权重倍数
 SHARPE_WEIGHT_MULTIPLIER_V3 = 2.5                       # v5.61升级: 2.5x (从2.0x)
+
+# =================== v5.62 盘前优化②: 信号持续性验证 + 低质量入场监控 ===================
+# 目标: 在超激进模式(30分入场)下,通过信号质量检查 + 绩效监控避免虚假入场
+# 方案: (1) MACD+RSI信号需要连续3根K线确认(去除噪声)
+#       (2) 自动监控30分入场的成功率,如<50%自动回退到35分
+#       (3) 低质量入场追踪: 记录入场质量≤30的持仓,统计30日胜率
+
+# v5.62: MACD+RSI信号持续性要求
+MACD_RSI_PERSISTENCE_CONFIG = {
+    'enabled': True,                           # 启用信号持续性检查
+    'min_lookback_days': 3,                    # 最少回看3天数据
+    'min_rising_bars': 2,                      # MACD至少上升2根K线
+    'min_rsi_above_50_bars': 2,                # RSI>50至少2根K线
+    'confidence_threshold': 0.60,              # 信号可信度阈值 (0-1)
+    'penalty_low_confidence': 0.85,            # 低可信度信号权重折扣 85%
+    'penalty_no_persistence': 0.70,            # 非持续信号权重折扣 70%
+}
+
+# v5.62: 低质量入场自适应监控
+LOW_QUALITY_ENTRY_MONITOR = {
+    'enabled': True,                           # 启用低质量入场监控
+    'quality_threshold': 30,                   # 入场质量≤30分为"低质量"
+    'monitoring_window_days': 30,              # 监控最近30天
+    'success_rate_threshold': 0.50,            # 成功率阈值 50%
+    'auto_downgrade_enabled': True,            # 自动回退阈值
+    'auto_downgrade_to': 35,                   # 成功率<50%时,质量要求回退到35分
+    'report_interval_trades': 10,              # 每10笔交易输出一次监控报告
+}
+
+# v5.62: 联合评估(入场质量 + Sharpe双重守门)
+ENTRY_QUALITY_SHARPE_JOINT_GATE = {
+    'enabled': True,                           # 启用联合评估
+    'low_quality_min_sharpe': 1.0,             # 入场质量≤30的持仓,Sharpe必须≥1.0
+    'normal_quality_min_sharpe': 0.8,          # 入场质量>30的持仓,Sharpe必须≥0.8
+    'bypass_if_rsi_oversold': False,           # RSI<30时可绕过(允许极端机会)
+}
