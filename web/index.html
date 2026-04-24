@@ -1161,6 +1161,25 @@ function highlightActiveFile(){
 
 // === STORAGE ===
 let _saveTimers={};
+// Conservative visibility-flush: only beacon the CURRENTLY STREAMING chat.
+// This avoids the previous disaster where we beacon-ed all chats (including
+// stripped summaries) and wiped server copies.
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='hidden')return;
+  if(currentNode!=='local')return;
+  if(!currentId)return;
+  const chat=chats.find(c=>c.id===currentId);
+  if(!chat||chat._stripped)return;
+  const lastMsg=chat.messages[chat.messages.length-1];
+  // Only flush if there's a streaming assistant message in progress
+  if(lastMsg?.role!=='assistant'||!lastMsg._streaming)return;
+  if((lastMsg.content||'').length===0)return; // nothing to save yet
+  try{
+    const blob=new Blob([JSON.stringify(chat)],{type:'application/json'});
+    if(navigator.sendBeacon)navigator.sendBeacon('/api/chats/'+encodeURIComponent(chat.id),blob);
+    else fetch('/api/chats/'+encodeURIComponent(chat.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat),keepalive:true}).catch(()=>{});
+  }catch{}
+});
 function save(chatId){
   const id=chatId||currentId;
   // Strip large base64 image data before saving to avoid localStorage quota errors
@@ -1610,7 +1629,7 @@ async function sendMessage(){
         try{const parsed=JSON.parse(data);const choice=parsed.choices?.[0];
         const delta=choice?.delta?.content;if(delta){if(!typingRemoved){removeTyping(chatId);if(currentId===chatId)el=appendMsg('assistant','',agent,false);typingRemoved=true;_perfTTFT=performance.now()-_perfStart;perfLog('ttft',_perfTTFT);}full+=delta;_perfFull=full;if(el&&currentId===chatId){el.textContent=full;el.classList.add('raw');messagesEl.scrollTop=messagesEl.scrollHeight;}
         // Periodic save during streaming (every 3s)
-        if(Date.now()-lastStreamSave>3000){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;}else{chat.messages.push({role:'assistant',content:full,_streaming:true});}chat.updatedAt=Date.now();save(chatId);lastStreamSave=Date.now();}
+        if(Date.now()-lastStreamSave>1000){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;}else{chat.messages.push({role:'assistant',content:full,_streaming:true});}chat.updatedAt=Date.now();save(chatId);lastStreamSave=Date.now();}
         }}catch{}}}
     }finally{document.removeEventListener('visibilitychange',_pcVisHandler);}
     if(!typingRemoved)removeTyping(chatId);
