@@ -763,6 +763,8 @@ body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
 
 @keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
 @keyframes fade-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes cat-heart-rise{0%{opacity:1;transform:translateY(0) scale(.6)}30%{opacity:1;transform:translateY(-18px) scale(1.3)}100%{opacity:0;transform:translateY(-60px) scale(.8)}}
+.svg-running-cat{transition:transform .15s}.svg-running-cat:hover{transform:scale(1.15)}
 .welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;padding:40px}
 .welcome .logo{font-size:48px}.welcome h2{font-size:24px;font-weight:600}
 .welcome p{color:var(--text-sec);font-size:14px;text-align:center}
@@ -2048,18 +2050,40 @@ function appendTyping(a){
   messagesEl.scrollTop=messagesEl.scrollHeight;
   // 速度演化：5s 加速 → 15s 极速 → 30s 累瘫
   const tid=currentId;
+  const PHASES=[
+    {at:5000,  cls:'fast',   texts:['猜猜怎么回复你','等我想想。。。','加点速度～','脑洞开工中']},
+    {at:15000, cls:'turbo',  texts:['这题有点难度啊','加班冲刺中','GPU 冲刺中 🔥','掏掏脑袋里的底牌']},
+    {at:30000, cls:'tired',  texts:['脸都思青了','你问出了个需要复杂推理的问题','狗蛋扭动几下脑袋','快了快了 😮‍💨']},
+    {at:60000, cls:'napping',texts:['狗蛋怽饰误，先睡个回走 💤','这事儿有点棘手，换个姿势再思','...在了在了 😴']},
+  ];
+  const pick=(arr)=>arr[Math.floor(Math.random()*arr.length)];
   const updateCat=(cls,text)=>{
     const el=document.getElementById('typing-'+tid);
     if(!el)return;
     const cat=el.querySelector('.svg-running-cat');
     const txt=el.querySelector('.typing-text');
-    if(cat){cat.classList.remove('normal','fast','turbo','crazy','tired','petted','napping');cat.classList.add(cls);}
+    if(cat&&!cat.dataset.petted){cat.classList.remove('normal','fast','turbo','crazy','tired','napping');cat.classList.add(cls);}
     if(txt&&text)txt.textContent=text;
   };
-  setTimeout(()=>updateCat('fast','正在思考中...'),5000);
-  setTimeout(()=>updateCat('turbo','深度思考中...'),15000);
-  setTimeout(()=>updateCat('tired','思考好累呀...'),30000);
-  setTimeout(()=>updateCat('napping','打个盹再战 💤'),60000);
+  PHASES.forEach(p=>setTimeout(()=>updateCat(p.cls,pick(p.texts)),p.at));
+  // 🐾 点击猜猜 → 摸一下（petted 带脸 + 出爱心，2.5s 后还原）
+  setTimeout(()=>{
+    const el=document.getElementById('typing-'+tid);if(!el)return;
+    const cat=el.querySelector('.svg-running-cat');if(!cat)return;
+    cat.style.cursor='pointer';cat.title='摸一下';
+    cat.addEventListener('click',(ev)=>{
+      ev.stopPropagation();
+      const prev=Array.from(cat.classList).find(c=>['normal','fast','turbo','crazy','tired','napping'].includes(c))||'normal';
+      cat.classList.remove(prev);cat.classList.add('petted');cat.dataset.petted='1';
+      const rect=cat.getBoundingClientRect();
+      for(let i=0;i<3;i++){
+        const heart=document.createElement('span');heart.textContent='❤️';
+        heart.style.cssText=`position:fixed;left:${rect.left+rect.width/2+(i-1)*8}px;top:${rect.top}px;z-index:9999;pointer-events:none;font-size:14px;animation:cat-heart-rise 1.4s ease-out forwards;animation-delay:${i*80}ms`;
+        document.body.appendChild(heart);setTimeout(()=>heart.remove(),1600);
+      }
+      setTimeout(()=>{cat.classList.remove('petted');delete cat.dataset.petted;cat.classList.add(prev);},2500);
+    });
+  },50);
 }
 function removeTyping(cid){const e=document.getElementById('typing-'+(cid||currentId));if(e)e.remove();}
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
