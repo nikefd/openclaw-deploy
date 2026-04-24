@@ -2426,8 +2426,18 @@ window.addEventListener('beforeunload',()=>{
   }
 });
 // 切回来后，对所有 streaming 中的 chat 做轮询恢复（不止当前 chat）
-// 轮询：每 1.5s 拉一次后端 history，内容连续 2 次不再增长 = 生成完了
+// ⚠️ 已禁用：前端直连 Copilot API 不经过 gateway，gateway 的 /v1/sessions/.../history
+// 会返回别的 session 内容覆盖真实回复（4/24 修复，commit 792a84e；后被 rollback 5ba7a28 误带回，4/24 二次修复）
 async function recoverStreamingChat(chatId){
+  const chat=chats.find(c=>c.id===chatId);if(!chat)return;
+  // 只清掉 streaming 标记和 typing 占位，不去 gateway 拉数据
+  const lastMsg=chat.messages[chat.messages.length-1];
+  if(lastMsg?._streaming)delete lastMsg._streaming;
+  streamingChats.delete(chatId);
+  chat.updatedAt=Date.now();save(chatId);renderSidebar();
+  if(currentId===chatId){streamBadge.classList.remove('show');removeTyping(chatId);renderChat();}
+}
+async function _DISABLED_recoverStreamingChat(chatId){
   const chat=chats.find(c=>c.id===chatId);if(!chat)return;
   let prevLen=-1,stableCount=0,tries=0;
   const MAX_TRIES=80; // 2 分钟上限（80*1.5s）
