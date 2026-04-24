@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
 <link rel="stylesheet" href="./assets/css/chat.css?v=1">
-<script type="module" src="./assets/js/main.js?v=6"></script>
+<script type="module" src="./assets/js/main.js?v=7"></script>
 </head>
 <body>
 <div class="overlay" id="overlay"></div>
@@ -367,7 +367,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
       if(currentNode==='local'){const f=document.getElementById('terminalFrame');if(f)f.src='/terminal/';}
       terminalLoaded=true;
     }
-    if(tab.dataset.tab==='files'&&!filesLoaded){if(currentNode==='local')loadFiles();else loadRemoteFiles();}
+    if(tab.dataset.tab==='files'&&!getFilesLoaded()){if(currentNode==='local')loadFiles();else loadRemoteFiles();}
     if(tab.dataset.tab==='memory') loadMemoryPanel(); // module self-guards
     if(tab.dataset.tab==='skills') loadSkillsPanel(); // module has its own loaded-guard
     if(tab.dataset.tab==='nodes'){if(!nodesLoaded)loadNodes();startNodesAutoRefresh();}
@@ -389,157 +389,7 @@ function speakText(text,btn){
 }
 window.speakText=speakText;
 
-// === FILES ===
-let filesLoaded=false,currentDir='',openTabs=[],activeTab=null;
-const FILE_ICONS={
-  js:'🟨',ts:'🔷',py:'🐍',rb:'💎',go:'🔵',rs:'🦀',
-  html:'🌐',css:'🎨',json:'📋',xml:'📰',yaml:'⚙️',yml:'⚙️',toml:'⚙️',
-  md:'📝',txt:'📄',log:'📜',csv:'📊',
-  sh:'⚡',bash:'⚡',zsh:'⚡',fish:'⚡',
-  png:'🖼',jpg:'🖼',gif:'🖼',svg:'🖼',webp:'🖼',ico:'🖼',
-  pdf:'📕',zip:'📦',tar:'📦',gz:'📦',
-  env:'🔒',lock:'🔒',gitignore:'👁',dockerfile:'🐳',
-  conf:'⚙️',cfg:'⚙️',ini:'⚙️',service:'⚙️',
-};
-const LANG_MAP={
-  js:'JavaScript',ts:'TypeScript',py:'Python',rb:'Ruby',go:'Go',rs:'Rust',
-  html:'HTML',css:'CSS',json:'JSON',xml:'XML',yaml:'YAML',yml:'YAML',toml:'TOML',
-  md:'Markdown',txt:'Text',log:'Log',csv:'CSV',
-  sh:'Shell',bash:'Shell',zsh:'Shell',
-};
-function fileIcon(name,isDir){
-  if(isDir) return '📁';
-  const ext=name.split('.').pop().toLowerCase();
-  return FILE_ICONS[ext]||'📄';
-}
-function fileLang(name){
-  const ext=name.split('.').pop().toLowerCase();
-  return LANG_MAP[ext]||ext.toUpperCase()||'Text';
-}
-function fmtSize(b){
-  if(b==null) return '';
-  if(b<1024) return b+' B';
-  if(b<1048576) return (b/1024).toFixed(1)+' KB';
-  return (b/1048576).toFixed(1)+' MB';
-}
-
-async function loadFiles(dir){
-  filesLoaded=true;
-  const url=dir?`/api/files/list?path=${encodeURIComponent(dir)}`:'/api/files/list';
-  try{
-    const r=await fetch(url);const d=await r.json();
-    currentDir=d.path;
-    // Breadcrumb
-    const parts=d.path.split('/').filter(Boolean);
-    let bc='';let accum='';
-    parts.forEach((p,i)=>{
-      accum+='/'+p;
-      if(i>0)bc+='<span class="bc-sep">›</span>';
-      bc+=`<span class="bc-part" onclick="loadFiles('${accum}')">${p}</span>`;
-    });
-    $('fileBreadcrumb').innerHTML=bc;
-    // Entries
-    let html='';
-    if(d.parent&&d.parent!==d.path){
-      html+=`<div class="file-entry" onclick="loadFiles('${d.parent}')"><span class="f-icon">⬆️</span><span class="f-name dir">..</span><span class="f-size"></span></div>`;
-    }
-    d.entries.forEach(e=>{
-      const icon=fileIcon(e.name,e.type==='dir');
-      const size=e.type==='file'?fmtSize(e.size):'';
-      const cls=e.type==='dir'?'dir':'';
-      const click=e.type==='dir'?`loadFiles('${e.path}')`:`viewFile('${e.path}','${e.name}')`;
-      html+=`<div class="file-entry" data-path="${e.path}" onclick="${click}"><span class="f-icon">${icon}</span><span class="f-name ${cls}">${esc(e.name)}</span><span class="f-size">${size}</span></div>`;
-    });
-    $('fileEntries').innerHTML=html||'<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px">📂 空目录</div>';
-    highlightActiveFile();
-  }catch(e){$('fileEntries').innerHTML=`<div style="padding:16px;color:var(--danger)">❌ 加载失败: ${e.message}</div>`;}
-}
-window.loadFiles=loadFiles;
-
-function renderFileTabs(){
-  let html='';
-  openTabs.forEach(t=>{
-    const icon=fileIcon(t.name,false);
-    const isActive=activeTab===t.path;
-    html+=`<div class="file-tab ${isActive?'active':''}" data-path="${t.path}" onclick="switchTab('${t.path}')">
-      <span class="tab-icon">${icon}</span><span class="tab-name">${esc(t.name)}</span>
-      <button class="tab-close" onclick="event.stopPropagation();closeTab('${t.path}')">✕</button>
-    </div>`;
-  });
-  $('fileTabs').innerHTML=html;
-}
-
-function switchTab(fp){
-  activeTab=fp;
-  renderFileTabs();
-  const tab=openTabs.find(t=>t.path===fp);
-  if(tab&&tab.content!=null) renderFileContent(tab);
-  highlightActiveFile();
-}
-
-function closeTab(fp){
-  openTabs=openTabs.filter(t=>t.path!==fp);
-  if(activeTab===fp){activeTab=openTabs.length?openTabs[openTabs.length-1].path:null;}
-  renderFileTabs();
-  if(activeTab){const t=openTabs.find(x=>x.path===activeTab);if(t)renderFileContent(t);}
-  else{$('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">📄</div><div>选择文件查看内容</div><div style="font-size:12px;opacity:.6">从左侧目录中点击文件</div></div>`;$('fileInfoBar').style.display='none';}
-  highlightActiveFile();
-}
-window.switchTab=switchTab;window.closeTab=closeTab;
-
-function downloadCurrentFile(){
-  const tab=openTabs.find(t=>t.path===activeTab);
-  if(!tab)return;
-  const a=document.createElement('a');
-  a.href='/api/files/download?path='+encodeURIComponent(tab.path);
-  a.download=tab.name;a.click();
-}
-
-function renderFileContent(tab){
-  const lines=tab.content.split('\n');
-  const lineNums=lines.map((_,i)=>i+1).join('\n');
-  $('fileViewerBody').innerHTML=`<div class="line-numbers">${lineNums}</div><div class="file-content">${esc(tab.content)}</div>`;
-  $('fileInfoBar').style.display='flex';
-  $('fileInfoLang').textContent='📝 '+fileLang(tab.name);
-  $('fileInfoLines').textContent='📏 '+lines.length+' 行';
-  $('fileInfoSize').textContent='💾 '+fmtSize(tab.size);
-  $('fileInfoPath').textContent=tab.path;
-  // Sync scroll between line numbers and content
-  const body=$('fileViewerBody');
-  body.onscroll=()=>{body.querySelector('.line-numbers').style.transform=`translateY(0)`};
-}
-
-async function viewFile(fp,name){
-  // Check if already open
-  let tab=openTabs.find(t=>t.path===fp);
-  if(!tab){
-    tab={path:fp,name:name,content:null,size:0};
-    openTabs.push(tab);
-  }
-  activeTab=fp;
-  renderFileTabs();
-  if(tab.content!=null){renderFileContent(tab);highlightActiveFile();return;}
-  // Loading state
-  $('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">⏳</div><div>加载中...</div></div>`;
-  try{
-    const r=await fetch(`/api/files/read?path=${encodeURIComponent(fp)}`);
-    const d=await r.json();
-    if(d.error)throw new Error(d.error);
-    tab.content=d.content;tab.size=d.size;
-    if(activeTab===fp)renderFileContent(tab);
-  }catch(e){
-    $('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">❌</div><div>${e.message}</div></div>`;
-  }
-  highlightActiveFile();
-}
-window.viewFile=viewFile;
-
-function highlightActiveFile(){
-  document.querySelectorAll('.file-entry').forEach(el=>{
-    el.classList.toggle('active',el.dataset.path===activeTab);
-  });
-}
-
+// === FILES === (moved to assets/js/panels/files.js in refactor step 4b)
 // === STORAGE ===
 let _saveTimers={};
 // Conservative visibility-flush: only beacon the CURRENTLY STREAMING chat.
@@ -1216,27 +1066,7 @@ input.addEventListener('paste',e=>{
 
 // Lightbox
 function openLightbox(src){$('lightboxImg').src=src;$('imgLightbox').classList.add('show');}
-// === FILE UPLOAD ===
-function uploadFiles(){$('uploadInput').click();}
-window.uploadFiles=uploadFiles;
-$('uploadInput').addEventListener('change',async e=>{
-  const files=e.target.files;if(!files.length)return;
-  const fd=new FormData();
-  for(const f of files)fd.append('file',f);
-  try{
-    const targetDir=currentDir||'';
-    const url=targetDir?'/api/files/upload?dir='+encodeURIComponent(targetDir):'/api/files/upload';
-    const r=await fetch(url,{method:'POST',body:fd});
-    const d=await r.json();
-    if(d.ok){
-      const names=d.files.map(f=>f.name).join(', ');
-      alert('✅ 上传成功: '+names);
-      loadFiles(currentDir);
-    }else{alert('❌ 上传失败: '+(d.error||'unknown'));}
-  }catch(err){alert('❌ 上传失败: '+err.message);}
-  $('uploadInput').value='';
-});
-
+// === FILE UPLOAD === (moved to assets/js/panels/files.js in refactor step 4b)
 // === DEMO CODES === (moved to assets/js/panels/demo.js in refactor step 3a)
 
 
@@ -1427,7 +1257,7 @@ function switchGlobalNode(){
     terminalLoaded=true;
   }
   // Update files
-  if(currentNode==='local'){filesLoaded=false;if(document.querySelector('[data-tab="files"]').classList.contains('active'))loadFiles();}
+  if(currentNode==='local'){resetFilesLoaded();if(document.querySelector('[data-tab="files"]').classList.contains('active'))loadFiles();}
   else{remoteFileCwd='~';if(document.querySelector('[data-tab="files"]').classList.contains('active'))loadRemoteFiles();}
 }
 window.switchGlobalNode=switchGlobalNode;
@@ -1527,10 +1357,10 @@ async function loadRemoteFiles(dir){
 }
 
 async function viewRemoteFile(fp,name){
-  let tab=openTabs.find(t=>t.path===fp);
-  if(!tab){tab={path:fp,name:name,content:null,size:0};openTabs.push(tab);}
-  activeTab=fp;renderFileTabs();
-  if(tab.content!=null){renderFileContent(tab);return;}
+  let tab=_getOpenTabs().find(t=>t.path===fp);
+  if(!tab){tab={path:fp,name:name,content:null,size:0};_pushOpenTab(tab);}
+  _setActiveTab(fp);_renderFileTabs();
+  if(tab.content!=null){_renderFileContent(tab);return;}
   $('fileViewerBody').innerHTML='<div class="file-viewer-empty"><div class="empty-icon">⏳</div><div>加载中...</div></div>';
   try{
     const r=await fetch('/api/nodes/exec',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -1538,7 +1368,7 @@ async function viewRemoteFile(fp,name){
     const d=await r.json();
     if(d.ok===false)throw new Error(d.error||'failed');
     tab.content=d.stdout||'';tab.size=(d.stdout||'').length;
-    if(activeTab===fp)renderFileContent(tab);
+    if(_getActiveTab()===fp)_renderFileContent(tab);
   }catch(e){
     $('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">❌</div><div>${esc(e.message)}</div></div>`;
   }

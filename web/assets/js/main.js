@@ -19,6 +19,15 @@ import {
   toggleExpertPanel, selectExpertTeam, queryExperts, cancelExpertRequests,
   wireExpertToggle,
 } from './panels/experts.js';
+import {
+  loadFiles, viewFile, switchTab, closeTab,
+  uploadFiles, downloadCurrentFile,
+  getCurrentDir, getFilesLoaded, resetFilesLoaded,
+  wireUploadInput,
+  _getOpenTabs, _pushOpenTab, _setActiveTab, _getActiveTab,
+  _renderFileTabs, _renderFileContent,
+} from './panels/files.js';
+import { fileIcon, fileLang, fmtSize } from './utils/format.js';
 
 // Expose to legacy inline script (which still lives in index.html for now).
 Object.assign(window, {
@@ -35,6 +44,14 @@ Object.assign(window, {
   startMemEdit, cancelMemEdit, saveMemFile,
   // panels/experts
   toggleExpertPanel, selectExpertTeam, queryExperts, cancelExpertRequests,
+  // panels/files
+  loadFiles, viewFile, switchTab, closeTab,
+  uploadFiles, downloadCurrentFile,
+  getCurrentDir, getFilesLoaded, resetFilesLoaded,
+  _getOpenTabs, _pushOpenTab, _setActiveTab, _getActiveTab,
+  _renderFileTabs, _renderFileContent,
+  // utils/format (shared by files + remote + etc.)
+  fileIcon, fileLang, fmtSize,
 });
 
 // Wire lazy-load hooks once DOM is ready. <script type="module"> is deferred,
@@ -47,8 +64,9 @@ function onReady(fn) {
 onReady(() => {
   wireDemosTab();
   wireExpertToggle();
+  wireUploadInput();
 });
 
 // Marker so we can verify module loaded in devtools.
-window.__ocRefactor = { step: '4a', loadedAt: Date.now() };
-console.info('[oc-refactor] modules loaded', APP_VERSION, '(step 4a: + experts panel)');
+window.__ocRefactor = { step: '4b', loadedAt: Date.now() };
+console.info('[oc-refactor] modules loaded', APP_VERSION, '(step 4b: + files panel + utils/format)');
