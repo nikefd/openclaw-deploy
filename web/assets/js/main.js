@@ -8,13 +8,28 @@ import {
   AGENTS, MODELS,
 } from './config.js';
 
+import { loadDemoCodes, createDemoCode, deleteDemoCode, wireDemosTab } from './panels/demo.js';
+
 // Expose to legacy inline script (which still lives in index.html for now).
 Object.assign(window, {
   APP_VERSION, API, TOKEN,
   STORAGE_KEY, AGENT_KEY, THEME_KEY, MODEL_KEY,
   AGENTS, MODELS,
+  // panels/demo
+  loadDemoCodes, createDemoCode, deleteDemoCode,
+});
+
+// Wire lazy-load hooks once DOM is ready. <script type="module"> is deferred,
+// so parsing is done by the time this runs — but tabs are defined in the
+// legacy inline script which also runs deferred; use DOMContentLoaded to be safe.
+function onReady(fn) {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
+  else fn();
+}
+onReady(() => {
+  wireDemosTab();
 });
 
 // Marker so we can verify module loaded in devtools.
-window.__ocRefactor = { step: 2, loadedAt: Date.now() };
-console.info('[oc-refactor] config module loaded', APP_VERSION);
+window.__ocRefactor = { step: '3a', loadedAt: Date.now() };
+console.info('[oc-refactor] modules loaded', APP_VERSION, '(step 3a: demo panel)');
