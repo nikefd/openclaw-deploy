@@ -1455,8 +1455,13 @@ async function sendMessage(){
       };
       const startPump=()=>{if(!typingTimer)pump();};
       let stable=0,tries=0,sawNew=false;const MAX=200;
+      // 📲 iOS/Android 切后台会暂停 setTimeout，切回来立刻唤醒一次 poll
+      let _wakePoll=null;
+      const _sleep=(ms)=>new Promise(r=>{const to=setTimeout(()=>{_wakePoll=null;r();},ms);_wakePoll=()=>{clearTimeout(to);_wakePoll=null;r();};});
+      const _onVis=()=>{if(document.visibilityState==='visible'&&_wakePoll){_wakePoll();}};
+      document.addEventListener('visibilitychange',_onVis);
       while(tries++<MAX){
-        await new Promise(r=>setTimeout(r,1500));
+        await _sleep(1500);
         try{
           const r=await fetch(`/api/chat/history?chatId=${encodeURIComponent(chatId)}&agent=${encodeURIComponent(agentForApi)}`);
           if(!r.ok)continue;
@@ -1473,6 +1478,7 @@ async function sendMessage(){
           if(done||(stable>=3&&t)){finished=true;break;}
         }catch{}
       }
+      document.removeEventListener('visibilitychange',_onVis);
       // 等打字机追完剩余
       finished=true;
       while(displayed.length<pendingFull.length){await new Promise(r=>setTimeout(r,20));}
