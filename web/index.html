@@ -2331,11 +2331,13 @@ async function sendMessage(){
     perfLog('http',_perfHttpMs,{upstream:_ngxUpstream?parseFloat(_ngxUpstream)*1000:null,connect:_ngxConnect?parseFloat(_ngxConnect)*1000:null});
     console.log('[DEBUG] Response status:', res.status, res.statusText);
     if(!res.ok){const errBody=await res.text();console.error('[DEBUG] Error body:', errBody);throw new Error(`HTTP ${res.status}: ${errBody.slice(0,200)}`);}
-    let el=null,typingRemoved=false;
+    let typingRemoved=false;
     const reader=res.body.getReader(),decoder=new TextDecoder();let buf='',lastStreamSave=Date.now();
     let _lastChunkTime=performance.now();
     // 🔄 切后台回来 + reader 停顿 >60s → 主动取消并走 history 续接，避免 tab 切后台 reader 假死
     let _needRecover=false;
+    // NOTE: `el` 声明在 try 外，catch/recover 块也要能访问到
+    
     const _pcVisHandler=()=>{
       if(document.visibilityState==='visible'&&streamingChats.has(chatId)){
         const gap=performance.now()-_lastChunkTime;
