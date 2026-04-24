@@ -24,10 +24,11 @@ import {
   uploadFiles, downloadCurrentFile,
   getCurrentDir, getFilesLoaded, resetFilesLoaded,
   wireUploadInput,
-  _getOpenTabs, _pushOpenTab, _setActiveTab, _getActiveTab,
-  _renderFileTabs, _renderFileContent,
 } from './panels/files.js';
 import { fileIcon, fileLang, fmtSize } from './utils/format.js';
+import {
+  loadRemoteFiles, viewRemoteFile, runRemoteCmd, resetRemoteFileCwd,
+} from './panels/remote.js';
 
 // Expose to legacy inline script (which still lives in index.html for now).
 Object.assign(window, {
@@ -48,10 +49,10 @@ Object.assign(window, {
   loadFiles, viewFile, switchTab, closeTab,
   uploadFiles, downloadCurrentFile,
   getCurrentDir, getFilesLoaded, resetFilesLoaded,
-  _getOpenTabs, _pushOpenTab, _setActiveTab, _getActiveTab,
-  _renderFileTabs, _renderFileContent,
   // utils/format (shared by files + remote + etc.)
   fileIcon, fileLang, fmtSize,
+  // panels/remote
+  loadRemoteFiles, viewRemoteFile, runRemoteCmd, resetRemoteFileCwd,
 });
 
 // Wire lazy-load hooks once DOM is ready. <script type="module"> is deferred,
@@ -68,5 +69,5 @@ onReady(() => {
 });
 
 // Marker so we can verify module loaded in devtools.
-window.__ocRefactor = { step: '4b', loadedAt: Date.now() };
-console.info('[oc-refactor] modules loaded', APP_VERSION, '(step 4b: + files panel + utils/format)');
+window.__ocRefactor = { step: '4c', loadedAt: Date.now() };
+console.info('[oc-refactor] modules loaded', APP_VERSION, '(step 4c: + remote panel)');
