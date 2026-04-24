@@ -1810,14 +1810,17 @@ document.addEventListener('visibilitychange',()=>{
   if(!currentId)return;
   const chat=chats.find(c=>c.id===currentId);
   if(!chat||chat._stripped)return;
+  // 🔥 只要有未同步的变更就 flush，不限于 _streaming 状态
+  // （之前只 flush streaming 中的 → 流式刚结束在 300ms debounce 内刷新 → 回复丢）
+  if(chat._lastSaved&&chat.updatedAt&&chat._lastSaved>=chat.updatedAt)return;
   const lastMsg=chat.messages[chat.messages.length-1];
-  // Only flush if there's a streaming assistant message in progress
-  if(lastMsg?.role!=='assistant'||!lastMsg._streaming)return;
-  if((lastMsg.content||'').length===0)return; // nothing to save yet
+  if(!lastMsg)return;
+  if((lastMsg.content||'').length===0&&!(lastMsg.images&&lastMsg.images.length))return;
   try{
     const blob=new Blob([JSON.stringify(chat)],{type:'application/json'});
     if(navigator.sendBeacon)navigator.sendBeacon('/api/chats/'+encodeURIComponent(chat.id),blob);
     else fetch('/api/chats/'+encodeURIComponent(chat.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat),keepalive:true}).catch(()=>{});
+    chat._lastSaved=chat.updatedAt;
   }catch{}
 });
 function save(chatId){
