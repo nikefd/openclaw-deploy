@@ -125,6 +125,25 @@ def margin_adjustment_evaluation(candidates: list, market_data: dict = None) -> 
         
         if market_data is None:
             market_data = {}
+        # v5.63: 如果market_data为空,尝试实时获取融资融券数据
+        if not market_data:
+            market_data = {}
+            try:
+                # 尝试调用data_collector的融资融券接口
+                from data_collector import get_stock_margin_balance
+                for cand in candidates:
+                    code = cand.get('code', '')
+                    if code:
+                        try:
+                            margin_info = get_stock_margin_balance(code)
+                            if margin_info:
+                                market_data[f"{code}_margin_change"] = margin_info.get('change_pct', 0)
+                                market_data[f"{code}_fusion_ratio"] = margin_info.get('fusion_ratio', 0.5)
+                        except:
+                            pass  # 单只融资数据获取失败时跳过
+            except ImportError:
+                pass  # data_collector无此函数时忽略
+        
         
         margin_config = MARGIN_SIGNAL_V2
         
@@ -273,8 +292,20 @@ def monitor_low_quality_entry_performance() -> dict:
         total_count, wins = result[0], result[1] or 0
         success_rate = wins / total_count if total_count > 0 else 0.0
         
-        # 如果成功率<50%, 降級到35分
-        should_downgrade = success_rate < 0.50
+        # v5.63: 改进降级条件 (更保守,使用置信度区间)
+        # 原逻辑: 成功率<50% → 降级
+        # 新逻辑: 成功率<(50%-10%)=40% OR (成功率<50% AND 样本<5) → 降级
+        # 这样可以避免样本不足时的误判
+        from config import LOW_QUALITY_ENTRY_MONITOR
+        
+        confidence_margin = 0.10  # 10%置信度裕度
+        min_sample_size = 5
+        
+        # 计算下降界: 成功率 - 置信度裕度
+        success_rate_lower_bound = success_rate - confidence_margin
+        
+        # 降级条件: (1) 成功率明显<50% OR (2) 样本少且成功率<50%
+        should_downgrade = (success_rate_lower_bound < 0.40) or (total_count < min_sample_size and success_rate < 0.50)
         recommended_threshold = 35 if should_downgrade else 30
         
         return {
@@ -1699,8 +1730,24 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
                 'score': weighted_score,
             }
 
-    # 排序取top
-    ranked = sorted(merged.values(), key=lambda x: -x['score'])[:15]
+    # v5.63: 候选池参数化 (从硬编码15 → 根据现金占比动态调整)
+    # 原问题: 超激进模式要求75只候选，但被硬编码的[:15]截断
+    candidate_limit = 15  # 默认15
+    try:
+        from config import EXTREME_CASH_V3, CANDIDATE_POOL_EXPANDED
+        # 根据现金占比决定候选数量
+        if _cash_ratio > 0.98:  # 超激进: 现金>98%
+            candidate_limit = CANDIDATE_POOL_EXPANDED.get('momentum_target', 75)  # 75只
+        elif _cash_ratio > 0.90:  # 激进: 现金90-98%
+            candidate_limit = 60
+        elif _cash_ratio > 0.75:  # 中等: 现金75-90%
+            candidate_limit = 45
+        else:  # 保守: 现金<75%
+            candidate_limit = 25
+    except:
+        candidate_limit = 15  # 异常时回退到15
+    
+    ranked = sorted(merged.values(), key=lambda x: -x['score'])[:candidate_limit]
     
     # v5.56: 应用Sharpe风险权重 (策略级别滤波)
     # 只推荐Sharpe>=1.5的策略,<1.0的黑名单
@@ -1741,13 +1788,25 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
         from config import DB_PATH, CASH_RATIO_STRATEGY_BOOST
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
+        # v5.63: 改进现金占比查询逻辑 (增强异常处理)
         c.execute('SELECT SUM(cash_after), SUM(quantity*price) FROM trades ORDER BY id DESC LIMIT 1')
         row = c.fetchone()
-        current_cash = row[0] if row and row[0] else 1_000_000
-        current_holdings = row[1] if row and row[1] else 0
+        current_cash = row[0] if (row and row[0] is not None) else 1_000_000
+        current_holdings = row[1] if (row and row[1] is not None) else 0
+        # 防护: 若查询异常导致值为0,回退到默认值
+        if current_cash <= 0 or current_cash > 10_000_000:
+            current_cash = 1_000_000
+        if current_holdings < 0:
+            current_holdings = 0
         conn.close()
         total_value = current_cash + current_holdings
-        _cash_ratio = current_cash / total_value if total_value > 0 else 0.95
+        # 更稳健的占比计算
+        if total_value > 0:
+            _cash_ratio = current_cash / total_value
+            # 保证_cash_ratio在(0,1]范围内
+            _cash_ratio = max(0.01, min(0.99, _cash_ratio))
+        else:
+            _cash_ratio = 0.98  # 异常时默认超激进模式
         
         # v5.60: 根据现金占比决定激进模式 (新增 ultra_high 超激进分支)
         if _cash_ratio > 0.98:
@@ -1790,6 +1849,13 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     except:
         pass
 
+    # v5.63: 强制激活赛道智能路由 (v5.61定义但未被调用)
+    # 目标: 科技成长应用MACD权重2.5x, 白马消费应用多因子1.5x等
+    try:
+        ranked = sector_intelligent_routing(ranked, regime=regime)
+    except Exception as e:
+        pass  # 赛道路由异常时忽略
+    
     # v5.53: 科技成长赛道权重激进优化 (+30%)
     # 逻辑: 科技相关板块持续表现优异，基于回测数据提升权重
     try:
