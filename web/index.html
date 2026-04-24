@@ -1365,9 +1365,33 @@ document.addEventListener('click',(e)=>{
 let chats=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'),currentId=null;
 // Load from server if local is empty
 (async()=>{try{const r=await fetch('/api/chats');if(r.ok){const d=await r.json();if(d.length>0){const merged=mergeChats(chats,d);chats=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));renderSidebar();if(currentId){const cur=chats.find(c=>c.id===currentId);if(cur)switchChat(cur.id);}else if(chats.length>0){switchChat(chats[0].id);}}}}catch{}
-// Recover any interrupted streaming chats from backend
-// DISABLED 2026-04-24: this was overwriting real streaming messages with unrelated gateway session content.
-try{for(const chat of chats){const streamMsg=chat.messages[chat.messages.length-1];if(streamMsg?._streaming){delete streamMsg._streaming;save(chat.id);}}}catch{}})();
+// 如果还有 chat 是 _streaming 状态（服务端代理流式还没结束，或上次异常遗留）
+// 启动后台轮询，拉服务端最新内容直到 _streaming 消失。不要 save！会覆盖服务端较新的内容。
+try{
+  for(const chat of chats){
+    const lastMsg=chat.messages[chat.messages.length-1];
+    if(lastMsg?._streaming){
+      console.log('[init] found streaming chat, polling for completion:',chat.id);
+      (async function pollOne(id){
+        for(let i=0;i<240;i++){ // 最多 6 分钟
+          await new Promise(r=>setTimeout(r,1500));
+          try{
+            const r=await fetch('/api/chats/'+encodeURIComponent(id));
+            if(!r.ok)continue;
+            const fresh=await r.json();
+            const idx=chats.findIndex(c=>c.id===id);
+            if(idx<0)return;
+            chats[idx]=fresh;
+            if(currentId===id)renderChat();
+            renderSidebar();
+            const last=fresh.messages?.[fresh.messages.length-1];
+            if(!last?._streaming){console.log('[init] streaming complete:',id);return;}
+          }catch{}
+        }
+      })(chat.id);
+    }
+  }
+}catch{}})();
 function mergeChats(local,remote){const map=new Map();remote.forEach(c=>map.set(c.id,c));local.forEach(c=>{const existing=map.get(c.id);if(!existing||c.updatedAt>existing.updatedAt)map.set(c.id,c);});return[...map.values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));}
 let selectedAgent=localStorage.getItem(AGENT_KEY)||'main',streamingChats=new Set();
 let currentTheme=localStorage.getItem(THEME_KEY)||'dark';
@@ -1801,9 +1825,11 @@ function highlightActiveFile(){
 
 // === STORAGE ===
 let _saveTimers={};
-// Conservative visibility-flush: only beacon the CURRENTLY STREAMING chat.
-// This avoids the previous disaster where we beacon-ed all chats (including
-// stripped summaries) and wiped server copies.
+// ⏯️ 服务端代理上线后，这段 visibility flush 被禁用：
+//   - PC 走 /api/copilot/stream，服务端实时写盘，前端再 sendBeacon 只会用老快照覆盖服务端较新的内容。
+//   - 移动端走 fire-and-forget+轮询，也不需要 visibility flush。
+// 保留以防万一，后续确认稳定可删。
+/*
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState!=='hidden')return;
   if(currentNode!=='local')return;
@@ -1823,6 +1849,7 @@ document.addEventListener('visibilitychange',()=>{
     chat._lastSaved=chat.updatedAt;
   }catch{}
 });
+*/
 function save(chatId){
   const id=chatId||currentId;
   // Strip large base64 image data before saving to avoid localStorage quota errors
@@ -2292,11 +2319,11 @@ async function sendMessage(){
       sendBtn.disabled=!input.value.trim();input.focus();
       return;
     }
-    // 🖥️ PC 端继续流式（下面原有逻辑）
-    // keepalive: 手机切 app/锁屏 浏览器不会 kill fetch（body 需 <64KB）
-    const _payloadStr=JSON.stringify(payload);
-    const _useKeepalive=_payloadStr.length<60000;
-    const res=await fetch(API,{method:'POST',keepalive:_useKeepalive,headers:{'Authorization':`Bearer ${TOKEN}`,'Content-Type':'application/json'},body:_payloadStr});
+    // 🖥️ PC 端继续流式（走服务端代理：客户端断了服务端继续读完 + 落盘）
+    // 服务端写 chats/{chatId}.json，前端只负责 DOM 显示，不再重复 save
+    const _proxyPayload=JSON.stringify({chatId,model:payload.model,messages:payload.messages,agentId:chat.agentId||'main'});
+    const _useKeepalive=_proxyPayload.length<60000;
+    const res=await fetch('/api/copilot/stream',{method:'POST',keepalive:_useKeepalive,headers:{'Content-Type':'application/json'},body:_proxyPayload});
     _perfHttpMs=performance.now()-_perfStart;
     // Capture nginx upstream timing from headers
     const _ngxUpstream=res.headers.get('X-Upstream-Time');
@@ -2327,14 +2354,21 @@ async function sendMessage(){
       buf+=decoder.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();
       for(const line of lines){if(!line.startsWith('data: '))continue;const data=line.slice(6);if(data==='[DONE]')break;
         try{const parsed=JSON.parse(data);const choice=parsed.choices?.[0];
+        // 服务端代理可能下发 {error:{...}} 帧
+        if(parsed.error){throw new Error(parsed.error.message||'stream error');}
         const delta=choice?.delta?.content;if(delta){if(!typingRemoved){removeTyping(chatId);if(currentId===chatId)el=appendMsg('assistant','',agent,false);typingRemoved=true;_perfTTFT=performance.now()-_perfStart;perfLog('ttft',_perfTTFT);}full+=delta;_perfFull=full;if(el&&currentId===chatId){el.textContent=full;el.classList.add('raw');messagesEl.scrollTop=messagesEl.scrollHeight;}
-        // Periodic save during streaming (every 3s)
-        if(Date.now()-lastStreamSave>1000){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;}else{chat.messages.push({role:'assistant',content:full,_streaming:true});}chat.updatedAt=Date.now();save(chatId);lastStreamSave=Date.now();}
+        // ⚡ 服务端已经在写盘，前端不再 save，避免覆盖竞态
         }}catch{}}}
     }finally{document.removeEventListener('visibilitychange',_pcVisHandler);}
     if(!typingRemoved)removeTyping(chatId);
-    if(full){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;delete existingAst._streaming;}else{chat.messages.push({role:'assistant',content:full});}
-      chat.updatedAt=Date.now();save(chatId);  // 🔥 流式结束后必须 save，以前漏了导致短回复丢失
+    if(full){
+      // 服务端已经写完了 chat.json（包含本条 assistant）
+      // 前端同步到内存 + localStorage 以便 UI 一致；save() 的 PUT 与服务端内容幂等，安全
+      const existingAst=chat.messages[chat.messages.length-1];
+      if(existingAst?.role==='assistant'){existingAst.content=full;delete existingAst._streaming;}
+      else{chat.messages.push({role:'assistant',content:full});}
+      chat.updatedAt=Date.now();
+      save(chatId);
       if(el&&currentId===chatId){el.innerHTML=renderMd(full);el.classList.remove('raw');const ad=document.createElement('div');ad.className='msg-actions';const ttsBtn=agent?.tts?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';ad.innerHTML=`${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button>`;el.parentElement.appendChild(ad);}
     }
   }catch(err){removeTyping(chatId);
