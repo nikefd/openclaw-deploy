@@ -15,11 +15,15 @@
   --bg:#343541;--sidebar-bg:#202123;--hover:#2a2b32;--input-bg:#40414f;
   --text:#ececf1;--text-sec:#8e8ea0;--user-bg:#343541;--asst-bg:#444654;
   --accent:#10a37f;--border:#4e4f60;--danger:#ef4444;--code-bg:#1e1e1e;
+  --text-secondary:#8e8ea0;
+  --cat-eye-fill:#10a37f;--cat-pupil-fill:#0a3d2e;--cat-eye-shine:#ffffff;
 }
 [data-theme="light"]{
   --bg:#fff;--sidebar-bg:#f7f7f8;--hover:#ececf1;--input-bg:#f4f4f4;
   --text:#1a1a1a;--text-sec:#6b6c7b;--user-bg:#fff;--asst-bg:#f7f7f8;
   --accent:#10a37f;--border:#e5e5e5;--danger:#ef4444;--code-bg:#f5f5f5;
+  --text-secondary:#6b6c7b;
+  --cat-eye-fill:#10a37f;--cat-pupil-fill:#053628;--cat-eye-shine:#ffffff;
 }
 body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);height:100vh;height:100dvh;display:flex;overflow:hidden;transition:background .3s,color .3s;position:fixed;width:100%;top:0;left:0}
 
@@ -123,22 +127,17 @@ body{font-family:'Söhne',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,san
 .typing-indicator {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 16px 0;
+  gap: 10px;
+  padding: 8px 0;
   position: relative;
 }
 .svg-cat-walk {
-  position: absolute;
-  left: 0;
-  bottom: 8px;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
 }
-.typing-indicator > span:not(.typing-status-text):not(.svg-cat-walk):not(.svg-dog-scene) {
-  width: 8px;
-  height: 8px;
-  background: var(--text-secondary);
-  border-radius: 50%;
-  animation: typing 1.4s infinite;
+.typing-indicator > span:not(.typing-status-text):not(.svg-cat-walk):not(.svg-dog-scene):not(.typing-text) {
+  display: none;
 }
 .typing-indicator > span:not(.typing-status-text):not(.svg-cat-walk):not(.svg-dog-scene):nth-child(2) { animation-delay: 0.2s; }
 .typing-indicator > span:not(.typing-status-text):not(.svg-cat-walk):not(.svg-dog-scene):nth-child(3) { animation-delay: 0.4s; }
@@ -2044,7 +2043,7 @@ function appendTyping(a){
   d.className='message assistant';
   d.id='typing-'+currentId;
   d.dataset.typingStart=Date.now();
-  const cat=`<span class="svg-cat-walk"><span class="svg-running-cat normal" aria-hidden="true"><svg viewBox=\"0 0 36 28\" xmlns=\"http://www.w3.org/2000/svg\" width=\"36\" height=\"28\"><g class=\"svg-cat-silhouette\"><g class=\"svg-cat-tail-group\"><path class=\"svg-cat-tail\" d=\"M7.5 17 Q3 12 4 6 Q4.5 3 6 5\" stroke-width=\"2\"/></g><g class=\"svg-cat-leg-bl\"><path class=\"svg-cat-leg\" d=\"M10 20 L8 25 Q8 26.5 9.5 26.5 L10.5 26.5\" stroke-width=\"0\"/></g><g class=\"svg-cat-leg-br\"><path class=\"svg-cat-leg\" d=\"M8 20 L6 25 Q6 26.5 7.5 26.5 L8.5 26.5\" stroke-width=\"0\"/></g><ellipse class=\"svg-cat-body\" cx=\"15\" cy=\"17\" rx=\"7.5\" ry=\"5\"/><g class=\"svg-cat-leg-fl\"><path class=\"svg-cat-leg\" d=\"M21 20 L23 25 Q23 26.5 21.5 26.5 L20.5 26.5\" stroke-width=\"0\"/></g><g class=\"svg-cat-leg-fr\"><path class=\"svg-cat-leg\" d=\"M19 20 L21 25 Q21 26.5 19.5 26.5 L18.5 26.5\" stroke-width=\"0\"/></g><g class=\"svg-cat-head-group\"><circle class=\"svg-cat-head\" cx=\"24\" cy=\"9\" r=\"7\"/><g class=\"svg-cat-ear-l\"><polygon class=\"svg-cat-ear\" points=\"18,7 20,-1 23,6\"/></g><g class=\"svg-cat-ear-r\"><polygon class=\"svg-cat-ear\" points=\"25,6 28,-1 30,7\"/></g><polygon class=\"svg-cat-inner-ear\" points=\"19,6.5 20.5,0.5 22,5.5\"/><polygon class=\"svg-cat-inner-ear\" points=\"26,5.5 27.5,0.5 29,6.5\"/><ellipse class=\"svg-cat-eye\" cx=\"21.5\" cy=\"8.5\" rx=\"2\" ry=\"2.2\"/><ellipse class=\"svg-cat-eye\" cx=\"27\" cy=\"8.5\" rx=\"2\" ry=\"2.2\"/><ellipse class=\"svg-cat-pupil\" cx=\"22\" cy=\"8.8\" rx=\"1.1\" ry=\"1.3\"/><ellipse class=\"svg-cat-pupil\" cx=\"27.5\" cy=\"8.8\" rx=\"1.1\" ry=\"1.3\"/><circle class=\"svg-cat-eye-shine\" cx=\"21.2\" cy=\"7.8\" r=\"0.6\"/><circle class=\"svg-cat-eye-shine\" cx=\"26.7\" cy=\"7.8\" r=\"0.6\"/><path class=\"svg-cat-closed-eye\" d=\"M19.8 8.5 Q21.5 10.5 23.2 8.5\" stroke-width=\"0.8\" fill=\"none\"/><path class=\"svg-cat-closed-eye\" d=\"M25.3 8.5 Q27 10.5 28.7 8.5\" stroke-width=\"0.8\" fill=\"none\"/><path class=\"svg-cat-nose\" d=\"M23.5 11.5 L24.2 12.2 L25 11.5 Z\"/><path class=\"svg-cat-mouth\" d=\"M23 12.5 Q24.2 13.8 24.2 12.5\" stroke-width=\"0.7\"/><path class=\"svg-cat-mouth\" d=\"M24.3 12.5 Q24.3 13.8 25.5 12.5\" stroke-width=\"0.7\"/><line class=\"svg-cat-whisker\" x1=\"19.5\" y1=\"11\" x2=\"14\" y2=\"10\" stroke-width=\"0.5\"/><line class=\"svg-cat-whisker\" x1=\"19.5\" y1=\"12\" x2=\"14\" y2=\"12.5\" stroke-width=\"0.5\"/><line class=\"svg-cat-whisker\" x1=\"29\" y1=\"11\" x2=\"34\" y2=\"10\" stroke-width=\"0.5\"/><line class=\"svg-cat-whisker\" x1=\"29\" y1=\"12\" x2=\"34\" y2=\"12.5\" stroke-width=\"0.5\"/><circle class=\"svg-cat-breath svg-cat-breath-1\" cx=\"27\" cy=\"14\" r=\"0.8\"/><circle class=\"svg-cat-breath svg-cat-breath-2\" cx=\"28\" cy=\"13.5\" r=\"0.6\"/><circle class=\"svg-cat-breath svg-cat-breath-3\" cx=\"29\" cy=\"14.5\" r=\"0.5\"/></g></g><ellipse class=\"svg-cat-leg-blur\" cx=\"12.5\" cy=\"22\" rx=\"1.8\" ry=\"1.2\"/><ellipse class=\"svg-cat-leg-blur\" cx=\"17.5\" cy=\"22\" rx=\"1.8\" ry=\"1.2\"/><ellipse class=\"svg-cat-leg-blur svg-cat-leg-blur-inner\" cx=\"14\" cy=\"22\" rx=\"1.5\" ry=\"1\"/><ellipse class=\"svg-cat-leg-blur svg-cat-leg-blur-inner\" cx=\"16\" cy=\"22\" rx=\"1.5\" ry=\"1\"/></svg></span></span>`;
+  const cat=`<span class="svg-cat-walk"><span class="svg-running-cat" aria-hidden="true"><svg viewBox=\"0 0 36 28\" xmlns=\"http://www.w3.org/2000/svg\" width=\"36\" height=\"28\"><g class=\"svg-cat-silhouette\"><g class=\"svg-cat-tail-group\"><path class=\"svg-cat-tail\" d=\"M7.5 17 Q3 12 4 6 Q4.5 3 6 5\" stroke-width=\"2\"/></g><g class=\"svg-cat-leg-bl\"><path class=\"svg-cat-leg\" d=\"M10 20 L8 25 Q8 26.5 9.5 26.5 L10.5 26.5\" stroke-width=\"0\"/></g><g class=\"svg-cat-leg-br\"><path class=\"svg-cat-leg\" d=\"M8 20 L6 25 Q6 26.5 7.5 26.5 L8.5 26.5\" stroke-width=\"0\"/></g><ellipse class=\"svg-cat-body\" cx=\"15\" cy=\"17\" rx=\"7.5\" ry=\"5\"/><g class=\"svg-cat-leg-fl\"><path class=\"svg-cat-leg\" d=\"M21 20 L23 25 Q23 26.5 21.5 26.5 L20.5 26.5\" stroke-width=\"0\"/></g><g class=\"svg-cat-leg-fr\"><path class=\"svg-cat-leg\" d=\"M19 20 L21 25 Q21 26.5 19.5 26.5 L18.5 26.5\" stroke-width=\"0\"/></g><g class=\"svg-cat-head-group\"><circle class=\"svg-cat-head\" cx=\"24\" cy=\"9\" r=\"7\"/><g class=\"svg-cat-ear-l\"><polygon class=\"svg-cat-ear\" points=\"18,7 20,-1 23,6\"/></g><g class=\"svg-cat-ear-r\"><polygon class=\"svg-cat-ear\" points=\"25,6 28,-1 30,7\"/></g><polygon class=\"svg-cat-inner-ear\" points=\"19,6.5 20.5,0.5 22,5.5\"/><polygon class=\"svg-cat-inner-ear\" points=\"26,5.5 27.5,0.5 29,6.5\"/><ellipse class=\"svg-cat-eye\" cx=\"21.5\" cy=\"8.5\" rx=\"2\" ry=\"2.2\"/><ellipse class=\"svg-cat-eye\" cx=\"27\" cy=\"8.5\" rx=\"2\" ry=\"2.2\"/><ellipse class=\"svg-cat-pupil\" cx=\"22\" cy=\"8.8\" rx=\"1.1\" ry=\"1.3\"/><ellipse class=\"svg-cat-pupil\" cx=\"27.5\" cy=\"8.8\" rx=\"1.1\" ry=\"1.3\"/><circle class=\"svg-cat-eye-shine\" cx=\"21.2\" cy=\"7.8\" r=\"0.6\"/><circle class=\"svg-cat-eye-shine\" cx=\"26.7\" cy=\"7.8\" r=\"0.6\"/><path class=\"svg-cat-closed-eye\" d=\"M19.8 8.5 Q21.5 10.5 23.2 8.5\" stroke-width=\"0.8\" fill=\"none\"/><path class=\"svg-cat-closed-eye\" d=\"M25.3 8.5 Q27 10.5 28.7 8.5\" stroke-width=\"0.8\" fill=\"none\"/><path class=\"svg-cat-nose\" d=\"M23.5 11.5 L24.2 12.2 L25 11.5 Z\"/><path class=\"svg-cat-mouth\" d=\"M23 12.5 Q24.2 13.8 24.2 12.5\" stroke-width=\"0.7\"/><path class=\"svg-cat-mouth\" d=\"M24.3 12.5 Q24.3 13.8 25.5 12.5\" stroke-width=\"0.7\"/><line class=\"svg-cat-whisker\" x1=\"19.5\" y1=\"11\" x2=\"14\" y2=\"10\" stroke-width=\"0.5\"/><line class=\"svg-cat-whisker\" x1=\"19.5\" y1=\"12\" x2=\"14\" y2=\"12.5\" stroke-width=\"0.5\"/><line class=\"svg-cat-whisker\" x1=\"29\" y1=\"11\" x2=\"34\" y2=\"10\" stroke-width=\"0.5\"/><line class=\"svg-cat-whisker\" x1=\"29\" y1=\"12\" x2=\"34\" y2=\"12.5\" stroke-width=\"0.5\"/><circle class=\"svg-cat-breath svg-cat-breath-1\" cx=\"27\" cy=\"14\" r=\"0.8\"/><circle class=\"svg-cat-breath svg-cat-breath-2\" cx=\"28\" cy=\"13.5\" r=\"0.6\"/><circle class=\"svg-cat-breath svg-cat-breath-3\" cx=\"29\" cy=\"14.5\" r=\"0.5\"/></g></g><ellipse class=\"svg-cat-leg-blur\" cx=\"12.5\" cy=\"22\" rx=\"1.8\" ry=\"1.2\"/><ellipse class=\"svg-cat-leg-blur\" cx=\"17.5\" cy=\"22\" rx=\"1.8\" ry=\"1.2\"/><ellipse class=\"svg-cat-leg-blur svg-cat-leg-blur-inner\" cx=\"14\" cy=\"22\" rx=\"1.5\" ry=\"1\"/><ellipse class=\"svg-cat-leg-blur svg-cat-leg-blur-inner\" cx=\"16\" cy=\"22\" rx=\"1.5\" ry=\"1\"/></svg></span></span>`;
   d.innerHTML=`<div class="msg-inner"><div class="avatar" style="background:${a?.color||'var(--accent)'}">${a?.emoji||'🦞'}</div><div class="msg-text"><div class="typing-indicator">${cat}<span class="typing-text">正在思考...</span></div></div></div>`;
   messagesEl.appendChild(d);
   messagesEl.scrollTop=messagesEl.scrollHeight;
@@ -2062,10 +2061,10 @@ function appendTyping(a){
     if(!el)return;
     const cat=el.querySelector('.svg-running-cat');
     const txt=el.querySelector('.typing-text');
-    if(cat&&!cat.dataset.petted){cat.classList.remove('normal','fast','turbo','crazy','tired','napping');cat.classList.add(cls);}
+    if(cat&&!cat.dataset.petted){cat.classList.remove('speed-fast','speed-turbo','speed-crazy','speed-tired','speed-napping','speed-petted');if(cls&&cls!=='speed-normal')cat.classList.add(cls);}
     if(txt&&text)txt.textContent=text;
   };
-  PHASES.forEach(p=>setTimeout(()=>updateCat(p.cls,pick(p.texts)),p.at));
+  PHASES.forEach(p=>setTimeout(()=>updateCat('speed-'+p.cls,pick(p.texts)),p.at));
   // 🐾 点击猜猜 → 摸一下（petted 带脸 + 出爱心，2.5s 后还原）
   setTimeout(()=>{
     const el=document.getElementById('typing-'+tid);if(!el)return;
@@ -2073,15 +2072,16 @@ function appendTyping(a){
     cat.style.cursor='pointer';cat.title='摸一下';
     cat.addEventListener('click',(ev)=>{
       ev.stopPropagation();
-      const prev=Array.from(cat.classList).find(c=>['normal','fast','turbo','crazy','tired','napping'].includes(c))||'normal';
-      cat.classList.remove(prev);cat.classList.add('petted');cat.dataset.petted='1';
+      const prev=Array.from(cat.classList).find(c=>['speed-fast','speed-turbo','speed-crazy','speed-tired','speed-napping'].includes(c))||'';
+      if(prev)cat.classList.remove(prev);
+      cat.classList.add('speed-petted');cat.dataset.petted='1';
       const rect=cat.getBoundingClientRect();
       for(let i=0;i<3;i++){
         const heart=document.createElement('span');heart.textContent='❤️';
         heart.style.cssText=`position:fixed;left:${rect.left+rect.width/2+(i-1)*8}px;top:${rect.top}px;z-index:9999;pointer-events:none;font-size:14px;animation:cat-heart-rise 1.4s ease-out forwards;animation-delay:${i*80}ms`;
         document.body.appendChild(heart);setTimeout(()=>heart.remove(),1600);
       }
-      setTimeout(()=>{cat.classList.remove('petted');delete cat.dataset.petted;cat.classList.add(prev);},2500);
+      setTimeout(()=>{cat.classList.remove('speed-petted');delete cat.dataset.petted;if(prev)cat.classList.add(prev);},2500);
     });
   },50);
 }
@@ -2117,7 +2117,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('btwOverlay').cla
 async function handleBtw(question){
   const overlay=$('btwOverlay'),body=$('btwBody'),qEl=$('btwQuestion');
   qEl.textContent=question;
-  body.innerHTML=`<div class="typing-indicator"><span class="svg-cat-walk"><span class="svg-running-cat normal" aria-hidden="true"><svg viewBox=\"0 0 36 28\" xmlns=\"http://www.w3.org/2000/svg\" width=\"36\" height=\"28\"><g class=\"svg-cat-silhouette\"><g class=\"svg-cat-tail-group\"><path class=\"svg-cat-tail\" d=\"M7.5 17 Q3 12 4 6 Q4.5 3 6 5\" stroke-width=\"2\"/></g><g class=\"svg-cat-leg-bl\"><path class=\"svg-cat-leg\" d=\"M10 20 L8 25 Q8 26.5 9.5 26.5 L10.5 26.5\" stroke-width=\"0\"/></g><g class=\"svg-cat-leg-br\"><path class=\"svg-cat-leg\" d=\"M8 20 L6 25 Q6 26.5 7.5 26.5 L8.5 26.5\" stroke-width=\"0\"/></g><ellipse class=\"svg-cat-body\" cx=\"15\" cy=\"17\" rx=\"7.5\" ry=\"5\"/><g class=\"svg-cat-leg-fl\"><path class=\"svg-cat-leg\" d=\"M21 20 L23 25 Q23 26.5 21.5 26.5 L20.5 26.5\" stroke-width=\"0\"/></g><g class=\"svg-cat-leg-fr\"><path class=\"svg-cat-leg\" d=\"M19 20 L21 25 Q21 26.5 19.5 26.5 L18.5 26.5\" stroke-width=\"0\"/></g><g class=\"svg-cat-head-group\"><circle class=\"svg-cat-head\" cx=\"24\" cy=\"9\" r=\"7\"/><g class=\"svg-cat-ear-l\"><polygon class=\"svg-cat-ear\" points=\"18,7 20,-1 23,6\"/></g><g class=\"svg-cat-ear-r\"><polygon class=\"svg-cat-ear\" points=\"25,6 28,-1 30,7\"/></g><polygon class=\"svg-cat-inner-ear\" points=\"19,6.5 20.5,0.5 22,5.5\"/><polygon class=\"svg-cat-inner-ear\" points=\"26,5.5 27.5,0.5 29,6.5\"/><ellipse class=\"svg-cat-eye\" cx=\"21.5\" cy=\"8.5\" rx=\"2\" ry=\"2.2\"/><ellipse class=\"svg-cat-eye\" cx=\"27\" cy=\"8.5\" rx=\"2\" ry=\"2.2\"/><ellipse class=\"svg-cat-pupil\" cx=\"22\" cy=\"8.8\" rx=\"1.1\" ry=\"1.3\"/><ellipse class=\"svg-cat-pupil\" cx=\"27.5\" cy=\"8.8\" rx=\"1.1\" ry=\"1.3\"/><circle class=\"svg-cat-eye-shine\" cx=\"21.2\" cy=\"7.8\" r=\"0.6\"/><circle class=\"svg-cat-eye-shine\" cx=\"26.7\" cy=\"7.8\" r=\"0.6\"/><path class=\"svg-cat-closed-eye\" d=\"M19.8 8.5 Q21.5 10.5 23.2 8.5\" stroke-width=\"0.8\" fill=\"none\"/><path class=\"svg-cat-closed-eye\" d=\"M25.3 8.5 Q27 10.5 28.7 8.5\" stroke-width=\"0.8\" fill=\"none\"/><path class=\"svg-cat-nose\" d=\"M23.5 11.5 L24.2 12.2 L25 11.5 Z\"/><path class=\"svg-cat-mouth\" d=\"M23 12.5 Q24.2 13.8 24.2 12.5\" stroke-width=\"0.7\"/><path class=\"svg-cat-mouth\" d=\"M24.3 12.5 Q24.3 13.8 25.5 12.5\" stroke-width=\"0.7\"/><line class=\"svg-cat-whisker\" x1=\"19.5\" y1=\"11\" x2=\"14\" y2=\"10\" stroke-width=\"0.5\"/><line class=\"svg-cat-whisker\" x1=\"19.5\" y1=\"12\" x2=\"14\" y2=\"12.5\" stroke-width=\"0.5\"/><line class=\"svg-cat-whisker\" x1=\"29\" y1=\"11\" x2=\"34\" y2=\"10\" stroke-width=\"0.5\"/><line class=\"svg-cat-whisker\" x1=\"29\" y1=\"12\" x2=\"34\" y2=\"12.5\" stroke-width=\"0.5\"/><circle class=\"svg-cat-breath svg-cat-breath-1\" cx=\"27\" cy=\"14\" r=\"0.8\"/><circle class=\"svg-cat-breath svg-cat-breath-2\" cx=\"28\" cy=\"13.5\" r=\"0.6\"/><circle class=\"svg-cat-breath svg-cat-breath-3\" cx=\"29\" cy=\"14.5\" r=\"0.5\"/></g></g><ellipse class=\"svg-cat-leg-blur\" cx=\"12.5\" cy=\"22\" rx=\"1.8\" ry=\"1.2\"/><ellipse class=\"svg-cat-leg-blur\" cx=\"17.5\" cy=\"22\" rx=\"1.8\" ry=\"1.2\"/><ellipse class=\"svg-cat-leg-blur svg-cat-leg-blur-inner\" cx=\"14\" cy=\"22\" rx=\"1.5\" ry=\"1\"/><ellipse class=\"svg-cat-leg-blur svg-cat-leg-blur-inner\" cx=\"16\" cy=\"22\" rx=\"1.5\" ry=\"1\"/></svg></span></span><span class="typing-text">正在思考...</span></div>`;
+  body.innerHTML=`<div class="typing-indicator"><span class="svg-cat-walk"><span class="svg-running-cat" aria-hidden="true"><svg viewBox=\"0 0 36 28\" xmlns=\"http://www.w3.org/2000/svg\" width=\"36\" height=\"28\"><g class=\"svg-cat-silhouette\"><g class=\"svg-cat-tail-group\"><path class=\"svg-cat-tail\" d=\"M7.5 17 Q3 12 4 6 Q4.5 3 6 5\" stroke-width=\"2\"/></g><g class=\"svg-cat-leg-bl\"><path class=\"svg-cat-leg\" d=\"M10 20 L8 25 Q8 26.5 9.5 26.5 L10.5 26.5\" stroke-width=\"0\"/></g><g class=\"svg-cat-leg-br\"><path class=\"svg-cat-leg\" d=\"M8 20 L6 25 Q6 26.5 7.5 26.5 L8.5 26.5\" stroke-width=\"0\"/></g><ellipse class=\"svg-cat-body\" cx=\"15\" cy=\"17\" rx=\"7.5\" ry=\"5\"/><g class=\"svg-cat-leg-fl\"><path class=\"svg-cat-leg\" d=\"M21 20 L23 25 Q23 26.5 21.5 26.5 L20.5 26.5\" stroke-width=\"0\"/></g><g class=\"svg-cat-leg-fr\"><path class=\"svg-cat-leg\" d=\"M19 20 L21 25 Q21 26.5 19.5 26.5 L18.5 26.5\" stroke-width=\"0\"/></g><g class=\"svg-cat-head-group\"><circle class=\"svg-cat-head\" cx=\"24\" cy=\"9\" r=\"7\"/><g class=\"svg-cat-ear-l\"><polygon class=\"svg-cat-ear\" points=\"18,7 20,-1 23,6\"/></g><g class=\"svg-cat-ear-r\"><polygon class=\"svg-cat-ear\" points=\"25,6 28,-1 30,7\"/></g><polygon class=\"svg-cat-inner-ear\" points=\"19,6.5 20.5,0.5 22,5.5\"/><polygon class=\"svg-cat-inner-ear\" points=\"26,5.5 27.5,0.5 29,6.5\"/><ellipse class=\"svg-cat-eye\" cx=\"21.5\" cy=\"8.5\" rx=\"2\" ry=\"2.2\"/><ellipse class=\"svg-cat-eye\" cx=\"27\" cy=\"8.5\" rx=\"2\" ry=\"2.2\"/><ellipse class=\"svg-cat-pupil\" cx=\"22\" cy=\"8.8\" rx=\"1.1\" ry=\"1.3\"/><ellipse class=\"svg-cat-pupil\" cx=\"27.5\" cy=\"8.8\" rx=\"1.1\" ry=\"1.3\"/><circle class=\"svg-cat-eye-shine\" cx=\"21.2\" cy=\"7.8\" r=\"0.6\"/><circle class=\"svg-cat-eye-shine\" cx=\"26.7\" cy=\"7.8\" r=\"0.6\"/><path class=\"svg-cat-closed-eye\" d=\"M19.8 8.5 Q21.5 10.5 23.2 8.5\" stroke-width=\"0.8\" fill=\"none\"/><path class=\"svg-cat-closed-eye\" d=\"M25.3 8.5 Q27 10.5 28.7 8.5\" stroke-width=\"0.8\" fill=\"none\"/><path class=\"svg-cat-nose\" d=\"M23.5 11.5 L24.2 12.2 L25 11.5 Z\"/><path class=\"svg-cat-mouth\" d=\"M23 12.5 Q24.2 13.8 24.2 12.5\" stroke-width=\"0.7\"/><path class=\"svg-cat-mouth\" d=\"M24.3 12.5 Q24.3 13.8 25.5 12.5\" stroke-width=\"0.7\"/><line class=\"svg-cat-whisker\" x1=\"19.5\" y1=\"11\" x2=\"14\" y2=\"10\" stroke-width=\"0.5\"/><line class=\"svg-cat-whisker\" x1=\"19.5\" y1=\"12\" x2=\"14\" y2=\"12.5\" stroke-width=\"0.5\"/><line class=\"svg-cat-whisker\" x1=\"29\" y1=\"11\" x2=\"34\" y2=\"10\" stroke-width=\"0.5\"/><line class=\"svg-cat-whisker\" x1=\"29\" y1=\"12\" x2=\"34\" y2=\"12.5\" stroke-width=\"0.5\"/><circle class=\"svg-cat-breath svg-cat-breath-1\" cx=\"27\" cy=\"14\" r=\"0.8\"/><circle class=\"svg-cat-breath svg-cat-breath-2\" cx=\"28\" cy=\"13.5\" r=\"0.6\"/><circle class=\"svg-cat-breath svg-cat-breath-3\" cx=\"29\" cy=\"14.5\" r=\"0.5\"/></g></g><ellipse class=\"svg-cat-leg-blur\" cx=\"12.5\" cy=\"22\" rx=\"1.8\" ry=\"1.2\"/><ellipse class=\"svg-cat-leg-blur\" cx=\"17.5\" cy=\"22\" rx=\"1.8\" ry=\"1.2\"/><ellipse class=\"svg-cat-leg-blur svg-cat-leg-blur-inner\" cx=\"14\" cy=\"22\" rx=\"1.5\" ry=\"1\"/><ellipse class=\"svg-cat-leg-blur svg-cat-leg-blur-inner\" cx=\"16\" cy=\"22\" rx=\"1.5\" ry=\"1\"/></svg></span></span><span class="typing-text">正在思考...</span></div>`;
   overlay.classList.add('show');
   // Build context from current chat history
   const chat=currentId?getChat(currentId):null;
