@@ -13,49 +13,53 @@ home directory), edited in place; they are now version-controlled here.
 | usage-api   | 7686 | `usage/server.js`   | `usage-api.service`   | Token usage tracking |
 | perf-api    | 7687 | `perf/server.js`    | `perf-api.service`    | Frontend perf telemetry |
 
-All 6 services run under `systemd --user` (Phase 5.3 promoted finance + perf
-from bare processes). Source-of-truth for unit files lives in `~/.config/systemd/user/*.service`;
-sanitized copies live in `services/systemd-user/`.
+All 6 services run under `systemd --user` with `ExecStart` pointing
+**directly at this repo path** (Phase 5.4 option C — no copy, repo == prod).
+Sanitized copies of the unit files live in `services/systemd-user/`.
 
 ## Workflow
 
-### Editing a service or unit
+### Editing a service
 
 ```bash
-# Edit the service code
+# 1. Edit the source in repo
 $EDITOR services/file/server.js
-npm run services:sync          # check + diff + atomic copy (no restart)
-npm run services:deploy        # ... and `systemctl --user restart`
 
-# Edit a unit file
-$EDITOR services/systemd-user/file-api.service
-npm run units:sync             # check + diff + atomic copy (no reload)
-npm run units:reload           # ... and `systemctl --user daemon-reload`
+# 2. Validate before restart
+node --check services/file/server.js
+npm run test:unit            # add lib/ tests as you extract modules
+
+# 3. Restart the service — it loads straight from this repo path
+systemctl --user restart file-api.service
 ```
 
-### Promoting a bare process to systemd-user (Phase 5.3 pattern)
+There is **no** `services:sync` step. The systemd unit's `ExecStart=` is
+literally `/home/nikefd/openclaw-deploy/services/<name>/server.js`.
 
-1. Add `services/systemd-user/<name>.service` (copy `usage-api.service` as a
-   template).
-2. Register in `scripts/sync-units.mjs` `UNITS` and `scripts/sync-services.mjs`
-   `SERVICES[<name>].unit`.
-3. `npm run units:sync -- --reload`.
-4. Atomic switch from a `systemd-run` transient (kill bare, then
-   `systemctl --user enable --now <name>`) — NOT direct `kill` from `exec`
-   (SIGTERM kills the OpenClaw exec parent, see MEMORY.md 2026-04-25).
-5. Add the unit to the smoke sanity loop.
+### Editing a unit file
+
+```bash
+$EDITOR services/systemd-user/file-api.service
+npm run units:sync           # check + diff + atomic copy (no reload)
+npm run units:reload         # ... and `systemctl --user daemon-reload`
+systemctl --user restart file-api.service
+```
+
+### Adding a new service
+
+1. Create `services/<name>/server.js` (any required `lib/` next to it).
+2. Create `services/systemd-user/<name>.service` with
+   `ExecStart=/usr/bin/node /home/nikefd/openclaw-deploy/services/<name>/server.js`.
+3. Register in `scripts/sync-units.mjs` `UNITS`.
+4. `npm run units:sync -- --reload && systemctl --user enable --now <name>`.
+5. Add the unit to the smoke drift loop in `tests/smoke/smoke.sh`.
 
 ### NEVER do this
 
-- ❌ Edit `~/file-api-server.js` directly (drift from repo)
 - ❌ Restart a service whose repo source hasn't passed `node --check`
 - ❌ `kill` from `exec` — environment quirk SIGTERMs the parent (use
    `systemctl --user restart` or `systemd-run --on-active=2 …`)
-
-### finance-api / perf-api — promoted Phase 5.3
-
-These are now managed by `systemd --user` like the rest. Restart with
-`systemctl --user restart finance-api.service` or `npm run services:deploy`.
+- ❌ Move/rename `/home/nikefd/openclaw-deploy/` — 6 services depend on the path
 
 ## Layout
 

@@ -2,7 +2,7 @@
 Description=File Browser API
 After=network.target
 [Service]
-ExecStart=/usr/bin/node /home/nikefd/file-api-server.js
+ExecStart=/usr/bin/node /home/nikefd/openclaw-deploy/services/file/server.js
 Restart=always
 RestartSec=3
 [Install]
