@@ -132,13 +132,14 @@ openclaw-deploy/
 - 它只单独 import `/src/ui/tasksDashboard.js`，不引 infra 整层（避免副作用扩散）
 - sync-prod.mjs 现在也拷 `agents.html` + check 其 inline scripts
 
-### D. **收尾 Phase 4，转 Phase 5**（✅ 5.1 / 5.2 / 5.3 已完成）
+### D. **Phase 5 进展**（✅ 5.1 / 5.2 / 5.3 / 5.4 全部完成）
 - Phase 5.1 ✅ `48c2099`：6 service 进 repo + sync-services
 - Phase 5.2 ✅ `003b5d4`：sync-units (`units:sync` / `units:reload`)
 - Phase 5.3 ✅ `003b5d4`：finance/perf 提升 systemd-user unit（6 个服务全被守护）
-- Phase 5.4 待做：拆 server.js 到 `services/<name>/lib/` + unit tests
+- Phase 5.4 ✅ `0a80809` + `70430dd`：抽 `stripHeavy` + `sendJson` → `services/file/lib/` 使用 option C（systemd ExecStart 指 repo）。部署从“cp 到 ~/”变 `git pull && systemctl restart`。
+- Phase 5.5 待做：继续抽后端路由/handler/DB 到 `lib/`，重点 `services/file/server.js` (697) 和 `services/finance/server.js` (1439)
 
-**建议起步：Phase 5.4。**
+**建议起步：Phase 5.5（抽 file/server.js 里的 chat persistence handler）。**
 
 ---
 
@@ -160,4 +161,4 @@ openclaw-deploy/
 - 不要追求一次抽很多——之前 Phase 2 一次性接 module script 直接炸
 - 改完测试 + smoke 全绿才能 commit，**绝对不允许**红灯 commit
 
-_Last updated: 2026-04-25 by 狗蛋（5.3 done）_
+_Last updated: 2026-04-25 by 狗蛋（5.4 done）_
