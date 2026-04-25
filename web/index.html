@@ -1417,65 +1417,30 @@ async function sendMessage(){
       if(el&&currentId===chatId){el.innerHTML=renderMd(full);el.classList.remove('raw');const ad=document.createElement('div');ad.className='msg-actions';const ttsBtn=agent?.tts?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';ad.innerHTML=`${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button>`;el.parentElement.appendChild(ad);}
     }
   }catch(err){removeTyping(chatId);
-    if(full){const existingAst=chat.messages[chat.messages.length-1];if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;delete existingAst._streaming;}else{chat.messages.push({role:'assistant',content:full});}chat.updatedAt=Date.now();save(chatId);if(!el&&currentId===chatId){el=appendMsg('assistant',full,agent,false);}}
-    // 占位：轮询期间先给一个友好提示，避免用户看到红色 ❌
-    let _placeholderEl=null,_placeholderMsg=null;
-    if(currentId===chatId&&!el){
-      _placeholderEl=appendMsg('assistant','⏳ 正在尝试恢复回复…',agent,false);
-      _placeholderMsg=_placeholderEl.closest('.message');
-    }else if(el&&currentId===chatId){
-      _placeholderEl=el;_placeholderMsg=el.closest('.message');
-    }
-    // 长轮询 recover：最多 60 次 × 2s，只要拿到比 full 更长的 assistant 就采用
-    async function tryRecover(){
-      const MAX_R=60,INTERVAL=2000;
-      for(let i=1;i<=MAX_R;i++){
-        try{
-          const rr=await fetch(`/v1/sessions/${encodeURIComponent(chatId)}/history?limit=4`,{headers:{'Authorization':`Bearer ${TOKEN}`}});
-          if(rr.ok){
-            const hd=await rr.json();
-            const last=hd.messages?.filter(m=>m.role==='assistant').pop();
-            if(last?.content&&(!full||last.content.length>full.length)){
-              // 成功：清掉占位，渲染真实回复
-              if(_placeholderMsg){_placeholderMsg.remove();_placeholderEl=null;_placeholderMsg=null;}
-              if(el){try{el.closest('.message').remove();}catch{}}
-              chat.messages=chat.messages.filter(m=>!(m.role==='assistant'&&(m.content===full||m._streaming)));
-              chat.messages.push({role:'assistant',content:last.content});
-              if(currentId===chatId){
-                const nel=appendMsg('assistant',last.content,agent,false);
-                const ad=document.createElement('div');ad.className='msg-actions';
-                const ttsBtn=agent?.tts?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';
-                ad.innerHTML=`${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button>`;
-                nel.closest('.message').appendChild(ad);
-              }
-              save();return true;
-            }
-          }
-        }catch{}
-        // 轮询期间更新占位提示，让用户知道还在努力
-        if(_placeholderEl&&currentId===chatId){
-          try{_placeholderEl.textContent=`⏳ 正在恢复回复… (${i}/${MAX_R})`;}catch{}
-        }
-        if(i<MAX_R)await new Promise(r=>setTimeout(r,INTERVAL));
+    // 🔒 流式中断修复（4/24 老 bug `tryRecover` 的同款反复）：
+    //   - 不要去 GET gateway /v1/sessions/.../history（那是另一个数据源，会返回别的 session 内容）
+    //   - `full` 里已累积的那些内容就是真相（后端 proxy 也实时落盘了）
+    //   - 直接 finalize，加个"⚠⏸ 连接中断"徽标 + 重试按钮让用户手动介入
+    if(full){
+      const existingAst=chat.messages[chat.messages.length-1];
+      if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;delete existingAst._streaming;}
+      else if(existingAst?.role==='assistant'){existingAst.content=full;}
+      else{chat.messages.push({role:'assistant',content:full});}
+      chat.updatedAt=Date.now();save(chatId);
+      if(!el&&currentId===chatId){el=appendMsg('assistant',full,agent,false);}
+      // 渲染 markdown（跳出原始 mode）
+      if(el&&currentId===chatId){
+        try{el.innerHTML=renderMd(full);el.classList.remove('raw');}catch{}
       }
-      return false;
     }
-    const _recovered=await tryRecover();
-    if(!_recovered&&currentId===chatId){
-      // 失败：把占位改成红色 ❌ 可点击重试
+    if(currentId===chatId){
       const lastUserMsg=chat.messages.filter(m=>m.role==='user').pop()?.content||'';
-      if(_placeholderMsg){
-        _placeholderEl.textContent='❌ '+err.message+'\n\n🔄 点击恢复回复 / 重试';
-        _placeholderMsg.classList.add('error-msg');_placeholderMsg.style.cursor='pointer';
-        const _msgEl=_placeholderMsg,_errEl=_placeholderEl;
-        _msgEl.onclick=async()=>{_msgEl.onclick=null;_errEl.textContent='⏳ 正在尝试恢复...';if(await tryRecover()){_msgEl.remove();}else{_msgEl.remove();input.value=lastUserMsg;sendMessage();}};
-      }else{
-        const errEl=appendMsg('assistant','❌ '+err.message+'\n\n🔄 点击恢复回复 / 重试',agent,false);const msgEl=errEl.closest('.message');msgEl.classList.add('error-msg');msgEl.style.cursor='pointer';
-        msgEl.onclick=async()=>{msgEl.onclick=null;errEl.textContent='⏳ 正在尝试恢复...';if(await tryRecover()){msgEl.remove();}else{msgEl.remove();input.value=lastUserMsg;sendMessage();}};
-      }
-    }else if(_recovered&&_placeholderMsg){
-      // 成功但占位还在（理论上上面已经 remove 了，兜底一下）
-      try{_placeholderMsg.remove();}catch{}
+      const errMsg=(err&&err.message)||'连接中断';
+      // 创建一个独立的提示块（不覆盖 full）
+      const noteEl=appendMsg('assistant','⚠⏸ 连接中断: '+errMsg+'\n\n🔄 点击重试'+(full?'（已保留上面的部分回复）':''),agent,false);
+      const noteMsg=noteEl.closest('.message');
+      noteMsg.classList.add('error-msg');noteMsg.style.cursor='pointer';
+      noteMsg.onclick=()=>{noteMsg.onclick=null;noteMsg.remove();input.value=lastUserMsg;sendMessage();};
     }
   }finally{
     const _perfTotal=performance.now()-_perfStart;
