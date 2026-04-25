@@ -14,6 +14,7 @@ import * as uiMessageActions from '../ui/messageActions.js';
 import * as uiTts from '../ui/tts.js';
 import * as uiFileHelpers from '../ui/fileHelpers.js';
 import * as uiSkillsPanel from '../ui/skillsPanel.js';
+import * as uiSearchHelpers from '../ui/searchHelpers.js';
 
 export {
   config, urls, resolveWireModel,
@@ -28,6 +29,7 @@ export {
   uiTts,
   uiFileHelpers,
   uiSkillsPanel,
+  uiSearchHelpers,
 };
 
 // Developer convenience: expose on window for console probing.
@@ -38,7 +40,7 @@ if (typeof window !== 'undefined') {
     backend: getBackend(),
     prefs, chatStore, perfLog,
     domain: { chat: chatDomain },
-    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel },
+    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers },
     version: 'phase-4',
   });
 }

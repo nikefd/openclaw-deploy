@@ -946,10 +946,12 @@ function getAgent(id){return AGENTS.find(a=>a.id===id)||AGENTS[0];}
 
 // === SIDEBAR ===
 let chatSearchQuery='';
-function escReg(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
-function highlightText(text,q){if(!q)return esc(text);const re=new RegExp('('+escReg(q)+')','gi');return esc(text).replace(re,'<mark>$1</mark>');}
-function findSnippet(text,q,radius=30){const lower=text.toLowerCase(),idx=lower.indexOf(q.toLowerCase());if(idx<0)return '';const start=Math.max(0,idx-radius),end=Math.min(text.length,idx+q.length+radius);return (start>0?'…':'')+text.substring(start,end)+(end<text.length?'…':'');}
+function escReg(s){const f=window.__oc?.ui?.searchHelpers?.escReg;return f?f(s):s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+function highlightText(text,q){const f=window.__oc?.ui?.searchHelpers?.highlightText;if(f)return f(text,q);if(!q)return esc(text);const re=new RegExp('('+escReg(q)+')','gi');return esc(text).replace(re,'<mark>$1</mark>');}
+function findSnippet(text,q,radius=30){const f=window.__oc?.ui?.searchHelpers?.findSnippet;if(f)return f(text,q,radius);const lower=text.toLowerCase(),idx=lower.indexOf(q.toLowerCase());if(idx<0)return '';const start=Math.max(0,idx-radius),end=Math.min(text.length,idx+q.length+radius);return (start>0?'…':'')+text.substring(start,end)+(end<text.length?'…':'');}
 function chatMatches(c,q){
+  const f=window.__oc?.ui?.searchHelpers?.chatMatches;
+  if(f)return f(c,q);
   if(!q)return {match:true,snippet:'',msgIdx:-1};
   const lq=q.toLowerCase();
   if((c.title||'').toLowerCase().includes(lq))return {match:true,snippet:'',msgIdx:-1};
