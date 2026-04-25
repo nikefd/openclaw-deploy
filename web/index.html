@@ -637,6 +637,8 @@ function copyMsg(btn){
   const text=btn.closest('.message').querySelector('.msg-text').textContent;navigator.clipboard.writeText(text).then(()=>{btn.textContent='✅ 已复制';btn.classList.add('copied');setTimeout(()=>{btn.textContent='📋 复制';btn.classList.remove('copied')},1500)}).catch(()=>alert('复制失败'))
 }
 function speakText(text,btn){
+  const m=window.__oc?.ui?.tts?.speakText;
+  if(m)return m(text,btn);
   if(curUtter){speechSynthesis.cancel();if(btn.classList.contains('speaking')){btn.classList.remove('speaking');btn.textContent='🔊 朗读';curUtter=null;return;}}
   const u=new SpeechSynthesisUtterance(text);u.lang='zh-CN';curUtter=u;
   btn.classList.add('speaking');btn.textContent='⏹ 停止';

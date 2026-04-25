@@ -11,6 +11,7 @@ import { perfLog } from './telemetry.js';
 import * as chatDomain from '../domain/chat.js';
 import * as uiMarkdown from '../ui/markdown.js';
 import * as uiMessageActions from '../ui/messageActions.js';
+import * as uiTts from '../ui/tts.js';
 
 export {
   config, urls, resolveWireModel,
@@ -22,6 +23,7 @@ export {
   chatDomain,
   uiMarkdown,
   uiMessageActions,
+  uiTts,
 };
 
 // Developer convenience: expose on window for console probing.
@@ -32,7 +34,7 @@ if (typeof window !== 'undefined') {
     backend: getBackend(),
     prefs, chatStore, perfLog,
     domain: { chat: chatDomain },
-    ui: { markdown: uiMarkdown, messageActions: uiMessageActions },
+    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts },
     version: 'phase-4',
   });
 }
