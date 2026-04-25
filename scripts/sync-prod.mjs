@@ -128,11 +128,13 @@ if (!safeStat(indexHtml)) fail(`${indexHtml} missing`);
 
 // Gates
 checkInlineScripts(indexHtml);
+const agentsHtml = join(SRC_ROOT, 'agents.html');
+if (safeStat(agentsHtml)) checkInlineScripts(agentsHtml);
 checkJsModules(join(SRC_ROOT, 'src'));
 
 // Copy
 let total = 0;
-for (const f of ['index.html', 'login.html']) if (copyFile(f)) total++;
+for (const f of ['index.html', 'login.html', 'agents.html']) if (copyFile(f)) total++;
 
 // Recurse known asset dirs only (don't blindly nuke /var/www/chat)
 for (const dir of ['assets', 'src']) {
