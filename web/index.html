@@ -666,15 +666,21 @@ const LANG_MAP={
   sh:'Shell',bash:'Shell',zsh:'Shell',
 };
 function fileIcon(name,isDir){
+  const m=window.__oc?.ui?.fileHelpers?.fileIcon;
+  if(m)return m(name,isDir);
   if(isDir) return '📁';
   const ext=name.split('.').pop().toLowerCase();
   return FILE_ICONS[ext]||'📄';
 }
 function fileLang(name){
+  const m=window.__oc?.ui?.fileHelpers?.fileLang;
+  if(m)return m(name);
   const ext=name.split('.').pop().toLowerCase();
   return LANG_MAP[ext]||ext.toUpperCase()||'Text';
 }
 function fmtSize(b){
+  const m=window.__oc?.ui?.fileHelpers?.fmtSize;
+  if(m)return m(b);
   if(b==null) return '';
   if(b<1024) return b+' B';
   if(b<1048576) return (b/1024).toFixed(1)+' KB';
