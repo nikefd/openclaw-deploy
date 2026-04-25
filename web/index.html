@@ -753,6 +753,11 @@ async function loadFiles(dir){
 window.loadFiles=loadFiles;
 
 function renderFileTabs(){
+  const fv=window.__oc?.ui?.fileViewer;
+  if(fv?.fileTabsHtml){
+    $('fileTabs').innerHTML=fv.fileTabsHtml(openTabs,activeTab,{fileIcon,escapeHtml:esc});
+    return;
+  }
   let html='';
   openTabs.forEach(t=>{
     const icon=fileIcon(t.name,false);
@@ -778,7 +783,7 @@ function closeTab(fp){
   if(activeTab===fp){activeTab=openTabs.length?openTabs[openTabs.length-1].path:null;}
   renderFileTabs();
   if(activeTab){const t=openTabs.find(x=>x.path===activeTab);if(t)renderFileContent(t);}
-  else{$('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">📄</div><div>选择文件查看内容</div><div style="font-size:12px;opacity:.6">从左侧目录中点击文件</div></div>`;$('fileInfoBar').style.display='none';}
+  else{$('fileViewerBody').innerHTML=window.__oc?.ui?.fileViewer?.FILE_VIEWER_EMPTY_HTML||`<div class="file-viewer-empty"><div class="empty-icon">📄</div><div>选择文件查看内容</div><div style="font-size:12px;opacity:.6">从左侧目录中点击文件</div></div>`;$('fileInfoBar').style.display='none';}
   highlightActiveFile();
 }
 window.switchTab=switchTab;window.closeTab=closeTab;
@@ -792,6 +797,19 @@ function downloadCurrentFile(){
 }
 
 function renderFileContent(tab){
+  const fv=window.__oc?.ui?.fileViewer;
+  if(fv?.fileViewerContent){
+    const r=fv.fileViewerContent(tab,{fileLang,fmtSize,escapeHtml:esc});
+    $('fileViewerBody').innerHTML=r.bodyHtml;
+    $('fileInfoBar').style.display='flex';
+    $('fileInfoLang').textContent=r.infoBar.lang;
+    $('fileInfoLines').textContent=r.infoBar.lines;
+    $('fileInfoSize').textContent=r.infoBar.size;
+    $('fileInfoPath').textContent=r.infoBar.path;
+    const body=$('fileViewerBody');
+    body.onscroll=()=>{body.querySelector('.line-numbers').style.transform=`translateY(0)`};
+    return;
+  }
   const lines=tab.content.split('\n');
   const lineNums=lines.map((_,i)=>i+1).join('\n');
   $('fileViewerBody').innerHTML=`<div class="line-numbers">${lineNums}</div><div class="file-content">${esc(tab.content)}</div>`;
@@ -816,7 +834,7 @@ async function viewFile(fp,name){
   renderFileTabs();
   if(tab.content!=null){renderFileContent(tab);highlightActiveFile();return;}
   // Loading state
-  $('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">⏳</div><div>加载中...</div></div>`;
+  $('fileViewerBody').innerHTML=window.__oc?.ui?.fileViewer?.FILE_VIEWER_LOADING_HTML||`<div class="file-viewer-empty"><div class="empty-icon">⏳</div><div>加载中...</div></div>`;
   try{
     const r=await fetch(`/api/files/read?path=${encodeURIComponent(fp)}`);
     const d=await r.json();
@@ -824,7 +842,8 @@ async function viewFile(fp,name){
     tab.content=d.content;tab.size=d.size;
     if(activeTab===fp)renderFileContent(tab);
   }catch(e){
-    $('fileViewerBody').innerHTML=`<div class="file-viewer-empty"><div class="empty-icon">❌</div><div>${e.message}</div></div>`;
+    const fv=window.__oc?.ui?.fileViewer;
+    $('fileViewerBody').innerHTML=fv?.fileViewerErrorHtml?fv.fileViewerErrorHtml(e.message,{escapeHtml:esc}):`<div class="file-viewer-empty"><div class="empty-icon">❌</div><div>${e.message}</div></div>`;
   }
   highlightActiveFile();
 }
