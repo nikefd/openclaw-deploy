@@ -43,8 +43,8 @@ openclaw-deploy/
 
 | Phase | 任务 | 风险 | 预估 | 状态 |
 |-------|------|------|------|------|
-| 0 | 建分支 + 骨架目录 + 本文档 | ⬇️ | 10m | 🟢 进行中 |
-| 1 | 抽 CSS 到 assets/css/ | ⬇️ | 30m | ⬜ |
+| 0 | 建分支 + 骨架目录 + 本文档 | ⬇️ | 10m | ✅ `48e13bd` |
+| 1 | 抽 CSS 到 assets/css/ | ⬇️ | 30m | ✅ `c2711fa` |
 | 2 | infra 层：config / backend / storage | ⬇️⬇️ | 1h | ⬜ |
 | 3 | domain + application 层 | ⬇️⬇️ | 2h | ⬜ |
 | 4 | UI 组件化 | ⬇️⬇️ | 2h | ⬜ |
@@ -60,7 +60,14 @@ openclaw-deploy/
 
 ## 进度日志
 
-### 2026-04-24 Phase 0
+### 2026-04-24 Phase 0 — `48e13bd`
 - 分支 `refactor-phase-0` 创建
 - 骨架目录搭建：`web/src/{ui,app,domain,infra/{backend,storage}}` / `services/{file,auth,agents,finance,usage,perf}/lib` / `lib/{http,storage,logger}`
 - REFACTOR.md 创建（本文档）
+
+### 2026-04-25 Phase 1 — `c2711fa`
+- `index.html` 内联 `<style>` (1041 行) 原样抽到 `web/assets/css/app.css`
+- `<style>...</style>` 替换为 `<link rel="stylesheet" href="/assets/css/app.css">`
+- `index.html` 从 3170 → 2128 行 (-33%)
+- 已同步到 `/var/www/chat/`，线上备份：`index.html.bak-phase1-20260425-*`
+- **待斌哥实测确认视觉零变化 → 合并 main**
