@@ -1145,16 +1145,24 @@ function insertMention(mention){const inp=document.getElementById('input');inp.v
 
 
 function appendMsg(role,content,agent,withTTS,images){
-  const div=document.createElement('div');div.className=`message ${role}`;
-  const emoji=role==='user'?'你':(agent?.emoji||'🦞');
-  const bg=role==='user'?'':`style="background:${agent?.color||'var(--accent)'}"`;
-  let actions='';
-  if(content){const ttsBtn=(role==='assistant'&&withTTS)?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';actions=`<div class="msg-actions">${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button></div>`;}
-  let imgHtml='';
-  if(images&&images.length){imgHtml='<div class="msg-images">'+images.map(u=>`<img src="${u}" onclick="openLightbox(this.src)">`).join('')+'</div>';}
-  const rendered=role==='assistant'?renderMd(content):esc(content);
-  const rawClass=role==='user'?' raw':'';
-  div.innerHTML=`<div class="msg-inner"><div class="avatar" ${bg}>${emoji}</div><div style="flex:1">${imgHtml}<div class="msg-text${rawClass}">${rendered}</div>${actions}</div></div>`;
+  const div=document.createElement('div');
+  const renderedBody=role==='assistant'?renderMd(content):esc(content);
+  const m=window.__oc?.ui?.messageRenderer;
+  if(m?.messageHtml){
+    const r=m.messageHtml({role,content,agent,withTTS,images,renderedBody});
+    div.className=r.className;
+    div.innerHTML=r.innerHtml;
+  }else{
+    div.className=`message ${role}`;
+    const emoji=role==='user'?'你':(agent?.emoji||'🦞');
+    const bg=role==='user'?'':`style="background:${agent?.color||'var(--accent)'}"`;
+    let actions='';
+    if(content){const ttsBtn=(role==='assistant'&&withTTS)?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';actions=`<div class="msg-actions">${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button></div>`;}
+    let imgHtml='';
+    if(images&&images.length){imgHtml='<div class="msg-images">'+images.map(u=>`<img src="${u}" onclick="openLightbox(this.src)">`).join('')+'</div>';}
+    const rawClass=role==='user'?' raw':'';
+    div.innerHTML=`<div class="msg-inner"><div class="avatar" ${bg}>${emoji}</div><div style="flex:1">${imgHtml}<div class="msg-text${rawClass}">${renderedBody}</div>${actions}</div></div>`;
+  }
   messagesEl.appendChild(div);messagesEl.scrollTop=messagesEl.scrollHeight;
   return div.querySelector('.msg-text');
 }
