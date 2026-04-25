@@ -129,13 +129,13 @@ openclaw-deploy/
 - 它只单独 import `/src/ui/tasksDashboard.js`，不引 infra 整层（避免副作用扩散）
 - sync-prod.mjs 现在也拷 `agents.html` + check 其 inline scripts
 
-### D. **收尾 Phase 4，转 Phase 5**
-- Phase 5 计划：把后端 services 源码（`~/file-api-server.js` 等 5 个）搬进 `openclaw-deploy/services/` 做版本管理
-- ⚠️ 已知坑：这些服务现在被 `systemd --user`（`~/.config/systemd/user/*.service`）守护，不是裸 nohup。**不要装 system 级 unit**（会和 user unit 抢端口）
-- 第一步：纯 cp 源码 + unit 文件副本到 repo，不动运行时
-- 第二步：加 `npm run sync:services` 把 repo 中源码拷回 `~/`，斌哥手动 `systemctl --user restart`
+### D. **收尾 Phase 4，转 Phase 5**（✅ Phase 5.1 已完成 → `48c2099`）
+- Phase 5.1 ✅：6 个 service 进 repo + 4 个 .service 副本 + `npm run services:sync` (原子 / 语法检 / 可选 restart) + smoke 加 6 个 drift 检测
+- Phase 5.2：`scripts/sync-units.mjs` 同步 systemd-user .service 文件到 `~/.config/systemd/user/`（现在手工）
+- Phase 5.3：给 finance / perf 创建 systemd-user unit，免裸进程重启就丢
+- Phase 5.4：拆 server.js 到 `services/<name>/lib/`（仿照 `web/src/`）
 
-**建议起步：D（转 Phase 5）。Phase 4.10 / 4.11 / 4.12 已完成。**
+**建议起步：Phase 5.2（sync-units 脚本）。**
 
 ---
 
@@ -157,4 +157,4 @@ openclaw-deploy/
 - 不要追求一次抽很多——之前 Phase 2 一次性接 module script 直接炸
 - 改完测试 + smoke 全绿才能 commit，**绝对不允许**红灯 commit
 
-_Last updated: 2026-04-25 by 狗蛋（4.12 done）_
+_Last updated: 2026-04-25 by 狗蛋（5.1 done）_
