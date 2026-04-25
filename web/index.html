@@ -1731,18 +1731,23 @@ async function loadNodes(){
       }).catch(()=>{});
     }
     
-    // Render pending
+    // Render known nodes — moved up; selector pieces stay
+    const nodesEl=document.getElementById('nodesConnected');
+    const nodes=status.nodes||[];
     const pendingEl=document.getElementById('nodesPending');
     const allPending=devices.pending||[];
-    if(allPending.length){
+    // Render pending — Phase 4.8: module-first w/ inline fallback
+    if(window.__oc?.ui?.nodesPanel?.pendingNodesListHtml){
+      pendingEl.innerHTML=window.__oc.ui.nodesPanel.pendingNodesListHtml(allPending);
+    }else if(allPending.length){
       pendingEl.innerHTML='<h3 style="font-size:14px;color:#f59e0b;margin-bottom:10px">\u23f3 待审批的配对请求</h3>'+
         allPending.map(d=>'<div class="node-card pending"><div class="node-card-header"><div class="node-status pending"></div><span class="node-name">'+esc(d.displayName||d.deviceId?.slice(0,12)||'Unknown')+'</span><span class="node-platform">'+(d.platform||'unknown')+'</span></div><div class="node-meta"><span>\ud83d\udd11 '+(d.deviceId?.slice(0,16)||'N/A')+'...</span><span>\ud83d\udccb 角色: '+((d.roles||[d.role]).join(', '))+'</span></div><div class="node-actions"><button class="approve-btn" onclick="approveDevice(\''+(d.requestId||d.deviceId)+'\')">✅ 批准</button><button class="reject-btn" onclick="rejectDevice(\''+(d.requestId||d.deviceId)+'\')">❌ 拒绝</button></div></div>').join('');
     }else{pendingEl.innerHTML='';}
     
-    // Render known nodes
-    const nodesEl=document.getElementById('nodesConnected');
-    const nodes=status.nodes||[];
-    if(nodes.length){
+    // Render known nodes — Phase 4.8: module-first w/ inline fallback
+    if(window.__oc?.ui?.nodesPanel?.connectedNodesListHtml){
+      nodesEl.innerHTML=window.__oc.ui.nodesPanel.connectedNodesListHtml(nodes);
+    }else if(nodes.length){
       nodesEl.innerHTML='<h3 style="font-size:14px;color:var(--text-sec);margin-bottom:10px">\ud83d\udce1 已知节点</h3>'+
         nodes.map(n=>{
           const online=n.connected||n.status==='connected';
