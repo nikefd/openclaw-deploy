@@ -565,6 +565,11 @@ window.memGoBack=memGoBack;
 function renderMemorySidebar(){
   const sidebar=document.querySelector('.memory-sidebar');
   if(!sidebar)return;
+  const mp=window.__oc?.ui?.memoryPanel;
+  if(mp?.memorySidebarHtml){
+    sidebar.innerHTML=mp.memorySidebarHtml(MEMORY_FILES,currentMemFile,memoryCronTime);
+    return;
+  }
   const totalFiles=1+(MEMORY_FILES.daily||[]).length+MEMORY_FILES.identity.length;
   let totalSize=0;
   [MEMORY_FILES.longTerm,MEMORY_FILES.daily||[],MEMORY_FILES.identity].flat().forEach(f=>{if(f.size)totalSize+=f.size;});
