@@ -12,6 +12,7 @@
 
 | Phase | 内容 | commit | tests |
 |---|---|---|---|
+| **4.11** | chat sidebar → `src/ui/chatSidebar.js`（groupLabel / groupHeaderHtml / chatItemHtml / emptyStateHtml，顺手补 agent 字段 escape） | `dd1142e` | +18 |
 | **4.10** | `renderWelcome` → `src/ui/welcome.js`（welcomeHtml，纯字符串模板，含 mention chip 注入防御） | `ae48464` | +10 |
 | **4.9** | `modelDropdownHtml` → `src/ui/modelDropdown.js`；顺手修 4.8 的 nodesPanel infra re-export 漏洞 | `3ddc541` | +9 |
 | **safe-sync** | `scripts/sync-prod.mjs` + `npm run sync/deploy`，禁止裸 `cp → /var/www/chat/` | `af7f9ba` | dogfood ✓ |
@@ -29,7 +30,7 @@
 | **3.5** | 纯 chat shape 逻辑 → `domain/chat.js` | `8dd8cdb` | — |
 | 0–3.4 | 骨架 / CSS 抽离 / infra 层骨干 / SSE wire 统一 | 多个 | — |
 
-**当前测试**：141 unit + 26 smoke 全绿，~1.6s
+**当前测试**：159 unit + 27 smoke 全绿，~1.6s
 
 ---
 
@@ -57,7 +58,8 @@ openclaw-deploy/
 │           ├── demoCodes.js
 │           ├── nodesPanel.js
 │           ├── modelDropdown.js
-│           └── welcome.js
+│           ├── welcome.js
+│           └── chatSidebar.js
 ├── scripts/
 │   └── sync-prod.mjs       # ★ 安全部署：先 syntax-check 再拷
 ├── tests/
@@ -115,15 +117,9 @@ openclaw-deploy/
 
 按"风险低 / 收益高"排：
 
-### A. **chat sidebar 渲染**（中难度）
-- 位置：`renderSidebar()` 函数 + `chatList.innerHTML=html`（line 1003 附近）
-- 已有 `chatItemsHtml` 候选？查一下。chat list HTML 模板拆出来 + 测试。
-- 风险：可能有 onclick 内嵌 chat.id（注意 escape）
+### A. **chat sidebar 渲染**（✅ 已完成 → 4.11）
 
-### B. **`renderWelcome` 抽出**（最简单）
-- 位置：`messagesEl.innerHTML='<div class="welcome">...'`（line 1080）
-- 一个纯字符串模板，几行就完
-- ~5 个测试搞定
+### B. **`renderWelcome` 抽出**（✅ 已完成 → 4.10）
 
 ### C. **Tasks 看板渲染**（如果有的话）
 - 看 `agents.html` 是否有相关代码可以同样套路
@@ -134,7 +130,7 @@ openclaw-deploy/
 - 第一步：纯 cp 源码 + unit 文件副本到 repo，不动运行时
 - 第二步：加 `npm run sync:services` 把 repo 中源码拷回 `~/`，斌哥手动 `systemctl --user restart`
 
-**建议起步：A（chat sidebar）→ C（Tasks 看板）→ D（转 Phase 5）。Phase 4.10 已完成。**
+**建议起步：C（Tasks 看板）→ D（转 Phase 5）。Phase 4.10 / 4.11 已完成。**
 
 ---
 
@@ -156,4 +152,4 @@ openclaw-deploy/
 - 不要追求一次抽很多——之前 Phase 2 一次性接 module script 直接炸
 - 改完测试 + smoke 全绿才能 commit，**绝对不允许**红灯 commit
 
-_Last updated: 2026-04-25 by 狗蛋（4.10 done）_
+_Last updated: 2026-04-25 by 狗蛋（4.11 done）_
