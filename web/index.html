@@ -1654,6 +1654,11 @@ function renderDemoCodes(codes){
   const now=Date.now();
   if(!codes.length){$('demoCodes').innerHTML='';$('demoEmpty').style.display='block';return;}
   $('demoEmpty').style.display='none';
+  const dc=window.__oc?.ui?.demoCodes;
+  if(dc?.demoCodesListHtml){
+    $('demoCodes').innerHTML=dc.demoCodesListHtml(codes,now);
+    return;
+  }
   $('demoCodes').innerHTML=codes.sort((a,b)=>b.createdAt-a.createdAt).map(c=>{
     const expired=c.expiresAt<=now;
     const expStr=new Date(c.expiresAt).toLocaleString('zh-CN');

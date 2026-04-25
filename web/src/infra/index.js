@@ -16,6 +16,7 @@ import * as uiFileHelpers from '../ui/fileHelpers.js';
 import * as uiSkillsPanel from '../ui/skillsPanel.js';
 import * as uiSearchHelpers from '../ui/searchHelpers.js';
 import * as uiMemoryPanel from '../ui/memoryPanel.js';
+import * as uiDemoCodes from '../ui/demoCodes.js';
 
 export {
   config, urls, resolveWireModel,
@@ -32,6 +33,7 @@ export {
   uiSkillsPanel,
   uiSearchHelpers,
   uiMemoryPanel,
+  uiDemoCodes,
 };
 
 // Developer convenience: expose on window for console probing.
@@ -42,7 +44,7 @@ if (typeof window !== 'undefined') {
     backend: getBackend(),
     prefs, chatStore, perfLog,
     domain: { chat: chatDomain },
-    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel },
+    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel, demoCodes: uiDemoCodes },
     version: 'phase-4',
   });
 }
