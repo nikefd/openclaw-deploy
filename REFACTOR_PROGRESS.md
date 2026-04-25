@@ -12,6 +12,9 @@
 
 | Phase | 内容 | commit | tests |
 |---|---|---|---|
+| **5.3** | finance / perf 从裸进程提升为 systemd-user unit | `003b5d4` | smoke +2 |
+| **5.2** | `scripts/sync-units.mjs` 同步 .service 文件 + smoke 4 个 unit drift | `003b5d4` | smoke +4 |
+| **5.1** | 后端 6 个 service 进 repo + `npm run services:sync` + smoke 6 个 drift | `48c2099` | smoke +6 |
 | **4.12** | Tasks 看板 → `src/ui/tasksDashboard.js`（9 个 builder + agents.html 首接 module + sync-prod 扩到 agents.html） | `fe95fa0` | +32 |
 | **4.11** | chat sidebar → `src/ui/chatSidebar.js`（groupLabel / groupHeaderHtml / chatItemHtml / emptyStateHtml，顺手补 agent 字段 escape） | `dd1142e` | +18 |
 | **4.10** | `renderWelcome` → `src/ui/welcome.js`（welcomeHtml，纯字符串模板，含 mention chip 注入防御） | `ae48464` | +10 |
@@ -31,7 +34,7 @@
 | **3.5** | 纯 chat shape 逻辑 → `domain/chat.js` | `8dd8cdb` | — |
 | 0–3.4 | 骨架 / CSS 抽离 / infra 层骨干 / SSE wire 统一 | 多个 | — |
 
-**当前测试**：191 unit + 28 smoke 全绿，~1.6s
+**当前测试**：191 unit + 40 smoke 全绿，~1.7s
 
 ---
 
@@ -129,13 +132,13 @@ openclaw-deploy/
 - 它只单独 import `/src/ui/tasksDashboard.js`，不引 infra 整层（避免副作用扩散）
 - sync-prod.mjs 现在也拷 `agents.html` + check 其 inline scripts
 
-### D. **收尾 Phase 4，转 Phase 5**（✅ Phase 5.1 已完成 → `48c2099`）
-- Phase 5.1 ✅：6 个 service 进 repo + 4 个 .service 副本 + `npm run services:sync` (原子 / 语法检 / 可选 restart) + smoke 加 6 个 drift 检测
-- Phase 5.2：`scripts/sync-units.mjs` 同步 systemd-user .service 文件到 `~/.config/systemd/user/`（现在手工）
-- Phase 5.3：给 finance / perf 创建 systemd-user unit，免裸进程重启就丢
-- Phase 5.4：拆 server.js 到 `services/<name>/lib/`（仿照 `web/src/`）
+### D. **收尾 Phase 4，转 Phase 5**（✅ 5.1 / 5.2 / 5.3 已完成）
+- Phase 5.1 ✅ `48c2099`：6 service 进 repo + sync-services
+- Phase 5.2 ✅ `003b5d4`：sync-units (`units:sync` / `units:reload`)
+- Phase 5.3 ✅ `003b5d4`：finance/perf 提升 systemd-user unit（6 个服务全被守护）
+- Phase 5.4 待做：拆 server.js 到 `services/<name>/lib/` + unit tests
 
-**建议起步：Phase 5.2（sync-units 脚本）。**
+**建议起步：Phase 5.4。**
 
 ---
 
@@ -157,4 +160,4 @@ openclaw-deploy/
 - 不要追求一次抽很多——之前 Phase 2 一次性接 module script 直接炸
 - 改完测试 + smoke 全绿才能 commit，**绝对不允许**红灯 commit
 
-_Last updated: 2026-04-25 by 狗蛋（5.1 done）_
+_Last updated: 2026-04-25 by 狗蛋（5.3 done）_
