@@ -2,6 +2,7 @@ const http=require('http'),fs=require('fs'),path=require('path'),zlib=require('z
 const {exec}=require('child_process');
 const {stripHeavy}=require('./lib/stripHeavy');
 const {sendJson}=require('./lib/sendJson');
+const {parseChatJsonl}=require('./lib/parseChatJsonl');
 const EXEC_ENV=Object.assign({},process.env,{PATH:'/home/nikefd/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:'+process.env.PATH});
 const PORT=7682,ROOT=process.env.HOME;
 const CHATS_FILE=path.join(ROOT,'.openclaw','chat-history.json');
@@ -366,31 +367,9 @@ http.createServer(async(req,res)=>{
       const readFrom=Math.max(0,stat.size-65536);
       const fd=fs.openSync(jsonlPath,'r');const buf=Buffer.alloc(stat.size-readFrom);
       fs.readSync(fd,buf,0,buf.length,readFrom);fs.closeSync(fd);
-      const lines=buf.toString('utf-8').split('\n').filter(Boolean);
-      // 兼容两种格式：
-      //   A) 旧格式：{role:'assistant', content:...}
-      //   B) openclaw 内部格式：{type:'message', message:{role:'assistant', content:[{type:'text',text:...}]}, timestamp, stopReason}
-      const msgs=[];
-      for(const ln of lines){
-        try{
-          const o=JSON.parse(ln);
-          if(o.type==='message'&&o.message&&(o.message.role==='assistant'||o.message.role==='user')){
-            msgs.push({role:o.message.role,content:o.message.content,stopReason:o.stopReason||o.message.stopReason,timestamp:o.timestamp});
-          }else if(o.role==='assistant'||o.role==='user'){
-            msgs.push(o);
-          }
-        }catch{}
-      }
-      const lastAsst=[...msgs].reverse().find(m=>m.role==='assistant');
-      let text='',stopReason=null,isStreaming=false;
-      if(lastAsst){
-        stopReason=lastAsst.stopReason||null;
-        isStreaming=!lastAsst.stopReason||lastAsst.stopReason==='inFlight'||lastAsst.stopReason==='streaming';
-        if(Array.isArray(lastAsst.content)){
-          text=lastAsst.content.filter(c=>c&&c.type==='text').map(c=>c.text).join('');
-        }else if(typeof lastAsst.content==='string'){text=lastAsst.content;}
-      }
-      res.end(JSON.stringify({chatId,text,stopReason,isStreaming,ts:lastAsst?.timestamp||null,dispatch}));
+      const lines=buf.toString('utf-8');
+      const {text,stopReason,isStreaming,ts}=parseChatJsonl(lines);
+      res.end(JSON.stringify({chatId,text,stopReason,isStreaming,ts,dispatch}));
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/copilot/stream'&&req.method==='POST'){
     // === 服务端流式代理 + 实时落盘 ===
