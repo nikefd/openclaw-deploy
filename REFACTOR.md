@@ -45,7 +45,7 @@ openclaw-deploy/
 |-------|------|------|------|------|
 | 0 | 建分支 + 骨架目录 + 本文档 | ⬇️ | 10m | ✅ `48e13bd` |
 | 1 | 抽 CSS 到 assets/css/ | ⬇️ | 30m | ✅ `c2711fa` |
-| 2 | infra 层：config / backend / storage | ⬇️⬇️ | 1h | ⬜ |
+| 2 | infra 层：config / backend / storage | ⬇️⬇️ | 1h | ✅ `76d01bb` |
 | 3 | domain + application 层 | ⬇️⬇️ | 2h | ⬜ |
 | 4 | UI 组件化 | ⬇️⬇️ | 2h | ⬜ |
 | 5 | 后端 services/ 重组 | ⬇️ | 1h | ⬜ |
@@ -71,3 +71,10 @@ openclaw-deploy/
 - `index.html` 从 3170 → 2128 行 (-33%)
 - 已同步到 `/var/www/chat/`，线上备份：`index.html.bak-phase1-20260425-*`
 - **待斌哥实测确认视觉零变化 → 合并 main**
+
+### 2026-04-25 Phase 2 — `76d01bb`
+- infra 层建成：`config` / `backend/{ChatBackend, OpenClawBackend, backendFactory}` / `storage/{localStore, chatStore}` / `telemetry` / `index`
+- `index.html` 加了一行 `<script type="module" src="/src/infra/index.js">`，加载后 `window.__oc` 可用
+- **现有代码 0 改动**，仅验证 module 能加载
+- Hermes 迁移成本：新写一个 `HermesBackend.js` + 改 `backendFactory.js` 一行
+- 已同步 `/var/www/chat/`，备份：`index.html.bak-phase2-*`
