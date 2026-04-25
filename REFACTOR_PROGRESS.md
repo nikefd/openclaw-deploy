@@ -12,6 +12,7 @@
 
 | Phase | 内容 | commit | tests |
 |---|---|---|---|
+| **4.12** | Tasks 看板 → `src/ui/tasksDashboard.js`（9 个 builder + agents.html 首接 module + sync-prod 扩到 agents.html） | `fe95fa0` | +32 |
 | **4.11** | chat sidebar → `src/ui/chatSidebar.js`（groupLabel / groupHeaderHtml / chatItemHtml / emptyStateHtml，顺手补 agent 字段 escape） | `dd1142e` | +18 |
 | **4.10** | `renderWelcome` → `src/ui/welcome.js`（welcomeHtml，纯字符串模板，含 mention chip 注入防御） | `ae48464` | +10 |
 | **4.9** | `modelDropdownHtml` → `src/ui/modelDropdown.js`；顺手修 4.8 的 nodesPanel infra re-export 漏洞 | `3ddc541` | +9 |
@@ -30,7 +31,7 @@
 | **3.5** | 纯 chat shape 逻辑 → `domain/chat.js` | `8dd8cdb` | — |
 | 0–3.4 | 骨架 / CSS 抽离 / infra 层骨干 / SSE wire 统一 | 多个 | — |
 
-**当前测试**：159 unit + 27 smoke 全绿，~1.6s
+**当前测试**：191 unit + 28 smoke 全绿，~1.6s
 
 ---
 
@@ -59,7 +60,8 @@ openclaw-deploy/
 │           ├── nodesPanel.js
 │           ├── modelDropdown.js
 │           ├── welcome.js
-│           └── chatSidebar.js
+│           ├── chatSidebar.js
+│           └── tasksDashboard.js   # agents.html 首个接入的 module
 ├── scripts/
 │   └── sync-prod.mjs       # ★ 安全部署：先 syntax-check 再拷
 ├── tests/
@@ -110,6 +112,7 @@ openclaw-deploy/
 6. **`node --check x.js` 对 ESM 太宽松** — sloppy script 解析会放过 `garbage }}{{`。`sync-prod.mjs` 用 `--input-type=module --check -` 管道修了
 7. **添加新 module 后必须 `infra/index.js` 里 import + export + `window.__oc.ui.xxx`**——否则 fallback 永远生效，新代码 dead。Phase 4.8 漏过一次
 8. **抽出函数后旧的内联代码可以保留作 fallback**（防 module 加载失败），不一定要清
+9. **如果要动产 .html 文件动之前，先 `git stash` + `diff -q /var/www/chat/x.html web/x.html`** 验证 repo 跟 prod 一致，避免覆盖掉之前手改的内容 (Phase 4.12 踩过 mtime 误报的坑)
 
 ---
 
@@ -121,8 +124,10 @@ openclaw-deploy/
 
 ### B. **`renderWelcome` 抽出**（✅ 已完成 → 4.10）
 
-### C. **Tasks 看板渲染**（如果有的话）
-- 看 `agents.html` 是否有相关代码可以同样套路
+### C. **Tasks 看板渲染**（✅ 已完成 → 4.12）
+- agents.html 是本项目第二个接入 ES module 的页面
+- 它只单独 import `/src/ui/tasksDashboard.js`，不引 infra 整层（避免副作用扩散）
+- sync-prod.mjs 现在也拷 `agents.html` + check 其 inline scripts
 
 ### D. **收尾 Phase 4，转 Phase 5**
 - Phase 5 计划：把后端 services 源码（`~/file-api-server.js` 等 5 个）搬进 `openclaw-deploy/services/` 做版本管理
@@ -130,7 +135,7 @@ openclaw-deploy/
 - 第一步：纯 cp 源码 + unit 文件副本到 repo，不动运行时
 - 第二步：加 `npm run sync:services` 把 repo 中源码拷回 `~/`，斌哥手动 `systemctl --user restart`
 
-**建议起步：C（Tasks 看板）→ D（转 Phase 5）。Phase 4.10 / 4.11 已完成。**
+**建议起步：D（转 Phase 5）。Phase 4.10 / 4.11 / 4.12 已完成。**
 
 ---
 
@@ -152,4 +157,4 @@ openclaw-deploy/
 - 不要追求一次抽很多——之前 Phase 2 一次性接 module script 直接炸
 - 改完测试 + smoke 全绿才能 commit，**绝对不允许**红灯 commit
 
-_Last updated: 2026-04-25 by 狗蛋（4.11 done）_
+_Last updated: 2026-04-25 by 狗蛋（4.12 done）_
