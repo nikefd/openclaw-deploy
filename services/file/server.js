@@ -5,6 +5,7 @@ const {sendJson}=require('./lib/sendJson');
 const {parseChatJsonl}=require('./lib/parseChatJsonl');
 const {checkChatOverwrite}=require('./lib/chatGuards');
 const {extractTextFromContent,makeChatTitle,ensureChatShape,isSameUserMessage,updateAssistantInChat}=require('./lib/chatStreamWriter');
+const {getBoundary,parseMultipart,makeUniqueName}=require('./lib/multipart');
 const EXEC_ENV=Object.assign({},process.env,{PATH:'/home/nikefd/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:'+process.env.PATH});
 const PORT=7682,ROOT=process.env.HOME;
 const CHATS_FILE=path.join(ROOT,'.openclaw','chat-history.json');
@@ -127,11 +128,10 @@ http.createServer(async(req,res)=>{
       res.end('{"ok":true}');
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/files/upload'&&req.method==='POST'){
-    // Multipart file upload
+    // Multipart file upload — parsing is in lib/multipart.js (pure, tested).
     const ct=req.headers['content-type']||'';
-    const m=ct.match(/boundary=(.+)/);
-    if(!m){res.writeHead(400);res.end('{"error":"no boundary"}');return;}
-    const boundary='--'+m[1];
+    const boundary=getBoundary(ct);
+    if(!boundary){res.writeHead(400);res.end('{"error":"no boundary"}');return;}
     const chunks=[];
     req.on('data',c=>chunks.push(c));
     req.on('end',()=>{
@@ -140,40 +140,13 @@ http.createServer(async(req,res)=>{
         const targetDir=url.searchParams.get('dir');
         const UPLOAD_DIR=targetDir&&path.resolve(targetDir).startsWith(ROOT)?path.resolve(targetDir):path.join(ROOT,'uploads');
         fs.mkdirSync(UPLOAD_DIR,{recursive:true});
-        // Parse multipart
-        const bBuf=Buffer.from(boundary);
-        const parts=[];
-        let start=0;
-        while(true){
-          const idx=buf.indexOf(bBuf,start);
-          if(idx===-1)break;
-          if(start>0)parts.push(buf.slice(start,idx-2));// -2 for \r\n
-          start=idx+bBuf.length+2;// skip boundary + \r\n
-        }
+        const parts=parseMultipart(buf,boundary);
         const results=[];
-        for(const part of parts){
-          const headerEnd=part.indexOf('\r\n\r\n');
-          if(headerEnd===-1)continue;
-          const headers=part.slice(0,headerEnd).toString();
-          const body=part.slice(headerEnd+4);
-          const fnMatch=headers.match(/filename="([^"]+)"/);
-          if(!fnMatch)continue;
-          const fieldMatch=headers.match(/name="([^"]+)"/);
-          const field=fieldMatch?fieldMatch[1]:'file';
-          // Sanitize filename
-          let fn=fnMatch[1].replace(/[^a-zA-Z0-9._\-\u4e00-\u9fff]/g,'_');
-          // Add timestamp to avoid collision
-          const ext=path.extname(fn);
-          const base=path.basename(fn,ext);
-          const safeName=base+'_'+Date.now()+ext;
+        for(const p of parts){
+          const safeName=makeUniqueName(p.filename);
           const dest=path.join(UPLOAD_DIR,safeName);
-          // Strip trailing \r\n if present
-          let writeBody=body;
-          if(body.length>=2&&body[body.length-2]===13&&body[body.length-1]===10){
-            writeBody=body.slice(0,body.length-2);
-          }
-          fs.writeFileSync(dest,writeBody);
-          results.push({field,name:fnMatch[1],savedAs:safeName,path:dest,size:writeBody.length});
+          fs.writeFileSync(dest,p.body);
+          results.push({field:p.field||'file',name:p.filename,savedAs:safeName,path:dest,size:p.body.length});
         }
         res.end(JSON.stringify({ok:true,files:results}));
       }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
