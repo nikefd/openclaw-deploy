@@ -20,6 +20,7 @@ import * as uiDemoCodes from '../ui/demoCodes.js';
 import * as uiNodesPanel from '../ui/nodesPanel.js';
 import * as uiModelDropdown from '../ui/modelDropdown.js';
 import * as uiWelcome from '../ui/welcome.js';
+import * as uiChatSidebar from '../ui/chatSidebar.js';
 
 export {
   config, urls, resolveWireModel,
@@ -40,6 +41,7 @@ export {
   uiNodesPanel,
   uiModelDropdown,
   uiWelcome,
+  uiChatSidebar,
 };
 
 // Developer convenience: expose on window for console probing.
@@ -50,7 +52,7 @@ if (typeof window !== 'undefined') {
     backend: getBackend(),
     prefs, chatStore, perfLog,
     domain: { chat: chatDomain },
-    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel, demoCodes: uiDemoCodes, nodesPanel: uiNodesPanel, modelDropdown: uiModelDropdown, welcome: uiWelcome },
+    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel, demoCodes: uiDemoCodes, nodesPanel: uiNodesPanel, modelDropdown: uiModelDropdown, welcome: uiWelcome, chatSidebar: uiChatSidebar },
     version: 'phase-4',
   });
 }

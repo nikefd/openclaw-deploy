@@ -989,23 +989,49 @@ function chatMatches(c,q){
   return {match:false};
 }
 function renderSidebar(){
+  const m=window.__oc?.ui?.chatSidebar;
   const today=new Date().toDateString(),yesterday=new Date(Date.now()-86400000).toDateString();
   const q=chatSearchQuery.trim();
+  const now=Date.now();
   let html='',lastGroup='',shown=0;
   [...chats].sort((a,b)=>b.updatedAt-a.updatedAt).forEach(c=>{
     const hit=chatMatches(c,q);if(!hit.match)return;shown++;
-    const d=new Date(c.updatedAt).toDateString();
-    let g=d===today?'今天':d===yesterday?'昨天':new Date(c.updatedAt).toLocaleDateString('zh-CN',{month:'short',day:'numeric'});
-    if(q)g='搜索结果';
-    if(g!==lastGroup){html+=`<div style="padding:6px 12px 3px;font-size:11px;color:var(--text-sec);font-weight:600">${g}</div>`;lastGroup=g;}
+    let g;
+    if(m && typeof m.groupLabel==='function'){
+      g=m.groupLabel(c.updatedAt, now, !!q);
+    }else{
+      const d=new Date(c.updatedAt).toDateString();
+      g=d===today?'今天':d===yesterday?'昨天':new Date(c.updatedAt).toLocaleDateString('zh-CN',{month:'short',day:'numeric'});
+      if(q)g='搜索结果';
+    }
+    if(g!==lastGroup){
+      html+= (m && typeof m.groupHeaderHtml==='function')
+        ? m.groupHeaderHtml(g)
+        : `<div style="padding:6px 12px 3px;font-size:11px;color:var(--text-sec);font-weight:600">${g}</div>`;
+      lastGroup=g;
+    }
     const a=getAgent(c.agentId),s=streamingChats.has(c.id);
     const titleHtml=q?highlightText(c.title,q):esc(c.title);
     const snippetHtml=(q&&hit.snippet)?`<span class="snippet">${highlightText(hit.snippet,q)}</span>`:'';
-    const jumpAttr=hit.msgIdx>=0?` data-jump-msg="${hit.msgIdx}"`:'';
-    html+=`<div class="chat-item ${c.id===currentId?'active':''}" data-id="${c.id}"${jumpAttr}><div class="agent-dot" style="background:${a.color}"></div><div class="info"><span class="title">${titleHtml}${s?' ⏳':''}</span><span class="meta">${a.emoji} ${a.name}</span>${snippetHtml}</div><div class="actions"><button class="edit-btn" data-edit="${c.id}" title="编辑标题">✏️</button><button class="delete" data-del="${c.id}">✕</button></div></div>`;
+    if(m && typeof m.chatItemHtml==='function'){
+      // module wraps the snippet itself; pass raw inner HTML
+      const innerSnippet=(q&&hit.snippet)?highlightText(hit.snippet,q):'';
+      html+=m.chatItemHtml(c, a, {
+        isActive: c.id===currentId,
+        isStreaming: s,
+        titleHtml,
+        snippetHtml: innerSnippet,
+        jumpMsgIdx: hit.msgIdx,
+      });
+    }else{
+      const jumpAttr=hit.msgIdx>=0?` data-jump-msg="${hit.msgIdx}"`:'';
+      html+=`<div class="chat-item ${c.id===currentId?'active':''}" data-id="${c.id}"${jumpAttr}><div class="agent-dot" style="background:${a.color}"></div><div class="info"><span class="title">${titleHtml}${s?' ⏳':''}</span><span class="meta">${a.emoji} ${a.name}</span>${snippetHtml}</div><div class="actions"><button class="edit-btn" data-edit="${c.id}" title="编辑标题">✏️</button><button class="delete" data-del="${c.id}">✕</button></div></div>`;
+    }
   });
   if(!shown){
-    chatList.innerHTML=q?`<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px">未找到匹配「${esc(q)}」的对话</div>`:'<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px">暂无对话</div>';
+    chatList.innerHTML = (m && typeof m.emptyStateHtml==='function')
+      ? m.emptyStateHtml(q)
+      : (q?`<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px">未找到匹配「${esc(q)}」的对话</div>`:'<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px">暂无对话</div>');
   }else{chatList.innerHTML=html;}
 }
 chatList.addEventListener('click',e=>{

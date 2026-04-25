@@ -95,6 +95,7 @@ if [ "$MODE" = "local" ]; then
   probe_file "src/ui/nodesPanel.js"     300 "export"
   probe_file "src/ui/modelDropdown.js"  300 "export"
   probe_file "src/ui/welcome.js"        300 "export"
+  probe_file "src/ui/chatSidebar.js"    300 "export"
 
   # Sanity: deploy in /var/www/chat matches openclaw-deploy/web (catches "forgot to sync")
   if diff -q /var/www/chat/index.html /home/nikefd/openclaw-deploy/web/index.html >/dev/null 2>&1; then
