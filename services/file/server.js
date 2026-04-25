@@ -6,6 +6,8 @@ const {parseChatJsonl}=require('./lib/parseChatJsonl');
 const {checkChatOverwrite}=require('./lib/chatGuards');
 const {extractTextFromContent,makeChatTitle,ensureChatShape,isSameUserMessage,updateAssistantInChat}=require('./lib/chatStreamWriter');
 const {getBoundary,parseMultipart,makeUniqueName}=require('./lib/multipart');
+const dispatchStore=require('./lib/dispatchStore');
+const {appendAssistantReply}=require('./lib/appendAssistantReply');
 const EXEC_ENV=Object.assign({},process.env,{PATH:'/home/nikefd/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:'+process.env.PATH});
 const PORT=7682,ROOT=process.env.HOME;
 const CHATS_FILE=path.join(ROOT,'.openclaw','chat-history.json');
@@ -503,49 +505,35 @@ http.createServer(async(req,res)=>{
       const payload={model:j.model||'openclaw',stream:false,user:chatId,messages:j.messages||[]};
       console.log('[chat/send] dispatch chatId='+chatId+' model='+payload.model+' msgs='+payload.messages.length);
       // 记录 dispatch 状态，供 /api/chat/history 回报给前端
-      global.__chatDispatch=global.__chatDispatch||{};
-      global.__chatDispatch[chatId]={status:'pending',startedAt:Date.now(),error:null,httpStatus:null};
+      dispatchStore.markPending(chatId);
       const gwReq=http.request({host:'127.0.0.1',port:18789,path:'/v1/chat/completions',method:'POST',headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json','Connection':'close'}},gwRes=>{
         let buf='';gwRes.on('data',c=>buf+=c);
         gwRes.on('end',()=>{
           console.log('[chat/send] gw done chatId='+chatId+' status='+gwRes.statusCode+' bytes='+buf.length);
-          const d=global.__chatDispatch[chatId]||{};
-          d.httpStatus=gwRes.statusCode;
-          d.endedAt=Date.now();
-          if(gwRes.statusCode>=400){d.status='error';d.error='HTTP '+gwRes.statusCode+': '+buf.slice(0,300);}
-          else{d.status='done';}
+          if(gwRes.statusCode>=400){
+            dispatchStore.markError(chatId,{httpStatus:gwRes.statusCode,error:'HTTP '+gwRes.statusCode+': '+buf.slice(0,300)});
+          }else{
+            dispatchStore.markDone(chatId,{httpStatus:gwRes.statusCode});
+          }
           // 🔥 提取 assistant 回复并写回 chat 文件（之前丢了这步，导致手机刷新后回复消失）
           try{
             const j2=JSON.parse(buf);
             const reply=j2?.choices?.[0]?.message?.content;
             if(reply){
               const chatPath=path.join(ROOT,'.openclaw','chats',chatId+'.json');
-              fs.mkdirSync(path.dirname(chatPath),{recursive:true});
-              let chatDoc;
-              try{chatDoc=JSON.parse(fs.readFileSync(chatPath,'utf-8'));}
-              catch{chatDoc={id:chatId,title:'',messages:[],createdAt:Date.now(),updatedAt:Date.now()};}
-              if(!Array.isArray(chatDoc.messages))chatDoc.messages=[];
-              // 避免重复写入（如果最后一条已是该 reply）
-              const last=chatDoc.messages[chatDoc.messages.length-1];
-              if(!last||last.role!=='assistant'||last.content!==reply){
-                chatDoc.messages.push({role:'assistant',content:reply});
-                chatDoc.updatedAt=Date.now();
-                const tmp=chatPath+'.tmp';
-                fs.writeFileSync(tmp,JSON.stringify(chatDoc),'utf-8');
-                fs.renameSync(tmp,chatPath);
-                console.log('[chat/send] persisted assistant reply chatId='+chatId+' len='+reply.length);
-              }
+              const r=appendAssistantReply({chatPath,chatId,reply});
+              if(r.persisted)console.log('[chat/send] persisted assistant reply chatId='+chatId+' len='+r.len);
             }
           }catch(persistErr){console.error('[chat/send] persist failed chatId='+chatId+':',persistErr.message);}
         });
       });
       gwReq.on('error',e=>{
         console.error('[chat/send] gw error chatId='+chatId+':',e.message);
-        const d=global.__chatDispatch[chatId]||{};d.status='error';d.error=e.message;d.endedAt=Date.now();
+        dispatchStore.markError(chatId,{error:e.message});
       });
       gwReq.on('timeout',()=>{
         console.error('[chat/send] gw TIMEOUT chatId='+chatId);
-        const d=global.__chatDispatch[chatId]||{};d.status='error';d.error='timeout';d.endedAt=Date.now();
+        dispatchStore.markError(chatId,{error:'timeout'});
         gwReq.destroy(new Error('timeout'));
       });
       gwReq.setTimeout(600000);
