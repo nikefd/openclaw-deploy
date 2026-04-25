@@ -23,6 +23,7 @@ import * as uiWelcome from '../ui/welcome.js';
 import * as uiChatSidebar from '../ui/chatSidebar.js';
 import * as uiTasksDashboard from '../ui/tasksDashboard.js';
 import * as uiFileViewer from '../ui/fileViewer.js';
+import * as uiExpertTeams from '../ui/expertTeams.js';
 
 export {
   config, urls, resolveWireModel,
@@ -46,6 +47,7 @@ export {
   uiChatSidebar,
   uiTasksDashboard,
   uiFileViewer,
+  uiExpertTeams,
 };
 
 // Developer convenience: expose on window for console probing.
@@ -56,7 +58,7 @@ if (typeof window !== 'undefined') {
     backend: getBackend(),
     prefs, chatStore, perfLog,
     domain: { chat: chatDomain },
-    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel, demoCodes: uiDemoCodes, nodesPanel: uiNodesPanel, modelDropdown: uiModelDropdown, welcome: uiWelcome, chatSidebar: uiChatSidebar, tasksDashboard: uiTasksDashboard, fileViewer: uiFileViewer },
+    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel, demoCodes: uiDemoCodes, nodesPanel: uiNodesPanel, modelDropdown: uiModelDropdown, welcome: uiWelcome, chatSidebar: uiChatSidebar, tasksDashboard: uiTasksDashboard, fileViewer: uiFileViewer, expertTeams: uiExpertTeams },
     version: 'phase-4',
   });
 }

@@ -2111,6 +2111,11 @@ function toggleExpertPanel(){
 $('expertToggle').addEventListener('click',toggleExpertPanel);
 
 function renderExpertTeams(){
+  const m=window.__oc?.ui?.expertTeams;
+  if(m?.expertTeamsHtml){
+    $('expertTeams').innerHTML=m.expertTeamsHtml(EXPERT_TEAMS,selectedTeam,{escapeHtml:esc});
+    return;
+  }
   $('expertTeams').innerHTML=EXPERT_TEAMS.map(t=>
     `<button class="expert-team-chip ${selectedTeam===t.id?'active':''}" onclick="selectExpertTeam('${t.id}')">${t.icon} ${t.name}</button>`
   ).join('');
@@ -2119,8 +2124,13 @@ function renderExpertTeams(){
 function selectExpertTeam(teamId){
   selectedTeam=teamId;
   renderExpertTeams();
-  const team=EXPERT_TEAMS.find(t=>t.id===teamId);
+  const m=window.__oc?.ui?.expertTeams;
+  const team=m?.findExpertTeam?m.findExpertTeam(EXPERT_TEAMS,teamId):EXPERT_TEAMS.find(t=>t.id===teamId);
   if(!team)return;
+  if(m?.expertTeamReadyHtml){
+    $('expertBody').innerHTML=m.expertTeamReadyHtml(team,{escapeHtml:esc});
+    return;
+  }
   $('expertBody').innerHTML=`<div class="expert-empty"><div class="expert-empty-icon">${team.icon}</div><div><strong>${team.name}</strong> 团队已就绪</div><div style="margin-top:8px">${team.experts.map(e=>`<span style="margin:0 4px">${e.icon} ${e.name}</span>`).join('')}</div><div style="margin-top:12px;font-size:12px">发送消息后，专家会同时分析</div></div>`;
 }
 window.selectExpertTeam=selectExpertTeam;
