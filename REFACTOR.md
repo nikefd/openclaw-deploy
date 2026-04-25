@@ -72,9 +72,9 @@ openclaw-deploy/
 - 已同步到 `/var/www/chat/`，线上备份：`index.html.bak-phase1-20260425-*`
 - **待斌哥实测确认视觉零变化 → 合并 main**
 
-### 2026-04-25 Phase 2 — `76d01bb`
+### 2026-04-25 Phase 2 — `76d01bb` + 修正 `02783d6`
 - infra 层建成：`config` / `backend/{ChatBackend, OpenClawBackend, backendFactory}` / `storage/{localStore, chatStore}` / `telemetry` / `index`
-- `index.html` 加了一行 `<script type="module" src="/src/infra/index.js">`，加载后 `window.__oc` 可用
-- **现有代码 0 改动**，仅验证 module 能加载
 - Hermes 迁移成本：新写一个 `HermesBackend.js` + 改 `backendFactory.js` 一行
+- ❗ **踩坑**：死过一次。我加的 `<script type="module" src="/src/infra/index.js">` 触发無限重刷 — `location /` 有 `try_files ... /index.html` fallback，module 请求任何环节 miss 都会拿回 index.html，HTML 被当 module 或被重渲染，启动 IIFE 再 fetch `/api/chats` → 死循环。
+- ✅ 修正：infra 代码留在仓库，但 `index.html` 不加 script tag。Phase 3 直接在开始接线时用更安全的方式（独立 location / 打包成单文件）。
 - 已同步 `/var/www/chat/`，备份：`index.html.bak-phase2-*`
