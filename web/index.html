@@ -726,14 +726,19 @@ async function loadFiles(dir){
     const r=await fetch(url);const d=await r.json();
     currentDir=d.path;
     // Breadcrumb
-    const parts=d.path.split('/').filter(Boolean);
-    let bc='';let accum='';
-    parts.forEach((p,i)=>{
-      accum+='/'+p;
-      if(i>0)bc+='<span class="bc-sep">›</span>';
-      bc+=`<span class="bc-part" onclick="loadFiles('${accum}')">${p}</span>`;
-    });
-    $('fileBreadcrumb').innerHTML=bc;
+    const bcLib=window.__oc?.ui?.fileBreadcrumb;
+    if(bcLib?.breadcrumbHtml){
+      $('fileBreadcrumb').innerHTML=bcLib.breadcrumbHtml(d.path,{clickFn:'loadFiles',escapeHtml:esc});
+    }else{
+      const parts=d.path.split('/').filter(Boolean);
+      let bc='';let accum='';
+      parts.forEach((p,i)=>{
+        accum+='/'+p;
+        if(i>0)bc+='<span class="bc-sep">›</span>';
+        bc+=`<span class="bc-part" onclick="loadFiles('${accum}')">${p}</span>`;
+      });
+      $('fileBreadcrumb').innerHTML=bc;
+    }
     // Entries
     let html='';
     if(d.parent&&d.parent!==d.path){
@@ -2016,10 +2021,15 @@ async function loadRemoteFiles(dir){
     const listing=(parts[1]||'').trim();
     if(pwd)remoteFileCwd=pwd;
     // Breadcrumb
-    const bParts=pwd.split('/').filter(Boolean);
-    let bc='',acc='';
-    bParts.forEach((p,i)=>{acc+='/'+p;if(i>0)bc+='<span class="bc-sep">›</span>';bc+=`<span class="bc-part" onclick="loadRemoteFiles('${acc}')">${p}</span>`;});
-    breadcrumb.innerHTML=bc;
+    const bcLib=window.__oc?.ui?.fileBreadcrumb;
+    if(bcLib?.breadcrumbHtml){
+      breadcrumb.innerHTML=bcLib.breadcrumbHtml(pwd,{clickFn:'loadRemoteFiles',escapeHtml:esc});
+    }else{
+      const bParts=pwd.split('/').filter(Boolean);
+      let bc='',acc='';
+      bParts.forEach((p,i)=>{acc+='/'+p;if(i>0)bc+='<span class="bc-sep">›</span>';bc+=`<span class="bc-part" onclick="loadRemoteFiles('${acc}')">${p}</span>`;});
+      breadcrumb.innerHTML=bc;
+    }
     // Parse ls output
     const lines=listing.split('\n').filter(l=>l&&!l.startsWith('total'));
     let html='';
@@ -2201,10 +2211,11 @@ const mentionAgents=AGENTS.filter(a=>a.mention);
 let mentionIdx=-1;
 
 function renderMentionPopup(filter=''){
-  const items=mentionAgents.filter(a=>!filter||a.name.includes(filter)||a.mention.includes(filter)||(a.id).includes(filter));
+  const m=window.__oc?.ui?.mentionPopup;
+  const items=m?.filterMentionAgents?m.filterMentionAgents(mentionAgents,filter):mentionAgents.filter(a=>!filter||a.name.includes(filter)||a.mention.includes(filter)||(a.id).includes(filter));
   if(!items.length){mentionPopup.classList.remove('show');return;}
   mentionIdx=0;
-  mentionPopup.innerHTML=items.map((a,i)=>`<div class="mention-item${i===0?' selected':''}" data-mention="${a.mention}"><span class="m-emoji">${a.emoji}</span><span class="m-name">${a.mention}</span><span class="m-desc">${a.desc}</span></div>`).join('');
+  mentionPopup.innerHTML=m?.mentionItemsHtml?m.mentionItemsHtml(items,{escapeHtml:esc}):items.map((a,i)=>`<div class="mention-item${i===0?' selected':''}" data-mention="${a.mention}"><span class="m-emoji">${a.emoji}</span><span class="m-name">${a.mention}</span><span class="m-desc">${a.desc}</span></div>`).join('');
   mentionPopup.classList.add('show');
   mentionPopup.querySelectorAll('.mention-item').forEach(el=>{
     el.addEventListener('click',()=>{insertMention(el.dataset.mention);});
