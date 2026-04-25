@@ -14,20 +14,44 @@ import { config, urls, resolveWireModel } from '../config.js';
 export class OpenClawBackend extends ChatBackend {
   get name() { return 'openclaw'; }
 
-  async *stream({ chatId, modelId, agentId, messages, signal }) {
-    const payload = JSON.stringify({
+  /**
+   * Build the HTTP request to start a streaming completion. The UI does the
+   * actual fetch + reader.read() because it needs to interleave perf timing,
+   * visibility handling, and tool-pause detection. This method only owns the
+   * URL/body shape — a Hermes backend would override only this.
+   *
+   * @param {Object} opts
+   * @param {string} opts.chatId
+   * @param {string} opts.modelId
+   * @param {string} [opts.agentId]
+   * @param {ChatMessage[]} opts.messages
+   * @param {boolean} [opts.useKeepalive]
+   * @returns {{ url: string, init: RequestInit }}
+   */
+  buildStreamRequest({ chatId, modelId, agentId, messages, useKeepalive }) {
+    const body = JSON.stringify({
       chatId,
       model: resolveWireModel(modelId),
       messages,
       agentId: agentId || 'main',
     });
+    return {
+      url: config.api.copilotStream,
+      init: {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        ...(useKeepalive ? { keepalive: true } : {}),
+      },
+    };
+  }
 
-    const res = await fetch(config.api.copilotStream, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload,
-      signal,
-    });
+  // Convenience wrapper: build the request, iterate SSE, yield deltas.
+  // Most call sites won't use this directly — they want fine control over
+  // the reader loop. See buildStreamRequest for the lower-level path.
+  async *stream({ chatId, modelId, agentId, messages, signal }) {
+    const { url, init } = this.buildStreamRequest({ chatId, modelId, agentId, messages });
+    const res = await fetch(url, { ...init, signal });
 
     if (!res.ok || !res.body) {
       yield { type: 'error', error: `HTTP ${res.status}` };

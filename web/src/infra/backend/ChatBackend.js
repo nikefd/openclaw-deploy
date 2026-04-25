@@ -35,6 +35,15 @@ export class ChatBackend {
   get name() { throw new Error('not implemented'); }
 
   /**
+   * Build the HTTP request shape for a streaming completion. Lower-level than
+   * stream(): UI does the fetch + reader to keep fine-grained control over
+   * timing, visibility, and abort. Hermes etc. need only override this.
+   * @param {SendOptions & {useKeepalive?: boolean}} opts
+   * @returns {{ url: string, init: RequestInit }}
+   */
+  buildStreamRequest(opts) { throw new Error('not implemented'); }
+
+  /**
    * Stream an assistant reply.
    * @param {SendOptions} opts
    * @returns {AsyncIterable<StreamDelta>}

@@ -73,8 +73,10 @@ export const urls = {
 };
 
 // Resolve model → wire model name used with OpenClaw (e.g. "openclaw/opus").
-// Other backends (Hermes) can ignore this and implement their own resolution.
+// Idempotent: if modelId already starts with 'openclaw' (already wire-formatted),
+// return as-is. Other backends (Hermes) can ignore this and implement their own.
 export function resolveWireModel(modelId) {
+  if (typeof modelId === 'string' && modelId.startsWith('openclaw')) return modelId;
   const agent = config.modelToAgent[modelId];
   return agent ? `openclaw/${agent}` : 'openclaw';
 }

@@ -1304,9 +1304,17 @@ async function sendMessage(){
     }
     // 🖥️ PC 端继续流式（走服务端代理：客户端断了服务端继续读完 + 落盘）
     // 服务端写 chats/{chatId}.json，前端只负责 DOM 显示，不再重复 save
+    // Phase 3.4: 通过 infra/backend.buildStreamRequest 拿 URL/body — Hermes 切换只改这里。
+    // UI 仍然自己 fetch + reader，保留 perf 计时 / visibility 处理等细节。
     const _proxyPayload=JSON.stringify({chatId,model:payload.model,messages:payload.messages,agentId:chat.agentId||'main'});
     const _useKeepalive=_proxyPayload.length<60000;
-    const res=await fetch('/api/copilot/stream',{method:'POST',keepalive:_useKeepalive,headers:{'Content-Type':'application/json'},body:_proxyPayload});
+    let _streamReq;
+    if(window.__oc?.backend?.buildStreamRequest){
+      _streamReq=window.__oc.backend.buildStreamRequest({chatId,modelId:payload.model,agentId:chat.agentId||'main',messages:payload.messages,useKeepalive:_useKeepalive});
+    }else{
+      _streamReq={url:'/api/copilot/stream',init:{method:'POST',keepalive:_useKeepalive,headers:{'Content-Type':'application/json'},body:_proxyPayload}};
+    }
+    const res=await fetch(_streamReq.url,_streamReq.init);
     _perfHttpMs=performance.now()-_perfStart;
     // Capture nginx upstream timing from headers
     const _ngxUpstream=res.headers.get('X-Upstream-Time');
