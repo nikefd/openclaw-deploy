@@ -9,6 +9,8 @@ import { localStore, prefs } from './storage/localStore.js';
 import { chatStore } from './storage/chatStore.js';
 import { perfLog } from './telemetry.js';
 import * as chatDomain from '../domain/chat.js';
+import * as uiMarkdown from '../ui/markdown.js';
+import * as uiMessageActions from '../ui/messageActions.js';
 
 export {
   config, urls, resolveWireModel,
@@ -18,6 +20,8 @@ export {
   chatStore,
   perfLog,
   chatDomain,
+  uiMarkdown,
+  uiMessageActions,
 };
 
 // Developer convenience: expose on window for console probing.
@@ -28,6 +32,7 @@ if (typeof window !== 'undefined') {
     backend: getBackend(),
     prefs, chatStore, perfLog,
     domain: { chat: chatDomain },
-    version: 'phase-3',
+    ui: { markdown: uiMarkdown, messageActions: uiMessageActions },
+    version: 'phase-4',
   });
 }

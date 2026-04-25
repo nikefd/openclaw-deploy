@@ -631,7 +631,11 @@ window.openMemFile=openMemFile;window.startMemEdit=startMemEdit;window.cancelMem
 
 // === TTS ===
 let curUtter=null;
-function copyMsg(btn){const text=btn.closest('.message').querySelector('.msg-text').textContent;navigator.clipboard.writeText(text).then(()=>{btn.textContent='✅ 已复制';btn.classList.add('copied');setTimeout(()=>{btn.textContent='📋 复制';btn.classList.remove('copied')},1500)}).catch(()=>alert('复制失败'))}
+function copyMsg(btn){
+  const m=window.__oc?.ui?.messageActions?.copyMessage;
+  if(m)return m(btn);
+  const text=btn.closest('.message').querySelector('.msg-text').textContent;navigator.clipboard.writeText(text).then(()=>{btn.textContent='✅ 已复制';btn.classList.add('copied');setTimeout(()=>{btn.textContent='📋 复制';btn.classList.remove('copied')},1500)}).catch(()=>alert('复制失败'))
+}
 function speakText(text,btn){
   if(curUtter){speechSynthesis.cancel();if(btn.classList.contains('speaking')){btn.classList.remove('speaking');btn.textContent='🔊 朗读';curUtter=null;return;}}
   const u=new SpeechSynthesisUtterance(text);u.lang='zh-CN';curUtter=u;
@@ -1116,6 +1120,8 @@ function esc(t){const d=document.createElement('div');d.textContent=t;return d.i
   }
 })();
 function renderMd(text){
+  const m=window.__oc?.ui?.markdown?.renderMd;
+  if(m)return m(text);
   if(!text)return '';
   if(typeof marked==='undefined')return esc(text);
   try{
@@ -1125,7 +1131,11 @@ function renderMd(text){
     return html;
   }catch(e){return esc(text);}
 }
-function copyCodeBlock(btn){const code=btn.nextElementSibling;const text=code.textContent;navigator.clipboard.writeText(text).then(()=>{btn.textContent='✅';setTimeout(()=>btn.textContent='复制',1500)}).catch(()=>{})}
+function copyCodeBlock(btn){
+  const m=window.__oc?.ui?.markdown?.copyCodeBlock;
+  if(m)return m(btn);
+  const code=btn.nextElementSibling;const text=code.textContent;navigator.clipboard.writeText(text).then(()=>{btn.textContent='✅';setTimeout(()=>btn.textContent='复制',1500)}).catch(()=>{})
+}
 
 // === BTW side-question ===
 let btwAbort=null;
