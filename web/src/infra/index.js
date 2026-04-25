@@ -8,6 +8,7 @@ import { OpenClawBackend } from './backend/OpenClawBackend.js';
 import { localStore, prefs } from './storage/localStore.js';
 import { chatStore } from './storage/chatStore.js';
 import { perfLog } from './telemetry.js';
+import * as chatDomain from '../domain/chat.js';
 
 export {
   config, urls, resolveWireModel,
@@ -16,6 +17,7 @@ export {
   localStore, prefs,
   chatStore,
   perfLog,
+  chatDomain,
 };
 
 // Developer convenience: expose on window for console probing.
@@ -25,6 +27,7 @@ if (typeof window !== 'undefined') {
     config, urls, resolveWireModel,
     backend: getBackend(),
     prefs, chatStore, perfLog,
-    version: 'phase-2',
+    domain: { chat: chatDomain },
+    version: 'phase-3',
   });
 }

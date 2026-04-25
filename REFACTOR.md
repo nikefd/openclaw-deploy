@@ -46,7 +46,7 @@ openclaw-deploy/
 | 0 | 建分支 + 骨架目录 + 本文档 | ⬇️ | 10m | ✅ `48e13bd` |
 | 1 | 抽 CSS 到 assets/css/ | ⬇️ | 30m | ✅ `c2711fa` |
 | 2 | infra 层：config / backend / storage | ⬇️⬇️ | 1h | ✅ `76d01bb` |
-| 3 | domain + application 层 | ⬇️⬇️ | 2h | ⬜ |
+| 3 | 接线 infra + 抽 domain | ⬇️⬇️ | 3h | ✅ 3a/3.1–3.5 |
 | 4 | UI 组件化 | ⬇️⬇️ | 2h | ⬜ |
 | 5 | 后端 services/ 重组 | ⬇️ | 1h | ⬜ |
 | 6 | agents 抽成独立包 | ⬇️⬇️ | 2h | ⬜ |
@@ -78,3 +78,30 @@ openclaw-deploy/
 - ❗ **踩坑**：死过一次。我加的 `<script type="module" src="/src/infra/index.js">` 触发無限重刷 — `location /` 有 `try_files ... /index.html` fallback，module 请求任何环节 miss 都会拿回 index.html，HTML 被当 module 或被重渲染，启动 IIFE 再 fetch `/api/chats` → 死循环。
 - ✅ 修正：infra 代码留在仓库，但 `index.html` 不加 script tag。Phase 3 直接在开始接线时用更安全的方式（独立 location / 打包成单文件）。
 - 已同步 `/var/www/chat/`，备份：`index.html.bak-phase2-*`
+
+### 2026-04-25 Phase 3 — 接线 infra + 抽 domain
+分 5 个子步逐个验证，每步独立 commit：
+
+- **3a `5089d8b`**: nginx 加 `/src/` 和 `/assets/` 独立 location，不带 try_files fallback。避开 Phase 2 踩过的重刷雷 — module script 现在能安全加载。
+- **3.1 `0c45eaa`**: `perfLog` 迁到 `infra/telemetry`。最小面积验证路径。
+- **3.2 `d1986aa`**: model / theme / agent prefs 迁到 `infra/prefs`，`localStore` 加 `setChatsForNode` + 自动 `stripImages`。
+- **3.3 `c9e2370`**: 9 个 chats CRUD fetch 调用点迁到 `infra/backend`。新增 `getChat / saveChatBeacon / loadChatsSince / clearAllChats`。
+- **3.4 `8acf9ba`**: SSE 流式主路径 — 加 `buildStreamRequest` 抽象，UI 仍自己 `reader.read()` 保留 perf/visibility 逻辑。`resolveWireModel` 改为幂等。
+- **3.5 `_THIS_`**: domain 层 — `web/src/domain/chat.js` 提供 `mergeChats / createChat / findChat / escapeHtml / genChatId` 等纯函数。`window.__oc.domain.chat.*` 可调，inline 版本作 fallback。
+
+**迁移模式**（贯穿所有子步）：`window.__oc?.X?.method?.() ?? 原始实现` — module 未加载时行为与重构前等同，0 风险。
+
+**代码布局**（Phase 3 后）：
+```
+web/src/
+  domain/chat.js              # 纯函数，能单独单测
+  infra/
+    config.js                  # 所有 URL、存储 key、模型表
+    backend/{ChatBackend,OpenClawBackend,backendFactory}.js
+    storage/{localStore,chatStore}.js
+    telemetry.js
+    index.js                   # 唯一公开入口 → window.__oc
+```
+
+**Hermes 迁移表面积**（Phase 3 后）：新写 `HermesBackend.js`（实现 9 个接口方法）+ 改 `backendFactory.js` 一行。UI 代码零修改。
+
