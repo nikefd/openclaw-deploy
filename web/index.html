@@ -299,6 +299,11 @@ function updateModelDisplay(){
 function renderModelDropdown(){
   const dropdown=$('modelDropdown');
   if(!dropdown)return;
+  const md=window.__oc?.ui?.modelDropdown;
+  if(md?.modelDropdownHtml){
+    dropdown.innerHTML=md.modelDropdownHtml(MODELS,currentModel);
+    return;
+  }
   dropdown.innerHTML=MODELS.map(m=>`
     <div class="model-option ${m.id===currentModel?'active':''}" onclick="setCurrentModel('${m.id}')">
       <span>${m.emoji}</span>

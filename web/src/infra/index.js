@@ -17,6 +17,8 @@ import * as uiSkillsPanel from '../ui/skillsPanel.js';
 import * as uiSearchHelpers from '../ui/searchHelpers.js';
 import * as uiMemoryPanel from '../ui/memoryPanel.js';
 import * as uiDemoCodes from '../ui/demoCodes.js';
+import * as uiNodesPanel from '../ui/nodesPanel.js';
+import * as uiModelDropdown from '../ui/modelDropdown.js';
 
 export {
   config, urls, resolveWireModel,
@@ -34,6 +36,8 @@ export {
   uiSearchHelpers,
   uiMemoryPanel,
   uiDemoCodes,
+  uiNodesPanel,
+  uiModelDropdown,
 };
 
 // Developer convenience: expose on window for console probing.
@@ -44,7 +48,7 @@ if (typeof window !== 'undefined') {
     backend: getBackend(),
     prefs, chatStore, perfLog,
     domain: { chat: chatDomain },
-    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel, demoCodes: uiDemoCodes },
+    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel, demoCodes: uiDemoCodes, nodesPanel: uiNodesPanel, modelDropdown: uiModelDropdown },
     version: 'phase-4',
   });
 }
