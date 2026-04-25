@@ -71,6 +71,13 @@ export class OpenClawBackend extends ChatBackend {
     return chat?.messages || [];
   }
 
+  // Like loadHistory but returns the full chat object (id, title, messages, ...).
+  async getChat(chatId) {
+    const r = await fetch(urls.chatOne(chatId));
+    if (!r.ok) return null;
+    return r.json();
+  }
+
   async saveChat(chat) {
     const r = await fetch(urls.chatOne(chat.id), {
       method: 'PUT',
@@ -80,14 +87,52 @@ export class OpenClawBackend extends ChatBackend {
     return r.ok;
   }
 
+  // Best-effort beacon save (used in beforeunload / streaming flush).
+  // Falls back to a keepalive fetch if sendBeacon is not available.
+  saveChatBeacon(chat) {
+    try {
+      const blob = new Blob([JSON.stringify(chat)], { type: 'application/json' });
+      if (navigator.sendBeacon && navigator.sendBeacon(urls.chatOne(chat.id), blob)) return true;
+    } catch {}
+    try {
+      fetch(urls.chatOne(chat.id), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(chat),
+        keepalive: true,
+      }).catch(() => {});
+      return true;
+    } catch { return false; }
+  }
+
   async loadAllChats() {
     const r = await fetch(config.api.chats);
     if (!r.ok) return [];
     return r.json();
   }
 
+  // Incremental sync: fetch only chats updated since `sinceTs` (epoch ms).
+  // Returns { chats, serverTime } so caller can use server's clock to avoid drift.
+  async loadChatsSince(sinceTs) {
+    const r = await fetch(`${config.api.chats}?since=${encodeURIComponent(sinceTs)}`, { cache: 'no-store' });
+    if (!r.ok) return { chats: [], serverTime: null };
+    const serverTime = r.headers.get('X-Server-Time');
+    const chats = await r.json();
+    return { chats: Array.isArray(chats) ? chats : [], serverTime };
+  }
+
   async deleteChat(chatId) {
     return fetch(urls.chatOne(chatId), { method: 'DELETE' })
       .then(r => r.ok).catch(() => false);
+  }
+
+  // Server-side bulk reset (with backup). `chatsBackup` is sent so server can
+  // archive before clearing.
+  async clearAllChats(chatsBackup) {
+    return fetch(config.api.chats, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Backup': 'true' },
+      body: JSON.stringify(chatsBackup || []),
+    }).then(r => r.ok).catch(() => false);
   }
 }

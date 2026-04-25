@@ -327,8 +327,8 @@ document.addEventListener('click',(e)=>{
 
 
 let chats=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'),currentId=null;
-// Load from server if local is empty
-(async()=>{try{const r=await fetch('/api/chats');if(r.ok){const d=await r.json();if(d.length>0){const merged=mergeChats(chats,d);chats=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));renderSidebar();if(currentId){const cur=chats.find(c=>c.id===currentId);if(cur)switchChat(cur.id);}else if(chats.length>0){switchChat(chats[0].id);}}}}catch{}
+// Load from server if local is empty. Phase 3.3: via infra/backend.
+(async()=>{try{const d=await(window.__oc?.backend?.loadAllChats?.()??fetch('/api/chats').then(r=>r.ok?r.json():[]));if(Array.isArray(d)&&d.length>0){const merged=mergeChats(chats,d);chats=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));renderSidebar();if(currentId){const cur=chats.find(c=>c.id===currentId);if(cur)switchChat(cur.id);}else if(chats.length>0){switchChat(chats[0].id);}}}catch{}
 // 如果还有 chat 是 _streaming 状态（服务端代理流式还没结束，或上次异常遗留）
 // 启动后台轮询，拉服务端最新内容直到 _streaming 消失。不要 save！会覆盖服务端较新的内容。
 try{
@@ -340,9 +340,9 @@ try{
         for(let i=0;i<240;i++){ // 最多 6 分钟
           await new Promise(r=>setTimeout(r,1500));
           try{
-            const r=await fetch('/api/chats/'+encodeURIComponent(id));
-            if(!r.ok)continue;
-            const fresh=await r.json();
+            // Phase 3.3: prefer infra; raw fetch as fallback for early-boot calls.
+            const fresh=window.__oc?.backend?.getChat?(await window.__oc.backend.getChat(id)):await(async()=>{const r=await fetch('/api/chats/'+encodeURIComponent(id));return r.ok?r.json():null;})();
+            if(!fresh)continue;
             const idx=chats.findIndex(c=>c.id===id);
             if(idx<0)return;
             chats[idx]=fresh;
@@ -807,9 +807,9 @@ document.addEventListener('visibilitychange',()=>{
   if(!lastMsg)return;
   if((lastMsg.content||'').length===0&&!(lastMsg.images&&lastMsg.images.length))return;
   try{
-    const blob=new Blob([JSON.stringify(chat)],{type:'application/json'});
-    if(navigator.sendBeacon)navigator.sendBeacon('/api/chats/'+encodeURIComponent(chat.id),blob);
-    else fetch('/api/chats/'+encodeURIComponent(chat.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat),keepalive:true}).catch(()=>{});
+    // Phase 3.3: beacon save via infra (infra handles sendBeacon/keepalive fallback internally).
+    if(window.__oc?.backend?.saveChatBeacon){window.__oc.backend.saveChatBeacon(chat);}
+    else{const blob=new Blob([JSON.stringify(chat)],{type:'application/json'});if(navigator.sendBeacon)navigator.sendBeacon('/api/chats/'+encodeURIComponent(chat.id),blob);else fetch('/api/chats/'+encodeURIComponent(chat.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat),keepalive:true}).catch(()=>{});}
     chat._lastSaved=chat.updatedAt;
   }catch{}
 });
@@ -839,7 +839,13 @@ function save(chatId){
         delete _saveTimers[id];
         return;
       }
-      if(chat){fetch('/api/chats/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat)}).then(()=>{chat._lastSaved=chat.updatedAt;try{if(window._ocChatBC)window._ocChatBC.postMessage({type:'updated',chatId:id});}catch{}}).catch(()=>{});}
+      if(chat){
+      // Phase 3.3: persist via infra/backend (PUT /api/chats/:id).
+      const _save=window.__oc?.backend?.saveChat
+        ?window.__oc.backend.saveChat(chat)
+        :fetch('/api/chats/'+encodeURIComponent(id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(chat)}).then(r=>r.ok);
+      Promise.resolve(_save).then(()=>{chat._lastSaved=chat.updatedAt;try{if(window._ocChatBC)window._ocChatBC.postMessage({type:'updated',chatId:id});}catch{}}).catch(()=>{});
+    }
       delete _saveTimers[id];
     },300);
   }
@@ -863,10 +869,17 @@ function getAgent(id){return AGENTS.find(a=>a.id===id)||AGENTS[0];}
     if(currentNode&&currentNode!=='local')return; // only sync for local node chats
     syncing=true;
     try{
-      const r=await fetch('/api/chats?since='+encodeURIComponent(lastSyncAt),{cache:'no-store'});
-      if(!r.ok){syncing=false;return;}
-      const serverTime=r.headers.get('X-Server-Time');
-      const remote=await r.json();
+      // Phase 3.3: incremental sync via infra/backend.
+      let serverTime=null,remote=[];
+      if(window.__oc?.backend?.loadChatsSince){
+        const res=await window.__oc.backend.loadChatsSince(lastSyncAt);
+        serverTime=res.serverTime;remote=res.chats;
+      }else{
+        const r=await fetch('/api/chats?since='+encodeURIComponent(lastSyncAt),{cache:'no-store'});
+        if(!r.ok){syncing=false;return;}
+        serverTime=r.headers.get('X-Server-Time');
+        remote=await r.json();
+      }
       if(Array.isArray(remote)&&remote.length>0){
         // Detect changes for currentId BEFORE merge
         let currentChanged=false;
@@ -946,7 +959,7 @@ function renderSidebar(){
 }
 chatList.addEventListener('click',e=>{
   const del=e.target.closest('[data-del]');
-  if(del){e.stopPropagation();const id=del.dataset.del;chats=chats.filter(c=>c.id!==id);save();fetch('/api/chats/'+encodeURIComponent(id),{method:'DELETE'}).catch(()=>{});if(currentId===id){currentId=null;renderChat();}renderSidebar();return;}
+  if(del){e.stopPropagation();const id=del.dataset.del;chats=chats.filter(c=>c.id!==id);save();(window.__oc?.backend?.deleteChat?.(id)??fetch('/api/chats/'+encodeURIComponent(id),{method:'DELETE'}).catch(()=>{}));if(currentId===id){currentId=null;renderChat();}renderSidebar();return;}
   const edit=e.target.closest('[data-edit]');
   if(edit){e.stopPropagation();startEditSidebar(edit.dataset.edit);return;}
   const item=e.target.closest('.chat-item');if(item){const jumpIdx=item.dataset.jumpMsg?parseInt(item.dataset.jumpMsg,10):-1;switchChat(item.dataset.id,jumpIdx);}
@@ -964,7 +977,7 @@ chatList.addEventListener('click',e=>{
   clr.addEventListener('click',()=>{inp.value='';chatSearchQuery='';box.classList.remove('has-value');renderSidebar();inp.focus();});
   inp.addEventListener('keydown',e=>{if(e.key==='Escape'){inp.value='';chatSearchQuery='';box.classList.remove('has-value');renderSidebar();inp.blur();}});
 })();
-$('clearAllBtn').addEventListener('click',()=>{if(confirm('确定清空所有对话？此操作不可撤销！')){fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json','X-Backup':'true'},body:JSON.stringify(chats)}).catch(()=>{});chats=[];save();currentId=null;renderChat();renderSidebar();}});
+$('clearAllBtn').addEventListener('click',()=>{if(confirm('确定清空所有对话？此操作不可撤销！')){(window.__oc?.backend?.clearAllChats?.(chats)??fetch('/api/chats',{method:'POST',headers:{'Content-Type':'application/json','X-Backup':'true'},body:JSON.stringify(chats)}).catch(()=>{}));chats=[];save();currentId=null;renderChat();renderSidebar();}});
 $('logoutBtn').addEventListener('click',async()=>{await fetch('/auth/logout');window.location.href='/login';});
 
 // === CHAT ===
@@ -995,9 +1008,8 @@ async function hydrateChat(id){
   // If chat was loaded as a stripped summary (no image base64), fetch full content on demand.
   const c=getChat(id);if(!c||!c._stripped)return;
   try{
-    const r=await fetch('/api/chats/'+encodeURIComponent(id));
-    if(!r.ok)return;
-    const full=await r.json();
+    // Phase 3.3: hydrate stripped chat via infra/backend.
+    const full=window.__oc?.backend?.getChat?(await window.__oc.backend.getChat(id)):await(async()=>{const r=await fetch('/api/chats/'+encodeURIComponent(id));return r.ok?r.json():null;})();
     if(!full||!full.id)return;
     const idx=chats.findIndex(x=>x.id===id);
     if(idx<0)return;
@@ -1438,7 +1450,9 @@ window.addEventListener('beforeunload',()=>{
         //    前端 sendBeacon 只会把更老快照推上去覆盖。跳过。
         if(streamingChats.has(chat.id))continue;
         if(chat.messages?.some(m=>m.role==='assistant'&&m._streaming))continue;
-        navigator.sendBeacon('/api/chats/'+encodeURIComponent(chat.id),new Blob([JSON.stringify(chat)],{type:'application/json'}));
+        // Phase 3.3: beforeunload beacon via infra (sendBeacon + keepalive fallback inside).
+        if(window.__oc?.backend?.saveChatBeacon)window.__oc.backend.saveChatBeacon(chat);
+        else navigator.sendBeacon('/api/chats/'+encodeURIComponent(chat.id),new Blob([JSON.stringify(chat)],{type:'application/json'}));
       }
     }
   }
@@ -1812,7 +1826,7 @@ function switchGlobalNode(){
   currentId=null;
   renderSidebar();renderChat();
   // If switching back to local, also merge from server
-  if(currentNode==='local'){(async()=>{try{const r=await fetch('/api/chats');if(r.ok){const d=await r.json();if(d.length>0){chats=mergeChats(chats,d);localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_local',JSON.stringify(chats));renderSidebar();}}}catch{}})();}
+  if(currentNode==='local'){(async()=>{try{const d=await(window.__oc?.backend?.loadAllChats?.()??fetch('/api/chats').then(r=>r.ok?r.json():[]));if(Array.isArray(d)&&d.length>0){chats=mergeChats(chats,d);localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_local',JSON.stringify(chats));renderSidebar();}}catch{}})();}
   // Update terminal
   terminalLoaded=false;
   const termPanel=document.getElementById('panel-terminal');

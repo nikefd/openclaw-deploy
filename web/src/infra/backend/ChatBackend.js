@@ -65,6 +65,35 @@ export class ChatBackend {
   async loadAllChats() { throw new Error('not implemented'); }
 
   /**
+   * Incremental sync: load chats updated since the given timestamp.
+   * @param {number} sinceTs  epoch ms
+   * @returns {Promise<{chats: Object[], serverTime: string|null}>}
+   */
+  async loadChatsSince(sinceTs) { throw new Error('not implemented'); }
+
+  /**
+   * Get a single chat (full object). Returns null if not found.
+   * @param {string} chatId
+   * @returns {Promise<Object|null>}
+   */
+  async getChat(chatId) { throw new Error('not implemented'); }
+
+  /**
+   * Best-effort save (sendBeacon / keepalive). Used in beforeunload and
+   * during streaming flush. Returns synchronously — fire-and-forget.
+   * @param {Object} chat
+   * @returns {boolean}
+   */
+  saveChatBeacon(chat) { throw new Error('not implemented'); }
+
+  /**
+   * Bulk reset (with backup): clear all chats server-side. The provided array
+   * is sent so the server can archive before deleting.
+   * @param {Object[]} chatsBackup
+   */
+  async clearAllChats(chatsBackup) { throw new Error('not implemented'); }
+
+  /**
    * Delete a chat by id.
    * @param {string} chatId
    */
