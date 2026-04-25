@@ -1,0 +1,13 @@
+[Unit]
+Description=Frontend Performance Telemetry API
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node /home/nikefd/openclaw-deploy/services/perf/server.js
+Restart=always
+RestartSec=5
+WorkingDirectory=/home/nikefd
+
+[Install]
+WantedBy=default.target

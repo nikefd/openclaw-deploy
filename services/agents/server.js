@@ -1,0 +1,543 @@
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const { URL } = require('url');
+
+const PORT = 7685;
+const DATA_DIR = path.join(os.homedir(), 'agent-data');
+
+// ─── AI News Agent ───
+const AI_NEWS_DIR = path.join(DATA_DIR, 'ai-news');
+const AI_NEWS_FILE = path.join(AI_NEWS_DIR, 'articles.json');
+
+function loadNews() {
+  try { return JSON.parse(fs.readFileSync(AI_NEWS_FILE, 'utf-8')); }
+  catch { return []; }
+}
+function saveNews(data) {
+  fs.mkdirSync(AI_NEWS_DIR, { recursive: true });
+  fs.writeFileSync(AI_NEWS_FILE, JSON.stringify(data, null, 2));
+}
+
+const TRACKS_FILE = path.join(AI_NEWS_DIR, 'tracks.json');
+function loadTracks() {
+  try { return JSON.parse(fs.readFileSync(TRACKS_FILE, 'utf-8')); }
+  catch { return []; }
+}
+function saveTracks(data) {
+  fs.mkdirSync(AI_NEWS_DIR, { recursive: true });
+  fs.writeFileSync(TRACKS_FILE, JSON.stringify(data, null, 2));
+}
+
+// ─── Fitness Agent ───
+const FITNESS_DIR = path.join(DATA_DIR, 'fitness');
+const FITNESS_LOG_FILE = path.join(FITNESS_DIR, 'logs.json');
+const FITNESS_PROFILE_FILE = path.join(FITNESS_DIR, 'profile.json');
+const FITNESS_CHAT_FILE = path.join(FITNESS_DIR, 'chats.json');
+
+function loadFitnessLogs() {
+  try { return JSON.parse(fs.readFileSync(FITNESS_LOG_FILE, 'utf-8')); }
+  catch { return []; }
+}
+function saveFitnessLogs(data) {
+  fs.mkdirSync(FITNESS_DIR, { recursive: true });
+  fs.writeFileSync(FITNESS_LOG_FILE, JSON.stringify(data, null, 2));
+}
+function loadFitnessProfile() {
+  try { return JSON.parse(fs.readFileSync(FITNESS_PROFILE_FILE, 'utf-8')); }
+  catch { return { climbingGrade: '', goals: '', notes: '' }; }
+}
+function saveFitnessProfile(data) {
+  fs.mkdirSync(FITNESS_DIR, { recursive: true });
+  fs.writeFileSync(FITNESS_PROFILE_FILE, JSON.stringify(data, null, 2));
+}
+function loadFitnessChats() {
+  try { return JSON.parse(fs.readFileSync(FITNESS_CHAT_FILE, 'utf-8')); }
+  catch { return []; }
+}
+function saveFitnessChats(data) {
+  fs.mkdirSync(FITNESS_DIR, { recursive: true });
+  fs.writeFileSync(FITNESS_CHAT_FILE, JSON.stringify(data, null, 2));
+}
+
+const FITNESS_SESSIONS_FILE = path.join(FITNESS_DIR, 'sessions.json');
+function loadFitnessSessions() {
+  try { return JSON.parse(fs.readFileSync(FITNESS_SESSIONS_FILE, 'utf-8')); }
+  catch { return []; }
+}
+function saveFitnessSessions(data) {
+  fs.mkdirSync(FITNESS_DIR, { recursive: true });
+  fs.writeFileSync(FITNESS_SESSIONS_FILE, JSON.stringify(data, null, 2));
+}
+
+// ─── Interview Prep Agent ───
+const INTERVIEW_DIR = path.join(DATA_DIR, 'interview');
+const INTERVIEW_SESSIONS_FILE = path.join(INTERVIEW_DIR, 'sessions.json');
+const INTERVIEW_CHAT_FILE = path.join(INTERVIEW_DIR, 'chats.json');
+const INTERVIEW_STATS_FILE = path.join(INTERVIEW_DIR, 'stats.json');
+
+const INTERVIEW_PROBLEMS_FILE = path.join(INTERVIEW_DIR, 'problems.json');
+const INTERVIEW_PROGRESS_FILE = path.join(INTERVIEW_DIR, 'progress.json');
+
+function loadInterviewProblems() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_PROBLEMS_FILE, 'utf-8')); } catch { return []; }
+}
+function loadInterviewProgress() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_PROGRESS_FILE, 'utf-8')); } catch { return {}; }
+}
+function saveInterviewProgress(data) {
+  fs.mkdirSync(INTERVIEW_DIR, { recursive: true });
+  fs.writeFileSync(INTERVIEW_PROGRESS_FILE, JSON.stringify(data, null, 2));
+}
+
+const INTERVIEW_SOLUTIONS_FILE = path.join(INTERVIEW_DIR, 'solutions.json');
+
+function loadInterviewSolutions() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_SOLUTIONS_FILE, 'utf-8')); } catch { return {}; }
+}
+function saveInterviewSolutions(data) {
+  fs.mkdirSync(INTERVIEW_DIR, { recursive: true });
+  fs.writeFileSync(INTERVIEW_SOLUTIONS_FILE, JSON.stringify(data, null, 2));
+}
+
+const INTERVIEW_SUBMISSIONS_FILE = path.join(INTERVIEW_DIR, 'submissions.json');
+
+function loadInterviewSubmissions() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_SUBMISSIONS_FILE, 'utf-8')); } catch { return []; }
+}
+function saveInterviewSubmissions(data) {
+  fs.mkdirSync(INTERVIEW_DIR, { recursive: true });
+  fs.writeFileSync(INTERVIEW_SUBMISSIONS_FILE, JSON.stringify(data, null, 2));
+}
+
+function loadInterviewSessions() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_SESSIONS_FILE, 'utf-8')); } catch { return []; }
+}
+function saveInterviewSessions(data) {
+  fs.mkdirSync(INTERVIEW_DIR, { recursive: true });
+  fs.writeFileSync(INTERVIEW_SESSIONS_FILE, JSON.stringify(data, null, 2));
+}
+function loadInterviewChats() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_CHAT_FILE, 'utf-8')); } catch { return []; }
+}
+function saveInterviewChats(data) {
+  fs.mkdirSync(INTERVIEW_DIR, { recursive: true });
+  fs.writeFileSync(INTERVIEW_CHAT_FILE, JSON.stringify(data, null, 2));
+}
+function loadInterviewStats() {
+  try { return JSON.parse(fs.readFileSync(INTERVIEW_STATS_FILE, 'utf-8')); }
+  catch { return { algorithm: { easy: 0, medium: 0, hard: 0, total: 0 }, systemDesign: { total: 0 }, streak: 0, lastPractice: null }; }
+}
+function saveInterviewStats(data) {
+  fs.mkdirSync(INTERVIEW_DIR, { recursive: true });
+  fs.writeFileSync(INTERVIEW_STATS_FILE, JSON.stringify(data, null, 2));
+}
+
+// ─── Learning Guides ───
+const GUIDES_DIR = path.join(AI_NEWS_DIR, 'guides');
+function loadGuides() {
+  try {
+    fs.mkdirSync(GUIDES_DIR, { recursive: true });
+    const files = fs.readdirSync(GUIDES_DIR).filter(f => f.endsWith('.json'));
+    return files.map(f => {
+      try { return JSON.parse(fs.readFileSync(path.join(GUIDES_DIR, f), 'utf-8')); } catch { return null; }
+    }).filter(Boolean).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+  } catch { return []; }
+}
+function loadGuide(id) {
+  try { return JSON.parse(fs.readFileSync(path.join(GUIDES_DIR, id + '.json'), 'utf-8')); } catch { return null; }
+}
+function saveGuide(guide) {
+  fs.mkdirSync(GUIDES_DIR, { recursive: true });
+  fs.writeFileSync(path.join(GUIDES_DIR, guide.id + '.json'), JSON.stringify(guide, null, 2));
+}
+function deleteGuide(id) {
+  try { fs.unlinkSync(path.join(GUIDES_DIR, id + '.json')); } catch {}
+}
+
+// ─── Helpers ───
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => { try { resolve(JSON.parse(Buffer.concat(chunks).toString())); } catch(e) { reject(e); } });
+    req.on('error', reject);
+  });
+}
+
+function json(res, data, status = 200) {
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+  res.end(JSON.stringify(data));
+}
+
+// ─── Server ───
+const server = http.createServer(async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+  const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
+  const p = url.pathname;
+
+  try {
+    // ─── AI News ───
+    if (p === '/api/agents/ai-news/articles' && req.method === 'GET') {
+      // Auto-cleanup: keep 7 days + pinned + already-read
+      let articles = loadNews();
+      const READER_DIR = path.join(AI_NEWS_DIR, 'reader');
+      let cachedIds = new Set();
+      try { fs.readdirSync(READER_DIR).forEach(f => { if (f.endsWith('.json')) cachedIds.add(f.replace('.json', '')); }); } catch {}
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      const before = articles.length;
+      articles = articles.filter(a => {
+        if (a.pinned) return true;
+        const cacheKey = (a.id || '').replace(/[^a-zA-Z0-9_-]/g, '_');
+        if (cachedIds.has(cacheKey)) return true;
+        const d = a.date ? new Date(a.date).getTime() : 0;
+        if (d && (now - d) < sevenDays) return true;
+        if (!d) return true; // keep if no date (can't determine age)
+        return false;
+      });
+      if (articles.length < before) saveNews(articles);
+      return json(res, articles);
+    }
+    if (p === '/api/agents/ai-news/articles' && req.method === 'POST') {
+      // Add or replace articles (from cron or manual trigger)
+      const body = await readBody(req);
+      // body: { articles: [...], mode: 'append' | 'replace' }
+      let current = loadNews();
+      if (body.mode === 'replace') {
+        current = (body.articles || []).map((a, i) => ({ ...a, id: a.id || ('art_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7) + '_' + i) }));
+      } else {
+        // append, dedupe by title
+        const existing = new Set(current.map(a => a.title));
+        for (const a of (body.articles || [])) {
+          if (!existing.has(a.title)) {
+            a.id = a.id || ('art_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7));
+            current.unshift(a); existing.add(a.title);
+          }
+        }
+      }
+      // Keep max 200 articles
+      if (current.length > 200) current = current.slice(0, 200);
+      saveNews(current);
+      return json(res, { ok: true, count: current.length });
+    }
+    if (p === '/api/agents/ai-news/articles' && req.method === 'DELETE') {
+      // Delete by id
+      const body = await readBody(req);
+      let current = loadNews();
+      current = current.filter(a => a.id !== body.id);
+      saveNews(current);
+      return json(res, { ok: true });
+    }
+    if (p === '/api/agents/ai-news/pin' && req.method === 'POST') {
+      const body = await readBody(req);
+      let current = loadNews();
+      const a = current.find(x => x.id === body.id);
+      if (a) a.pinned = !a.pinned;
+      saveNews(current);
+      return json(res, { ok: true });
+    }
+
+    // ─── Fitness ───
+    if (p === '/api/agents/fitness/profile' && req.method === 'GET') {
+      return json(res, loadFitnessProfile());
+    }
+    if (p === '/api/agents/fitness/profile' && req.method === 'POST') {
+      const body = await readBody(req);
+      saveFitnessProfile(body);
+      return json(res, { ok: true });
+    }
+    if (p === '/api/agents/fitness/logs' && req.method === 'GET') {
+      return json(res, loadFitnessLogs());
+    }
+    if (p === '/api/agents/fitness/logs' && req.method === 'POST') {
+      const body = await readBody(req);
+      const logs = loadFitnessLogs();
+      body.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      body.createdAt = new Date().toISOString();
+      logs.unshift(body);
+      if (logs.length > 500) logs.length = 500;
+      saveFitnessLogs(logs);
+      return json(res, { ok: true, log: body });
+    }
+    if (p === '/api/agents/fitness/logs' && req.method === 'DELETE') {
+      const body = await readBody(req);
+      let logs = loadFitnessLogs();
+      logs = logs.filter(l => l.id !== body.id);
+      saveFitnessLogs(logs);
+      return json(res, { ok: true });
+    }
+    if (p === '/api/agents/fitness/chats' && req.method === 'GET') {
+      return json(res, loadFitnessChats());
+    }
+    if (p === '/api/agents/fitness/chats' && req.method === 'POST') {
+      const body = await readBody(req);
+      const chats = loadFitnessChats();
+      chats.push({ role: 'user', content: body.message, ts: new Date().toISOString() });
+      if (chats.length > 200) chats.splice(0, chats.length - 200);
+      saveFitnessChats(chats);
+      return json(res, { ok: true });
+    }
+    if (p === '/api/agents/fitness/chats/reply' && req.method === 'POST') {
+      const body = await readBody(req);
+      const chats = loadFitnessChats();
+      chats.push({ role: 'assistant', content: body.message, ts: new Date().toISOString() });
+      saveFitnessChats(chats);
+      return json(res, { ok: true });
+    }
+
+    // Sessions (climbing data)
+    if (p === '/api/agents/fitness/sessions' && req.method === 'GET') {
+      return json(res, loadFitnessSessions());
+    }
+    if (p === '/api/agents/fitness/sessions' && req.method === 'POST') {
+      const body = await readBody(req);
+      const sessions = loadFitnessSessions();
+      // body can be a single session or {sessions: [...]}
+      if (body.sessions) {
+        // Bulk replace
+        saveFitnessSessions(body.sessions);
+      } else if (body.date && body.routes) {
+        const existing = sessions.find(s => s.date === body.date);
+        if (existing) {
+          existing.routes.push(...body.routes);
+          if (body.dur) existing.dur = Math.max(existing.dur || 0, body.dur);
+        } else {
+          sessions.push(body);
+          sessions.sort((a, b) => a.date.localeCompare(b.date));
+        }
+        saveFitnessSessions(sessions);
+      }
+      return json(res, { ok: true });
+    }
+
+    // ─── Reader Cache ───
+    if (p === '/api/agents/ai-news/reader' && req.method === 'GET') {
+      // List all cached article IDs
+      const READER_DIR = path.join(AI_NEWS_DIR, 'reader');
+      try {
+        const files = fs.readdirSync(READER_DIR).filter(f => f.endsWith('.json'));
+        const ids = files.map(f => f.replace('.json', ''));
+        return json(res, ids);
+      } catch { return json(res, []); }
+    }
+    const readerMatch = p.match(/^\/api\/agents\/ai-news\/reader\/(.+)$/);
+    if (readerMatch) {
+      const articleId = decodeURIComponent(readerMatch[1]);
+      const READER_DIR = path.join(AI_NEWS_DIR, 'reader');
+      const readerFile = path.join(READER_DIR, articleId.replace(/[^a-zA-Z0-9_-]/g, '_') + '.json');
+      if (req.method === 'GET') {
+        try { return json(res, JSON.parse(fs.readFileSync(readerFile, 'utf-8'))); }
+        catch { return json(res, {}, 404); }
+      }
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        fs.mkdirSync(READER_DIR, { recursive: true });
+        fs.writeFileSync(readerFile, JSON.stringify({ content: body.content, cachedAt: new Date().toISOString() }));
+        return json(res, { ok: true });
+      }
+    }
+
+    // ─── Learning Tracks ───
+    if (p === '/api/agents/ai-news/tracks' && req.method === 'GET') {
+      return json(res, loadTracks());
+    }
+    if (p === '/api/agents/ai-news/tracks' && req.method === 'POST') {
+      const body = await readBody(req);
+      const tracks = loadTracks();
+      if (body.action === 'add') {
+        tracks.push({ id: Date.now().toString(36), name: body.name, icon: body.icon || '📌', keywords: body.keywords || [], items: [], createdAt: new Date().toISOString() });
+      } else if (body.action === 'delete') {
+        const idx = tracks.findIndex(t => t.id === body.id);
+        if (idx >= 0) tracks.splice(idx, 1);
+      } else if (body.action === 'update') {
+        const t = tracks.find(t => t.id === body.id);
+        if (t) { if (body.name) t.name = body.name; if (body.icon) t.icon = body.icon; if (body.keywords) t.keywords = body.keywords; }
+      } else if (body.action === 'mark') {
+        const t = tracks.find(t => t.id === body.trackId);
+        if (t) {
+          const existing = t.items.find(i => i.articleId === body.articleId);
+          if (existing) existing.status = body.status;
+          else t.items.push({ articleId: body.articleId, status: body.status, ts: new Date().toISOString() });
+        }
+      }
+      saveTracks(tracks);
+      return json(res, { ok: true, tracks });
+    }
+
+    // ─── Interview Prep ───
+    if (p === '/api/agents/interview/problems' && req.method === 'GET') {
+      // Return problems list (without full description for listing)
+      const problems = loadInterviewProblems();
+      const progress = loadInterviewProgress();
+      const lite = problems.map(p => ({
+        leetcode_id: p.leetcode_id,
+        title: p.title,
+        slug: p.slug,
+        difficulty: p.difficulty,
+        category: p.category,
+        tags: p.tags,
+        url: p.url,
+        text_summary: p.text_summary_cn || p.text_summary || '',
+        status: progress[p.leetcode_id] || 'todo' // todo, attempted, solved
+      }));
+      return json(res, lite);
+    }
+    const problemMatch = p.match(/^\/api\/agents\/interview\/problems\/(\d+)$/);
+    if (problemMatch && req.method === 'GET') {
+      const id = parseInt(problemMatch[1]);
+      const problems = loadInterviewProblems();
+      const problem = problems.find(p => p.leetcode_id === id);
+      if (!problem) return json(res, { error: 'Not found' }, 404);
+      const progress = loadInterviewProgress();
+      problem.status = progress[id] || 'todo';
+      return json(res, problem);
+    }
+    if (p === '/api/agents/interview/progress' && req.method === 'POST') {
+      const body = await readBody(req);
+      const progress = loadInterviewProgress();
+      progress[body.leetcode_id] = body.status; // todo, attempted, solved
+      saveInterviewProgress(progress);
+      return json(res, { ok: true });
+    }
+    if (p === '/api/agents/interview/solutions' && req.method === 'GET') {
+      return json(res, loadInterviewSolutions());
+    }
+    if (p === '/api/agents/interview/solutions' && req.method === 'POST') {
+      const body = await readBody(req);
+      const solutions = loadInterviewSolutions();
+      // body: { solutions: { "leetcode_id": { code, explanation, complexity, approach } } } for batch
+      // or { leetcode_id, code, explanation, complexity, approach } for single
+      if (body.solutions) {
+        Object.assign(solutions, body.solutions);
+      } else if (body.leetcode_id) {
+        solutions[body.leetcode_id] = { code: body.code, explanation: body.explanation, complexity: body.complexity, approach: body.approach, updatedAt: new Date().toISOString() };
+      }
+      saveInterviewSolutions(solutions);
+      return json(res, { ok: true, count: Object.keys(solutions).length });
+    }
+    if (p === '/api/agents/interview/submissions' && req.method === 'GET') {
+      const subs = loadInterviewSubmissions();
+      const lid = url.searchParams.get('leetcode_id');
+      if (lid) return json(res, subs.filter(s => s.leetcode_id === parseInt(lid)));
+      return json(res, subs);
+    }
+    if (p === '/api/agents/interview/submissions' && req.method === 'POST') {
+      const body = await readBody(req);
+      const subs = loadInterviewSubmissions();
+      body.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      body.createdAt = new Date().toISOString();
+      subs.unshift(body);
+      if (subs.length > 1000) subs.length = 1000;
+      saveInterviewSubmissions(subs);
+      return json(res, { ok: true, submission: body });
+    }
+    if (p === '/api/agents/interview/sessions' && req.method === 'GET') {
+      return json(res, loadInterviewSessions());
+    }
+    if (p === '/api/agents/interview/sessions' && req.method === 'POST') {
+      const body = await readBody(req);
+      const sessions = loadInterviewSessions();
+      body.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      body.createdAt = new Date().toISOString();
+      sessions.unshift(body);
+      if (sessions.length > 500) sessions.length = 500;
+      saveInterviewSessions(sessions);
+      return json(res, { ok: true, session: body });
+    }
+    if (p === '/api/agents/interview/sessions' && req.method === 'DELETE') {
+      const body = await readBody(req);
+      let sessions = loadInterviewSessions();
+      sessions = sessions.filter(s => s.id !== body.id);
+      saveInterviewSessions(sessions);
+      return json(res, { ok: true });
+    }
+    if (p === '/api/agents/interview/stats' && req.method === 'GET') {
+      return json(res, loadInterviewStats());
+    }
+    if (p === '/api/agents/interview/stats' && req.method === 'POST') {
+      const body = await readBody(req);
+      saveInterviewStats(body);
+      return json(res, { ok: true });
+    }
+    if (p === '/api/agents/interview/chats' && req.method === 'GET') {
+      return json(res, loadInterviewChats());
+    }
+    if (p === '/api/agents/interview/chats' && req.method === 'POST') {
+      const body = await readBody(req);
+      const chats = loadInterviewChats();
+      chats.push({ role: 'user', content: body.message, ts: new Date().toISOString() });
+      if (chats.length > 200) chats.splice(0, chats.length - 200);
+      saveInterviewChats(chats);
+      return json(res, { ok: true });
+    }
+    if (p === '/api/agents/interview/chats/reply' && req.method === 'POST') {
+      const body = await readBody(req);
+      const chats = loadInterviewChats();
+      chats.push({ role: 'assistant', content: body.message, ts: new Date().toISOString() });
+      saveInterviewChats(chats);
+      return json(res, { ok: true });
+    }
+    if (p === '/api/agents/interview/chats' && req.method === 'DELETE') {
+      saveInterviewChats([]);
+      return json(res, { ok: true });
+    }
+
+    // ─── Learning Guides ───
+    if (p === '/api/agents/ai-news/guides' && req.method === 'GET') {
+      // List all guides (without full content for listing)
+      const guides = loadGuides();
+      const lite = guides.map(g => ({ id: g.id, title: g.title, category: g.category, icon: g.icon, summary: g.summary, tags: g.tags, sourceArticleId: g.sourceArticleId, createdAt: g.createdAt, updatedAt: g.updatedAt }));
+      return json(res, lite);
+    }
+    const guideMatch = p.match(/^\/api\/agents\/ai-news\/guides\/(.+)$/);
+    if (guideMatch) {
+      const gid = decodeURIComponent(guideMatch[1]);
+      if (req.method === 'GET') {
+        const g = loadGuide(gid);
+        if (!g) return json(res, { error: 'Not found' }, 404);
+        return json(res, g);
+      }
+      if (req.method === 'DELETE') {
+        deleteGuide(gid);
+        return json(res, { ok: true });
+      }
+    }
+    if (p === '/api/agents/ai-news/guides' && req.method === 'POST') {
+      const body = await readBody(req);
+      const guide = {
+        id: body.id || ('guide_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,7)),
+        title: body.title,
+        category: body.category || '未分类',
+        icon: body.icon || '📖',
+        summary: body.summary || '',
+        content: body.content || '',
+        tags: body.tags || [],
+        sourceArticleId: body.sourceArticleId || null,
+        createdAt: body.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      saveGuide(guide);
+      return json(res, { ok: true, guide: { id: guide.id, title: guide.title } });
+    }
+    if (p === '/api/agents/ai-news/guides' && req.method === 'PUT') {
+      const body = await readBody(req);
+      const existing = loadGuide(body.id);
+      if (!existing) return json(res, { error: 'Not found' }, 404);
+      Object.assign(existing, body, { updatedAt: new Date().toISOString() });
+      saveGuide(existing);
+      return json(res, { ok: true });
+    }
+
+    res.writeHead(404); res.end('Not found');
+  } catch(e) {
+    json(res, { error: e.message }, 500);
+  }
+});
+
+server.listen(PORT, '127.0.0.1', () => console.log(`Agents API on http://127.0.0.1:${PORT}`));
