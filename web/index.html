@@ -273,13 +273,16 @@ const MODELS=[
   {id:'github-copilot/claude-opus-4.7',name:'Claude Opus 4.7',emoji:'🐙',icon:'🐙',cost:'10x',desc:'最强模型，深度思考'},
   {id:'github-copilot/claude-opus-4.6-fast',name:'Opus 4.6 (Fast)',emoji:'⚡',icon:'⚡',cost:'5x',desc:'平衡速度和能力'},
 ];
-let currentModel=localStorage.getItem('oc_model')||'openclaw';
+// Note: default 'openclaw' is a legacy alias (not a real model id) — see infra/storage/localStore.js.
+let currentModel=window.__oc?.prefs?.getModel?.()??(localStorage.getItem('oc_model')||'openclaw');
 function getModelInfo(modelId){return MODELS.find(m=>m.id===modelId)||MODELS[0];}
 function setCurrentModel(modelId){
   const model=MODELS.find(m=>m.id===modelId);
   if(!model)return;
   currentModel=modelId;
-  localStorage.setItem('oc_model',modelId);
+  // Phase 3.2: persist via infra; falls back to direct localStorage if module not loaded.
+  if(window.__oc?.prefs?.setModel)window.__oc.prefs.setModel(modelId);
+  else localStorage.setItem('oc_model',modelId);
   updateModelDisplay();
   // Refresh the model dropdown
   renderModelDropdown();
@@ -354,8 +357,8 @@ try{
   }
 }catch{}})();
 function mergeChats(local,remote){const map=new Map();remote.forEach(c=>map.set(c.id,c));local.forEach(c=>{const existing=map.get(c.id);if(!existing||c.updatedAt>existing.updatedAt)map.set(c.id,c);});return[...map.values()].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));}
-let selectedAgent=localStorage.getItem(AGENT_KEY)||'main',streamingChats=new Set();
-let currentTheme=localStorage.getItem(THEME_KEY)||'dark';
+let selectedAgent=window.__oc?.prefs?.getAgent?.()??(localStorage.getItem(AGENT_KEY)||'main'),streamingChats=new Set();
+let currentTheme=window.__oc?.prefs?.getTheme?.()??(localStorage.getItem(THEME_KEY)||'dark');
 
 const $=id=>document.getElementById(id);
 const sidebar=$('sidebar'),overlay=$('overlay'),chatList=$('chatList'),agentGrid=$('agentGrid');
@@ -363,7 +366,7 @@ const messagesEl=$('messages'),input=$('input'),sendBtn=$('sendBtn');let topTitl
 const agentBadge=$('agentBadge'),streamBadge=$('streamBadge'),themeBtn=$('themeBtn');
 
 // === THEME ===
-function applyTheme(t){currentTheme=t;document.documentElement.setAttribute('data-theme',t);localStorage.setItem(THEME_KEY,t);themeBtn.innerHTML=t==='dark'?'<span class="emoji">☀️</span><span>浅色模式</span>':'<span class="emoji">🌙</span><span>深色模式</span>';}
+function applyTheme(t){currentTheme=t;document.documentElement.setAttribute('data-theme',t);if(window.__oc?.prefs?.setTheme)window.__oc.prefs.setTheme(t);else localStorage.setItem(THEME_KEY,t);themeBtn.innerHTML=t==='dark'?'<span class="emoji">☀️</span><span>浅色模式</span>':'<span class="emoji">🌙</span><span>深色模式</span>';}
 applyTheme(currentTheme);
 themeBtn.addEventListener('click',()=>applyTheme(currentTheme==='dark'?'light':'dark'));
 
