@@ -337,6 +337,7 @@ try{
     if(lastMsg?._streaming){
       console.log('[init] found streaming chat, polling for completion:',chat.id);
       (async function pollOne(id){
+        let lastSig='', stableCount=0;
         for(let i=0;i<240;i++){ // 最多 6 分钟
           await new Promise(r=>setTimeout(r,1500));
           try{
@@ -345,10 +346,26 @@ try{
             if(!fresh)continue;
             const idx=chats.findIndex(c=>c.id===id);
             if(idx<0)return;
+            // 🔒 仅在内容真的有变化时才替换 + 重渲染（避免每次轮询都把滚动条冲到底）
+            const last=fresh.messages?.[fresh.messages.length-1];
+            const sig=last?(last.role+'|'+(last.content||'').length+'|'+!!last._streaming):'';
+            if(sig===lastSig){
+              stableCount++;
+              // 连续 8 次（12 秒）都没变化 → 认为后端忘了清 _streaming，主动收尾
+              if(stableCount>=8){
+                console.log('[init] streaming stalled, force-clearing flag:',id);
+                if(last?._streaming)delete last._streaming;
+                chats[idx]=fresh;
+                if(currentId===id)renderChat();
+                renderSidebar();
+                return;
+              }
+              continue;
+            }
+            lastSig=sig; stableCount=0;
             chats[idx]=fresh;
             if(currentId===id)renderChat();
             renderSidebar();
-            const last=fresh.messages?.[fresh.messages.length-1];
             if(!last?._streaming){console.log('[init] streaming complete:',id);return;}
           }catch{}
         }
