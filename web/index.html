@@ -440,9 +440,12 @@ function filterSkills(){renderSkillsGrid();}
 window.setSkillFilter=setSkillFilter;window.filterSkills=filterSkills;
 
 function getVisibleSkills(){
-  const q=(document.getElementById('skillSearch')?.value||'').toLowerCase();
+  const f=window.__oc?.ui?.skillsPanel?.filterSkills;
+  const q=document.getElementById('skillSearch')?.value||'';
+  if(f)return f(skillsData,skillFilter,q);
+  const ql=q.toLowerCase();
   return skillsData.filter(s=>{
-    if(q&&!s.name.includes(q)&&!s.description.toLowerCase().includes(q))return false;
+    if(ql&&!s.name.includes(ql)&&!s.description.toLowerCase().includes(ql))return false;
     if(skillFilter==='active')return s.active;
     if(skillFilter==='builtin')return s.builtin;
     if(skillFilter==='custom')return !s.builtin;
@@ -450,13 +453,15 @@ function getVisibleSkills(){
   });
 }
 
-function escH(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escH(s){const e=window.__oc?.ui?.skillsPanel?.escH;return e?e(s):String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 function renderSkillsGrid(){
   const grid=document.getElementById('skillsGrid');
   const vis=getVisibleSkills();
   const ct=document.getElementById('skillsCounts');
-  if(ct)ct.textContent=skillsData.length+' 个技能 · '+skillsData.filter(s=>s.active).length+' 已启用 · '+skillsData.filter(s=>!s.builtin).length+' 自定义';
+  const sp=window.__oc?.ui?.skillsPanel;
+  if(ct)ct.textContent=sp?.countsLabel?sp.countsLabel(skillsData):(skillsData.length+' 个技能 · '+skillsData.filter(s=>s.active).length+' 已启用 · '+skillsData.filter(s=>!s.builtin).length+' 自定义');
+  if(sp?.skillsGridHtml){grid.innerHTML=sp.skillsGridHtml(vis);return;}
   if(!vis.length){grid.innerHTML='<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--text-sec)">🔍 没有匹配的技能</div>';return}
   grid.innerHTML=vis.map(s=>'<div class="skill-card" onclick="openSkill(\''+s.name+'\')"><div class="sk-icon">'+s.icon+'</div><div class="sk-name">'+escH(s.name)+'</div><div class="sk-desc">'+escH(s.description)+'</div><div class="sk-tags">'+(s.active?'<span class="sk-tag on">✅ 已启用</span>':'<span class="sk-tag">未启用</span>')+(s.builtin?'<span class="sk-tag">📦 内置</span>':'<span class="sk-tag custom">🛠 自定义</span>')+'</div></div>').join('');
 }
