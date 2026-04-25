@@ -3,6 +3,7 @@ const {exec}=require('child_process');
 const {stripHeavy}=require('./lib/stripHeavy');
 const {sendJson}=require('./lib/sendJson');
 const {parseChatJsonl}=require('./lib/parseChatJsonl');
+const {checkChatOverwrite}=require('./lib/chatGuards');
 const EXEC_ENV=Object.assign({},process.env,{PATH:'/home/nikefd/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:'+process.env.PATH});
 const PORT=7682,ROOT=process.env.HOME;
 const CHATS_FILE=path.join(ROOT,'.openclaw','chat-history.json');
@@ -97,41 +98,19 @@ http.createServer(async(req,res)=>{
       const body=await readBody(req);const chat=JSON.parse(body);
       fs.mkdirSync(CHATS_DIR,{recursive:true});
       const fp=path.join(CHATS_DIR,chatId+'.json');
-      // GUARD: refuse to overwrite a chat that has messages with one that has none.
-      // This prevents buggy clients from wiping chats via stripped/empty snapshots.
+      // GUARD: pure logic in lib/chatGuards.js. Three rules captured from prod incidents:
+      //   - empty-overwrite: existing has msgs, incoming empty -> reject
+      //   - streaming-over-final: existing finalized, incoming flagged _streaming -> reject
+      //   - shrink-finalized: existing assistant >> incoming assistant by >20 chars -> reject (4/24 P0)
       if(fs.existsSync(fp)){
         try{
           const existing=JSON.parse(fs.readFileSync(fp,'utf-8'));
-          const existingLen=(existing.messages||[]).length;
-          const incomingLen=(chat.messages||[]).length;
-          if(existingLen>0&&incomingLen===0){
-            console.warn('[chats] REFUSED empty overwrite for',chatId,'(existing='+existingLen+' msgs)');
-            res.writeHead(409);res.end(JSON.stringify({error:'refusing to overwrite non-empty chat with empty',existingMessages:existingLen}));
+          const guard=checkChatOverwrite(existing,chat);
+          if(!guard.ok){
+            console.warn('[chats] REFUSED',guard.reason,'for',chatId,JSON.stringify(guard.body));
+            res.writeHead(guard.status);res.end(JSON.stringify(guard.body));
             return;
           }
-          // 🔒 GUARD: 服务端权威 —— 如果存盘的最后一条 assistant 已经是 finalized（没有 _streaming），
-          // 而前端传来的还带着 _streaming（说明是流式中的旧快照）→ 拒绝覆盖。
-          const prevLast=existing.messages?.[existing.messages.length-1];
-          const incLast=chat.messages?.[chat.messages.length-1];
-          if(prevLast?.role==='assistant'&&!prevLast._streaming&&
-             incLast?.role==='assistant'&&incLast._streaming){
-            console.warn('[chats] REFUSED streaming-over-final overwrite for',chatId);
-            res.writeHead(409);res.end(JSON.stringify({error:'refusing to overwrite finalized assistant with in-flight streaming snapshot'}));
-            return;
-          }
-          // 🔒 GUARD: 如果存盘的最后一条 assistant 比前端传来的同位置 assistant 更长，
-          // 说明前端是旧快照 → 拒绝缩短。就治 4/24 那种“长回复被旧快照捧动”的情况。
-          if(prevLast?.role==='assistant'&&incLast?.role==='assistant'&&
-             typeof prevLast.content==='string'&&typeof incLast.content==='string'&&
-             prevLast.content.length>incLast.content.length+20&&
-             !prevLast._streaming){
-            console.warn('[chats] REFUSED shrink overwrite for',chatId,'prev='+prevLast.content.length+' inc='+incLast.content.length);
-            res.writeHead(409);res.end(JSON.stringify({error:'refusing to shrink finalized assistant message',prevLen:prevLast.content.length,incLen:incLast.content.length}));
-            return;
-          }
-          // shrink-guard removed — it blocked legitimate post-stream saves
-          // when the in-memory messages count was temporarily lower than the
-          // last debounced snapshot. The empty-overwrite guard above is enough.
         }catch{}
       }
       fs.writeFileSync(fp,JSON.stringify(chat),'utf-8');
