@@ -1081,7 +1081,14 @@ function renderChat(){
 }
 function renderWelcome(){
   const a=getAgent('main');
-  const mentions=AGENTS.filter(x=>x.mention).map(x=>`<span onclick="insertMention('${x.mention}')">${x.emoji} ${x.mention}</span>`).join('');
+  const mentionable=AGENTS.filter(x=>x.mention);
+  const m=window.__oc?.ui?.welcome;
+  if(m && typeof m.welcomeHtml==='function'){
+    messagesEl.innerHTML=m.welcomeHtml(a, mentionable);
+    return;
+  }
+  // fallback: original inline impl (kept in case the module fails to load)
+  const mentions=mentionable.map(x=>`<span onclick="insertMention('${x.mention}')">${x.emoji} ${x.mention}</span>`).join('');
   messagesEl.innerHTML=`<div class="welcome"><div class="logo">${a.emoji}</div><h2>${a.name}</h2><p>${a.desc}</p>${mentions?`<p style="font-size:13px;color:var(--text-sec);margin-top:12px">输入 @ 切换角色</p><div class="agents-hint">${mentions}</div>`:''}</div>`;
 }
 function insertMention(mention){const inp=document.getElementById('input');inp.value=mention+' ';inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);closeSidebar();}
