@@ -116,6 +116,22 @@ if [ "$MODE" = "local" ]; then
   probe_alive "agents-api  7685" "http://127.0.0.1:7685/"
   probe_alive "usage-api   7686" "http://127.0.0.1:7686/api/usage"
   probe_alive "perf-api    7687" "http://127.0.0.1:7687/"
+
+  # Sanity: services in ~/ match repo (catches "forgot to npm run services:sync")
+  for pair in \
+    "file-api-server.js services/file/server.js" \
+    "auth-server.js services/auth/server.js" \
+    "agents-api.js services/agents/server.js" \
+    "usage-api.js services/usage/server.js" \
+    "finance-api-server.js services/finance/server.js" \
+    "perf-api.js services/perf/server.js"; do
+    set -- $pair
+    if diff -q "$HOME/$1" "/home/nikefd/openclaw-deploy/$2" >/dev/null 2>&1; then
+      ok "service ~/$1 matches repo"
+    else
+      fail "service drift: $1" "$HOME/$1 != /home/nikefd/openclaw-deploy/$2 (run npm run services:sync)"
+    fi
+  done
 fi
 
 echo "================================================"

@@ -9,6 +9,8 @@
     "test:smoke": "bash tests/smoke/smoke.sh",
     "test:smoke:remote": "bash tests/smoke/smoke.sh https://zhangyangbin.com",
     "sync": "node scripts/sync-prod.mjs",
+    "services:sync": "node scripts/sync-services.mjs",
+    "services:deploy": "node scripts/sync-services.mjs --restart",
     "deploy": "npm run test:unit && npm run sync && npm run test:smoke"
   }
 }
