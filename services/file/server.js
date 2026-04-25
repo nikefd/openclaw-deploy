@@ -4,6 +4,7 @@ const {stripHeavy}=require('./lib/stripHeavy');
 const {sendJson}=require('./lib/sendJson');
 const {parseChatJsonl}=require('./lib/parseChatJsonl');
 const {checkChatOverwrite}=require('./lib/chatGuards');
+const {extractTextFromContent,makeChatTitle,ensureChatShape,isSameUserMessage,updateAssistantInChat}=require('./lib/chatStreamWriter');
 const EXEC_ENV=Object.assign({},process.env,{PATH:'/home/nikefd/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:'+process.env.PATH});
 const PORT=7682,ROOT=process.env.HOME;
 const CHATS_FILE=path.join(ROOT,'.openclaw','chat-history.json');
@@ -390,26 +391,11 @@ http.createServer(async(req,res)=>{
           if(fs.existsSync(chatFp)){
             try{chat=JSON.parse(fs.readFileSync(chatFp,'utf-8'));}catch{chat=null;}
           }
-          // 取 user content 的 string 表示（提前计算，新建 chat 时用它做 title）
-          let userText='';
-          if(typeof lastUser.content==='string')userText=lastUser.content;
-          else if(Array.isArray(lastUser.content))userText=lastUser.content.filter(c=>c&&c.type==='text').map(c=>c.text).join('');
-          if(!chat||typeof chat!=='object'){
-            const autoTitle=(userText||'').slice(0,30)+((userText||'').length>30?'...':'')||'新对话';
-            chat={id:chatId,title:autoTitle,agentId:body.agentId||'main',messages:[],createdAt:Date.now()};
-          }
-          if(!Array.isArray(chat.messages))chat.messages=[];
-          // 如果已存在 chat 但 title 空（旧数据或上游 bug）+ 此刻是首条消息，补一个
-          if(!chat.title&&chat.messages.length===0&&userText){
-            chat.title=userText.slice(0,30)+(userText.length>30?'...':'');
-          }
+          const userText=extractTextFromContent(lastUser.content);
+          chat=ensureChatShape(chat,{id:chatId,agentId:body.agentId||'main',userText});
           // 去重：如果最后一条已经是相同内容的 user，跳过
           const last=chat.messages[chat.messages.length-1];
-          const lastIsSameUser=last&&last.role==='user'&&(
-            (typeof last.content==='string'&&last.content===userText)||
-            JSON.stringify(last.content)===JSON.stringify(lastUser.content)
-          );
-          if(!lastIsSameUser){
+          if(!isSameUserMessage(last,lastUser)){
             chat.messages.push({role:'user',content:lastUser.content});
             chat.updatedAt=Date.now();
             const tmp=chatFp+'.tmp';
@@ -429,31 +415,16 @@ http.createServer(async(req,res)=>{
             if(fs.existsSync(chatFp)){
               try{chat=JSON.parse(fs.readFileSync(chatFp,'utf-8'));}catch{chat=null;}
             }
-            if(!chat||typeof chat!=='object'){
-              // 科定验 fallback：新建时用第一条 user 做 title（和前端逻辑对齐）
-              let firstUserText='';
+            // 新建时用首条 user 做 title fallback（和前端逻辑对齐）
+            let firstUserText='';
+            if(!chat){
               try{
                 const fu=(body.messages||[]).find(m=>m&&m.role==='user');
-                if(fu){
-                  if(typeof fu.content==='string')firstUserText=fu.content;
-                  else if(Array.isArray(fu.content))firstUserText=fu.content.filter(c=>c&&c.type==='text').map(c=>c.text).join('');
-                }
+                if(fu)firstUserText=extractTextFromContent(fu.content);
               }catch{}
-              const autoTitle=firstUserText.slice(0,30)+(firstUserText.length>30?'...':'')||'新对话';
-              chat={id:chatId,title:autoTitle,agentId:body.agentId||'main',messages:[],createdAt:Date.now()};
             }
-            if(!Array.isArray(chat.messages))chat.messages=[];
-            // 找最后一条 assistant；如果是 _streaming 状态就更新，否则 push 一条新的
-            let last=chat.messages[chat.messages.length-1];
-            if(last&&last.role==='assistant'&&last._streaming){
-              last.content=full;
-              if(done)delete last._streaming;
-            }else{
-              const newMsg={role:'assistant',content:full};
-              if(!done)newMsg._streaming=true;
-              chat.messages.push(newMsg);
-            }
-            chat.updatedAt=Date.now();
+            chat=ensureChatShape(chat,{id:chatId,agentId:body.agentId||'main',userText:firstUserText});
+            updateAssistantInChat(chat,full,{done});
             // 临时文件 + rename: 原子写
             const tmp=chatFp+'.tmp';
             fs.writeFileSync(tmp,JSON.stringify(chat),'utf-8');
