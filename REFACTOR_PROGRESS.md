@@ -12,6 +12,7 @@
 
 | Phase | 内容 | commit | tests |
 |---|---|---|---|
+| **4.10** | `renderWelcome` → `src/ui/welcome.js`（welcomeHtml，纯字符串模板，含 mention chip 注入防御） | `ae48464` | +10 |
 | **4.9** | `modelDropdownHtml` → `src/ui/modelDropdown.js`；顺手修 4.8 的 nodesPanel infra re-export 漏洞 | `3ddc541` | +9 |
 | **safe-sync** | `scripts/sync-prod.mjs` + `npm run sync/deploy`，禁止裸 `cp → /var/www/chat/` | `af7f9ba` | dogfood ✓ |
 | **4.8** | nodes panel HTML（pending/connected）→ `src/ui/nodesPanel.js` | `9cdd4e8` | +21 |
@@ -28,7 +29,7 @@
 | **3.5** | 纯 chat shape 逻辑 → `domain/chat.js` | `8dd8cdb` | — |
 | 0–3.4 | 骨架 / CSS 抽离 / infra 层骨干 / SSE wire 统一 | 多个 | — |
 
-**当前测试**：131 unit + 25 smoke 全绿，~1.6s
+**当前测试**：141 unit + 26 smoke 全绿，~1.6s
 
 ---
 
@@ -55,7 +56,8 @@ openclaw-deploy/
 │           ├── memoryPanel.js
 │           ├── demoCodes.js
 │           ├── nodesPanel.js
-│           └── modelDropdown.js
+│           ├── modelDropdown.js
+│           └── welcome.js
 ├── scripts/
 │   └── sync-prod.mjs       # ★ 安全部署：先 syntax-check 再拷
 ├── tests/
@@ -132,7 +134,7 @@ openclaw-deploy/
 - 第一步：纯 cp 源码 + unit 文件副本到 repo，不动运行时
 - 第二步：加 `npm run sync:services` 把 repo 中源码拷回 `~/`，斌哥手动 `systemctl --user restart`
 
-**建议起步：B（最简单）→ A → 再考虑 D。**
+**建议起步：A（chat sidebar）→ C（Tasks 看板）→ D（转 Phase 5）。Phase 4.10 已完成。**
 
 ---
 
@@ -154,4 +156,4 @@ openclaw-deploy/
 - 不要追求一次抽很多——之前 Phase 2 一次性接 module script 直接炸
 - 改完测试 + smoke 全绿才能 commit，**绝对不允许**红灯 commit
 
-_Last updated: 2026-04-25 by 狗蛋_
+_Last updated: 2026-04-25 by 狗蛋（4.10 done）_
