@@ -8,31 +8,42 @@ home directory), edited in place; they are now version-controlled here.
 |---|---|---|---|---|
 | file-api    | 7682 | `file/server.js`    | `file-api.service`    | Chat persistence, file browser, perf log shim |
 | auth-server | 7683 | `auth/server.js`    | `auth-server.service` | Cookie auth gate (`/auth/*`) |
-| finance-api | 7684 | `finance/server.js` | _(none — bare process)_ | Finance Agent backend |
+| finance-api | 7684 | `finance/server.js` | `finance-api.service` | Finance Agent backend |
 | agents-api  | 7685 | `agents/server.js`  | `agents-api.service`  | Agents data (climbing, AI news, …) |
 | usage-api   | 7686 | `usage/server.js`   | `usage-api.service`   | Token usage tracking |
-| perf-api    | 7687 | `perf/server.js`    | _(none — bare process)_ | Frontend perf telemetry |
+| perf-api    | 7687 | `perf/server.js`    | `perf-api.service`    | Frontend perf telemetry |
 
-All units run under `systemd --user` (not the system instance — see the
-2026-04-25 incident in `MEMORY.md` where 4 system-level units were
-mis-installed). Source-of-truth lives in `~/.config/systemd/user/*.service`;
+All 6 services run under `systemd --user` (Phase 5.3 promoted finance + perf
+from bare processes). Source-of-truth for unit files lives in `~/.config/systemd/user/*.service`;
 sanitized copies live in `services/systemd-user/`.
 
 ## Workflow
 
-### Editing a service
+### Editing a service or unit
 
 ```bash
-# 1. Edit the version in repo
+# Edit the service code
 $EDITOR services/file/server.js
+npm run services:sync          # check + diff + atomic copy (no restart)
+npm run services:deploy        # ... and `systemctl --user restart`
 
-# 2. Run sync (does syntax check + diff + atomic copy + restart)
-npm run services:sync          # all services
-npm run services:sync file     # just one
-
-# 3. Commit
-git add services/file/server.js && git commit
+# Edit a unit file
+$EDITOR services/systemd-user/file-api.service
+npm run units:sync             # check + diff + atomic copy (no reload)
+npm run units:reload           # ... and `systemctl --user daemon-reload`
 ```
+
+### Promoting a bare process to systemd-user (Phase 5.3 pattern)
+
+1. Add `services/systemd-user/<name>.service` (copy `usage-api.service` as a
+   template).
+2. Register in `scripts/sync-units.mjs` `UNITS` and `scripts/sync-services.mjs`
+   `SERVICES[<name>].unit`.
+3. `npm run units:sync -- --reload`.
+4. Atomic switch from a `systemd-run` transient (kill bare, then
+   `systemctl --user enable --now <name>`) — NOT direct `kill` from `exec`
+   (SIGTERM kills the OpenClaw exec parent, see MEMORY.md 2026-04-25).
+5. Add the unit to the smoke sanity loop.
 
 ### NEVER do this
 
@@ -41,22 +52,23 @@ git add services/file/server.js && git commit
 - ❌ `kill` from `exec` — environment quirk SIGTERMs the parent (use
    `systemctl --user restart` or `systemd-run --on-active=2 …`)
 
-### finance-api / perf-api — still bare
+### finance-api / perf-api — promoted Phase 5.3
 
-These two are currently launched as plain `node ...` processes (no systemd
-unit). Phase 5.3 will promote them; until then `services:sync` only updates
-the source file but does not restart them.
+These are now managed by `systemd --user` like the rest. Restart with
+`systemctl --user restart finance-api.service` or `npm run services:deploy`.
 
 ## Layout
 
 ```
 services/
 ├── README.md                    # this file
-├── systemd-user/                # sanitized unit files
+├── systemd-user/                # 6 unit files
 │   ├── file-api.service
 │   ├── auth-server.service
 │   ├── agents-api.service
-│   └── usage-api.service
+│   ├── usage-api.service
+│   ├── finance-api.service
+│   └── perf-api.service
 ├── file/      server.js  lib/   # one dir per service
 ├── auth/      server.js  lib/
 ├── agents/    server.js  lib/

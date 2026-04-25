@@ -38,8 +38,8 @@ const SERVICES = {
   auth:    { src: 'services/auth/server.js',    dst: 'auth-server.js',        unit: 'auth-server.service' },
   agents:  { src: 'services/agents/server.js',  dst: 'agents-api.js',         unit: 'agents-api.service' },
   usage:   { src: 'services/usage/server.js',   dst: 'usage-api.js',          unit: 'usage-api.service' },
-  finance: { src: 'services/finance/server.js', dst: 'finance-api-server.js', unit: null /* bare process */ },
-  perf:    { src: 'services/perf/server.js',    dst: 'perf-api.js',           unit: null /* bare process */ },
+  finance: { src: 'services/finance/server.js', dst: 'finance-api-server.js', unit: 'finance-api.service' },
+  perf:    { src: 'services/perf/server.js',    dst: 'perf-api.js',           unit: 'perf-api.service' },
 };
 
 // ── parse args ─────────────────────────────────────────────────────────

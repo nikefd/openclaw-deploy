@@ -11,6 +11,8 @@
     "sync": "node scripts/sync-prod.mjs",
     "services:sync": "node scripts/sync-services.mjs",
     "services:deploy": "node scripts/sync-services.mjs --restart",
+    "units:sync": "node scripts/sync-units.mjs",
+    "units:reload": "node scripts/sync-units.mjs --reload",
     "deploy": "npm run test:unit && npm run sync && npm run test:smoke"
   }
 }

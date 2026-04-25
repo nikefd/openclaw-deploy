@@ -132,6 +132,15 @@ if [ "$MODE" = "local" ]; then
       fail "service drift: $1" "$HOME/$1 != /home/nikefd/openclaw-deploy/$2 (run npm run services:sync)"
     fi
   done
+
+  # Sanity: systemd-user units in repo match ~/.config/systemd/user/
+  for u in file-api.service auth-server.service agents-api.service usage-api.service finance-api.service perf-api.service; do
+    if diff -q "$HOME/.config/systemd/user/$u" "/home/nikefd/openclaw-deploy/services/systemd-user/$u" >/dev/null 2>&1; then
+      ok "unit $u matches repo"
+    else
+      fail "unit drift: $u" "$HOME/.config/systemd/user/$u != repo (run npm run units:sync)"
+    fi
+  done
 fi
 
 echo "================================================"
