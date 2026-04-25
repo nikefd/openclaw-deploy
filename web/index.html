@@ -10,11 +10,9 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
 <link rel="stylesheet" href="/assets/css/app.css">
-<!-- infra module script intentionally NOT loaded here.
-     Reason (see MEMORY.md 2026-04-25): nginx location / has try_files with
-     fallback to /index.html. If /src/infra/index.js fails to be served as JS
-     for any reason, the page reloads in a loop. Phase 3 will wire infra in
-     via a safer mechanism (dedicated /api/static/ location, or bundled JS). -->
+<!-- Phase 2 infra layer: loaded via dedicated nginx /src/ location (no try_files fallback).
+     Exposes window.__oc for debugging. Phase 3+ will migrate call sites to use this. -->
+<script type="module" src="/src/infra/index.js"></script>
 </head>
 <body>
 <div class="overlay" id="overlay"></div>
