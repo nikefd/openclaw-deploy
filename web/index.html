@@ -1476,12 +1476,26 @@ async function sendMessage(){
     // NOTE: `el` 声明在 try 外，catch/recover 块也要能访问到
     let el=null;
     
-    const _pcVisHandler=()=>{
-      if(document.visibilityState==='visible'&&streamingChats.has(chatId)){
-        const gap=performance.now()-_lastChunkTime;
-        if(gap>60000){_needRecover=true;try{reader.cancel();}catch{}}
-      }
-    };
+    // Stream-stale watchdog（Phase: streamRecovery）：visible+streaming 且 last chunk >60s 没动 → 触发 onStale
+    // module-first，infra 缺失时退回旧内联实现
+    const _pcRec=window.__oc?.ui?.streamRecovery?.createStreamRecovery
+      ?window.__oc.ui.streamRecovery.createStreamRecovery({
+          isVisible:()=>document.visibilityState==='visible',
+          isStreaming:()=>streamingChats.has(chatId),
+          getLastChunkAt:()=>_lastChunkTime,
+          getNow:()=>performance.now(),
+          staleThresholdMs:60000,
+          onStale:()=>{_needRecover=true;try{reader.cancel();}catch{}},
+        })
+      :null;
+    const _pcVisHandler=_pcRec
+      ?()=>{_pcRec.onVisibilityChange();}
+      :()=>{
+          if(document.visibilityState==='visible'&&streamingChats.has(chatId)){
+            const gap=performance.now()-_lastChunkTime;
+            if(gap>60000){_needRecover=true;try{reader.cancel();}catch{}}
+          }
+        };
     document.addEventListener('visibilitychange',_pcVisHandler);
     try{
     while(true){
