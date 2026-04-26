@@ -12,6 +12,7 @@
 
 | Phase | 内容 | commit | tests |
 |---|---|---|---|
+| **streamFinalize** | assistant message merge + error bubble text → `src/ui/streamFinalize.js`（`buildFinalAssistantMessage` / `buildErrorBubbleText` / `lastUserContent`）；success + error 两路径现在共享同一合并逻辑（replace-or-append + drop _streaming） | `9738fa4` | +17 |
 | **streamRecovery** | visibility + reader-stale watchdog → `src/ui/streamRecovery.js`（`shouldRecover` 纯函数 + `createStreamRecovery` 工厂，reader 不进模块）；index.html module-first + inline fallback | `6206982` | +15 |
 | **streamHandler** | SSE 解析纯化 → `src/ui/streamHandler.js`（parseStreamLine / extractDelta / appendDelta / splitBuffer），index.html SSE 循环嵌套 7 层→3 层、最长行 600→120 字符；后端 `services/file/server.js` idle timeout 30s→120s（opus 长回复假 idle 修复） | `a47db25` | +29 |
 | **send-fix-3x** | 24h 内 `send()` 函数 3 连击 bug：`}}catch{}}}` 残留 / 修 1 删多 `}` / `let el=null` 被早期重构删了但注释还在 | `fd7bec2` → `4ecc425` → `94cb2cc` | — |
@@ -37,7 +38,7 @@
 | **3.5** | 纯 chat shape 逻辑 → `domain/chat.js` | `8dd8cdb` | — |
 | 0–3.4 | 骨架 / CSS 抽离 / infra 层骨干 / SSE wire 统一 | 多个 | — |
 
-**当前测试**：458 unit + 34 smoke 全绿（2026-04-26 streamRecovery 后）
+**当前测试**：475 unit + 34 smoke 全绿（2026-04-26 streamFinalize 后）
 
 ---
 
@@ -152,10 +153,7 @@ openclaw-deploy/
 位置：`web/index.html` 内 `async function send(...)`，约 line 1410-1620。
 抽完 streamHandler 后剩余痛点（按风险低 / 收益高排序）：
 
-#### B. `streamFinalize.js` ⭐ 推荐下一个
-流式正常结束（写 chat.messages、save、renderMd、append actions）和错误结束（"⚠⏸ 连接中断" 气泡 + 重试）有大量重复。建议抽纯函数 `buildFinalAssistantMessage({chatMessages, full}) → 新 messages 数组`，DOM 装饰可保留在 index.html。
-
-#### C. `streamPerf.js`
+#### C. `streamPerf.js` ⭐ 推荐下一个
 抽 TTFT / pause / streaming 三段计时为 `createPerfTracker(now=performance.now)` 状态机。当前散在主循环里（`_perfTTFT` / `_perfPauses` / `_perfStreaming` / `_perfHttpMs` / `perfLog`）。
 
 #### D. 删除 ff (fly-forward) 死代码
@@ -190,4 +188,4 @@ openclaw-deploy/
 - 不要追求一次抽很多——之前 Phase 2 一次性接 module script 直接炸
 - 改完测试 + smoke 全绿才能 commit，**绝对不允许**红灯 commit
 
-_Last updated: 2026-04-26 by 狗蛋（streamRecovery done，下一个建议 streamFinalize）_
+_Last updated: 2026-04-26 by 狗蛋（streamFinalize done，下一个建议 streamPerf）_
