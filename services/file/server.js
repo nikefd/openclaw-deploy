@@ -8,6 +8,7 @@ const {extractTextFromContent,makeChatTitle,ensureChatShape,isSameUserMessage,up
 const {getBoundary,parseMultipart,makeUniqueName}=require('./lib/multipart');
 const dispatchStore=require('./lib/dispatchStore');
 const {appendAssistantReply}=require('./lib/appendAssistantReply');
+const {createChatRepo}=require('./lib/chatRepo');
 const EXEC_ENV=Object.assign({},process.env,{PATH:'/home/nikefd/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:'+process.env.PATH});
 const PORT=7682,ROOT=process.env.HOME;
 // 🛡️ 全局保险：底层 socket / SSE response 偶发 ERR_STREAM_WRITE_AFTER_END 之类不要让进程秒挂。
@@ -18,6 +19,8 @@ process.on('unhandledRejection',e=>{console.error('[unhandledRejection]',e&&e.me
 const CHATS_FILE=path.join(ROOT,'.openclaw','chat-history.json');
 const CHATS_DIR=path.join(ROOT,'.openclaw','chats');
 const PERF_LOG_FILE=path.join(ROOT,'.openclaw','perf-log.json');function readBody(req){return new Promise((ok,no)=>{let d='';req.on('data',c=>d+=c);req.on('end',()=>ok(d));req.on('error',no);});}
+// Phase 5.5: chat persistence -> repo (fs-injected, fully unit-tested in lib/chatRepo).
+const chatRepo=createChatRepo({fs,chatsDir:CHATS_DIR,chatsFile:CHATS_FILE,stripHeavy,checkChatOverwrite});
 http.createServer(async(req,res)=>{
   res.setHeader('Content-Type','application/json');
   const url=new URL(req.url,'http://localhost:'+PORT);
@@ -54,97 +57,45 @@ http.createServer(async(req,res)=>{
       res.end(JSON.stringify({path:r,size:s.size,content:fs.readFileSync(r,'utf-8')}));
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/chats'&&req.method==='GET'){
-    // Default: return stripped list (no base64 images/attachments) + gzip.
-    // Pass ?full=1 to get raw legacy behavior (heavy — avoid in UI).
-    // Pass ?since=<ms> to only return chats with updatedAt > since (incremental sync).
+    // Phase 5.5: delegated to chatRepo.listChats (fs/strip injected).
     const wantFull=url.searchParams.get('full')==='1';
     const sinceRaw=url.searchParams.get('since');
     const since=sinceRaw?parseInt(sinceRaw,10):0;
     try{
-      fs.mkdirSync(CHATS_DIR,{recursive:true});
-      const files=fs.readdirSync(CHATS_DIR).filter(f=>f.endsWith('.json'));
-      let all=[];
-      if(files.length>0){
-        all=files.map(f=>{try{return JSON.parse(fs.readFileSync(path.join(CHATS_DIR,f),'utf-8'));}catch{return null;}}).filter(Boolean);
-      }else if(fs.existsSync(CHATS_FILE)){
-        // Migrate legacy file to individual files
-        const legacy=JSON.parse(fs.readFileSync(CHATS_FILE,'utf-8'));
-        for(const c of legacy){if(c&&c.id){try{fs.writeFileSync(path.join(CHATS_DIR,c.id+'.json'),JSON.stringify(c),'utf-8');}catch{}}}
-        all=legacy;
-      }
-      if(since&&!isNaN(since)){
-        all=all.filter(c=>(c.updatedAt||0)>since);
-      }
-      all.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
-      const out=wantFull?all:all.map(stripHeavy);
+      const{data}=chatRepo.listChats({since:isNaN(since)?0:since,full:wantFull});
       res.setHeader('X-Server-Time',String(Date.now()));
-      sendJson(req,res,out);
+      sendJson(req,res,data);
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/chats'&&req.method==='POST'){
-    // Legacy bulk save — still supported but also writes individual files
+    // Phase 5.5: delegated to chatRepo.bulkSaveChats.
     try{const body=await readBody(req);const parsed=JSON.parse(body);
-      fs.mkdirSync(CHATS_DIR,{recursive:true});
-      for(const c of parsed){if(c&&c.id){fs.writeFileSync(path.join(CHATS_DIR,c.id+'.json'),JSON.stringify(c),'utf-8');}}
-      // Also write legacy file for backward compat
-      fs.mkdirSync(path.dirname(CHATS_FILE),{recursive:true});
-      fs.writeFileSync(CHATS_FILE,body,'utf-8');res.end('{"ok":true}');}
+      chatRepo.bulkSaveChats(parsed);res.end('{"ok":true}');}
     catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname.startsWith('/api/chats/')&&req.method==='GET'){
-    // Fetch a single chat (full content, including images) for lazy-load.
+    // Phase 5.5: delegated to chatRepo.getChatRaw.
     const chatId=url.pathname.slice('/api/chats/'.length);
     if(!chatId){res.writeHead(400);res.end('{"error":"need chat id"}');return;}
     try{
-      const fp=path.join(CHATS_DIR,chatId+'.json');
-      if(!fs.existsSync(fp)){res.writeHead(404);res.end('{"error":"not found"}');return;}
-      const data=fs.readFileSync(fp,'utf-8');
-      sendJson(req,res,data);
+      const r=chatRepo.getChatRaw(chatId);
+      if(!r.found){res.writeHead(404);res.end('{"error":"not found"}');return;}
+      sendJson(req,res,r.data);
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname.startsWith('/api/chats/')&&(req.method==='PUT'||req.method==='POST')){
-    // Save single chat: PUT/POST /api/chats/:id (POST for sendBeacon compat)
+    // Phase 5.5: delegated to chatRepo.saveChat (guards + ACCEPTED-SHRINK warn inside repo).
     const chatId=url.pathname.slice('/api/chats/'.length);
     if(!chatId){res.writeHead(400);res.end('{"error":"need chat id"}');return;}
     try{
       const body=await readBody(req);const chat=JSON.parse(body);
-      fs.mkdirSync(CHATS_DIR,{recursive:true});
-      const fp=path.join(CHATS_DIR,chatId+'.json');
-      // GUARD: pure logic in lib/chatGuards.js. Three rules captured from prod incidents:
-      //   - empty-overwrite: existing has msgs, incoming empty -> reject
-      //   - streaming-over-final: existing finalized, incoming flagged _streaming -> reject
-      //   - shrink-finalized: existing assistant >> incoming assistant by >20 chars -> reject (4/24 P0)
-      let existingMsgCount=null;
-      if(fs.existsSync(fp)){
-        try{
-          const existing=JSON.parse(fs.readFileSync(fp,'utf-8'));
-          existingMsgCount=Array.isArray(existing.messages)?existing.messages.length:0;
-          const guard=checkChatOverwrite(existing,chat);
-          if(!guard.ok){
-            console.warn('[chats] REFUSED',guard.reason,'for',chatId,JSON.stringify(guard.body));
-            res.writeHead(guard.status);res.end(JSON.stringify(guard.body));
-            return;
-          }
-        }catch{}
-      }
-      fs.writeFileSync(fp,JSON.stringify(chat),'utf-8');
-      // 2026-04-26: log PUT acceptances when message count shrinks or last
-      // assistant disappears, so we can spot client-driven message loss in
-      // the wild. Successful no-shrink PUTs stay quiet to avoid noise.
-      try{
-        const incomingCount=Array.isArray(chat.messages)?chat.messages.length:0;
-        if(existingMsgCount!=null&&incomingCount<existingMsgCount){
-          console.warn('[chats] ACCEPTED-SHRINK',chatId,'existing='+existingMsgCount,'incoming='+incomingCount);
-        }
-      }catch{}
+      const r=chatRepo.saveChat(chatId,chat);
+      if(!r.ok){res.writeHead(r.status);res.end(JSON.stringify(r.body));return;}
       res.end('{"ok":true}');
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname.startsWith('/api/chats/')&&req.method==='DELETE'){
-    // Delete single chat: DELETE /api/chats/:id
+    // Phase 5.5: delegated to chatRepo.deleteChat.
     const chatId=url.pathname.slice('/api/chats/'.length);
     if(!chatId){res.writeHead(400);res.end('{"error":"need chat id"}');return;}
-    try{
-      const fp=path.join(CHATS_DIR,chatId+'.json');
-      if(fs.existsSync(fp))fs.unlinkSync(fp);
-      res.end('{"ok":true}');
-    }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
+    try{chatRepo.deleteChat(chatId);res.end('{"ok":true}');}
+    catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname==='/api/files/upload'&&req.method==='POST'){
     // Multipart file upload — parsing is in lib/multipart.js (pure, tested).
     const ct=req.headers['content-type']||'';
