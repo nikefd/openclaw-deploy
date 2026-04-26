@@ -29,6 +29,7 @@ import * as uiFileBreadcrumb from '../ui/fileBreadcrumb.js';
 import * as uiMessageRenderer from '../ui/messageRenderer.js';
 import * as uiStreamHandler from '../ui/streamHandler.js';
 import * as uiStreamRecovery from '../ui/streamRecovery.js';
+import * as uiStreamFinalize from '../ui/streamFinalize.js';
 
 export {
   config, urls, resolveWireModel,
@@ -58,6 +59,7 @@ export {
   uiMessageRenderer,
   uiStreamHandler,
   uiStreamRecovery,
+  uiStreamFinalize,
 };
 
 // Developer convenience: expose on window for console probing.
@@ -68,7 +70,7 @@ if (typeof window !== 'undefined') {
     backend: getBackend(),
     prefs, chatStore, perfLog,
     domain: { chat: chatDomain },
-    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel, demoCodes: uiDemoCodes, nodesPanel: uiNodesPanel, modelDropdown: uiModelDropdown, welcome: uiWelcome, chatSidebar: uiChatSidebar, tasksDashboard: uiTasksDashboard, fileViewer: uiFileViewer, expertTeams: uiExpertTeams, mentionPopup: uiMentionPopup, fileBreadcrumb: uiFileBreadcrumb, messageRenderer: uiMessageRenderer, streamHandler: uiStreamHandler, streamRecovery: uiStreamRecovery },
+    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel, demoCodes: uiDemoCodes, nodesPanel: uiNodesPanel, modelDropdown: uiModelDropdown, welcome: uiWelcome, chatSidebar: uiChatSidebar, tasksDashboard: uiTasksDashboard, fileViewer: uiFileViewer, expertTeams: uiExpertTeams, mentionPopup: uiMentionPopup, fileBreadcrumb: uiFileBreadcrumb, messageRenderer: uiMessageRenderer, streamHandler: uiStreamHandler, streamRecovery: uiStreamRecovery, streamFinalize: uiStreamFinalize },
     version: 'phase-4',
   });
 }

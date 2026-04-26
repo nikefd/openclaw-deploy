@@ -1550,9 +1550,15 @@ async function sendMessage(){
     if(full){
       // 服务端已经写完了 chat.json（包含本条 assistant）
       // 前端同步到内存 + localStorage 以便 UI 一致；save() 的 PUT 与服务端内容幂等，安全
-      const existingAst=chat.messages[chat.messages.length-1];
-      if(existingAst?.role==='assistant'){existingAst.content=full;delete existingAst._streaming;}
-      else{chat.messages.push({role:'assistant',content:full});}
+      // module-first：streamFinalize.buildFinalAssistantMessage 返回新数组，指针赋回 chat.messages
+      const _fin=window.__oc?.ui?.streamFinalize?.buildFinalAssistantMessage;
+      if(_fin){
+        chat.messages=_fin(chat.messages,full).messages;
+      }else{
+        const existingAst=chat.messages[chat.messages.length-1];
+        if(existingAst?.role==='assistant'){existingAst.content=full;delete existingAst._streaming;}
+        else{chat.messages.push({role:'assistant',content:full});}
+      }
       chat.updatedAt=Date.now();
       save(chatId);
       if(el&&currentId===chatId){el.innerHTML=renderMd(full);el.classList.remove('raw');const ad=document.createElement('div');ad.className='msg-actions';const ttsBtn=agent?.tts?`<button class="tts-btn" onclick="speakText(this.closest('.message').querySelector('.msg-text').textContent,this)">🔊 朗读</button>`:'';ad.innerHTML=`${ttsBtn}<button class="copy-btn" onclick="copyMsg(this)">📋 复制</button>`;el.parentElement.appendChild(ad);}
@@ -1563,10 +1569,16 @@ async function sendMessage(){
     //   - `full` 里已累积的那些内容就是真相（后端 proxy 也实时落盘了）
     //   - 直接 finalize，加个"⚠⏸ 连接中断"徽标 + 重试按钮让用户手动介入
     if(full){
-      const existingAst=chat.messages[chat.messages.length-1];
-      if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;delete existingAst._streaming;}
-      else if(existingAst?.role==='assistant'){existingAst.content=full;}
-      else{chat.messages.push({role:'assistant',content:full});}
+      // module-first：同 success 路径，replace-or-append + drop _streaming
+      const _fin=window.__oc?.ui?.streamFinalize?.buildFinalAssistantMessage;
+      if(_fin){
+        chat.messages=_fin(chat.messages,full).messages;
+      }else{
+        const existingAst=chat.messages[chat.messages.length-1];
+        if(existingAst?.role==='assistant'&&existingAst._streaming){existingAst.content=full;delete existingAst._streaming;}
+        else if(existingAst?.role==='assistant'){existingAst.content=full;}
+        else{chat.messages.push({role:'assistant',content:full});}
+      }
       chat.updatedAt=Date.now();save(chatId);
       if(!el&&currentId===chatId){el=appendMsg('assistant',full,agent,false);}
       // 渲染 markdown（跳出原始 mode）
@@ -1575,10 +1587,16 @@ async function sendMessage(){
       }
     }
     if(currentId===chatId){
-      const lastUserMsg=chat.messages.filter(m=>m.role==='user').pop()?.content||'';
+      const _sf=window.__oc?.ui?.streamFinalize;
+      const lastUserMsg=_sf?.lastUserContent
+        ?_sf.lastUserContent(chat.messages)
+        :(chat.messages.filter(m=>m.role==='user').pop()?.content||'');
       const errMsg=(err&&err.message)||'连接中断';
+      const noteText=_sf?.buildErrorBubbleText
+        ?_sf.buildErrorBubbleText(errMsg,!!full)
+        :('⚠⏸ 连接中断: '+errMsg+'\n\n🔄 点击重试'+(full?'（已保留上面的部分回复）':''));
       // 创建一个独立的提示块（不覆盖 full）
-      const noteEl=appendMsg('assistant','⚠⏸ 连接中断: '+errMsg+'\n\n🔄 点击重试'+(full?'（已保留上面的部分回复）':''),agent,false);
+      const noteEl=appendMsg('assistant',noteText,agent,false);
       const noteMsg=noteEl.closest('.message');
       noteMsg.classList.add('error-msg');noteMsg.style.cursor='pointer';
       noteMsg.onclick=()=>{noteMsg.onclick=null;noteMsg.remove();input.value=lastUserMsg;sendMessage();};
