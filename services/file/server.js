@@ -454,7 +454,20 @@ http.createServer(async(req,res)=>{
           return;
         }
         let full='',buf='';
+        // 🔒 idle 兑底：上游 30s 不再吐任何数据则强制 finalize（避免假死卡住 _streaming 永不清除）
+        let idleTimer=null;
+        const resetIdle=()=>{
+          if(idleTimer)clearTimeout(idleTimer);
+          idleTimer=setTimeout(()=>{
+            console.error('[copilot/stream] upstream idle >30s, force finalize',chatId,'bytes='+full.length);
+            try{persist(full||'',true);}catch{}
+            try{gwReq.destroy(new Error('upstream idle'));}catch{}
+            if(!clientClosed){try{res.write('data: '+JSON.stringify({error:{message:'upstream idle timeout (no data >30s)'}})+'\n\n');res.write('data: [DONE]\n\n');res.end();}catch{}}
+          },30000);
+        };
+        resetIdle();
         gwRes.on('data',chunk=>{
+          resetIdle();
           // 透传给客户端（如果还没断）
           if(!clientClosed){try{res.write(chunk);}catch{clientClosed=true;}}
           // 解析累积 full
@@ -473,6 +486,7 @@ http.createServer(async(req,res)=>{
           if(full)schedulePersist(full);
         });
         gwRes.on('end',()=>{
+          if(idleTimer){clearTimeout(idleTimer);idleTimer=null;}
           // 终态写一次
           if(pending&&pending.timer){clearTimeout(pending.timer);}
           pending=null;
@@ -483,16 +497,21 @@ http.createServer(async(req,res)=>{
         });
         gwRes.on('error',e=>{
           console.error('[copilot/stream] upstream err',chatId,e.message);
-          if(full)persist(full,true);
+          // 🔒 总是 finalize，哪怕 full 为空也要入盘清 _streaming
+          try{persist(full||'',true);}catch{}
           if(!clientClosed){try{res.write('data: '+JSON.stringify({error:{message:e.message}})+'\n\n');res.end();}catch{}}
         });
       });
       gwReq.on('error',e=>{
         console.error('[copilot/stream] gw req err',chatId,e.message);
+        // 🔒 即便上游连接错误，也要 finalize 一次（清掉 _streaming），否则前端 chat 永远卡在 streaming
+        try{persist((typeof full==='string'?full:''),true);}catch{}
         if(!clientClosed){try{res.write('data: '+JSON.stringify({error:{message:'gateway connect: '+e.message}})+'\n\n');res.end();}catch{}}
       });
       gwReq.setTimeout(600000,()=>{
         console.error('[copilot/stream] gw req timeout',chatId);
+        // 🔒 超时也要 finalize（让前端能拿到至今为止的 full + 看到结束态）
+        try{persist((typeof full==='string'?full:''),true);}catch{}
         gwReq.destroy(new Error('timeout'));
       });
       gwReq.write(payload);

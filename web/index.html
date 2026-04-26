@@ -356,6 +356,13 @@ try{
         let lastSig='', stableCount=0;
         for(let i=0;i<240;i++){ // 最多 6 分钟
           await new Promise(r=>setTimeout(r,1500));
+          // 🔒 根治：如果用户在该 chat 上启动了 send()、则完全让位给 send。
+          //   不要 fetch、不要 renderChat、不要跳出（保留 stableCount 兑底）。
+          //   避免 pollOne 的 renderChat() 拋 send() 的 DOM 引用。
+          if(typeof streamingChats!=='undefined'&&streamingChats.has(id)){
+            lastSig=''; stableCount=0;
+            continue;
+          }
           try{
             // Phase 3.3: prefer infra; raw fetch as fallback for early-boot calls.
             const fresh=window.__oc?.backend?.getChat?(await window.__oc.backend.getChat(id)):await(async()=>{const r=await fetch('/api/chats/'+encodeURIComponent(id));return r.ok?r.json():null;})();
