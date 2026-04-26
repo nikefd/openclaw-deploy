@@ -106,9 +106,11 @@ http.createServer(async(req,res)=>{
       //   - empty-overwrite: existing has msgs, incoming empty -> reject
       //   - streaming-over-final: existing finalized, incoming flagged _streaming -> reject
       //   - shrink-finalized: existing assistant >> incoming assistant by >20 chars -> reject (4/24 P0)
+      let existingMsgCount=null;
       if(fs.existsSync(fp)){
         try{
           const existing=JSON.parse(fs.readFileSync(fp,'utf-8'));
+          existingMsgCount=Array.isArray(existing.messages)?existing.messages.length:0;
           const guard=checkChatOverwrite(existing,chat);
           if(!guard.ok){
             console.warn('[chats] REFUSED',guard.reason,'for',chatId,JSON.stringify(guard.body));
@@ -118,6 +120,15 @@ http.createServer(async(req,res)=>{
         }catch{}
       }
       fs.writeFileSync(fp,JSON.stringify(chat),'utf-8');
+      // 2026-04-26: log PUT acceptances when message count shrinks or last
+      // assistant disappears, so we can spot client-driven message loss in
+      // the wild. Successful no-shrink PUTs stay quiet to avoid noise.
+      try{
+        const incomingCount=Array.isArray(chat.messages)?chat.messages.length:0;
+        if(existingMsgCount!=null&&incomingCount<existingMsgCount){
+          console.warn('[chats] ACCEPTED-SHRINK',chatId,'existing='+existingMsgCount,'incoming='+incomingCount);
+        }
+      }catch{}
       res.end('{"ok":true}');
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   }else if(url.pathname.startsWith('/api/chats/')&&req.method==='DELETE'){

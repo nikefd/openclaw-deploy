@@ -272,6 +272,13 @@ import {
   FILE_ICONS, LANG_MAP,
   WORKSPACE,
 } from '/src/config/constants.js';
+import {
+  fileIcon as _fileIconM,
+  fileLang as _fileLangM,
+  fmtSize as _fmtSizeM,
+} from '/src/ui/fileHelpers.js';
+import { getAgent, getModelInfo } from '/src/domain/lookup.js';
+import { esc } from '/src/ui/escape.js';
 
 const API='/v1/chat/completions',TOKEN='17043bad6b19491dfa222d681d43584fbc3e8dd3781edfbc';
 const STORAGE_KEY='oc_chats_v2',AGENT_KEY='oc_selected_agent',THEME_KEY='oc_theme';
@@ -279,7 +286,7 @@ const STORAGE_KEY='oc_chats_v2',AGENT_KEY='oc_selected_agent',THEME_KEY='oc_them
 // MODEL MANAGEMENT — see config/constants.js for AGENTS / MODELS.
 // Note: default 'openclaw' is a legacy alias (not a real model id) — see infra/storage/localStore.js.
 let currentModel=window.__oc?.prefs?.getModel?.()??(localStorage.getItem('oc_model')||'openclaw');
-function getModelInfo(modelId){return MODELS.find(m=>m.id===modelId)||MODELS[0];}
+// getModelInfo moved to domain/lookup.js (Phase 6.3)
 function setCurrentModel(modelId){
   const model=MODELS.find(m=>m.id===modelId);
   if(!model)return;
@@ -685,27 +692,9 @@ window.speakText=speakText;
 // === FILES ===
 let filesLoaded=false,currentDir='',openTabs=[],activeTab=null;
 // FILE_ICONS / LANG_MAP imported from config/constants.js
-function fileIcon(name,isDir){
-  const m=window.__oc?.ui?.fileHelpers?.fileIcon;
-  if(m)return m(name,isDir);
-  if(isDir) return '📁';
-  const ext=name.split('.').pop().toLowerCase();
-  return FILE_ICONS[ext]||'📄';
-}
-function fileLang(name){
-  const m=window.__oc?.ui?.fileHelpers?.fileLang;
-  if(m)return m(name);
-  const ext=name.split('.').pop().toLowerCase();
-  return LANG_MAP[ext]||ext.toUpperCase()||'Text';
-}
-function fmtSize(b){
-  const m=window.__oc?.ui?.fileHelpers?.fmtSize;
-  if(m)return m(b);
-  if(b==null) return '';
-  if(b<1024) return b+' B';
-  if(b<1048576) return (b/1024).toFixed(1)+' KB';
-  return (b/1048576).toFixed(1)+' MB';
-}
+function fileIcon(name,isDir){return _fileIconM(name,isDir);}
+function fileLang(name){return _fileLangM(name);}
+function fmtSize(b){return _fmtSizeM(b);}
 
 async function loadFiles(dir){
   filesLoaded=true;
@@ -912,7 +901,7 @@ function save(chatId){
   }
 }
 function getChat(id){return chats.find(c=>c.id===id);}
-function getAgent(id){return AGENTS.find(a=>a.id===id)||AGENTS[0];}
+// getAgent moved to domain/lookup.js (Phase 6.3)
 
 // === CROSS-TAB SYNC ===
 // Poll /api/chats?since=<lastSyncAt> every 12s to pick up changes from other
@@ -1200,7 +1189,7 @@ function appendTyping(a){
   },50);
 }
 function removeTyping(cid){const e=document.getElementById('typing-'+(cid||currentId));if(e)e.remove();}
-function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+// esc moved to ui/escape.js (Phase 6.3)
 
 // Markdown rendering for assistant messages
 (function(){

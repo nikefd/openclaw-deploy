@@ -1,24 +1,14 @@
 // ui/fileHelpers.js — pure helpers for the file panel.
 //
 // No DOM, no fetch — just file-name → icon/label/size formatting.
+//
+// Phase 6.3 (2026-04-26): FILE_ICONS / LANG_MAP moved to config/constants.js
+// to keep a single source of truth (also imported by inline). Re-exported
+// here so existing call sites (and unit tests) keep working.
 
-export const FILE_ICONS = {
-  js: '🟨', ts: '🔷', py: '🐍', rb: '💎', go: '🔵', rs: '🦀',
-  html: '🌐', css: '🎨', json: '📋', xml: '📰', yaml: '⚙️', yml: '⚙️', toml: '⚙️',
-  md: '📝', txt: '📄', log: '📜', csv: '📊',
-  sh: '⚡', bash: '⚡', zsh: '⚡', fish: '⚡',
-  png: '🖼', jpg: '🖼', gif: '🖼', svg: '🖼', webp: '🖼', ico: '🖼',
-  pdf: '📕', zip: '📦', tar: '📦', gz: '📦',
-  env: '🔒', lock: '🔒', gitignore: '👁', dockerfile: '🐳',
-  conf: '⚙️', cfg: '⚙️', ini: '⚙️', service: '⚙️',
-};
+import { FILE_ICONS, LANG_MAP } from '../config/constants.js';
 
-export const LANG_MAP = {
-  js: 'JavaScript', ts: 'TypeScript', py: 'Python', rb: 'Ruby', go: 'Go', rs: 'Rust',
-  html: 'HTML', css: 'CSS', json: 'JSON', xml: 'XML', yaml: 'YAML', yml: 'YAML', toml: 'TOML',
-  md: 'Markdown', txt: 'Text', log: 'Log', csv: 'CSV',
-  sh: 'Shell', bash: 'Shell', zsh: 'Shell',
-};
+export { FILE_ICONS, LANG_MAP };
 
 /** @param {string} name file name @param {boolean} [isDir] */
 export function fileIcon(name, isDir) {
