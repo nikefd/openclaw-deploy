@@ -1497,7 +1497,7 @@ async function sendMessage(){
         if(parsed.error){throw new Error(parsed.error.message||'stream error');}
         const delta=choice?.delta?.content;if(delta){console.log('[DEBUG-DELTA] got delta len='+delta.length+' currentId='+currentId+' chatId='+chatId+' match='+(currentId===chatId));if(!typingRemoved){try{removeTyping(chatId);console.log('[DEBUG-DELTA] removeTyping OK');}catch(e){console.error('[DEBUG-DELTA] removeTyping THREW:',e);throw e;}if(currentId===chatId){try{el=appendMsg('assistant','',agent,false);console.log('[DEBUG-DELTA] appendMsg returned el=',el,'parent=',el?.parentElement);}catch(e){console.error('[DEBUG-DELTA] appendMsg THREW:',e);throw e;}}else{console.warn('[DEBUG-DELTA] currentId mismatch, skip appendMsg');}typingRemoved=true;_perfTTFT=performance.now()-_perfStart;perfLog('ttft',_perfTTFT);}full+=delta;_perfFull=full;if(el&&currentId===chatId){el.textContent=full;el.classList.add('raw');messagesEl.scrollTop=messagesEl.scrollHeight;console.log('[DEBUG-DELTA] wrote full to el, len='+full.length+' textContent='+el.textContent.slice(0,50));}else{console.warn('[DEBUG-DELTA] cannot write: el='+!!el+' match='+(currentId===chatId));}
         // ⚡ 服务端已经在写盘，前端不再 save，避免覆盖竞态
-        }catch(e){console.error('[DEBUG-DELTA] outer catch swallowed:',e);}
+        }}catch(e){console.error('[DEBUG-DELTA] outer catch swallowed:',e);}
         // ⚡ 服务端已经在写盘，前端不再 save，避免覆盖竞态
       }
     }
