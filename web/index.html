@@ -1448,7 +1448,12 @@ async function sendMessage(){
     // Phase 3.4: 通过 infra/backend.buildStreamRequest 拿 URL/body — Hermes 切换只改这里。
     // UI 仍然自己 fetch + reader，保留 perf 计时 / visibility 处理等细节。
     const _proxyPayload=JSON.stringify({chatId,model:payload.model,messages:payload.messages,agentId:chat.agentId||'main'});
-    const _useKeepalive=_proxyPayload.length<60000;
+    // 🚨 keepalive:true 不能用于 SSE！Chrome 上 fetch keepalive 对 streamed response body 有限制，
+    //    response.body 会被提前关闭 → 前端 reader 读不到 delta → el 不更新，
+    //    但后端继续读完上游 + 落盘 → 切走再切回就看到了（2026-04-26 新对话首条消息丢失原因）
+    //    原本的 keepalive 是为了让页面关闭后请求仍完成，但后端 /api/copilot/stream
+    //    本身已经“客户端断了也继续读完 + 落盘”，前端加 keepalive 反而适得其反。
+    const _useKeepalive=false;
     let _streamReq;
     if(window.__oc?.backend?.buildStreamRequest){
       _streamReq=window.__oc.backend.buildStreamRequest({chatId,modelId:payload.model,agentId:chat.agentId||'main',messages:payload.messages,useKeepalive:_useKeepalive});

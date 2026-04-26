@@ -10,6 +10,11 @@ const dispatchStore=require('./lib/dispatchStore');
 const {appendAssistantReply}=require('./lib/appendAssistantReply');
 const EXEC_ENV=Object.assign({},process.env,{PATH:'/home/nikefd/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:'+process.env.PATH});
 const PORT=7682,ROOT=process.env.HOME;
+// 🛡️ 全局保险：底层 socket / SSE response 偶发 ERR_STREAM_WRITE_AFTER_END 之类不要让进程秒挂。
+// 上一次（2026-04-26 上午）copilot/stream 双重触发 res.write 直接把服务打死，发生 4 次 systemd 重启，
+// 期间 finalize 未落盘的 assistant 回复全部丢失。主锁输赢路径已修，这里只是兑底，不能吃异常。
+process.on('uncaughtException',e=>{console.error('[uncaughtException]',e&&e.code||'',e&&e.message||e);});
+process.on('unhandledRejection',e=>{console.error('[unhandledRejection]',e&&e.message||e);});
 const CHATS_FILE=path.join(ROOT,'.openclaw','chat-history.json');
 const CHATS_DIR=path.join(ROOT,'.openclaw','chats');
 const PERF_LOG_FILE=path.join(ROOT,'.openclaw','perf-log.json');function readBody(req){return new Promise((ok,no)=>{let d='';req.on('data',c=>d+=c);req.on('end',()=>ok(d));req.on('error',no);});}
@@ -454,15 +459,33 @@ http.createServer(async(req,res)=>{
           return;
         }
         let full='',buf='';
+        // 🔒 finalized 旗标：任何分支只要 finalize 过一次（idle/done/err/timeout），其他分支看到就立即 return
+        // 防止 "idle finalize 后 gwReq.destroy 又触发 error 分支再 res.write" → ERR_STREAM_WRITE_AFTER_END → 整个进程崩
+        let finalized=false;
+        const safeWrite=(payload)=>{
+          if(clientClosed)return;
+          if(res.writableEnded||res.destroyed)return;
+          try{res.write(payload);}catch(e){clientClosed=true;}
+        };
+        const safeEnd=()=>{
+          if(clientClosed)return;
+          if(res.writableEnded||res.destroyed){clientClosed=true;return;}
+          try{res.end();}catch{}
+          clientClosed=true;
+        };
         // 🔒 idle 兑底：上游 30s 不再吐任何数据则强制 finalize（避免假死卡住 _streaming 永不清除）
         let idleTimer=null;
         const resetIdle=()=>{
           if(idleTimer)clearTimeout(idleTimer);
           idleTimer=setTimeout(()=>{
+            if(finalized)return;
+            finalized=true;
             console.error('[copilot/stream] upstream idle >30s, force finalize',chatId,'bytes='+full.length);
             try{persist(full||'',true);}catch{}
+            safeWrite('data: '+JSON.stringify({error:{message:'upstream idle timeout (no data >30s)'}})+'\n\n');
+            safeWrite('data: [DONE]\n\n');
+            safeEnd();
             try{gwReq.destroy(new Error('upstream idle'));}catch{}
-            if(!clientClosed){try{res.write('data: '+JSON.stringify({error:{message:'upstream idle timeout (no data >30s)'}})+'\n\n');res.write('data: [DONE]\n\n');res.end();}catch{}}
           },30000);
         };
         resetIdle();
@@ -487,32 +510,44 @@ http.createServer(async(req,res)=>{
         });
         gwRes.on('end',()=>{
           if(idleTimer){clearTimeout(idleTimer);idleTimer=null;}
+          if(finalized)return;
+          finalized=true;
           // 终态写一次
           if(pending&&pending.timer){clearTimeout(pending.timer);}
           pending=null;
           persist(full,true).then(()=>{
             console.log('[copilot/stream] done chatId='+chatId+' bytes='+full.length+' clientClosed='+clientClosed);
           });
-          if(!clientClosed){try{res.end();}catch{}}
+          safeEnd();
         });
         gwRes.on('error',e=>{
+          if(finalized)return;
+          finalized=true;
           console.error('[copilot/stream] upstream err',chatId,e.message);
           // 🔒 总是 finalize，哪怕 full 为空也要入盘清 _streaming
           try{persist(full||'',true);}catch{}
-          if(!clientClosed){try{res.write('data: '+JSON.stringify({error:{message:e.message}})+'\n\n');res.end();}catch{}}
+          safeWrite('data: '+JSON.stringify({error:{message:e.message}})+'\n\n');
+          safeEnd();
         });
       });
       gwReq.on('error',e=>{
+        if(finalized)return;
+        finalized=true;
         console.error('[copilot/stream] gw req err',chatId,e.message);
         // 🔒 即便上游连接错误，也要 finalize 一次（清掉 _streaming），否则前端 chat 永远卡在 streaming
         try{persist((typeof full==='string'?full:''),true);}catch{}
-        if(!clientClosed){try{res.write('data: '+JSON.stringify({error:{message:'gateway connect: '+e.message}})+'\n\n');res.end();}catch{}}
+        safeWrite('data: '+JSON.stringify({error:{message:'gateway connect: '+e.message}})+'\n\n');
+        safeEnd();
       });
       gwReq.setTimeout(600000,()=>{
+        if(finalized)return;
+        finalized=true;
         console.error('[copilot/stream] gw req timeout',chatId);
         // 🔒 超时也要 finalize（让前端能拿到至今为止的 full + 看到结束态）
         try{persist((typeof full==='string'?full:''),true);}catch{}
-        gwReq.destroy(new Error('timeout'));
+        safeWrite('data: '+JSON.stringify({error:{message:'gateway timeout'}})+'\n\n');
+        safeEnd();
+        try{gwReq.destroy(new Error('timeout'));}catch{}
       });
       gwReq.write(payload);
       gwReq.end();
