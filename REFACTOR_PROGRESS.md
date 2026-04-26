@@ -12,6 +12,7 @@
 
 | Phase | 内容 | commit | tests |
 |---|---|---|---|
+| **streamRecovery** | visibility + reader-stale watchdog → `src/ui/streamRecovery.js`（`shouldRecover` 纯函数 + `createStreamRecovery` 工厂，reader 不进模块）；index.html module-first + inline fallback | `6206982` | +15 |
 | **streamHandler** | SSE 解析纯化 → `src/ui/streamHandler.js`（parseStreamLine / extractDelta / appendDelta / splitBuffer），index.html SSE 循环嵌套 7 层→3 层、最长行 600→120 字符；后端 `services/file/server.js` idle timeout 30s→120s（opus 长回复假 idle 修复） | `a47db25` | +29 |
 | **send-fix-3x** | 24h 内 `send()` 函数 3 连击 bug：`}}catch{}}}` 残留 / 修 1 删多 `}` / `let el=null` 被早期重构删了但注释还在 | `fd7bec2` → `4ecc425` → `94cb2cc` | — |
 | **5.3** | finance / perf 从裸进程提升为 systemd-user unit | `003b5d4` | smoke +2 |
@@ -36,7 +37,7 @@
 | **3.5** | 纯 chat shape 逻辑 → `domain/chat.js` | `8dd8cdb` | — |
 | 0–3.4 | 骨架 / CSS 抽离 / infra 层骨干 / SSE wire 统一 | 多个 | — |
 
-**当前测试**：443 unit + 34 smoke 全绿（2026-04-26 streamHandler 后）
+**当前测试**：458 unit + 34 smoke 全绿（2026-04-26 streamRecovery 后）
 
 ---
 
@@ -151,20 +152,7 @@ openclaw-deploy/
 位置：`web/index.html` 内 `async function send(...)`，约 line 1410-1620。
 抽完 streamHandler 后剩余痛点（按风险低 / 收益高排序）：
 
-#### A. `streamRecovery.js` ⭐ 推荐先做
-visibilitychange handler + reader stale 60s 检测 + recover 状态机。建议 API：
-```js
-createStreamRecovery({
-  isVisible: () => document.visibilityState === 'visible',
-  isStreaming: () => streamingChats.has(chatId),
-  getLastChunkAt: () => _lastChunkTime,
-  staleThresholdMs: 60000,
-  onStale: () => { _needRecover = true; reader.cancel(); },
-}) → { attach(), detach() }
-```
-单测：fake clock + isVisible/isStreaming stub。**reader 不进模块**，由调用方持有。
-
-#### B. `streamFinalize.js`
+#### B. `streamFinalize.js` ⭐ 推荐下一个
 流式正常结束（写 chat.messages、save、renderMd、append actions）和错误结束（"⚠⏸ 连接中断" 气泡 + 重试）有大量重复。建议抽纯函数 `buildFinalAssistantMessage({chatMessages, full}) → 新 messages 数组`，DOM 装饰可保留在 index.html。
 
 #### C. `streamPerf.js`
@@ -202,4 +190,4 @@ createStreamRecovery({
 - 不要追求一次抽很多——之前 Phase 2 一次性接 module script 直接炸
 - 改完测试 + smoke 全绿才能 commit，**绝对不允许**红灯 commit
 
-_Last updated: 2026-04-26 by 狗蛋（streamHandler done + send() 后续 plan）_
+_Last updated: 2026-04-26 by 狗蛋（streamRecovery done，下一个建议 streamFinalize）_
