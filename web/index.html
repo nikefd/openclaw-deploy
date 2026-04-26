@@ -1474,6 +1474,7 @@ async function sendMessage(){
     // 🔄 切后台回来 + reader 停顿 >60s → 主动取消并走 history 续接，避免 tab 切后台 reader 假死
     let _needRecover=false;
     // NOTE: `el` 声明在 try 外，catch/recover 块也要能访问到
+    let el=null;
     
     const _pcVisHandler=()=>{
       if(document.visibilityState==='visible'&&streamingChats.has(chatId)){
