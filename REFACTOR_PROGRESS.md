@@ -12,6 +12,8 @@
 
 | Phase | 内容 | commit | tests |
 |---|---|---|---|
+| **streamHandler** | SSE 解析纯化 → `src/ui/streamHandler.js`（parseStreamLine / extractDelta / appendDelta / splitBuffer），index.html SSE 循环嵌套 7 层→3 层、最长行 600→120 字符；后端 `services/file/server.js` idle timeout 30s→120s（opus 长回复假 idle 修复） | `a47db25` | +29 |
+| **send-fix-3x** | 24h 内 `send()` 函数 3 连击 bug：`}}catch{}}}` 残留 / 修 1 删多 `}` / `let el=null` 被早期重构删了但注释还在 | `fd7bec2` → `4ecc425` → `94cb2cc` | — |
 | **5.3** | finance / perf 从裸进程提升为 systemd-user unit | `003b5d4` | smoke +2 |
 | **5.2** | `scripts/sync-units.mjs` 同步 .service 文件 + smoke 4 个 unit drift | `003b5d4` | smoke +4 |
 | **5.1** | 后端 6 个 service 进 repo + `npm run services:sync` + smoke 6 个 drift | `48c2099` | smoke +6 |
@@ -34,7 +36,7 @@
 | **3.5** | 纯 chat shape 逻辑 → `domain/chat.js` | `8dd8cdb` | — |
 | 0–3.4 | 骨架 / CSS 抽离 / infra 层骨干 / SSE wire 统一 | 多个 | — |
 
-**当前测试**：191 unit + 40 smoke 全绿，~1.7s
+**当前测试**：443 unit + 34 smoke 全绿（2026-04-26 streamHandler 后）
 
 ---
 
@@ -107,6 +109,7 @@ openclaw-deploy/
 
 ## 🚨 雷区清单（必读）
 
+0. **改 JS 一律先 `node --check`，更应该走 `npm run sync`**（2026-04-26 新增）— 同一函数 24h 内连环 3 个 bug 全是凭眼数大括号翻车。`send()` 当时单行 600 字符 / 嵌套 7 层，肉眼 linter = 必死。**任何 JS 改动结束前必须 `node --check` 验证**
 1. **永远不要 `cp xxx /var/www/chat/`** — 用 `npm run sync`。Phase 4.8 中间炸过 30 秒生产
 2. **edit 大块时先 `git diff` 看 diff** — 多次出现 oldText 匹配错位置
 3. **改 chat 流式相关代码先备份 `~/.openclaw/chats/`**
@@ -143,6 +146,44 @@ openclaw-deploy/
 
 ---
 
+### 🆕 send() 函数继续拆（streamHandler 之后的下一波，与 Phase 5.5 可并行）
+
+位置：`web/index.html` 内 `async function send(...)`，约 line 1410-1620。
+抽完 streamHandler 后剩余痛点（按风险低 / 收益高排序）：
+
+#### A. `streamRecovery.js` ⭐ 推荐先做
+visibilitychange handler + reader stale 60s 检测 + recover 状态机。建议 API：
+```js
+createStreamRecovery({
+  isVisible: () => document.visibilityState === 'visible',
+  isStreaming: () => streamingChats.has(chatId),
+  getLastChunkAt: () => _lastChunkTime,
+  staleThresholdMs: 60000,
+  onStale: () => { _needRecover = true; reader.cancel(); },
+}) → { attach(), detach() }
+```
+单测：fake clock + isVisible/isStreaming stub。**reader 不进模块**，由调用方持有。
+
+#### B. `streamFinalize.js`
+流式正常结束（写 chat.messages、save、renderMd、append actions）和错误结束（"⚠⏸ 连接中断" 气泡 + 重试）有大量重复。建议抽纯函数 `buildFinalAssistantMessage({chatMessages, full}) → 新 messages 数组`，DOM 装饰可保留在 index.html。
+
+#### C. `streamPerf.js`
+抽 TTFT / pause / streaming 三段计时为 `createPerfTracker(now=performance.now)` 状态机。当前散在主循环里（`_perfTTFT` / `_perfPauses` / `_perfStreaming` / `_perfHttpMs` / `perfLog`）。
+
+#### D. 删除 ff (fly-forward) 死代码
+旧轮询路径在 line ~1340-1410（自带独立 `let el=null`）。前置 `grep -rn 'ffEnabled\|/api/chat/send\b\|/api/chat/history\b'` 确认无活跃调用方再删。**做完 send() 能掉 70+ 行。**
+
+#### E. send() 拆 3-4 个小函数
+`prepareStreamRequest()` / `runStreamLoop()` / `finalizeOk()` / `finalizeErr()`。**最后做**——A/B/C/D 抽完边界才稳定。
+
+#### 不要碰
+- `services/file/server.js` 的 idle timer（已是 120s，2026-04-26 调过）
+- chat.messages 写入语义（流式期间不写，结束后才写——4/24 commit `bb54ef8` 成果）
+- `let el=null;` 声明（line ~1486，被多处闭包引用）
+- `<script type="module" src="/src/infra/index.js">`（Phase 2 翻车入口）
+
+---
+
 ## 📝 关键文件位置速查
 
 - 主 HTML：`web/index.html`
@@ -161,4 +202,4 @@ openclaw-deploy/
 - 不要追求一次抽很多——之前 Phase 2 一次性接 module script 直接炸
 - 改完测试 + smoke 全绿才能 commit，**绝对不允许**红灯 commit
 
-_Last updated: 2026-04-25 by 狗蛋（5.4 done）_
+_Last updated: 2026-04-26 by 狗蛋（streamHandler done + send() 后续 plan）_
