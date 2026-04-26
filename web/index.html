@@ -1603,9 +1603,22 @@ async function sendMessage(){
     }
   }finally{
     const _perfTotal=performance.now()-_perfStart;
-    if(_perfToolCount)perfLog('tool',_perfToolTotalMs,{count:_perfToolCount,pauses:_perfPauses.length>10?_perfPauses.slice(0,10):_perfPauses});
-    perfLog('streaming',_perfStreaming,{chars:_perfFull.length,speed:_perfStreaming>0?Math.round(_perfFull.length/(_perfStreaming/1000)):0});
-    perfLog('total',_perfTotal,{ttft:Math.round(_perfTTFT),http:Math.round(_perfHttpMs),streaming:Math.round(_perfStreaming),toolPauses:_perfToolCount,toolMs:Math.round(_perfToolTotalMs),chars:_perfFull.length});
+    // module-first：buildPerfSummary 纯函数 format，原 _perfXxx 变量逻辑不动
+    const _bps=window.__oc?.ui?.streamPerf?.buildPerfSummary;
+    if(_bps){
+      const _ps=_bps({
+        totalMs:_perfTotal,ttftMs:_perfTTFT,httpMs:_perfHttpMs,
+        streamingMs:_perfStreaming,toolCount:_perfToolCount,toolTotalMs:_perfToolTotalMs,
+        pauses:_perfPauses,fullLen:_perfFull.length,
+      });
+      if(_perfToolCount)perfLog('tool',_ps.tool.value,_ps.tool.meta);
+      perfLog('streaming',_ps.streaming.value,_ps.streaming.meta);
+      perfLog('total',_ps.total.value,_ps.total.meta);
+    }else{
+      if(_perfToolCount)perfLog('tool',_perfToolTotalMs,{count:_perfToolCount,pauses:_perfPauses.length>10?_perfPauses.slice(0,10):_perfPauses});
+      perfLog('streaming',_perfStreaming,{chars:_perfFull.length,speed:_perfStreaming>0?Math.round(_perfFull.length/(_perfStreaming/1000)):0});
+      perfLog('total',_perfTotal,{ttft:Math.round(_perfTTFT),http:Math.round(_perfHttpMs),streaming:Math.round(_perfStreaming),toolPauses:_perfToolCount,toolMs:Math.round(_perfToolTotalMs),chars:_perfFull.length});
+    }
   }
   streamingChats.delete(chatId);chat.updatedAt=Date.now();
   // 🔒 Server-authoritative: 流式内容由后端 /api/copilot/stream 实时落盘（debounce 500ms + 原子 rename + 终态 final write）。
