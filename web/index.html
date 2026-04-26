@@ -1370,6 +1370,17 @@ async function sendMessage(){
         el.classList.add('raw');
       };
       const pump=()=>{
+        // module-first：打字机推进 + 下一帧延迟
+        const _spl=window.__oc?.ui?.streamPollLoop;
+        if(_spl?.computeTypewriterBatch&&_spl?.nextPumpDelay){
+          const _r=_spl.computeTypewriterBatch(displayed,pendingFull,3);
+          if(_r.done){typingTimer=null;return;}
+          displayed=_r.next;
+          ensureEl();
+          if(el&&currentId===chatId){el.textContent=displayed;messagesEl.scrollTop=messagesEl.scrollHeight;}
+          typingTimer=setTimeout(pump,_spl.nextPumpDelay(finished));
+          return;
+        }
         if(displayed.length>=pendingFull.length){typingTimer=null;return;}
         // 一次最多追 3 个字，长回复不至于太慢
         const batch=Math.min(3,pendingFull.length-displayed.length);
@@ -1394,31 +1405,55 @@ async function sendMessage(){
           const r=await fetch(`/api/chat/history?chatId=${encodeURIComponent(chatId)}&agent=${encodeURIComponent(agentForApi)}`);
           if(!r.ok)continue;
           const d=await r.json();
-          const t=d.text||'';
-          const ts=d.ts||'';
-          // 🚨 dispatch 失败，立刻停轮询并丢出错误
-          if(d.dispatch&&d.dispatch.status==='error'){
-            ensureEl();
-            if(el&&currentId===chatId){el.textContent='⚠️ 生成失败：'+(d.dispatch.error||'unknown');el.classList.remove('raw');}
-            finished=true;full='';break;
-          }
-          // 判断本轮新回复：ts 比 baseline 新 或 没变但文本变了（流式更新同一条 assistant）
-          const isNew=(ts&&ts!==baselineTs)||(t&&t!==baselineText);
-          if(!isNew){
-            // 如果 dispatch 已经 done 但 jsonl 里还是旧文本，给 15s 宽容后丢错（工具调用 / gateway 落盘延迟）
-            if(d.dispatch&&d.dispatch.status==='done'&&d.dispatch.endedAt&&Date.now()-d.dispatch.endedAt>15000){
+          // module-first：decode + shouldFinish
+          const _spl=window.__oc?.ui?.streamPollLoop;
+          const _decoded=_spl?.decodePollResponse
+            ?_spl.decodePollResponse(d,baselineTs,baselineText)
+            :null;
+          const t=_decoded?_decoded.text:(d.text||'');
+          const ts=_decoded?_decoded.ts:(d.ts||'');
+          if(_decoded){
+            if(_decoded.status==='error'){
+              ensureEl();
+              if(el&&currentId===chatId){el.textContent='⚠️ 生成失败：'+_decoded.errMsg;el.classList.remove('raw');}
+              finished=true;full='';break;
+            }
+            if(_decoded.status==='timeout'){
               ensureEl();
               if(el&&currentId===chatId){el.textContent='⚠️ 没读到新回复（可能 gateway 没写 session）';el.classList.remove('raw');}
               finished=true;full='';break;
             }
-            continue;
+            if(_decoded.status==='idle'){continue;}
+            // status === 'progress'
+            sawNew=true;
+            if(t&&t!==pendingFull){pendingFull=t;full=t;_perfFull=t;stable=0;startPump();}
+            else if(t){stable++;}
+            if(_spl.shouldFinish&&_spl.shouldFinish({stopReason:d.stopReason,text:t,stable})){
+              finished=true;break;
+            }
+          }else{
+            // —— fallback 路径（infra 未加载）与原代码完全一致 ——
+            if(d.dispatch&&d.dispatch.status==='error'){
+              ensureEl();
+              if(el&&currentId===chatId){el.textContent='⚠️ 生成失败：'+(d.dispatch.error||'unknown');el.classList.remove('raw');}
+              finished=true;full='';break;
+            }
+            const isNew=(ts&&ts!==baselineTs)||(t&&t!==baselineText);
+            if(!isNew){
+              if(d.dispatch&&d.dispatch.status==='done'&&d.dispatch.endedAt&&Date.now()-d.dispatch.endedAt>15000){
+                ensureEl();
+                if(el&&currentId===chatId){el.textContent='⚠️ 没读到新回复（可能 gateway 没写 session）';el.classList.remove('raw');}
+                finished=true;full='';break;
+              }
+              continue;
+            }
+            sawNew=true;
+            if(t&&t!==pendingFull){pendingFull=t;full=t;_perfFull=t;stable=0;startPump();}
+            else if(t){stable++;}
+            const done=d.stopReason&&d.stopReason!=='inFlight'&&d.stopReason!=='streaming'&&t;
+            // stable>=6：文本 6 次不变才算完，避免工具调用中间静默误触发
+            if(done||(stable>=6&&t)){finished=true;break;}
           }
-          sawNew=true;
-          if(t&&t!==pendingFull){pendingFull=t;full=t;_perfFull=t;stable=0;startPump();}
-          else if(t){stable++;}
-          const done=d.stopReason&&d.stopReason!=='inFlight'&&d.stopReason!=='streaming'&&t;
-          // stable>=6：文本 6 次不变才算完，避免工具调用中间静默误触发
-          if(done||(stable>=6&&t)){finished=true;break;}
         }catch{}
       }
       document.removeEventListener('visibilitychange',_onVis);

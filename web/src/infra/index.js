@@ -31,6 +31,7 @@ import * as uiStreamHandler from '../ui/streamHandler.js';
 import * as uiStreamRecovery from '../ui/streamRecovery.js';
 import * as uiStreamFinalize from '../ui/streamFinalize.js';
 import * as uiStreamPerf from '../ui/streamPerf.js';
+import * as uiStreamPollLoop from '../ui/streamPollLoop.js';
 
 export {
   config, urls, resolveWireModel,
@@ -62,6 +63,7 @@ export {
   uiStreamRecovery,
   uiStreamFinalize,
   uiStreamPerf,
+  uiStreamPollLoop,
 };
 
 // Developer convenience: expose on window for console probing.
@@ -72,7 +74,7 @@ if (typeof window !== 'undefined') {
     backend: getBackend(),
     prefs, chatStore, perfLog,
     domain: { chat: chatDomain },
-    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel, demoCodes: uiDemoCodes, nodesPanel: uiNodesPanel, modelDropdown: uiModelDropdown, welcome: uiWelcome, chatSidebar: uiChatSidebar, tasksDashboard: uiTasksDashboard, fileViewer: uiFileViewer, expertTeams: uiExpertTeams, mentionPopup: uiMentionPopup, fileBreadcrumb: uiFileBreadcrumb, messageRenderer: uiMessageRenderer, streamHandler: uiStreamHandler, streamRecovery: uiStreamRecovery, streamFinalize: uiStreamFinalize, streamPerf: uiStreamPerf },
+    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel, demoCodes: uiDemoCodes, nodesPanel: uiNodesPanel, modelDropdown: uiModelDropdown, welcome: uiWelcome, chatSidebar: uiChatSidebar, tasksDashboard: uiTasksDashboard, fileViewer: uiFileViewer, expertTeams: uiExpertTeams, mentionPopup: uiMentionPopup, fileBreadcrumb: uiFileBreadcrumb, messageRenderer: uiMessageRenderer, streamHandler: uiStreamHandler, streamRecovery: uiStreamRecovery, streamFinalize: uiStreamFinalize, streamPerf: uiStreamPerf, streamPollLoop: uiStreamPollLoop },
     version: 'phase-4',
   });
 }
