@@ -473,20 +473,22 @@ http.createServer(async(req,res)=>{
           try{res.end();}catch{}
           clientClosed=true;
         };
-        // 🔒 idle 兑底：上游 30s 不再吐任何数据则强制 finalize（避免假死卡住 _streaming 永不清除）
+        // 🔒 idle 兑底：上游久不吐任何数据则强制 finalize（避免假死卡住 _streaming 永不清除）
+        // 2026-04-26：30s 太短，opus 思考 + 工具调用轻松超30s，调到 120s
+        const IDLE_TIMEOUT_MS=120000;
         let idleTimer=null;
         const resetIdle=()=>{
           if(idleTimer)clearTimeout(idleTimer);
           idleTimer=setTimeout(()=>{
             if(finalized)return;
             finalized=true;
-            console.error('[copilot/stream] upstream idle >30s, force finalize',chatId,'bytes='+full.length);
+            console.error('[copilot/stream] upstream idle >'+(IDLE_TIMEOUT_MS/1000)+'s, force finalize',chatId,'bytes='+full.length);
             try{persist(full||'',true);}catch{}
-            safeWrite('data: '+JSON.stringify({error:{message:'upstream idle timeout (no data >30s)'}})+'\n\n');
+            safeWrite('data: '+JSON.stringify({error:{message:'upstream idle timeout (no data >'+(IDLE_TIMEOUT_MS/1000)+'s)'}})+'\n\n');
             safeWrite('data: [DONE]\n\n');
             safeEnd();
             try{gwReq.destroy(new Error('upstream idle'));}catch{}
-          },30000);
+          },IDLE_TIMEOUT_MS);
         };
         resetIdle();
         gwRes.on('data',chunk=>{

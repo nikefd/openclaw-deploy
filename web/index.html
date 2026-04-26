@@ -1491,16 +1491,45 @@ async function sendMessage(){
       if(typingRemoved&&_gap>3000){_perfPauses.push({gap:Math.round(_gap),at:Math.round(_now-_perfStart)});_perfToolCount++;_perfToolTotalMs+=_gap;}
       if(typingRemoved)_perfStreaming+=(_gap<3000?_gap:0);
       _lastChunkTime=_now;
-      buf+=decoder.decode(value,{stream:true});const lines=buf.split('\n');buf=lines.pop();
-      for(const line of lines){if(!line.startsWith('data: '))continue;const data=line.slice(6);if(data==='[DONE]')break;
-        try{const parsed=JSON.parse(data);const choice=parsed.choices?.[0];
-        // 服务端代理可能下发 {error:{...}} 帧
-        if(parsed.error){throw new Error(parsed.error.message||'stream error');}
-        const delta=choice?.delta?.content;if(delta){console.log('[DEBUG-DELTA] got delta len='+delta.length+' currentId='+currentId+' chatId='+chatId+' match='+(currentId===chatId));if(!typingRemoved){try{removeTyping(chatId);console.log('[DEBUG-DELTA] removeTyping OK');}catch(e){console.error('[DEBUG-DELTA] removeTyping THREW:',e);throw e;}if(currentId===chatId){try{el=appendMsg('assistant','',agent,false);console.log('[DEBUG-DELTA] appendMsg returned el=',el,'parent=',el?.parentElement);}catch(e){console.error('[DEBUG-DELTA] appendMsg THREW:',e);throw e;}}else{console.warn('[DEBUG-DELTA] currentId mismatch, skip appendMsg');}typingRemoved=true;_perfTTFT=performance.now()-_perfStart;perfLog('ttft',_perfTTFT);}full+=delta;_perfFull=full;if(el&&currentId===chatId){el.textContent=full;el.classList.add('raw');messagesEl.scrollTop=messagesEl.scrollHeight;console.log('[DEBUG-DELTA] wrote full to el, len='+full.length+' textContent='+el.textContent.slice(0,50));}else{console.warn('[DEBUG-DELTA] cannot write: el='+!!el+' match='+(currentId===chatId));}
-        // ⚡ 服务端已经在写盘，前端不再 save，避免覆盖竞态
-        }}catch(e){console.error('[DEBUG-DELTA] outer catch swallowed:',e);}
-        // ⚡ 服务端已经在写盘，前端不再 save，避免覆盖竞态
+      buf+=decoder.decode(value,{stream:true});
+      // 抽出完整行 + 保留尾部部分行（走 streamHandler，fallback 逆向兼容）
+      const _split=window.__oc?.ui?.streamHandler?.splitBuffer
+        ?window.__oc.ui.streamHandler.splitBuffer(buf)
+        :(()=>{const p=buf.split('\n');return{lines:p.slice(0,-1),remaining:p[p.length-1]??''};})();
+      buf=_split.remaining;
+      let _doneFlag=false;
+      for(const line of _split.lines){
+        // 解析一行：parseStreamLine 返回 {kind:'skip'|'done'|'frame'|'error', frame?, error?}
+        const _parsed=window.__oc?.ui?.streamHandler?.parseStreamLine
+          ?window.__oc.ui.streamHandler.parseStreamLine(line)
+          :((l)=>{if(typeof l!=='string'||!l.startsWith('data: '))return{kind:'skip'};const d=l.slice(6);if(d==='[DONE]')return{kind:'done'};let p;try{p=JSON.parse(d);}catch(e){return{kind:'error',error:new Error('invalid SSE frame JSON: '+(e?.message||e))};}if(p&&p.error)return{kind:'error',error:new Error(p.error?.message||'stream error')};return{kind:'frame',frame:p};})(line);
+        if(_parsed.kind==='skip')continue;
+        if(_parsed.kind==='done'){_doneFlag=true;break;}
+        if(_parsed.kind==='error'){throw _parsed.error;}
+        // _parsed.kind === 'frame'
+        const _frame=_parsed.frame;
+        const _delta=window.__oc?.ui?.streamHandler?.extractDelta
+          ?window.__oc.ui.streamHandler.extractDelta(_frame)
+          :((f)=>{const c=f?.choices?.[0]?.delta?.content;return typeof c==='string'&&c.length>0?c:null;})(_frame);
+        if(_delta==null)continue;  // role-only first frame / tool calls / empty
+        // 首个 delta 到达时需要：removeTyping + 创建 bubble + perfLog ttft
+        if(!typingRemoved){
+          try{removeTyping(chatId);}catch(e){console.error('[stream] removeTyping threw',e);}
+          if(currentId===chatId){
+            try{el=appendMsg('assistant','',agent,false);}
+            catch(e){console.error('[stream] appendMsg threw',e);throw e;}
+          }
+          typingRemoved=true;
+          _perfTTFT=performance.now()-_perfStart;perfLog('ttft',_perfTTFT);
+        }
+        full+=_delta;_perfFull=full;
+        if(el&&currentId===chatId){
+          el.textContent=full;el.classList.add('raw');
+          messagesEl.scrollTop=messagesEl.scrollHeight;
+        }
+        // ⚡ 服务端已在实时写盘，前端不再 save（避免覆盖竞态）
       }
+      if(_doneFlag)break;
     }
     }finally{document.removeEventListener('visibilitychange',_pcVisHandler);}
     if(!typingRemoved)removeTyping(chatId);
