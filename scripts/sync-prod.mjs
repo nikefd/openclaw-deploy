@@ -26,18 +26,33 @@ const fail = (m) => { console.error(`${RED}✗ ${m}${RESET}`); process.exit(1); 
 // ────────────────────────────────────────────────────────────────
 function checkInlineScripts(htmlPath) {
   const html = readFileSync(htmlPath, 'utf8');
-  const re = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g;
+  // Capture the opening <script ...> tag too so we can detect type="module".
+  const re = /<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/g;
   let m, idx = 0, errs = 0;
   while ((m = re.exec(html))) {
     idx++;
-    const body = m[1];
+    const attrs = m[1] || '';
+    const body = m[2];
     if (!body.trim()) continue;
-    const tmp = join(tmpdir(), `sync-check-${process.pid}-${idx}.js`);
-    writeFileSync(tmp, body);
-    const r = spawnSync(process.execPath, ['--check', tmp], { encoding: 'utf8' });
+    const isModule = /\btype\s*=\s*["']module["']/i.test(attrs);
+    // For module scripts, pipe via stdin with --input-type=module so node
+    // applies strict-mode + module rules (catches duplicate function decls,
+    // top-level await sanity, etc.). Sloppy <script> blocks keep --check.
+    let r;
+    if (isModule) {
+      r = spawnSync(
+        process.execPath,
+        ['--input-type=module', '--check', '-'],
+        { encoding: 'utf8', input: body },
+      );
+    } else {
+      const tmp = join(tmpdir(), `sync-check-${process.pid}-${idx}.js`);
+      writeFileSync(tmp, body);
+      r = spawnSync(process.execPath, ['--check', tmp], { encoding: 'utf8' });
+    }
     if (r.status !== 0) {
       errs++;
-      console.error(`${RED}✗ inline <script> #${idx} has a syntax error:${RESET}`);
+      console.error(`${RED}✗ inline <script>${isModule ? ' (module)' : ''} #${idx} has a syntax error:${RESET}`);
       console.error(r.stderr.split('\n').slice(0, 10).join('\n'));
     }
   }

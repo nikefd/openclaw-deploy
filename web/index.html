@@ -258,7 +258,14 @@ echo '{"version":1,"defaults":{"security":"full"}}' > ~/.openclaw/exec-approvals
     <div class="btw-footer"><button onclick="closeBtw()">关闭 (Esc)</button></div>
   </div>
 </div>
-<script>
+<!-- Phase 6 (2026-04-25): inline script promoted to type="module".
+     Top-level function declarations no longer attach to window automatically;
+     the Object.assign(window, {...}) block at the end of this script
+     republishes every handler used by HTML onclick/onchange attributes.
+     ES module scripts are deferred (run after DOM parse), which means inline
+     code now sees a fully-built DOM by the time it runs — a strict
+     improvement over the previous synchronous behavior. -->
+<script type="module">
 const API='/v1/chat/completions',TOKEN='17043bad6b19491dfa222d681d43584fbc3e8dd3781edfbc';
 const STORAGE_KEY='oc_chats_v2',AGENT_KEY='oc_selected_agent',THEME_KEY='oc_theme';
 const AGENTS=[
@@ -1141,8 +1148,6 @@ function renderWelcome(){
   const mentions=mentionable.map(x=>`<span onclick="insertMention('${x.mention}')">${x.emoji} ${x.mention}</span>`).join('');
   messagesEl.innerHTML=`<div class="welcome"><div class="logo">${a.emoji}</div><h2>${a.name}</h2><p>${a.desc}</p>${mentions?`<p style="font-size:13px;color:var(--text-sec);margin-top:12px">输入 @ 切换角色</p><div class="agents-hint">${mentions}</div>`:''}</div>`;
 }
-function insertMention(mention){const inp=document.getElementById('input');inp.value=mention+' ';inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);closeSidebar();}
-
 
 function appendMsg(role,content,agent,withTTS,images){
   const div=document.createElement('div');
@@ -2264,6 +2269,33 @@ input.addEventListener('keydown',e=>{
 });
 
 document.addEventListener('click',e=>{if(!mentionPopup.contains(e.target)&&e.target!==input)mentionPopup.classList.remove('show');});
+
+// === Phase 6.1: expose handlers used by inline HTML onclick attributes ===
+// When this <script> becomes type="module" the top-level function declarations
+// no longer attach to window. HTML onclick="..." attributes still resolve
+// against the global scope, so we explicitly republish each handler here.
+// Keep this block at the very end of the script so all functions are defined.
+Object.assign(window, {
+  // chat / mention
+  copyMsg, speakText, openLightbox, insertMention, removeImg,
+  // model / agent
+  setCurrentModel, switchGlobalNode,
+  // expert teams
+  toggleExpertPanel, selectExpertTeam,
+  // memory panel
+  openMemFile, startMemEdit, saveMemFile, cancelMemEdit, memGoBack,
+  showMemWelcome, saveMemoryCronTime,
+  // skills
+  filterSkills, openSkill, closeSkillDetail, setSkillFilter,
+  // file viewer
+  loadFiles, loadRemoteFiles, switchTab, closeTab, downloadCurrentFile,
+  uploadFiles,
+  // demo codes / pairing
+  createDemoCode, deleteDemoCode, copyToken, toggleToken,
+  approveDevice, rejectDevice, copyConnectCmd,
+  // misc
+  copyCodeBlock, closeBtw, loadNodes,
+});
 
 </script>
 </body>
