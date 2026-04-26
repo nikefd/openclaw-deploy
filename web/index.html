@@ -2251,6 +2251,36 @@ input.addEventListener('keydown',e=>{
 
 document.addEventListener('click',e=>{if(!mentionPopup.contains(e.target)&&e.target!==input)mentionPopup.classList.remove('show');});
 
+// === 空白 assistant bubble 自愈守护（2026-04-26）===
+// 偶发出现的现象：流式期间产生多个无文字内容的 assistant 头像气泡，
+// 刷新后由 renderChat 从 chat.messages 重建即恢复。
+// 根因尚未完全定位（疑似 ensureEl 在 renderChat 触发后 el 变 detached，
+// 后续 delta 写在游离节点 + 新一轮重渲染时旧空气泡没被替换/清理）。
+// 在彻底定位前，挂一个轻量的 DOM 守护：
+//   - 触发条件：发现连续两个或以上、且都没文字内容的 .message.assistant
+//   - 流式中（streamingChats 非空）保留最后一个（可能是正在填充的 el）
+//   - 其他全部 remove
+// 这个守护不破坏正常情况（正常情况下不会出现两个连续的空 assistant）。
+function _purgeEmptyAssistants(){
+  if(!messagesEl)return;
+  const all=[...messagesEl.querySelectorAll('.message.assistant')];
+  if(all.length<2)return;
+  const empties=all.filter(m=>{
+    const t=m.querySelector('.msg-text');
+    return !t||(t.textContent||'').trim().length===0;
+  });
+  if(empties.length<2)return;
+  // 流式中：最后一个空气泡可能正在被 ensureEl 填充，留下不动
+  const isStreaming=streamingChats&&streamingChats.size>0;
+  const toRemove=isStreaming?empties.slice(0,-1):empties;
+  toRemove.forEach(m=>m.remove());
+  if(toRemove.length){
+    console.warn('[_purgeEmptyAssistants] removed',toRemove.length,'empty assistant bubble(s)');
+  }
+}
+// 每秒扫一次（很便宜，DOM 上当前 chat 一般 < 100 节点）。
+setInterval(_purgeEmptyAssistants, 1000);
+
 // === Phase 6.1: expose handlers used by inline HTML onclick attributes ===
 // When this <script> becomes type="module" the top-level function declarations
 // no longer attach to window. HTML onclick="..." attributes still resolve
