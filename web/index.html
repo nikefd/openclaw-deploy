@@ -957,10 +957,30 @@ function getChat(id){return chats.find(c=>c.id===id);}
         try{localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));}catch{}
         renderSidebar();
         if(currentChanged&&currentId){
+          // 计算后端 vs 本地当前主区展示的质量差异。
+          // 如果后端最后一条 assistant 明显比本地这边长（>50 字符），
+          // 说明本地 reader 卡住了，必须刷新主区拿后端真相。
+          let mustRender=false;
+          try{
+            const local=chats.find(c=>c.id===currentId);
+            const rem=remote.find(c=>c.id===currentId);
+            if(local&&rem){
+              const llast=(local.messages||[]).slice(-1)[0];
+              const rlast=(rem.messages||[]).slice(-1)[0];
+              if(llast?.role==='assistant'&&rlast?.role==='assistant'){
+                const llen=(llast.content||'').length;
+                const rlen=(rlast.content||'').length;
+                if(rlen>llen+50)mustRender=true;
+              }
+              if((rem.messages||[]).length>(local.messages||[]).length)mustRender=true;
+            }
+          }catch{}
           if(typeof streamingChats!=='undefined'&&streamingChats.has(currentId)){
-            // streaming in progress — don't clobber main area
+            // 默认不冲击，但如果后端明显领先（本地 reader 卡死），强刷
+            if(mustRender&&typeof renderChat==='function'){try{renderChat();}catch{}}
           }else if(typeof hydrateChat==='function'){
             try{hydrateChat(currentId);}catch{}
+            if(mustRender&&typeof renderChat==='function'){try{renderChat();}catch{}}
           }
         }
       }
@@ -1258,6 +1278,21 @@ async function handleBtw(question){
 // === SEND ===
 // Phase 3.1: perfLog migrated to infra layer (web/src/infra/telemetry.js)
 const perfLog=(...args)=>window.__oc?.perfLog?.(...args);
+// === 🧹 发送前清理梦魔节点（代替原来的 _purgeEmptyAssistants 守护、需要主动调用） ===
+//   - 清掉所有 typing-* 占位（上轮 send 没走到 typingRemoved 的残留）
+//   - 清掉所有 .msg-text 文本为空的 .message.assistant（appendMsg('assistant','') 后被遗弃）
+function _cleanGhostAssistantsBeforeSend(){
+  if(!messagesEl)return;
+  // 1. typing 占位（可能多个残留）
+  messagesEl.querySelectorAll('[id^="typing-"]').forEach(n=>n.remove());
+  // 2. 空的 assistant 气泡
+  const all=messagesEl.querySelectorAll('.message.assistant');
+  all.forEach(m=>{
+    const t=m.querySelector('.msg-text');
+    if(!t||(t.textContent||'').trim().length===0){m.remove();}
+  });
+}
+
 async function sendMessage(){
   const text=input.value.trim();const images=[...pendingImages];
   if(!text&&!images.length)return;
@@ -1284,6 +1319,8 @@ async function sendMessage(){
   const agent=mentionAgent||getAgent(chat.agentId);
   sendBtn.disabled=true;input.value='';input.style.height='auto';pendingImages=[];renderImgPreview();
   const wel=messagesEl.querySelector('.welcome');if(wel)wel.remove();
+  // 🧹 调用之前先清理上轮发送残留的梦魔空气泡
+  _cleanGhostAssistantsBeforeSend();
   const imgUrls=images.map(i=>i.dataUrl);
   appendMsg('user',text,agent,false,imgUrls);
   // Build message content for API
