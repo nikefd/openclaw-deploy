@@ -12,6 +12,7 @@
 
 | Phase | 内容 | commit | tests |
 |---|---|---|---|
+| **5.5 chatRepo** | services/file/server.js 抽 chatRepo（fs 注入）→ `lib/chatRepo.js` 5 个方法（listChats/bulkSaveChats/getChatRaw/saveChat/deleteChat），server.js 5 个 chat endpoint 变薄壳；server.js 654→605 行 | `c712ba7` | +25 |
 | **streamPollLoop** | mobile fire-and-forget 轮询路径抽出 → `src/ui/streamPollLoop.js`（`decodePollResponse` 4 状态机 / `shouldFinish` / `computeTypewriterBatch` / `nextPumpDelay`）；index.html 主轮询循环 + 打字机 pump 都走 module-first + inline fallback。**重要发现**：ff 路径不是死代码，手机端 UA 路由走这里 | `ae86070` | +27 |
 | **streamPerf** | perf summary formatter + tracker state machine → `src/ui/streamPerf.js`（`buildPerfSummary` 纯函数 + `createPerfTracker` 状态机、含 `arm()` 复刻 typingRemoved 语义）；index.html 轻接入仅用 `buildPerfSummary` 替换 finally 三段 perfLog 格式化，原 _perfXxx 累加逻辑不动。tracker 状态机预留给未来 streamLoop 重构 / 其它页面用 | `f5d1f3d` | +15 |
 | **streamFinalize** | assistant message merge + error bubble text → `src/ui/streamFinalize.js`（`buildFinalAssistantMessage` / `buildErrorBubbleText` / `lastUserContent`）；success + error 两路径现在共享同一合并逻辑（replace-or-append + drop _streaming） | `9738fa4` | +17 |
@@ -40,7 +41,7 @@
 | **3.5** | 纯 chat shape 逻辑 → `domain/chat.js` | `8dd8cdb` | — |
 | 0–3.4 | 骨架 / CSS 抽离 / infra 层骨干 / SSE wire 统一 | 多个 | — |
 
-**当前测试**：517 unit + 34 smoke 全绿（2026-04-26 streamPollLoop 后）
+**当前测试**：542 unit + 34 smoke 全绿（2026-04-26 chatRepo 后）
 
 ---
 
@@ -192,4 +193,4 @@ openclaw-deploy/
 - 不要追求一次抽很多——之前 Phase 2 一次性接 module script 直接炸
 - 改完测试 + smoke 全绿才能 commit，**绝对不允许**红灯 commit
 
-_Last updated: 2026-04-26 by 狗蛋（streamPollLoop done，下一个建议 send() 拆小函数）_
+_Last updated: 2026-04-26 by 狗蛋（Phase 5.5 chatRepo done；send() 重构系列收工）_
