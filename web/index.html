@@ -266,20 +266,17 @@ echo '{"version":1,"defaults":{"security":"full"}}' > ~/.openclaw/exec-approvals
      code now sees a fully-built DOM by the time it runs — a strict
      improvement over the previous synchronous behavior. -->
 <script type="module">
+import {
+  AGENTS, MODELS,
+  SK_ICONS, ACTIVE_SKILLS,
+  FILE_ICONS, LANG_MAP,
+  WORKSPACE,
+} from '/src/config/constants.js';
+
 const API='/v1/chat/completions',TOKEN='17043bad6b19491dfa222d681d43584fbc3e8dd3781edfbc';
 const STORAGE_KEY='oc_chats_v2',AGENT_KEY='oc_selected_agent',THEME_KEY='oc_theme';
-const AGENTS=[
-  {id:'main',name:'狗蛋',emoji:'🦞',color:'#10a37f',desc:'你的全能助手'},
-  {id:'climbing',name:'攀岩教练',emoji:'🧗',color:'#f97316',desc:'训练记录、进步分析、训练计划',mention:'@攀岩教练'},
-  {id:'finance',name:'理财管家',emoji:'🎩',color:'#eab308',desc:'A股选股、模拟交易、行情分析',mention:'@理财管家'},
-];
 
-// === MODEL MANAGEMENT ===
-const MODELS=[
-  {id:'openclaw',name:'Default (Haiku)',emoji:'🐰',icon:'🐰',cost:'1x',desc:'快速轻量，日常任务'},
-  {id:'github-copilot/claude-opus-4.7',name:'Claude Opus 4.7',emoji:'🐙',icon:'🐙',cost:'10x',desc:'最强模型，深度思考'},
-  {id:'github-copilot/claude-opus-4.6-fast',name:'Opus 4.6 (Fast)',emoji:'⚡',icon:'⚡',cost:'5x',desc:'平衡速度和能力'},
-];
+// MODEL MANAGEMENT — see config/constants.js for AGENTS / MODELS.
 // Note: default 'openclaw' is a legacy alias (not a real model id) — see infra/storage/localStore.js.
 let currentModel=window.__oc?.prefs?.getModel?.()??(localStorage.getItem('oc_model')||'openclaw');
 function getModelInfo(modelId){return MODELS.find(m=>m.id===modelId)||MODELS[0];}
@@ -434,8 +431,7 @@ document.querySelectorAll('.tab').forEach(tab=>{
 // === MEMORY PANEL ===
 // === Skills Panel ===
 let skillsData=[], skillFilter='all', skillsLoaded=false;
-const SK_ICONS={'discord':'💬','github':'🐙','gh-issues':'🐛','weather':'🌤','tmux':'🖥','video-frames':'🎬','healthcheck':'🛡','skill-creator':'✨','node-connect':'🔗','coding-agent':'🤖','himalaya':'📧','slack':'💼','spotify-player':'🎵','voice-call':'📞','sag':'🔊','camsnap':'📷','notion':'📓','obsidian':'💎','trello':'📋','1password':'🔐','gog':'📬','xurl':'🐦','summarize':'📝','nano-pdf':'📄','oracle':'🔮','sonoscli':'🔈','openhue':'💡','peekaboo':'👀','gemini':'♊','clawhub':'🦞','web-dev-rules':'🚧','mermaid-fix':'🧜','memory-ops':'🧠'};
-const ACTIVE_SKILLS=new Set(['discord','gh-issues','github','healthcheck','skill-creator','node-connect','tmux','video-frames','weather']);
+// SK_ICONS / ACTIVE_SKILLS imported from config/constants.js
 
 async function loadSkillsPanel(){
   if(skillsLoaded)return;skillsLoaded=true;
@@ -520,7 +516,7 @@ function closeSkillDetail(){document.getElementById('skillDetail').style.display
 window.closeSkillDetail=closeSkillDetail;
 
 let memoryLoaded=false, memoryEditing=false, currentMemFile=null;
-const WORKSPACE='/home/nikefd/.openclaw/workspace';
+// WORKSPACE imported from config/constants.js
 const MEMORY_FILES={
   longTerm:[{name:'MEMORY.md',path:WORKSPACE+'/MEMORY.md',icon:'📌'}],
   identity:[
@@ -688,22 +684,7 @@ window.speakText=speakText;
 
 // === FILES ===
 let filesLoaded=false,currentDir='',openTabs=[],activeTab=null;
-const FILE_ICONS={
-  js:'🟨',ts:'🔷',py:'🐍',rb:'💎',go:'🔵',rs:'🦀',
-  html:'🌐',css:'🎨',json:'📋',xml:'📰',yaml:'⚙️',yml:'⚙️',toml:'⚙️',
-  md:'📝',txt:'📄',log:'📜',csv:'📊',
-  sh:'⚡',bash:'⚡',zsh:'⚡',fish:'⚡',
-  png:'🖼',jpg:'🖼',gif:'🖼',svg:'🖼',webp:'🖼',ico:'🖼',
-  pdf:'📕',zip:'📦',tar:'📦',gz:'📦',
-  env:'🔒',lock:'🔒',gitignore:'👁',dockerfile:'🐳',
-  conf:'⚙️',cfg:'⚙️',ini:'⚙️',service:'⚙️',
-};
-const LANG_MAP={
-  js:'JavaScript',ts:'TypeScript',py:'Python',rb:'Ruby',go:'Go',rs:'Rust',
-  html:'HTML',css:'CSS',json:'JSON',xml:'XML',yaml:'YAML',yml:'YAML',toml:'TOML',
-  md:'Markdown',txt:'Text',log:'Log',csv:'CSV',
-  sh:'Shell',bash:'Shell',zsh:'Shell',
-};
+// FILE_ICONS / LANG_MAP imported from config/constants.js
 function fileIcon(name,isDir){
   const m=window.__oc?.ui?.fileHelpers?.fileIcon;
   if(m)return m(name,isDir);
