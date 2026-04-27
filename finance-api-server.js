@@ -147,6 +147,59 @@ function handleTrades(req, res, params) {
   sendJson(res, { trades });
 }
 
+function handlePerformanceStats(req, res) {
+  // 计算当前持仓的性能统计
+  const positions = querySqlite('SELECT * FROM positions');
+  const trades = querySqlite('SELECT * FROM trades ORDER BY trade_date ASC');
+  const snapshots = querySqlite('SELECT * FROM daily_snapshots ORDER BY date DESC LIMIT 30');
+  
+  // 计算胜率
+  const sellTrades = trades.filter(t => t.direction === 'SELL');
+  const winTrades = sellTrades.filter(t => {
+    const buyPrice = trades.find(b => b.symbol === t.symbol && b.direction === 'BUY' && new Date(b.trade_date) < new Date(t.trade_date))?.price || t.price;
+    return t.price > buyPrice;
+  });
+  const winRate = trades.length > 0 ? Math.round((winTrades.length / sellTrades.length) * 100) : 0;
+  
+  // 计算最大回撤
+  let maxDD = 0;
+  if (snapshots.length > 1) {
+    let peak = snapshots[snapshots.length - 1].total_value;
+    snapshots.forEach(s => {
+      if (s.total_value > peak) peak = s.total_value;
+      const dd = ((peak - s.total_value) / peak) * 100;
+      if (dd > maxDD) maxDD = dd;
+    });
+  }
+  
+  // 计算Sharpe比率 (简化版)
+  const returns = [];
+  for (let i = snapshots.length - 1; i > 0; i--) {
+    const ret = ((snapshots[i - 1].total_value - snapshots[i].total_value) / snapshots[i].total_value) * 100;
+    returns.push(ret);
+  }
+  const avgRet = returns.length > 0 ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
+  const stdDev = returns.length > 1 ? Math.sqrt(returns.reduce((s, r) => s + Math.pow(r - avgRet, 2), 0) / (returns.length - 1)) : 0;
+  const sharpe = stdDev > 0 ? (avgRet / stdDev * Math.sqrt(252)) : 0;
+  
+  // 赛道分布
+  const sectors = {};
+  positions.forEach(p => {
+    const sector = p.sector || '未分类';
+    sectors[sector] = (sectors[sector] || 0) + 1;
+  });
+  
+  sendJson(res, {
+    win_rate: winRate,
+    max_drawdown: Math.round(maxDD * 100) / 100,
+    sharpe_ratio: Math.round(sharpe * 100) / 100,
+    total_trades: trades.length,
+    positions_count: positions.length,
+    sectors: sectors,
+    monthly_return: returns[0] ? Math.round(returns[0] * 100) / 100 : 0,
+  });
+}
+
 function handleReportsList(req, res) {
   try {
     const files = fs.readdirSync(REPORTS_DIR).filter(f => f.endsWith('.md')).sort().reverse();
@@ -883,6 +936,7 @@ const server = http.createServer((req, res) => {
   log(`${req.method} ${pathname}`);
 
   try {
+    if (pathname === '/api/finance/performance-stats' && req.method === 'GET') return handlePerformanceStats(req, res);
     if (pathname === '/api/finance/dashboard' && req.method === 'GET') return handleDashboard(req, res);
     if (pathname === '/api/finance/analysis' && req.method === 'GET') return handleAnalysis(req, res);
     if (pathname === '/api/finance/trades' && req.method === 'GET') return handleTrades(req, res, params);
@@ -1062,6 +1116,18 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/recent-trades' && req.method === 'GET') return handleRecentTrades(req, res);
     if (pathname === '/api/finance/risk-alerts' && req.method === 'GET') return handleRiskAlerts(req, res);
     if (pathname === '/api/finance/sl-tp-board' && req.method === 'GET') return handleSlTpBoard(req, res);
+    
+    // Static file service for UI optimization
+    if (pathname === '/ui-optimize-v5.65.js' && req.method === 'GET') {
+      try {
+        const content = fs.readFileSync('/home/nikefd/finance-agent/ui-optimize-v5.65.js', 'utf-8');
+        res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+        res.end(content);
+        return;
+      } catch (e) {
+        return sendError(res, 'File not found: ' + e.message, 404);
+      }
+    }
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);
@@ -1292,4 +1358,4 @@ function handleSlTpBoard(req, res) {
     tp_reasons: tpReasons
   });
 }
-
+server.listen(PORT, () => log(`Finance API server running on port ${PORT}`));
