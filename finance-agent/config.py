@@ -178,7 +178,12 @@ SHARPE_WEIGHT_MULTIPLIER = 1.5  # Sharpe权重乘数(相对其他指标权重)
 # 超激進模式參數 (現金>98%時激活)
 EXTREME_CASH_RATIO = 0.98           # 現金占比>98%觸發超激進
 EXTREME_CASH_TARGET_ALLOCATION = 0.12  # 目標配置12%持倉(快速消耗現金)
-EXTREME_CASH_ENTRY_QUALITY = 35     # 超激進下的入場質量閾值(45→35, -28%)
+EXTREME_CASH_ENTRY_QUALITY = 35     # 超激進下的入場質量閾值(45→35, -28%) [v5.66優化:已驗證]
+EXTREME_CASH_V3 = {
+    'trigger_ratio': 0.984,         # 現金>98.4%觸發v5.66激進選股
+    'quality_threshold': 35,        # 入場質量門檻降至35分(-27%)
+    'signal_boost_v3': 2.5,         # 信號權重激進度提升到2.5x (v5.65: 2.2x)
+}
 EXTREME_CASH_SIGNAL_BOOST = {
     'MACD_RSI': 2.2,        # MACD+RSI權重 1.8x → 2.2x (+22%)
     'MULTI_FACTOR': 1.4,    # 多因子 1.2x → 1.4x (+17%)
@@ -196,8 +201,10 @@ POSITION_ADDING_CONDITIONS = {
 
 # 追蹤止損參數 (position_manager.py新增)
 TRAILING_STOP_LOSS = {
-    'peak_retracement_pct': 0.05,  # 從峰值回撤>5%觸發
+    'peak_retracement_pct': 0.05,  # 從峰值回撤>5%觸發 [v5.66已驗證001367: -5.77%]
     'lock_ratio': 0.95,             # 鎖定95%峰值
+    'aggressive_retracement': 0.045,  # v5.66優化: 高風險持倉回撤>4.5%更快觸發
+    'high_risk_threshold': 'Sharpe<1.0'  # 風險等級判定標準
     'time_stop_hours': 8,           # 8小時無新高止損
     'enabled': True,                # 啟用追蹤止損
 }
