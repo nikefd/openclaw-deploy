@@ -147,6 +147,59 @@ function handleTrades(req, res, params) {
   sendJson(res, { trades });
 }
 
+function handlePerformanceStats(req, res) {
+  // 计算当前持仓的性能统计
+  const positions = querySqlite('SELECT * FROM positions');
+  const trades = querySqlite('SELECT * FROM trades ORDER BY trade_date ASC');
+  const snapshots = querySqlite('SELECT * FROM daily_snapshots ORDER BY date DESC LIMIT 30');
+  
+  // 计算胜率
+  const sellTrades = trades.filter(t => t.direction === 'SELL');
+  const winTrades = sellTrades.filter(t => {
+    const buyPrice = trades.find(b => b.symbol === t.symbol && b.direction === 'BUY' && new Date(b.trade_date) < new Date(t.trade_date))?.price || t.price;
+    return t.price > buyPrice;
+  });
+  const winRate = trades.length > 0 ? Math.round((winTrades.length / sellTrades.length) * 100) : 0;
+  
+  // 计算最大回撤
+  let maxDD = 0;
+  if (snapshots.length > 1) {
+    let peak = snapshots[snapshots.length - 1].total_value;
+    snapshots.forEach(s => {
+      if (s.total_value > peak) peak = s.total_value;
+      const dd = ((peak - s.total_value) / peak) * 100;
+      if (dd > maxDD) maxDD = dd;
+    });
+  }
+  
+  // 计算Sharpe比率 (简化版)
+  const returns = [];
+  for (let i = snapshots.length - 1; i > 0; i--) {
+    const ret = ((snapshots[i - 1].total_value - snapshots[i].total_value) / snapshots[i].total_value) * 100;
+    returns.push(ret);
+  }
+  const avgRet = returns.length > 0 ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
+  const stdDev = returns.length > 1 ? Math.sqrt(returns.reduce((s, r) => s + Math.pow(r - avgRet, 2), 0) / (returns.length - 1)) : 0;
+  const sharpe = stdDev > 0 ? (avgRet / stdDev * Math.sqrt(252)) : 0;
+  
+  // 赛道分布
+  const sectors = {};
+  positions.forEach(p => {
+    const sector = p.sector || '未分类';
+    sectors[sector] = (sectors[sector] || 0) + 1;
+  });
+  
+  sendJson(res, {
+    win_rate: winRate,
+    max_drawdown: Math.round(maxDD * 100) / 100,
+    sharpe_ratio: Math.round(sharpe * 100) / 100,
+    total_trades: trades.length,
+    positions_count: positions.length,
+    sectors: sectors,
+    monthly_return: returns[0] ? Math.round(returns[0] * 100) / 100 : 0,
+  });
+}
+
 function handleReportsList(req, res) {
   try {
     const files = fs.readdirSync(REPORTS_DIR).filter(f => f.endsWith('.md')).sort().reverse();
@@ -883,6 +936,7 @@ const server = http.createServer((req, res) => {
   log(`${req.method} ${pathname}`);
 
   try {
+    if (pathname === '/api/finance/performance-stats' && req.method === 'GET') return handlePerformanceStats(req, res);
     if (pathname === '/api/finance/dashboard' && req.method === 'GET') return handleDashboard(req, res);
     if (pathname === '/api/finance/analysis' && req.method === 'GET') return handleAnalysis(req, res);
     if (pathname === '/api/finance/trades' && req.method === 'GET') return handleTrades(req, res, params);
@@ -1062,8 +1116,18 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/recent-trades' && req.method === 'GET') return handleRecentTrades(req, res);
     if (pathname === '/api/finance/risk-alerts' && req.method === 'GET') return handleRiskAlerts(req, res);
     if (pathname === '/api/finance/sl-tp-board' && req.method === 'GET') return handleSlTpBoard(req, res);
-    if (pathname === '/api/finance/trade-flow-metrics' && req.method === 'GET') return handleTradeFlowMetrics(req, res);
-    if (pathname === '/api/finance/strategy-comparison' && req.method === 'GET') return handleStrategyComparison(req, res);
+    
+    // Static file service for UI optimization
+    if (pathname === '/ui-optimize-v5.65.js' && req.method === 'GET') {
+      try {
+        const content = fs.readFileSync('/home/nikefd/finance-agent/ui-optimize-v5.65.js', 'utf-8');
+        res.writeHead(200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+        res.end(content);
+        return;
+      } catch (e) {
+        return sendError(res, 'File not found: ' + e.message, 404);
+      }
+    }
 
     // /api/finance/reports/:date
     const reportMatch = pathname.match(/^\/api\/finance\/reports\/(\d{4}-\d{2}-\d{2})$/);
@@ -1294,146 +1358,4 @@ function handleSlTpBoard(req, res) {
     tp_reasons: tpReasons
   });
 }
-
-// === 改进① 交易流畅度面板 ===
-function handleTradeFlowMetrics(req, res) {
-  const allTrades = querySqlite('SELECT * FROM trades WHERE direction="SELL" ORDER BY trade_date DESC, id DESC LIMIT 30');
-  if (!allTrades || allTrades.length === 0) {
-    return sendJson(res, {
-      consecutive_wins: 0,
-      consecutive_losses: 0,
-      current_sequence_direction: 'neutral',
-      success_rate_trend: [],
-      recent_10_trades: [],
-      win_count: 0,
-      loss_count: 0,
-      overall_win_rate: 0
-    });
-  }
-
-  // 计算成本价 (从历史BUY交易)
-  const allBuys = querySqlite('SELECT * FROM trades WHERE direction="BUY" ORDER BY trade_date ASC, id ASC');
-  const costMap = {};  // symbol -> {totalCost, totalShares}
-  allBuys.forEach(t => {
-    if (!costMap[t.symbol]) costMap[t.symbol] = { totalCost: 0, totalShares: 0 };
-    costMap[t.symbol].totalCost += t.price * t.shares;
-    costMap[t.symbol].totalShares += t.shares;
-  });
-
-  // 判断每个SELL交易的输赢
-  const outcomes = allTrades.map(t => {
-    const cost = costMap[t.symbol] ? costMap[t.symbol].totalCost / costMap[t.symbol].totalShares : 0;
-    const pnl = t.price - (cost || 0);
-    return pnl > 0 ? 'win' : 'loss';
-  }).reverse();  // 从旧到新
-
-  // 计算连胜/连败
-  let consecutive_wins = 0, consecutive_losses = 0, current_sequence_direction = 'neutral';
-  if (outcomes.length > 0) {
-    const lastOutcome = outcomes[outcomes.length - 1];
-    current_sequence_direction = lastOutcome;
-    const searchChar = lastOutcome;
-    let streak = 0;
-    for (let i = outcomes.length - 1; i >= 0; i--) {
-      if (outcomes[i] === searchChar) streak++;
-      else break;
-    }
-    if (lastOutcome === 'win') consecutive_wins = streak;
-    else consecutive_losses = streak;
-  }
-
-  // 成功率趋势 (最近10笔)
-  const recent10 = outcomes.slice(-10);
-  const success_rate_trend = [];
-  let cumWins = 0;
-  for (let i = 0; i < recent10.length; i++) {
-    if (recent10[i] === 'win') cumWins++;
-    success_rate_trend.push(Math.round(cumWins / (i + 1) * 1000) / 10);
-  }
-
-  // 总体统计
-  const win_count = outcomes.filter(o => o === 'win').length;
-  const loss_count = outcomes.filter(o => o === 'loss').length;
-  const overall_win_rate = outcomes.length > 0 ? Math.round(win_count / outcomes.length * 1000) / 10 : 0;
-
-  sendJson(res, {
-    consecutive_wins,
-    consecutive_losses,
-    current_sequence_direction,
-    success_rate_trend,
-    recent_10_trades: recent10,
-    win_count,
-    loss_count,
-    overall_win_rate
-  });
-}
-
-// === 改进② 策略性能对比面板 ===
-function handleStrategyComparison(req, res) {
-  let strategyData = null;
-  
-  // 尝试读取文件
-  try {
-    const filePath = '/home/nikefd/finance-agent/data/strategy_backtest_results.json';
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      strategyData = JSON.parse(content);
-    }
-  } catch (e) {
-    log(`Strategy backtest file read error: ${e.message}`);
-  }
-
-  // 如果文件不存在或无法读取，从回测数据计算
-  if (!strategyData) {
-    try {
-      const backtest = querySqlite('SELECT * FROM backtest_runs ORDER BY created_at DESC', '/home/nikefd/finance-agent/data/backtest.db');
-      if (backtest && backtest.length > 0) {
-        const strategyMap = {};
-        backtest.forEach(bt => {
-          const strategy = bt.strategy || 'UNKNOWN';
-          if (!strategyMap[strategy]) {
-            strategyMap[strategy] = {
-              win_rate: parseFloat(bt.win_rate) || 0,
-              sharpe_ratio: parseFloat(bt.sharpe_ratio) || 0,
-              max_drawdown: parseFloat(bt.max_drawdown) || 0
-            };
-          }
-        });
-        
-        strategyData = {
-          MACD: strategyMap['MACD'] || { win_rate: 0, sharpe_ratio: 0, max_drawdown: 0 },
-          RSI: strategyMap['RSI'] || { win_rate: 0, sharpe_ratio: 0, max_drawdown: 0 },
-          MULTI_FACTOR: strategyMap['MULTI_FACTOR'] || { win_rate: 0, sharpe_ratio: 0, max_drawdown: 0 }
-        };
-      }
-    } catch (e) {
-      log(`Strategy calculation error: ${e.message}`);
-    }
-  }
-
-  // 如果仍然无数据，返回空结构
-  if (!strategyData) {
-    strategyData = {
-      MACD: { win_rate: 0, sharpe_ratio: 0, max_drawdown: 0 },
-      RSI: { win_rate: 0, sharpe_ratio: 0, max_drawdown: 0 },
-      MULTI_FACTOR: { win_rate: 0, sharpe_ratio: 0, max_drawdown: 0 }
-    };
-  }
-
-  // 计算综合策略 (平均值)
-  const composite = {
-    win_rate: Math.round((Object.values(strategyData).reduce((s, v) => s + (v.win_rate || 0), 0) / Math.max(Object.keys(strategyData).length, 1)) * 100) / 100,
-    sharpe_ratio: Math.round((Object.values(strategyData).reduce((s, v) => s + (v.sharpe_ratio || 0), 0) / Math.max(Object.keys(strategyData).length, 1)) * 100) / 100,
-    max_drawdown: Math.round((Object.values(strategyData).reduce((s, v) => s + (v.max_drawdown || 0), 0) / Math.max(Object.keys(strategyData).length, 1)) * 100) / 100
-  };
-
-  sendJson(res, {
-    strategies: {
-      MACD: strategyData.MACD || { win_rate: 0, sharpe_ratio: 0, max_drawdown: 0 },
-      RSI: strategyData.RSI || { win_rate: 0, sharpe_ratio: 0, max_drawdown: 0 },
-      MULTI_FACTOR: strategyData.MULTI_FACTOR || { win_rate: 0, sharpe_ratio: 0, max_drawdown: 0 },
-      COMPOSITE: composite
-    }
-  });
-}
-
+server.listen(PORT, () => log(`Finance API server running on port ${PORT}`));
