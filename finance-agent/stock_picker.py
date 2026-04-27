@@ -14,6 +14,19 @@ from performance_tracker import classify_sector, record_recommendation
 from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier, kelly_position_size, get_stop_loss_blacklist, get_sector_stop_loss_penalty
 from entry_quality import enrich_candidates_with_entry_quality, adjust_score_by_entry_quality
 
+# v5.65: 集成v5.64深度优化函数
+try:
+    from v5_64_DEEP_OPTIMIZE_FUNCTIONS import (
+        best_entry_timing_check,
+        position_correlation_check,
+        position_size_limit_check,
+        sector_weight_by_winrate
+    )
+    V5_64_AVAILABLE = True
+except ImportError:
+    print("⚠️  v5.64优化函数未找到，降级到v5.63模式")
+    V5_64_AVAILABLE = False
+
 
 # =================== v5.61 新增函数集合 ===================
 

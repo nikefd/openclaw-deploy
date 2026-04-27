@@ -3,6 +3,23 @@
 from datetime import datetime, date, timedelta
 from config import *
 
+# v5.65: 集成v5.64深度优化函数
+try:
+    from v5_64_DEEP_OPTIMIZE_FUNCTIONS import (
+        calculate_atr_for_sector,
+        get_default_atr_by_sector,
+        dynamic_stop_loss_by_sector,
+        best_entry_timing_check,
+        position_correlation_check,
+        leverage_market_detection,
+        position_size_limit_check,
+        sector_weight_by_winrate
+    )
+    V5_64_AVAILABLE = True
+except ImportError:
+    print("⚠️  v5.64优化函数未找到，降级到v5.63模式")
+    V5_64_AVAILABLE = False
+
 
 def _trading_days_since(buy_date_str: str) -> int:
     """计算从买入日期到今天的交易日天数(排除周末)
@@ -894,6 +911,32 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
         if regime:
             from market_regime import get_regime_stop_loss
             stop_loss = get_regime_stop_loss(regime)
+        
+        # v5.65: 集成v5.64动态止损 (赛道特异化ATR)
+        if V5_64_AVAILABLE:
+            try:
+                from performance_tracker import classify_sector
+                sector = classify_sector(pos.get('code', ''), pos.get('name', ''))
+                v564_result = dynamic_stop_loss_by_sector(
+                    position={
+                        'code': pos['code'],
+                        'entry_price': pos['avg_cost'],
+                        'quantity': pos['shares'],
+                        'avg_daily_volume': pos.get('avg_daily_volume', 5_000_000)
+                    },
+                    current_price=pos['current_price'],
+                    sector=sector,
+                    regime=regime or 'normal'
+                )
+                if v564_result and 'stop_loss_pct' in v564_result:
+                    v564_stop = v564_result['stop_loss_pct']
+                    atr_val = v564_result.get("atr", 0) * 100
+                    atr_factor = v564_result.get("atr_factor", 1)
+                    print(f"  📊 {pos['name']}: v5.64止损={v564_stop*100:.1f}% (ATR={atr_val:.2f}%×{atr_factor})")
+                    # 取更保守的止损
+                    stop_loss = max(stop_loss, v564_stop)  # max=更保守
+            except Exception as e:
+                print(f"  ⚠️ v5.64止损集成异常({pos['code']}): {e}")
         
         # 如果有ATR数据，取ATR止损和市场止损中更保守的（更紧的）
         if atr_stop is not None:

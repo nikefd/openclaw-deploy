@@ -132,7 +132,7 @@ def get_market_sentiment() -> dict:
             # 必须从最旧→最新迭代，否则旧值权重反而最大
             ema = history[-1]  # 从最旧的开始
             alpha = 0.4
-            for h in reversed(history[:-1]):  # 从次旧到最新
+            for h in history[-2::-1]:  # 正向遍历：从第二旧→最新 (反转列表使用[::-1])
                 ema = alpha * h + (1 - alpha) * ema
             # 最后混入今日原始值
             ema = alpha * result['sentiment_score'] + (1 - alpha) * ema
