@@ -204,7 +204,7 @@ TRAILING_STOP_LOSS = {
     'peak_retracement_pct': 0.05,  # 從峰值回撤>5%觸發 [v5.66已驗證001367: -5.77%]
     'lock_ratio': 0.95,             # 鎖定95%峰值
     'aggressive_retracement': 0.045,  # v5.66優化: 高風險持倉回撤>4.5%更快觸發
-    'high_risk_threshold': 'Sharpe<1.0'  # 風險等級判定標準
+    'high_risk_threshold': 'Sharpe<1.0',  # 風險等級判定標準
     'time_stop_hours': 8,           # 8小時無新高止損
     'enabled': True,                # 啟用追蹤止損
 }
@@ -476,3 +476,48 @@ ENTRY_QUALITY_SHARPE_JOINT_GATE = {
     'normal_quality_min_sharpe': 0.8,          # 入场质量>30的持仓,Sharpe必须≥0.8
     'bypass_if_rsi_oversold': False,           # RSI<30时可绕过(允许极端机会)
 }
+
+# =================== v5.68 盘前优化①②③: 流动性加权+ATR动态止损+信号持续性强化 ===================
+# 背景: v5.67已激进到极限(现金98.4%, 入场35分, Sharpe2.8x),需精细化风控
+# 优化目标: 止损率-2~3% → -1~2% | MaxDD稳定3.2% | Sharpe +5% | 资金利用率稳定12-18%
+# 时间: 2026-04-28 08:00 UTC 盘前优化
+
+# v5.68: 流动性加权入场配置
+LIQUIDITY_WEIGHTED_ENTRY = {
+    'enabled': True,                           # 启用流动性加权过滤
+    'premarket_hours': (8, 10),                # 盘前时段 08:00-10:00 (UTC+8)
+    'min_turnover_volume': 1e8,                # 最小成交额 1亿元
+    'min_turnover_rate': 0.02,                 # 最小换手率 2%
+    'max_daily_entries_premarket': 5,          # 盘前最多入场5只(激进但可控)
+    'high_vol_min_turnover': 3e8,              # 高成交额要求 3亿元(达入场数上限时)
+    'liquidity_score_threshold': 0.3,          # 流动性评分阈值
+    'description': '上午8-10点过滤低流动性垃圾股,入场数限制5只'
+}
+
+# v5.68: ATR动态止损配置
+ATR_DYNAMIC_STOP_LOSS = {
+    'enabled': True,                           # 启用ATR动态止损
+    'atr_period': 14,                          # ATR计算周期 14天
+    'high_volatility_threshold': 0.03,         # 高波动率阈值 3%
+    'low_volatility_threshold': 0.015,         # 低波动率阈值 1.5%
+    'high_vol_multiplier': 1.2,                # 高波动: ATR*1.2放宽止损 (容忍更大回撤)
+    'normal_vol_multiplier': 1.0,              # 正常波动: ATR*1.0标准止损
+    'low_vol_multiplier': 0.8,                 # 低波动: ATR*0.8收紧止损 (快速止损)
+    'max_dd_target': 0.032,                    # 目标MaxDD 3.2% (从4.08%↓)
+    'description': '根据市场波动率自适应调整止损线,减少跳空误触'
+}
+
+# v5.68: 自适应信号持续性配置
+ADAPTIVE_SIGNAL_PERSISTENCE = {
+    'enabled': True,                           # 启用自适应持续性
+    'extreme_cash_days': 2,                    # 现金>98%: 2天阈值(快速入场)
+    'high_cash_days': 2,                       # 现金90-98%: 2天阈值
+    'medium_cash_days': 3,                     # 现金75-90%: 3天阈值
+    'normal_cash_days': 4,                     # 现金<75%: 4天阈值(保守)
+    'min_quality_score': 50,                   # 最低质量评分要求 50分
+    'quality_pass_multiplier': 1.5,            # 质量达标信号权重*1.5(已有基础)
+    'description': '在激进模式快速入场,但通过质量评分保证信号可靠性'
+}
+
+# v5.68: 集成配置开关
+V5_68_OPTIMIZATION_ACTIVE = True               # 激活v5.68所有优化模块
