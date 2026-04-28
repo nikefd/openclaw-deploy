@@ -27,6 +27,18 @@ except ImportError:
     print("⚠️  v5.64优化函数未找到，降级到v5.63模式")
     V5_64_AVAILABLE = False
 
+# v5.71: 集成策略控制模块
+try:
+    from strategy_control_v71 import (
+        STRATEGY_ENABLED,
+        get_strategy_weight_multiplier,
+        validate_strategy_in_picker
+    )
+    V5_71_STRATEGY_CONTROL_AVAILABLE = True
+except ImportError:
+    print("⚠️  v5.71策略控制模块未找到，保持所有策略启用")
+    V5_71_STRATEGY_CONTROL_AVAILABLE = False
+
 
 # =================== v5.61 新增函数集合 ===================
 

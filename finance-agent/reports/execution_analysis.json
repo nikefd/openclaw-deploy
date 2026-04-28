@@ -1,0 +1,71 @@
+{
+  "analysis_date": "2026-04-22",
+  "timestamp": "2026-04-22T14:04:39.839724",
+  "summary": {
+    "recommendations": {
+      "count": 0,
+      "avg_confidence": 0,
+      "success_count": null,
+      "success_rate": 0
+    },
+    "executions": {
+      "buy_count": 0,
+      "buy_shares": 0,
+      "buy_amount": 0,
+      "execution_rate": 0
+    },
+    "portfolio": {
+      "open_positions": 2,
+      "total_shares": 1500,
+      "cash_ratio": 0.9843,
+      "position_utilization": 1.57
+    }
+  },
+  "diagnostics": {
+    "execution_gap": {
+      "description": "推荐vs实际执行差异",
+      "recommendation_count": 0,
+      "execution_count": 0,
+      "gap": 0,
+      "gap_reason": "分析中..."
+    },
+    "cash_utilization_gap": {
+      "description": "现金占比vs目标配置差异",
+      "current_cash_ratio": 0.9843,
+      "target_cash_ratio": 0.04,
+      "gap": 0.9443,
+      "improvement_needed": 94.4
+    },
+    "entry_quality": {
+      "excellent": null,
+      "good": null,
+      "acceptable": null
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "HIGH",
+      "category": "现金消耗",
+      "suggestion": "当前现金占比98.4%,超激进模式应被激活,建议检查config中EXTREME_CASH_RATIO是否生效",
+      "expected_impact": "资金利用率 +50%"
+    },
+    {
+      "priority": "HIGH",
+      "category": "Sharpe权重",
+      "suggestion": "确认position_manager.get_strategy_risk_weight()是否在stock_picker.score_and_rank()中被调用",
+      "expected_impact": "高Sharpe策略推荐数 +20%"
+    },
+    {
+      "priority": "MEDIUM",
+      "category": "入场质量",
+      "suggestion": "平均入场质量评分0/100,超激进下降至35分阈值可选",
+      "expected_impact": "候选池扩大 +25%"
+    },
+    {
+      "priority": "MEDIUM",
+      "category": "追踪止损",
+      "suggestion": "新增position_manager.check_trailing_stop_loss()可在daily_runner中集成",
+      "expected_impact": "盈利保护 +15%"
+    }
+  ]
+}
