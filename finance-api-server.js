@@ -1520,5 +1520,3 @@ function handleBacktestComparison(req, res) {
     sendJson(res, { error: e.message }, 500);
   }
 }
-
-server.listen(PORT, () => log(`Finance API server running on port ${PORT}`));
