@@ -71,10 +71,10 @@ HIGH_SHARPE_STOP_LOSS_RELAX = 0.02  # 止损容错放宽+2%
 
 # =================== v5.53: 入场质量评分系统 ===================
 # 4维×25分模型: 趋势对齐 + 位置优势 + 量价确认 + 动量确认
-ENTRY_QUALITY_THRESHOLD = 65  # 入场质量通过门槛 (0-100分)
+ENTRY_QUALITY_THRESHOLD = 55  # v5.70优化: 从65→55 (快速建仓)
 
 # v5.53: 过滤器动态松绑参数
-HIGH_CASH_RATIO_THRESHOLD = 0.95  # 现金>95%触发激进模式
+HIGH_CASH_RATIO_THRESHOLD = 0.90  # v5.70优化: 从95%→90% (激进建仓触发)
 LOSS_STREAK_THRESHOLD = 7          # 连亏≥7次触发微仓试单
 MICRO_POSITION_SIZE = 0.025        # 连亏微仓: 固定2.5%
 
