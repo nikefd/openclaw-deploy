@@ -203,7 +203,7 @@ echo '{"version":1,"defaults":{"security":"full"}}' > ~/.openclaw/exec-approvals
         <div class="memory-editor" style="display:none">
         </div>
         <div class="memory-welcome" id="memoryWelcome">
-            <div style="max-width:600px;margin:0 auto;padding:40px 24px">
+            <div style="max-width:780px;margin:0 auto;padding:40px 24px">
               <h2 style="font-size:22px;margin-bottom:20px;display:flex;align-items:center;gap:8px">🧠 记忆系统架构</h2>
               <div style="display:grid;gap:16px">
                 <div style="background:var(--input-bg);border-radius:10px;padding:16px">
@@ -211,17 +211,73 @@ echo '{"version":1,"defaults":{"security":"full"}}' > ~/.openclaw/exec-approvals
                   <div style="font-size:13px;color:var(--text-sec);line-height:2">
                     <div style="display:flex;align-items:center;gap:8px"><span style="background:var(--accent);color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">自动</span><strong style="color:var(--text)">工作记忆</strong> — 当前对话上下文，session 内自动维护</div>
                     <div style="display:flex;align-items:center;gap:8px"><span style="background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">每日</span><strong style="color:var(--text)">短期记忆</strong> — 每日对话日志 (memory/YYYY-MM-DD.md)</div>
-                    <div style="display:flex;align-items:center;gap:8px"><span style="background:#8b5cf6;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">长期</span><strong style="color:var(--text)">长期记忆</strong> — 精炼关键信息 (MEMORY.md)</div>
+                    <div style="display:flex;align-items:center;gap:8px"><span style="background:#8b5cf6;color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">长期</span><strong style="color:var(--text)">长期记忆</strong> — 精炼关键信息 (MEMORY.md + memory/projects/*.md)</div>
                   </div>
                 </div>
+
                 <div style="background:var(--input-bg);border-radius:10px;padding:16px">
-                  <div style="font-size:14px;font-weight:600;margin-bottom:10px">🔄 每日自动整理</div>
-                  <div style="font-size:13px;color:var(--text-sec);line-height:2">
-                    • 读取当天全部对话历史<br>
-                    • 压缩总结 → 写入短期记忆日志<br>
-                    • 提取重要信息 → 更新长期记忆
+                  <div style="font-size:14px;font-weight:600;margin-bottom:10px">📥 写入：什么时候、谁来写</div>
+                  <div style="font-size:13px;color:var(--text-sec);line-height:1.9">
+                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#10b981;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">已实现</span><div>用户说&ldquo;记一下&rdquo;&ldquo;以后注意&rdquo; → Agent 实时追加到当天日志</div></div>
+                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#10b981;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">已实现</span><div>对话产生重要决策/事件 → Agent 自主判断写入日志，重大的同步进 MEMORY.md 的「Key Events」</div></div>
+                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#10b981;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">已实现</span><div>项目阶段性进展 → 写入 memory/projects/&lt;项目&gt;.md</div></div>
+                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#10b981;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">已实现</span><div>Bug 修复 / 经验教训 → 追加到 MEMORY.md 的「Lessons Learned」</div></div>
+                    <div style="display:flex;gap:8px"><span style="background:#f59e0b;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">半人工</span><div>每日心跳整理 → 当天日志中有价值的内容提炼到 MEMORY.md（HEARTBEAT.md 规则定义，但目前靠 Agent 自觉触发）</div></div>
                   </div>
                 </div>
+
+                <div style="background:var(--input-bg);border-radius:10px;padding:16px">
+                  <div style="font-size:14px;font-weight:600;margin-bottom:10px">📤 读取：每次 Session 启动加载哪些</div>
+                  <div style="font-size:13px;color:var(--text-sec);line-height:1.9">
+                    • <strong style="color:var(--text)">主会话：</strong>SOUL.md + USER.md + 今天和昨天的日志 + MEMORY.md 全文<br>
+                    • <strong style="color:var(--text)">子 Agent / 共享上下文：</strong>不读 MEMORY.md（防止个人信息泄露给陌生人）<br>
+                    • <strong style="color:var(--text)">语义检索（memory_search）：</strong>对话中按需搜索 memory/*.md，相关片段才注入 prompt<br>
+                    • <strong style="color:var(--text)">项目笔记：</strong>只在相关话题被触发时主动 read，不全量加载
+                  </div>
+                </div>
+
+                <div style="background:var(--input-bg);border-radius:10px;padding:16px;border:1px dashed var(--border)">
+                  <div style="font-size:14px;font-weight:600;margin-bottom:10px">🗑️ 删除 / 归档：当前现状</div>
+                  <div style="font-size:13px;color:var(--text-sec);line-height:1.9">
+                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#ef4444;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">未实现</span><div>每日日志：从 Day 1 开始全部保留，无任何过期</div></div>
+                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#ef4444;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">未实现</span><div>MEMORY.md：只追加，无清理；偶尔 Agent 人工压缩</div></div>
+                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#ef4444;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">未实现</span><div>已完成项目（如 Agent Village ✅）：仍留在 memory/projects/ 主目录</div></div>
+                    <div style="display:flex;gap:8px"><span style="background:#10b981;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">已实现</span><div>Dreaming Memory（.dreams/）：OpenClaw 系统级，有内置衰减/压缩逻辑</div></div>
+                    <div style="margin-top:10px;padding:8px;background:rgba(239,68,68,0.08);border-radius:6px;font-size:12px">
+                      ⚠️ 当前架构「只进不出」，长期会让启动 token 膨胀、信噪比下降。下面是规划中的优化方案。
+                    </div>
+                  </div>
+                </div>
+
+                <div style="background:var(--input-bg);border-radius:10px;padding:16px;border:1px dashed var(--border)">
+                  <div style="font-size:14px;font-weight:600;margin-bottom:10px">🚧 计划中的过期/淘汰策略（Optional, 未实现）</div>
+                  <div style="font-size:13px;color:var(--text-sec);line-height:1.85">
+                    <div style="margin-bottom:10px"><strong style="color:var(--text)">1. 滚动归档（Sliding Archive）</strong><br>&gt;30 天的日志移到 memory/archive/YYYY-MM/，主目录只留近期；归档不删除，memory_search 仍可命中。<br><span style="opacity:.7">✅ 简单零风险　❌ archive 无限膨胀（但文本 MB 级无所谓）</span></div>
+
+                    <div style="margin-bottom:10px"><strong style="color:var(--text)">2. 项目状态归档</strong><br>项目带 status: active|done|paused frontmatter；done 自动移到 memory/projects/_archive/。<br><span style="opacity:.7">✅ 主目录干净　❌ 需要手动维护 status 字段</span></div>
+
+                    <div style="margin-bottom:10px"><strong style="color:var(--text)">3. 重要性评分 + 时间衰减</strong><br>每条记忆带 importance: 1-10；得分 = importance × exp(-λ × age) + 访问频次；低分自动降级到归档。参考 MemGPT / Generative Agents 论文。<br><span style="opacity:.7">✅ 自适应、最主流　❌ 需 LLM 自动打分基础设施</span></div>
+
+                    <div style="margin-bottom:10px"><strong style="color:var(--text)">4. 反思压缩（Reflection / Summarization）</strong><br>每周/每月跑一次：LLM 读批量日志 → 输出「月度精华」summaries/YYYY-MM.md；原始日记归档兜底。<br><span style="opacity:.7">✅ token 密度极高　❌ 摘要可能丢细节</span></div>
+
+                    <div style="margin-bottom:10px"><strong style="color:var(--text)">5. LRU / LFU 淘汰</strong><br>记录 last_accessed 和 access_count，最不常用的优先归档。<br><span style="opacity:.7">✅ 自适应　❌ 冷启动场景误杀（很久没用但很重要）</span></div>
+
+                    <div style="margin-bottom:10px"><strong style="color:var(--text)">6. 事件驱动失效</strong><br>用户说「换工作了」「分手了」→ 旧记忆标 stale，移到 archive/.stale/；agent 默认不读但能查。<br><span style="opacity:.7">✅ 最聪明　❌ 自动识别冲突难做对</span></div>
+
+                    <div style="margin-bottom:10px"><strong style="color:var(--text)">7. TTL 真删除</strong><br>归档 N 天后自动 rm。<br><span style="opacity:.7">✅ 合规友好　❌ 个人 agent 场景过狠，不推荐</span></div>
+
+                    <div style="margin-bottom:10px"><strong style="color:var(--text)">8. 用户可控（Human-in-the-Loop）</strong><br>UI 列出每条记忆，用户能删/改/标重要（参考 ChatGPT Memory）。<br><span style="opacity:.7">✅ 隐私友好　❌ 用户得勤维护</span></div>
+
+                    <div style="margin-top:12px;padding:10px;background:rgba(99,102,241,0.08);border-radius:6px;font-size:12.5px;line-height:1.7">
+                      <strong style="color:var(--text)">🎯 推荐落地路径：</strong><br>
+                      • <strong>Level 1（轻量）：</strong>策略 1+2，滚动归档 + 项目状态<br>
+                      • <strong>Level 2（中期）：</strong>+ 策略 4，每月反思压缩<br>
+                      • <strong>Level 3（完整）：</strong>+ 策略 3，重要性评分自动化（接入 OpenClaw Active/Dreaming Memory）<br>
+                      <span style="opacity:.75">核心原则：归档 ≠ 删除，本质是「降低加载优先级」而非物理删除。</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div style="background:var(--input-bg);border-radius:10px;padding:16px">
                   <div style="font-size:14px;font-weight:600;margin-bottom:10px">🪪 身份文件</div>
                   <div style="font-size:13px;color:var(--text-sec);line-height:2">
