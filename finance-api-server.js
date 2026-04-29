@@ -1119,6 +1119,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     // v5.69 新增端点
     if (pathname === '/api/finance/sentiment-dashboard' && req.method === 'GET') return handleSentimentDashboard(req, res);
     if (pathname === '/api/finance/backtest-comparison' && req.method === 'GET') return handleBacktestComparison(req, res);
+    if (pathname === '/api/finance/portfolio-scatter' && req.method === 'GET') return handlePortfolioScatter(req, res);
+    if (pathname === '/api/finance/stop-loss-dashboard' && req.method === 'GET') return handleStopLossDashboard(req, res);
     
     // Static file service for UI optimization
     if (pathname === '/ui-optimize-v5.65.js' && req.method === 'GET') {
@@ -1518,5 +1520,54 @@ function handleBacktestComparison(req, res) {
   } catch (e) {
     log(`Backtest error: ${e.message}`);
     sendJson(res, { error: e.message }, 500);
+  }
+}
+
+// ==================== v5.73 UI增強 新增端點 ====================
+
+function handlePortfolioScatter(req, res) {
+  // 調用 v5.73_ui_portfolio_scatter.py
+  try {
+    const py_script = '/home/nikefd/finance-agent/v5.73_ui_portfolio_scatter.py';
+    const out = execSync(`python3 ${py_script}`, { timeout: 5000 }).toString().trim();
+    const data = JSON.parse(out);
+    sendJson(res, data);
+  } catch (e) {
+    log(`Portfolio scatter error: ${e.message}`);
+    // 返回空結構避免UI崩潰
+    sendJson(res, {
+      positions: [],
+      sectors: {},
+      concentration_index: 0,
+      risk_level: 'UNKNOWN',
+      warning: 'API error: ' + e.message,
+      recommendation: '請檢查服務狀態'
+    }, 500);
+  }
+}
+
+function handleStopLossDashboard(req, res) {
+  // 調用 v5.73_stop_loss_dashboard.py
+  try {
+    const py_script = '/home/nikefd/finance-agent/v5.73_stop_loss_dashboard.py';
+    const out = execSync(`python3 ${py_script}`, { timeout: 5000 }).toString().trim();
+    // 最後一個JSON對象是儀錶板數據
+    const lines = out.split('\n').filter(l => l.trim() && l.startsWith('{'));
+    if (lines.length === 0) {
+      return sendJson(res, {
+        timestamp: new Date().toISOString(),
+        today: { details: [], stop_loss_triggered: 0, take_profit_triggered: 0 },
+        message: '暫無止損記錄'
+      });
+    }
+    const data = JSON.parse(lines[lines.length - 1]);
+    sendJson(res, data);
+  } catch (e) {
+    log(`Stop loss dashboard error: ${e.message}`);
+    sendJson(res, {
+      timestamp: new Date().toISOString(),
+      today: { details: [], stop_loss_triggered: 0, take_profit_triggered: 0 },
+      error: e.message
+    }, 500);
   }
 }

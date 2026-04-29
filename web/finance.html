@@ -211,6 +211,8 @@ tr.pos-row.expanded{background:var(--hover)}
   <div class="tab" data-tab="strategy">🎯 策略</div>
   <div class="tab" data-tab="datasources">📡 数据源</div>
   <div class="tab" data-tab="realtrading">🎯 实盘操作</div>
+  <div class="tab" data-tab="portfolio">🎨 持仓散布</div>
+  <div class="tab" data-tab="stoploss">🔴 止损面板</div>
 </div>
 
 <div class="content">
@@ -840,6 +842,28 @@ tr.pos-row.expanded{background:var(--hover)}
       </div>
     </div>
   </div>
+  <div class="tab-panel" id="panel-portfolio">
+    <div class="chart-row">
+      <div class="chart-box"><h3>📊 持倉組合散佈圖</h3><canvas id="portfolioBubbleChart" height="300"></canvas></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="card"><div class="card-label">風險等級</div><div class="card-value" id="portfolioRiskLevel" style="color:var(--accent)">-</div></div>
+        <div class="card"><div class="card-label">HHI指數</div><div class="card-value" id="portfolioHHI" style="font-size:18px">-</div></div>
+      </div>
+    </div>
+    <div id="portfolioWarning" style="display:none;background:#ffe0e0;border:1px solid #ff6b6b;border-radius:var(--radius);padding:16px;margin-bottom:16px"></div>
+    <div class="tbl-wrap"><h3>賽道分佈</h3><table><thead><tr><th>賽道</th><th>市值</th><th>占比</th><th>持倉數</th></tr></thead><tbody id="portfolioSectorTable"></tbody></table></div>
+    <div class="analysis-card" style="margin-top:16px;background:var(--hover);border:1px solid var(--border)"><h3 id="portfolioRecommendation" style="color:var(--accent)">持倉結構良好</h3></div>
+  </div>
+  <div class="tab-panel" id="panel-stoploss">
+    <div class="cards">
+      <div class="card"><div class="card-label">今日止損</div><div class="card-value" id="slCount" style="color:var(--up)">0</div></div>
+      <div class="card"><div class="card-label">止盈觸發</div><div class="card-value" id="tpCount" style="color:var(--down)">0</div></div>
+      <div class="card"><div class="card-label">檢查總數</div><div class="card-value" id="posChecked">0</div></div>
+      <div class="card"><div class="card-label">止損率</div><div class="card-value" id="slRatio" style="font-size:18px">-</div></div>
+    </div>
+    <div class="tbl-wrap" style="margin-top:16px"><h3>執行詳情</h3><div id="slDetails" style="padding:20px;color:var(--sub);font-size:13px;line-height:1.8">暫無記錄</div></div>
+    <div class="tbl-wrap" style="margin-top:16px"><h3>近7日統計</h3><table><thead><tr><th>日期</th><th>止損次</th><th>止盈次</th><th>檢查數</th></tr></thead><tbody id="slRecentTable"></tbody></table></div>
+  </div>
 
 </div>
 
@@ -874,6 +898,8 @@ document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
   if(t.dataset.tab==='strategy'){loadLiveStatus();}
   if(t.dataset.tab==='datasources'){loadDatasources();}
   if(t.dataset.tab==='realtrading'){loadRealTrading();}
+  if(t.dataset.tab==='portfolio'){loadPortfolioScatter();}
+  if(t.dataset.tab==='stoploss'){loadStopLossDashboard();}
 }));
 
 // Helpers
@@ -2129,6 +2155,60 @@ function showPosSidebar(symbol){const p=posData?.find(x=>x.symbol===symbol);if(!
 }
 function createPosSidebar(){const s=document.createElement('div');s.id='posDetailSidebar';s.style.cssText='position:fixed;right:-400px;top:0;width:400px;height:100vh;background:var(--card);border-left:1px solid var(--border);transition:right .3s;z-index:150;overflow-y:auto;padding-top:12px';document.body.appendChild(s);return s;}
 function closeSidebar(){const s=document.querySelector('#posDetailSidebar');if(s)s.style.right='-400px';}
+// 持倉散佈圖
+async function loadPortfolioScatter(){
+  const d=await api('/api/finance/portfolio-scatter');
+  if(!d)return;
+  document.getElementById('portfolioRiskLevel').textContent=d.risk_level||'-';
+  document.getElementById('portfolioRiskLevel').style.color=d.risk_level==='RED'?'#e63946':d.risk_level==='YELLOW'?'#ff9f1c':'#2ec4b6';
+  document.getElementById('portfolioHHI').textContent=(d.concentration_metrics?.hhi||0).toFixed(2);
+  const warn=document.getElementById('portfolioWarning');
+  if(d.warning){warn.style.display='block';warn.innerHTML='<strong>⚠️ '+d.warning+'</strong>';}else{warn.style.display='none';}
+  document.getElementById('portfolioRecommendation').textContent=d.recommendation||'持倉結構良好';
+  const st=document.getElementById('portfolioSectorTable');
+  st.innerHTML=Object.entries(d.sectors||{}).map(([sec,data])=>`<tr><td>${sec}</td><td>¥${fmt(data.market_value)}</td><td>${(data.weight_pct||0).toFixed(1)}%</td><td>${data.position_count}</td></tr>`).join('');
+  // 繪製 Bubble Chart
+  if(typeof Chart!=='undefined'&&d.bubbles){
+    const ctx=document.getElementById('portfolioBubbleChart')?.getContext('2d');
+    if(!ctx)return;
+    const colorMap={'醫藥':'#ff6b6b','新能源':'#4361ee','主板':'#ffd93d','其他':'#95e1d3'};
+    const datasets=Object.entries(d.sectors||{}).map(([sec,data],i)=>({
+      label:sec,
+      data:d.bubbles.filter(b=>b.sector===sec).map(b=>({x:b.holding_days||0,y:b.pnl_pct||0,r:Math.sqrt(b.market_value)/100||3})),
+      backgroundColor:colorMap[sec]||'#95e1d3',
+      borderColor:colorMap[sec]||'#95e1d3',
+      borderWidth:1,fill:true
+    })).filter(ds=>ds.data.length>0);
+    if(window.portfolioChart)window.portfolioChart.destroy();
+    window.portfolioChart=new Chart(ctx,'bubble',{
+      data:{datasets},
+      options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:true}},scales:{x:{title:{display:true,text:'持倉天數'},min:0},y:{title:{display:true,text:'盈虧%'},beginAtZero:true}}}
+    });
+  }
+}
+
+// 止損執行面板
+async function loadStopLossDashboard(){
+  const d=await api('/api/finance/stop-loss-dashboard');
+  if(!d)return;
+  const today=d.today||{};
+  document.getElementById('slCount').textContent=today.stop_loss_triggered||0;
+  document.getElementById('tpCount').textContent=today.take_profit_triggered||0;
+  document.getElementById('posChecked').textContent=today.positions_checked||0;
+  document.getElementById('slRatio').textContent=(today.stop_loss_ratio_pct||0).toFixed(1)+'%';
+  const details=document.getElementById('slDetails');
+  if(today.details&&today.details.length>0){
+    details.innerHTML=today.details.map(d=>`<div style="padding:8px 0;border-bottom:1px solid var(--border)">${d}</div>`).join('');
+  }else{details.innerHTML='暫無記錄';}
+  const recTable=document.getElementById('slRecentTable');
+  const recent=d.recent_7days||{};
+  if(recent.days&&recent.stats){
+    recTable.innerHTML=recent.days.map((day,i)=>{
+      const stat=recent.stats[i]||{};
+      return`<tr><td>${day}</td><td>${stat.stop_loss||0}</td><td>${stat.take_profit||0}</td><td>${stat.total_checked||0}</td></tr>`;
+    }).join('');
+  }
+}
 const oRefresh=window.refreshAll;window.refreshAll=async function(){oRefresh&&await oRefresh();loadStrategyContribution();try{const d=await fetch('/api/finance/dashboard').then(r=>r.json());if(d.positions)posData=d.positions;}catch(e){}};
 refreshAll();setInterval(refreshAll,300000);
 </script>
