@@ -350,17 +350,133 @@ tr:hover{background:var(--hover)}
     </tr>
     <tr>
       <td><strong>长期记忆</strong></td>
-      <td><code>MEMORY.md</code> + 语义检索</td>
-      <td>用户画像、偏好、历史重要决策</td>
+      <td><code>MEMORY.md</code> + 项目笔记 <code>memory/projects/*.md</code> + 语义检索</td>
+      <td>用户画像、偏好、历史重要决策、长期项目状态</td>
       <td>用户画像 & CRM 数据</td>
     </tr>
   </table>
+
+  <h4>📥 写入：什么时候、谁、怎么写</h4>
+  <table>
+    <tr><th>触发场景</th><th>写入位置</th><th>执行方</th><th>状态</th></tr>
+    <tr>
+      <td>用户说「记一下」「以后注意」</td>
+      <td>当天 <code>memory/YYYY-MM-DD.md</code></td>
+      <td>Agent 实时追加</td>
+      <td>✅ 已实现</td>
+    </tr>
+    <tr>
+      <td>对话中产生重要决策 / 事件</td>
+      <td>当天日记 + 重要的同步进 <code>MEMORY.md</code> 的「Key Events」</td>
+      <td>Agent 自主判断</td>
+      <td>✅ 已实现（半人工，靠 Agent 判断）</td>
+    </tr>
+    <tr>
+      <td>每日心跳（Heartbeat）</td>
+      <td>当天日记 → <code>MEMORY.md</code> 月度精华</td>
+      <td>定时任务（HEARTBEAT.md 规则）</td>
+      <td>⚠️ 部分实现（手动触发，没自动跑）</td>
+    </tr>
+    <tr>
+      <td>项目阶段性进展</td>
+      <td><code>memory/projects/&lt;项目&gt;.md</code></td>
+      <td>Agent 在项目相关对话后追加</td>
+      <td>✅ 已实现</td>
+    </tr>
+    <tr>
+      <td>Bug 修复 / 经验教训</td>
+      <td><code>MEMORY.md</code> 的「Lessons Learned」</td>
+      <td>Agent 实时追加</td>
+      <td>✅ 已实现</td>
+    </tr>
+  </table>
+
+  <h4>📤 读取：每次 Session 启动加载哪些</h4>
+  <ul>
+    <li><strong>主会话启动：</strong><code>SOUL.md</code> + <code>USER.md</code> + 今天和昨天的 <code>memory/YYYY-MM-DD.md</code> + <code>MEMORY.md</code> 全文</li>
+    <li><strong>子 Agent / Discord 共享上下文：</strong>不读 <code>MEMORY.md</code>（防止个人信息泄露给陌生人）</li>
+    <li><strong>语义检索（memory_search）：</strong>对话中按需搜索 <code>memory/*.md</code>，相关片段才注入 prompt，控制 token 成本</li>
+    <li><strong>项目笔记：</strong>只在相关话题被触发时主动 read（不全量加载）</li>
+  </ul>
+
+  <h4>🗑️ 删除 / 归档：什么时候清理（现状）</h4>
+  <table>
+    <tr><th>类型</th><th>当前策略</th><th>状态</th></tr>
+    <tr><td>每日日记 <code>memory/*.md</code></td><td>无任何过期，从 Day 1 开始全部保留</td><td>❌ 未实现</td></tr>
+    <tr><td><code>MEMORY.md</code></td><td>无清理，只追加；Agent 偶尔人工压缩</td><td>❌ 未实现</td></tr>
+    <tr><td>已完成项目（如 Agent Village ✅）</td><td>仍留在 <code>memory/projects/</code> 主目录</td><td>❌ 未归档</td></tr>
+    <tr><td>Dreaming Memory（<code>.dreams/</code>）</td><td>OpenClaw 系统级，有内置衰减逻辑</td><td>✅ 系统自动管理</td></tr>
+  </table>
+  <p style="color:#888;font-size:13px">⚠️ 当前架构「只进不出」，长期会让启动 token 膨胀、信噪比下降。下面是计划中的优化方案。</p>
+
+  <h4>🚧 计划中的过期/淘汰策略（Optional, 未实现）</h4>
+  <table>
+    <tr><th>策略</th><th>原理</th><th>适用层级</th><th>优缺点</th></tr>
+    <tr>
+      <td><strong>1. 滚动归档（Sliding Archive）</strong></td>
+      <td>&gt;30 天的日记移到 <code>memory/archive/YYYY-MM/</code>，主目录只留近期；归档不删除，<code>memory_search</code> 仍可检索</td>
+      <td>中期记忆</td>
+      <td>✅ 简单、零风险<br>❌ archive 无限膨胀（但文本 MB 级无所谓）</td>
+    </tr>
+    <tr>
+      <td><strong>2. 项目状态归档</strong></td>
+      <td>项目带 <code>status: active|done|paused</code> frontmatter；<code>done</code> 自动移到 <code>memory/projects/_archive/</code></td>
+      <td>长期记忆</td>
+      <td>✅ 主目录干净；❌ 需要手动维护 status 字段</td>
+    </tr>
+    <tr>
+      <td><strong>3. 重要性评分 + 时间衰减</strong></td>
+      <td>每条记忆带 <code>importance: 1-10</code>；得分 = importance × exp(-λ × age) + 访问频次；低分降级到归档（参考 MemGPT / Generative Agents 论文）</td>
+      <td>所有层级</td>
+      <td>✅ 自适应、最主流；❌ 需要 LLM 自动打分基础设施</td>
+    </tr>
+    <tr>
+      <td><strong>4. 反思压缩（Reflection / Summarization）</strong></td>
+      <td>每周/每月跑一次：LLM 读批量日记 → 输出「月度精华」<code>summaries/YYYY-MM.md</code>；原始日记归档兜底</td>
+      <td>中期 → 长期</td>
+      <td>✅ token 密度极高；❌ 摘要可能丢细节</td>
+    </tr>
+    <tr>
+      <td><strong>5. LRU / LFU 淘汰</strong></td>
+      <td>记录 <code>last_accessed</code> 和 <code>access_count</code>，最不常用的优先归档</td>
+      <td>长期记忆 / 向量库</td>
+      <td>✅ 自适应；❌ 冷启动场景误杀（很久没用但很重要）</td>
+    </tr>
+    <tr>
+      <td><strong>6. 事件驱动失效</strong></td>
+      <td>用户说「换工作了」「分手了」→ 旧记忆标 <code>stale</code>，移到 <code>archive/.stale/</code>；agent 默认不读但能查</td>
+      <td>所有层级</td>
+      <td>✅ 最聪明；❌ 自动识别冲突难做对</td>
+    </tr>
+    <tr>
+      <td><strong>7. TTL 真删除</strong></td>
+      <td>归档 N 天后自动 <code>rm</code></td>
+      <td>敏感数据</td>
+      <td>✅ 合规友好；❌ 个人 agent 场景过狠，不推荐</td>
+    </tr>
+    <tr>
+      <td><strong>8. 用户可控（Human-in-the-Loop）</strong></td>
+      <td>UI 列出每条记忆，用户能删/改/标重要（参考 ChatGPT Memory）</td>
+      <td>所有层级</td>
+      <td>✅ 隐私友好；❌ 用户得勤维护</td>
+    </tr>
+  </table>
+
+  <h4>🎯 推荐落地路径</h4>
+  <ol>
+    <li><strong>Level 1（轻量，已规划）：</strong>策略 1 + 2 —— 滚动归档 + 项目状态归档。永不删除，只降低读取优先级</li>
+    <li><strong>Level 2（中期）：</strong>+ 策略 4 —— 每月反思一次，压缩成月度精华</li>
+    <li><strong>Level 3（完整）：</strong>+ 策略 3 —— 重要性评分自动化（接入 OpenClaw Active/Dreaming Memory）</li>
+  </ol>
+  <p style="color:#888;font-size:13px"><strong>核心原则：</strong>归档 ≠ 删除。文本几 MB 撑死，硬盘不在乎；真正贵的是启动时灌进 context 的 token。所以策略本质是「降低加载优先级」而不是「物理删除」。</p>
+
   <h4>关键设计</h4>
   <ul>
     <li><strong>语义检索（memory_search）：</strong>不全量加载记忆，根据当前问题搜索相关片段注入 prompt，控制 token 成本</li>
     <li><strong>上下文隔离：</strong>不同 Agent（金融/攀岩/面试）各自维护独立状态，互不干扰</li>
     <li><strong>Session 持久化：</strong>服务端存储，跨重启不丢失</li>
     <li><strong>定期整理：</strong>通过心跳机制自动将日志中有价值的内容提炼到 MEMORY.md（类比人类整理笔记）</li>
+    <li><strong>主会话独占 MEMORY.md：</strong>子 Agent / 共享上下文不加载，防止个人信息泄露</li>
   </ul>
 </div>
 
