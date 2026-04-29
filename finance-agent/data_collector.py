@@ -43,6 +43,30 @@ def retry(max_retries=3, delay=2):
     return decorator
 
 
+def timeout(seconds=5):
+    """超时装饰器 — 网络采集必须有超时限制 (v5.72盤前優化)"""
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            import signal
+            def timeout_handler(signum, frame):
+                raise TimeoutError(f"{func.__name__}执行超时({seconds}秒)")
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(seconds)
+            try:
+                result = func(*args, **kwargs)
+                signal.alarm(0)  # 取消超时
+                return result
+            except TimeoutError as e:
+                print(f"  ⏱️  {e}")
+                return None
+            except Exception as e:
+                signal.alarm(0)
+                raise e
+        return wrapper
+    return decorator
+
+
 @retry(max_retries=2, delay=1)
 @monitored("东方财富个股新闻")
 def get_stock_news(symbol: str = None) -> pd.DataFrame:
@@ -53,10 +77,31 @@ def get_stock_news(symbol: str = None) -> pd.DataFrame:
     return df.head(50)
 
 
-@retry(max_retries=2, delay=1)
+def get_sentiment_cache() -> dict:
+    """从数据库读取上一交易日市场情绪缓存"""
+    try:
+        import sqlite3
+        conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
+        c = conn.cursor()
+        c.execute("SELECT sentiment_data FROM daily_snapshots WHERE date < ? ORDER BY date DESC LIMIT 1", 
+                  (datetime.now().strftime('%Y-%m-%d'),))
+        row = c.fetchone()
+        conn.close()
+        if row and row[0]:
+            try:
+                return json.loads(row[0])
+            except:
+                pass
+    except:
+        pass
+    return {'sentiment_score': 50, 'sentiment_label': '中性', 'limit_up_count': 0, '_from_cache': True}
+
+
+@timeout(seconds=5)  # v5.72: 加5秒超时保护
+@retry(max_retries=1, delay=1)  # 超时内最多重试1次
 @monitored("市场情绪")
 def get_market_sentiment() -> dict:
-    """获取市场情绪指标"""
+    """获取市场情绪指标 — 增加超时保护和降级缓存"""
     today = datetime.now().strftime('%Y%m%d')
     result = {}
 
@@ -149,6 +194,30 @@ def get_market_sentiment() -> dict:
         pass  # 数据库不存在或无历史，用原始值
 
     return result
+
+
+def get_market_sentiment_safe() -> dict:
+    """安全获取市场情绪 — 包含超时降级 (v5.72盤前優化)
+    
+    逻辑:
+    1. 尝试从实时数据源获取 (5秒超时)
+    2. 失败 → 返回上一交易日缓存
+    3. 缓存不存在 → 返回中性默认值
+    
+    预期盤前启动时间: <3秒 (vs 可能>30秒卡顿)
+    """
+    try:
+        result = get_market_sentiment()
+        if result and isinstance(result, dict) and 'sentiment_score' in result:
+            result['_source'] = 'realtime'
+            return result
+    except Exception as e:
+        print(f"  ⚠️ 实时市场情绪采集失败: {e}")
+    
+    # 降级到缓存
+    print("  📦 切换到缓存市场情绪...")
+    cache = get_sentiment_cache()
+    return cache
 
 
 def get_stock_daily(symbol: str, days: int = 60) -> pd.DataFrame:

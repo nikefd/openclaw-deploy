@@ -1881,6 +1881,43 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     except Exception as e:
         pass  # 赛道路由异常时忽略
     
+    # v5.72: 持仓集中度检查 (盤前優化①) — 避免选股过度集中同一赛道
+    # 问题: v5.70数据显示现金98%+仅持2只股票 → 需要多样性约束
+    # 方案: 若现有持仓某赛道占比>40%, 则降低该赛道新股评分 (-20%)
+    # 预期: 改善选股多样性、降低单赛道风险
+    try:
+        from performance_tracker import classify_sector
+        import sqlite3
+        from config import DB_PATH
+        
+        # 获取当前持仓
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT symbol, quantity FROM positions WHERE quantity > 0")
+        positions = c.fetchall()
+        conn.close()
+        
+        if positions:
+            # 计算赛道持仓占比
+            sector_holdings = {}
+            total_quantity = 0
+            for symbol, qty in positions:
+                sector = classify_sector(symbol, '')
+                sector_holdings[sector] = sector_holdings.get(sector, 0) + qty
+                total_quantity += qty
+            
+            # 应用集中度惩罚
+            for stock in ranked:
+                stock_sector = classify_sector(stock['code'], stock.get('name', ''))
+                if stock_sector in sector_holdings:
+                    sector_ratio = sector_holdings[stock_sector] / max(total_quantity, 1)
+                    if sector_ratio > 0.40:  # 同赛道持仓>40%
+                        penalty = 0.80  # -20% 评分
+                        stock['score'] = int(stock['score'] * penalty)
+                        stock['_concentration_penalty'] = f"{stock_sector}({sector_ratio:.1%})-20%"
+    except Exception as e:
+        pass  # 集中度检查异常时忽略,不影响后续逻辑
+    
     # v5.53: 科技成长赛道权重激进优化 (+30%)
     # 逻辑: 科技相关板块持续表现优异，基于回测数据提升权重
     try:

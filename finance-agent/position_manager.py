@@ -548,8 +548,21 @@ def calculate_position_size(confidence: int, sentiment_score: float,
 
 
 def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = "", loss_streak: int = 0) -> list:
-    """动态止损止盈 — 早期止损+追踪止损+情绪调节+阶梯止盈+时间止损+动量衰减卖出"""
+    """动态止损止盈 — 早期止损+追踪止损+情绪调节+阶梯止盈+时间止损+动量衰减卖出
+    
+    v5.72: 新增止损执行日志记录 (盤前優化③) — 提升用户体验
+    """
     actions = []
+    
+    # v5.72: 初始化止损执行日志 (每次调用记录开始时间)
+    from datetime import datetime as dt_exec
+    exec_log = {
+        'timestamp': dt_exec.now().isoformat(),
+        'positions_checked': len(positions),
+        'stop_loss_triggered': 0,
+        'take_profit_triggered': 0,
+        'details': []
+    }
     for pos in positions:
         if not pos.get('current_price') or not pos.get('avg_cost'):
             continue
@@ -569,24 +582,31 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
             try:
                 hold_days = _trading_days_since(buy_date)
                 if hold_days <= 2 and pnl_pct <= -0.02:
-                    actions.append({
+                    action = {
                         "action": "SELL",
                         "symbol": pos['symbol'],
                         "name": pos['name'],
                         "reason": f"早期止损: 持仓{hold_days}天亏{pnl_pct*100:.1f}%,入场时机错误",
                         "shares": pos['shares'],
                         "price": pos['current_price']
-                    })
+                    }
+                    actions.append(action)
+                    # v5.72: 记录止损执行
+                    exec_log['stop_loss_triggered'] += 1
+                    exec_log['details'].append(f"💔 {pos['symbol']} - {action['reason']}")
                     continue
                 if hold_days <= 3 and pnl_pct <= -0.01 and loss_streak >= 5:
-                    actions.append({
+                    action = {
                         "action": "SELL",
                         "symbol": pos['symbol'],
                         "name": pos['name'],
                         "reason": f"连亏早期止损: 持仓{hold_days}天亏{pnl_pct*100:.1f}%,连亏{loss_streak}次加严",
                         "shares": pos['shares'],
                         "price": pos['current_price']
-                    })
+                    }
+                    actions.append(action)
+                    exec_log['stop_loss_triggered'] += 1
+                    exec_log['details'].append(f"💔 {pos['symbol']} - {action['reason']}")
                     continue
             except:
                 pass
@@ -1061,6 +1081,19 @@ def check_dynamic_stop(positions: list, sentiment_score: float, regime: str = ""
                     "shares": third,
                     "price": pos['current_price']
                 })
+    
+    # v5.72: 止损执行日志记录 — 保存执行详情供 UI 展示
+    try:
+        import json
+        exec_log['take_profit_triggered'] = len([a for a in actions if 'stop_loss' not in a.get('reason', '').lower() and a['action'] == 'SELL'])
+        exec_log['stop_loss_triggered'] = len([a for a in actions if 'stop_loss' in a.get('reason', '').lower() and a['action'] == 'SELL'])
+        
+        # 记录到文件 (/finance-agent/reports/stop_loss_execution_log.jsonl)
+        log_file = '/home/nikefd/finance-agent/reports/stop_loss_execution_log.jsonl'
+        with open(log_file, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(exec_log, ensure_ascii=False) + '\n')
+    except Exception as e:
+        print(f"  ⚠️ 止损日志记录失败: {e}")
     
     return actions
 
