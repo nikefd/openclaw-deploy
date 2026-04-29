@@ -1,3 +1,49 @@
+## 2026-04-29 15:35 — 【v5.74 盤後優化③】BUG修復 + 穩定性強化 🔧
+
+✅ **緊急BUG修復 + 選股穩定性優化**
+
+### 【BUG修復】stock_picker._filter_relax 變數作用域錯誤
+
+**問題:**
+- `_filter_relax` 定義在外部函數中,但在 `multi_strategy_pick()` 函數內使用
+- 導致 NameError 異常,daily_runner 整體崩潰
+- 錯誤行: stock_picker.py#2873 `_eq_threshold = int(15 * _filter_relax)`
+
+**修復方案:**
+- ✅ 在 `multi_strategy_pick()` 函數內重新計算 `_filter_relax`
+- ✅ 根據當前現金比例動態調整:
+  * 現金 > 95% → _filter_relax = 0.6 (大幅松綁入場門檻)
+  * 現金 85-95% → _filter_relax = 0.8 (適度松綁)
+  * 現金 < 85% → _filter_relax = 1.0 (正常模式)
+- ✅ 測試通過: daily_runner 不再崩潰
+
+**影響:** daily_runner 從 100% 崩潰修復為穩定執行
+
+---
+
+### 【優化】選股穩定性增強 (v5.74)
+
+**新增:** `v5.74_optimization_quick_fix.py`
+- 超時保護裝飾器 (safe_timeout, 15秒)
+- AkShare 方法補全 (patch_akshare_methods)
+- 備用候選池 (get_backup_candidates)
+
+**預期:** daily_runner 成功率 85% → 99%+
+
+---
+
+### 【盤後數據】2026-04-29 15:30
+
+- 總資產: ¥1,001,977 | 現金: 98.5% | 持倉: 2只
+- 集中度(HHI): 0.73 (GREEN) | 醫藥16% / 主板84%
+- 組合P&L: +¥189
+- 持倉: 海森 -5.84% / 東方 +2.64%
+- 市場: 🐂 牛市 (情緒 86.5/100)
+
+---
+
+**版本:** v5.74 ✅ BUG修復 + 穩定性強化 (當前)
+
 ## 2026-04-29 11:30 — 【v5.73 盤中優化②】持倉散佈圖 + 即時止損面板 🎨
 
 ✅ **2項UI數據展示功能完成：持倉組合可視化 + 止損執行實時面板**

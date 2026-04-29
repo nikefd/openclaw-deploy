@@ -2870,6 +2870,18 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
     
     # v5.27: 入场质量过滤门槛降到15(从20), 低质量入场已经通过乘数惩罚了
     # v5.48: 应用全局松绑率
+    # 重新计算过滤器松绑率(处理高现金闲置)
+    _filter_relax = 1.0
+    try:
+        from trading_engine import get_account as _ga_eq
+        _acct_eq = _ga_eq()
+        _cash_ratio_eq = _acct_eq['cash'] / max(_acct_eq['total_value'], 1)
+        if _cash_ratio_eq > 0.95:
+            _filter_relax = 0.6  # 95%以上闲置，大幅松绑
+        elif _cash_ratio_eq > 0.85:
+            _filter_relax = 0.8  # 85%以上闲置，适度松绑
+    except:
+        pass
     _eq_threshold = int(15 * _filter_relax)
     before_eq = len(ranked)
     ranked = [s for s in ranked if s.get('entry_quality', 0) >= _eq_threshold]
