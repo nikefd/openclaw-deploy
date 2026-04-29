@@ -535,3 +535,84 @@ ADAPTIVE_SIGNAL_PERSISTENCE = {
 
 # v5.68: 集成配置开关
 V5_68_OPTIMIZATION_ACTIVE = True               # 激活v5.68所有优化模块
+
+# =================== v5.75 晚间大改进: 混合池重构 + MACD参数精优 + 快速选股 ===================
+# 【目标】
+# 1. 混合池策略重构: 摆脱白马消费低效约束(0.86 Sharpe) → 改用科技(2.35)/新能源(1.78)组合
+#    - 混合池收益目标: 5.06% → 8-10%
+#    - 混合池Sharpe目标: 0.86 → 1.2+
+# 2. MACD+RSI参数精优: 在科技赛道表现好(17.1% 收益,2.35 Sharpe),尝试跨赛道微调
+#    - 新能源: 加快MACD → (10,24,7)
+#    - 消费: 保守MACD → (14,28,9)
+# 3. 快速选股模式: 高现金时(>90%)快速完成选股,不超过10秒
+# 4. 实盘准确率分析: 对比历史推荐vs实际收益
+# 5. 回撤控制强化: 科技赛道回撤4.08% → 目标3.2% (ATR动态止损)
+
+# v5.75: 混合池赛道权重优化 (v5.71基础上再升级)
+MIXED_POOL_SECTOR_WEIGHTS_V75 = {
+    '科技成长': 2.0,    # v5.71: 1.8x → v5.75: 2.0x (+11%)
+    '新能源': 1.8,      # v5.71: 1.5x → v5.75: 1.8x (+20%)
+    '消费白马': 0.3,    # v5.71: 0.5x → v5.75: 0.3x (-40% 进一步降低)
+    '主板': 0.6,        # v5.71: 0.8x → v5.75: 0.6x (-25%)
+    '其他': 0.4,        # v5.71: 0.7x → v5.75: 0.4x (-43%)
+}
+APPLY_MIXED_POOL_SECTOR_WEIGHTS_V75 = True  # 启用v5.75混合池权重
+
+# v5.75: MACD+RSI赛道差异化参数
+MACD_PARAMS_SECTOR_V75 = {
+    '科技成长': {'fast': 12, 'slow': 26, 'signal': 9, 'description': '最优参数'},
+    '新能源': {'fast': 10, 'slow': 24, 'signal': 7, 'description': '快速参数'},
+    '消费白马': {'fast': 14, 'slow': 28, 'signal': 9, 'description': '保守参数'},
+    '主板': {'fast': 12, 'slow': 26, 'signal': 9, 'description': '标准参数'},
+}
+
+RSI_PARAMS_SECTOR_V75 = {
+    '科技成长': {'period': 14, 'oversold': 30, 'overbought': 70},
+    '新能源': {'period': 12, 'oversold': 28, 'overbought': 72},  # 更敏感
+    '消费白马': {'period': 16, 'oversold': 32, 'overbought': 68},  # 更平滑
+}
+
+APPLY_SECTOR_MACD_PARAMS_V75 = True         # 启用赛道差异化MACD参数
+
+# v5.75: 快速选股模式配置 (FAST_PICK)
+FAST_PICK_MODE_V75 = {
+    'enabled': True,
+    'cash_ratio_threshold': 0.90,           # 现金>90%激活
+    'picker_time_threshold': 5.0,           # 选股耗时>5秒激活
+    'max_pick_time_target': 10.0,           # 目标完成时间10秒
+    'cache_size': 50,                       # 缓存50只高质量候选
+    'fast_pick_target': 10,                 # 快速选出10-15只
+    'cache_update_interval': 300,           # 5分钟更新一次
+    'description': '现金高占比时的高速选股模式'
+}
+
+APPLY_FAST_PICK_V75 = True                  # 启用快速选股模式
+
+# v5.75: 实盘准确率分析配置
+BACKTEST_ACCURACY_ANALYSIS_V75 = {
+    'enabled': True,
+    'backtest_log_path': '/home/nikefd/finance-agent/reports/backtest_history.json',
+    'trade_log_path': '/home/nikefd/finance-agent/reports/trades.jsonl',
+    'high_accuracy_threshold': {'win_rate': 0.60, 'sharpe': 1.0},   # 高准确率模式
+    'low_accuracy_threshold': {'win_rate': 0.40},                   # 低准确率模式(拉黑)
+    'min_sample_size': 5,                                           # 最少样本数
+    'description': '分析入场质量vs实际收益关联度'
+}
+
+# v5.75: ATR回撤控制强化
+ATR_DRAWDOWN_CONTROL_V75 = {
+    'enabled': True,
+    'atr_period': 14,                       # ATR计算周期
+    'target_max_dd': 0.032,                 # 目标MaxDD 3.2% (从4.08% ↓22%)
+    'high_vol_threshold': 0.03,             # 高波动率阈值 3%
+    'low_vol_threshold': 0.015,             # 低波动率阈值 1.5%
+    'high_vol_multiplier': 1.2,             # 高波动ATR倍数
+    'normal_vol_multiplier': 1.0,           # 正常波动ATR倍数
+    'low_vol_multiplier': 0.8,              # 低波动ATR倍数 (快速止损)
+    'description': '基于ATR波动率的动态止损强化'
+}
+
+APPLY_ATR_DRAWDOWN_CONTROL_V75 = True       # 启用ATR回撤控制
+
+# v5.75: 集成开关
+V5_75_OPTIMIZATION_ACTIVE = True            # 激活v5.75所有优化模块
