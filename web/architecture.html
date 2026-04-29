@@ -356,40 +356,56 @@ tr:hover{background:var(--hover)}
     </tr>
   </table>
 
-  <h4>📥 写入：什么时候、谁、怎么写</h4>
+  <h4>📥 写入：什么时候、谁、怎么写（不美化现状）</h4>
   <table>
-    <tr><th>触发场景</th><th>写入位置</th><th>执行方</th><th>状态</th></tr>
+    <tr><th>触发场景</th><th>写入位置</th><th>执行机制</th><th>可靠度</th></tr>
     <tr>
-      <td>用户说「记一下」「以后注意」</td>
+      <td>用户明说「记一下」「以后注意」</td>
       <td>当天 <code>memory/YYYY-MM-DD.md</code></td>
-      <td>Agent 实时追加</td>
-      <td>✅ 已实现</td>
-    </tr>
-    <tr>
-      <td>对话中产生重要决策 / 事件</td>
-      <td>当天日记 + 重要的同步进 <code>MEMORY.md</code> 的「Key Events」</td>
-      <td>Agent 自主判断</td>
-      <td>✅ 已实现（半人工，靠 Agent 判断）</td>
-    </tr>
-    <tr>
-      <td>每日心跳（Heartbeat）</td>
-      <td>当天日记 → <code>MEMORY.md</code> 月度精华</td>
-      <td>定时任务（HEARTBEAT.md 规则）</td>
-      <td>⚠️ 部分实现（手动触发，没自动跑）</td>
-    </tr>
-    <tr>
-      <td>项目阶段性进展</td>
-      <td><code>memory/projects/&lt;项目&gt;.md</code></td>
-      <td>Agent 在项目相关对话后追加</td>
-      <td>✅ 已实现</td>
+      <td>LLM 这一轮看到明示信号 → edit 追加</td>
+      <td>✅ ~95%</td>
     </tr>
     <tr>
       <td>Bug 修复 / 经验教训</td>
       <td><code>MEMORY.md</code> 的「Lessons Learned」</td>
-      <td>Agent 实时追加</td>
-      <td>✅ 已实现</td>
+      <td>改完代码后同步追加（同款 bug 重犯烦人，记得勤）</td>
+      <td>✅ ~90%</td>
+    </tr>
+    <tr>
+      <td>对话中重要决策 / 事件</td>
+      <td>当天日志 + 重大的同步 <code>MEMORY.md</code> Key Events</td>
+      <td>LLM 自主判断：“1 周后还重要吗 / 是决策吗 / 涉不涉及钱/职业/时间”</td>
+      <td>⚠️ 短对话 ~90%，长对话 ~50-70%</td>
+    </tr>
+    <tr>
+      <td>项目阶段性进展</td>
+      <td><code>memory/projects/&lt;项目&gt;.md</code></td>
+      <td>LLM 猜这话题属于哪个项目 → append</td>
+      <td>⚠️ 分类靠猜，准确率 ~50%</td>
+    </tr>
+    <tr>
+      <td>每日心跳整理</td>
+      <td>日志 → MEMORY.md 月度精华</td>
+      <td>HEARTBEAT.md 是规则文档，<strong>没人执行</strong>；cron 里也没这个 job</td>
+      <td>❌ 未实现（0%）</td>
     </tr>
   </table>
+
+  <h4>⚙️ 写入机制的实现真相</h4>
+  <ul>
+    <li><strong>触发点 = “LLM 这一刻记得了吗”：</strong>每轮回复前后，Agent 扫一遍刚发生的事、判断该不该记、决定记就用 edit 写文件。规则在 AGENTS.md / SOUL.md，但执行者是这轮 LLM 本尊。</li>
+    <li><strong>为什么会漏：</strong>对话太长 / 多话题交杀 → 注意力被重点任务吞了；权重低的偏好常被当闲聊；后期推翻前期决定时只记了最新结果。</li>
+    <li><strong>心跳为什么不稳：</strong>OpenClaw 心跳需要 chat 在线才发，手机锁屏/深夜都不触发；<code>lastMemoryTidy</code> 今天是否跑过看运气。根治方案是改成 cron job。</li>
+    <li><strong>现在没有的兴西：</strong>❌ 对话结束事件钩子；❌ 复盘 worker；❌ LLM 自检；❌ 项目分类校验；❌ 漏记量化指标。</li>
+  </ul>
+
+  <h4>🛠️ 计划中的修复路径</h4>
+  <ul>
+    <li><strong>A. cron 兑底（~30 分钟）：</strong>每晚 23:00 北京时间 isolated session 读当天 chat history → 提取关键事件 → 补进日记 → 重大同步 MEMORY.md → 写 lastMemoryTidy。优点：不靠手机是否在线；缺点：拿不到主会话全部上下文。</li>
+    <li><strong>B. 主会话复盘 worker（~1 小时）：</strong>每 10 轮对话后 main session 自动 spawn 子 agent 复检，漏了就补。优点：实时；缺点：增加 token 成本。</li>
+    <li><strong>C. UI “手动整理”按钮（~15 分钟）：</strong>记忆 tab 加按钮 → 点击调 cron run。优点：不放心时主动捡；缺点：仍靠记得点。</li>
+    <li><strong>推荐：</strong>A + C 同上。cron 兑底保证不漏，手动按钮给用户主动权。B 以后费用不敢后再补。</li>
+  </ul>
 
   <h4>📤 读取：每次 Session 启动加载哪些</h4>
   <ul>

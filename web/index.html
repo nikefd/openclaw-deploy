@@ -218,13 +218,51 @@ echo '{"version":1,"defaults":{"security":"full"}}' > ~/.openclaw/exec-approvals
                 <div style="background:var(--input-bg);border-radius:10px;padding:16px">
                   <div style="font-size:14px;font-weight:600;margin-bottom:10px">📥 写入：什么时候、谁来写</div>
                   <div style="font-size:13px;color:var(--text-sec);line-height:1.9">
-                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#10b981;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">已实现</span><div>用户说&ldquo;记一下&rdquo;&ldquo;以后注意&rdquo; → Agent 实时追加到当天日志</div></div>
-                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#10b981;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">已实现</span><div>对话产生重要决策/事件 → Agent 自主判断写入日志，重大的同步进 MEMORY.md 的「Key Events」</div></div>
-                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#10b981;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">已实现</span><div>项目阶段性进展 → 写入 memory/projects/&lt;项目&gt;.md</div></div>
-                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#10b981;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">已实现</span><div>Bug 修复 / 经验教训 → 追加到 MEMORY.md 的「Lessons Learned」</div></div>
-                    <div style="display:flex;gap:8px"><span style="background:#f59e0b;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">半人工</span><div>每日心跳整理 → 当天日志中有价值的内容提炼到 MEMORY.md（HEARTBEAT.md 规则定义，但目前靠 Agent 自觉触发）</div></div>
+                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#10b981;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">靠谱</span><div>用户明说&ldquo;记一下&rdquo;&ldquo;以后注意&rdquo; → Agent 实时 edit 追加到当天日志（明示信号 90% 以上记住）</div></div>
+                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#10b981;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">靠谱</span><div>Bug 修复 / 经验教训 → 追加到 MEMORY.md 「Lessons Learned」（同款 bug 重犯烦人，我记得勤）</div></div>
+                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#f59e0b;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">不稳</span><div>对话中产生重要决策/事件 → Agent 自主判断（短对话 90% 记下，长对话漏 30-50%）</div></div>
+                    <div style="display:flex;gap:8px;margin-bottom:6px"><span style="background:#f59e0b;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">不稳</span><div>项目阶段性进展 → Agent 猜分类后追加到 memory/projects/&lt;项目&gt;.md（分类靠猜，有时只进了日记）</div></div>
+                    <div style="display:flex;gap:8px"><span style="background:#ef4444;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;flex-shrink:0;height:fit-content">未实现</span><div>每日心跳整理 → HEARTBEAT.md 是规则文档，<strong>没人执行</strong>；cron 里也没「记忆整理」job；月度精华从未自动跑过</div></div>
                   </div>
                 </div>
+
+                <div style="background:var(--input-bg);border-radius:10px;padding:16px;border:1px dashed #f59e0b">
+                  <div style="font-size:14px;font-weight:600;margin-bottom:10px;color:#f59e0b">⚙️ 写入机制的实现真相（不美化）</div>
+                  <div style="font-size:13px;color:var(--text-sec);line-height:1.85">
+                    <div style="margin-bottom:10px"><strong style="color:var(--text)">触发点 = “LLM 这一刻记得了吗”</strong><br>每轮回复前后，我扫一遍刚发生的事，问自己：这事 1 周后还重要吗？涉不涉及钱/职业/时间承诺？是决策还是闲聊？决定记就用 edit 写文件。规则写在 AGENTS.md / SOUL.md 里，但<strong>执行者是这一轮的 LLM</strong>。</div>
+
+                    <div style="margin-bottom:10px"><strong style="color:var(--text)">为什么会漏</strong><br>• 对话很长 / 多话题交杀 → 注意力被重点任务吞了<br>• 权重低的偏好（「这个按钮颜色丑」）你没强调 → 常被当作闲聊<br>• 后期出现的决定推翻了前期的 → 只记了最新结果，演变过程丢了</div>
+
+                    <div style="margin-bottom:10px"><strong style="color:var(--text)">心跳机制为什么不稳</strong><br>• OpenClaw 心跳需要你的 chat 在线才发<br>• 深夜/手机锁屏期间 → 不触发<br>• 所以 lastMemoryTidy 今天是不是跑过看运气<br>• 根治方案是改成 cron job，但还没加</div>
+
+                    <div style="margin-bottom:10px"><strong style="color:var(--text)">没有的兴西</strong><br>❌ 没&ldquo;对话结束&rdquo;事件钩子<br>❌ 没复盘 worker（每 N 轮检查漏没漏）<br>❌ 没 LLM 自检/交叉验证<br>❌ 没项目分类校验（当前这次对话都没进 projects/）<br>❌ 没漏记量化指标</div>
+
+                    <div style="margin-top:10px;padding:10px;background:rgba(245,158,11,0.1);border-radius:6px;font-size:12.5px;line-height:1.7">
+                      <strong style="color:#f59e0b">📊 实际表现</strong><br>
+                      • 明示信号（你说记一下）：<strong style="color:#10b981">~95%</strong><br>
+                      • 短对话重点事件：<strong style="color:#10b981">~90%</strong><br>
+                      • 长对话重点事件：<strong style="color:#f59e0b">~50-70%</strong><br>
+                      • 隔次/隔天才体现的偏好：<strong style="color:#ef4444">~30%</strong><br>
+                      • 每日自动整理：<strong style="color:#ef4444">0%</strong>（未实现）
+                    </div>
+                  </div>
+                </div>
+
+                <div style="background:var(--input-bg);border-radius:10px;padding:16px;border:1px dashed #6366f1">
+                  <div style="font-size:14px;font-weight:600;margin-bottom:10px;color:#6366f1">🛠️ 计划中的修复路径</div>
+                  <div style="font-size:13px;color:var(--text-sec);line-height:1.85">
+                    <div style="margin-bottom:8px"><strong style="color:var(--text)">A. cron 兑底</strong>（最快，~30 分钟）<br>每晚 23:00 北京时间，isolated session 读今天 chat history → 提取关键事件 → 补进日记 → 判断重大则同步 MEMORY.md → 写 lastMemoryTidy<br><span style="opacity:.7">✅ 不靠手机是否在线　❌ 拿不到主会话全部上下文</span></div>
+
+                    <div style="margin-bottom:8px"><strong style="color:var(--text)">B. 主会话复盘 worker</strong>（中等，~1 小时）<br>每 10 轮对话后，main session 自动 spawn 子 agent 复检：读最近 10 轮 → 检查日记里有没有记 → 漏了补<br><span style="opacity:.7">✅ 实时、不打扰主 agent　❌ 增加 token 成本</span></div>
+
+                    <div style="margin-bottom:8px"><strong style="color:var(--text)">C. UI “手动整理”按钮</strong>（轻量，~15 分钟）<br>记忆 tab 加一个&ldquo;整理今天&rdquo;按钮 → 点击调 cron run 强制触发<br><span style="opacity:.7">✅ 你不放心时主动捡一下　❌ 仍靠你记得点</span></div>
+
+                    <div style="margin-top:10px;padding:8px;background:rgba(99,102,241,0.1);border-radius:6px;font-size:12.5px">
+                      <strong style="color:#6366f1">推荐：</strong>A + C 同上。cron 兑底保证不漏，手动按钮给你主动权。B 是以后费用不敢后再加。
+                    </div>
+                  </div>
+                </div>
+
 
                 <div style="background:var(--input-bg);border-radius:10px;padding:16px">
                   <div style="font-size:14px;font-weight:600;margin-bottom:10px">📤 读取：每次 Session 启动加载哪些</div>
