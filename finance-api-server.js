@@ -1121,6 +1121,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/backtest-comparison' && req.method === 'GET') return handleBacktestComparison(req, res);
     if (pathname === '/api/finance/portfolio-scatter' && req.method === 'GET') return handlePortfolioScatter(req, res);
     if (pathname === '/api/finance/stop-loss-dashboard' && req.method === 'GET') return handleStopLossDashboard(req, res);
+    // v5.76 盤中優化端點
+    if (pathname === '/api/finance/intraday-optimize' && req.method === 'GET') return handleIntradayOptimize(req, res);
     
     // Static file service for UI optimization
     if (pathname === '/ui-optimize-v5.65.js' && req.method === 'GET') {
@@ -1567,6 +1569,23 @@ function handleStopLossDashboard(req, res) {
     sendJson(res, {
       timestamp: new Date().toISOString(),
       today: { details: [], stop_loss_triggered: 0, take_profit_triggered: 0 },
+      error: e.message
+    }, 500);
+  }
+}
+
+function handleIntradayOptimize(req, res) {
+  // v5.76 盤中優化 - 調用 v5_76_intraday_optimize.py
+  try {
+    const py_script = '/home/nikefd/finance-agent/v5_76_intraday_optimize.py';
+    const out = execSync(`python3 ${py_script}`, { timeout: 5000 }).toString().trim();
+    const data = JSON.parse(out);
+    sendJson(res, data);
+  } catch (e) {
+    log(`Intraday optimize error: ${e.message}`);
+    sendJson(res, {
+      timestamp: new Date().toISOString(),
+      position_heatmap: [],
       error: e.message
     }, 500);
   }

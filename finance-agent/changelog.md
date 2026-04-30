@@ -1,3 +1,114 @@
+## 2026-04-30 03:32 — 【v5.76 盤中優化②】持倉風險熱力圖 + 資金配置建議 📊✨
+
+✅ **2項UI/API功能增強完成：持倉風險監控 + 智能資金配置建議**
+
+### 【改進1】持倉風險熱力圖 (新標籤頁: ⚠️ 風險監控)
+
+**功能:**
+- 📊 風險摘要卡片: CRITICAL/HIGH/MEDIUM/LOW 分類統計
+- 🎨 持倉風險表格: 實時顯示每只持倉的風險等級和原因
+- 📈 4因子風險評分模型:
+  * 回撤深度 (40%) - 從峰值下跌幅度
+  * 持倉時間 (30%) - 太新或太舊都有風險
+  * 頭寸占比 (20%) - 過度集中檢測
+  * 盈虧百分比 (10%) - 虧損/盈利狀況
+- 🏷️ 風險因子解釋 - 自動識別主要風險來源
+
+**實現:**
+- 後端腳本: `v5_76_intraday_optimize.py` (260行)
+- 後端API: `/api/finance/intraday-optimize` (新增)
+- 前端腳本: `finance-v5.76-risk.js` (100行)
+- UI: 新標籤頁 "⚠️ 風險監控" + 完整表格渲染
+
+**測試數據:**
+```
+現在持倉: 東方證券 (600958)
+  風險等級: MEDIUM (20分)
+  原因: 長期持倉 31天
+  盈虧: 0.00% (平衡)
+  回撤: 0.00%
+```
+
+### 【改進2】智能資金配置建議面板
+
+**功能:**
+- 💰 現金占比實時監控
+- 🎯 策略模式自動識別:
+  * 現金>95% → AGGRESSIVE (積極建倉)
+  * 現金85-95% → NORMAL (適度配置)
+  * 現金60-85% → CAUTIOUS (謹慎建倉)
+  * 現金<60% → FULL_INVESTED (滿倉運作)
+- 📌 賽道配置建議 (基於v5.75權重優化):
+  * 科技成長: 10.5% (增配)
+  * 新能源: 7.5% (增配)
+  * 消費白馬: 4.5% (增配)
+  * 醫藥健康: 4.5% (增配)
+  * 其他: 3.0% (保持)
+- 🎨 彩色分類卡片: 增配(綠)/減配(紅)/保持(黃)
+
+**當前建議:**
+- 現金占比: 98.7% (充足)
+- 模式: AGGRESSIVE
+- 目標持倉率: 30%
+- 行動: 全面增配各賽道
+
+### 【API端點】
+
+```
+GET /api/finance/intraday-optimize
+
+返回數據結構:
+{
+  timestamp: "ISO格式時間",
+  account: { total_value, cash, total_positions },
+  position_heatmap: [
+    {
+      code, name, risk_score, risk_level,
+      risk_factors, holding_days, drawdown_pct,
+      pnl_pct, shares, market_value, current_price
+    }
+  ],
+  risk_summary: { critical, high, medium, low, avg_risk_score },
+  allocation: {
+    cash_ratio, cash_amount, total_invested,
+    mode, mode_desc, cash_target_pct,
+    suggestions: [{ sector, current_pct, target_pct, action }]
+  }
+}
+```
+
+### 【集成清單】
+
+✅ 後端:
+- ✅ `v5_76_intraday_optimize.py` 新增 (260行)
+- ✅ `finance-api-server.js` 新增路由 + 處理函數
+- ✅ API端點測試通過
+
+✅ 前端:
+- ✅ `/var/www/chat/finance.html` 新增標籤頁
+- ✅ `/var/www/chat/finance-v5.76-risk.js` 新增腳本
+- ✅ 標籤切換邏輯集成
+
+### 【預期效果】
+
+| 功能 | 說明 |
+|------|------|
+| 風險可視化 | 持倉風險等級一目瞭然 (CRITICAL/HIGH/MEDIUM/LOW) |
+| 風險溯源 | 自動識別風險根本原因 (回撤/天數/占比等) |
+| 智能建議 | 根據現金比例自動推薦配置方向 |
+| 資金優化 | 幫助用戶最大化資金利用率 |
+| 實時監控 | 每次打開自動刷新最新數據 |
+
+### 【驗證清單】
+
+✅ `v5_76_intraday_optimize.py`: 語法正確, 數據返回正常
+✅ `/api/finance/intraday-optimize`: 端點工作正常, JSON返回有效
+✅ finance.html: 標籤頁新增成功, 切換邏輯就緒
+✅ finance-v5.76-risk.js: 腳本加載成功
+✅ API服務重啟: 新路由生效
+
+---
+
 ## 2026-04-30 08:00 — 【v5.76 盤前優化①】FastPickCache + RSI激進化 + 超時保護 ⚡
 
 ✅ **3項核心盤前優化完成：快速選股緩存 + RSI門檻激進化 + 防卡超時**
