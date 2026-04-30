@@ -1656,24 +1656,24 @@ function renderClimbDashboard() {
   const avgAtt = projectRoutes.length ? (projectRoutes.reduce((s,r)=>s+(r.a||1),0)/projectRoutes.length).toFixed(1) : '0';
 
   document.getElementById('climbBottleneck').innerHTML = `<h4>🔍 瓶颈分析</h4>
-    <p>• 当前项目：<b>5.10d</b>（4/11、4/16×2、4/18 共4次 project，均未send）</p>
-    <p>• 4/18 自评：“卡在最后几个点，感觉力量不够” → 核心是<b>持久力/末段指力</b></p>
-    <p>• 当前最高 redpoint：<b>5.10c</b>（4/11 确认）✅</p>
+    <p>• 当前项目：<b>5.10d</b>（4/11、4/16×2、4/18、4/28×2 共<b>6次</b> project，仍未send）⚠️</p>
+    <p>• 4/28 战况：5.10d 两次都没过；但 <b>5.10b 一场内 redpoint ×2</b> → 10b 已稳定</p>
+    <p>• 当前最高 redpoint：<b>5.10c</b>（4/11）✅；10b 完全 dial in</p>
     <p>• 进步轨迹：${GRADE_ORDER[earlyMax]} → ${GRADE_ORDER[recentMax]} ${recentMax>earlyMax?'📈':'⏸'}</p>
-    <p>• 抱石刚起步（V2×3），手指力量正好可以补短板</p>
-    <p>• 先锋攀仍不足，建议每场加1条 lead</p>`;
+    <p>• 🚨 5.10d 卡了 6 次，不是单纯力量问题——<b>需要换策略</b>：分段精读、找新 beta、拍视频回看</p>
+    <p>• 4/28 没爬抱石和 lead，下次记得补</p>`;
 
   document.getElementById('climbPlan').innerHTML = `<h4>📋 下次训练计划</h4>
-    <p style="font-weight:600;margin-bottom:4px">目标：send 掏 5.10c，给 5.10d 做功课（约70min）：</p>
+    <p style="font-weight:600;margin-bottom:4px">目标：换策略攻 5.10d（约70min）：</p>
     <ul>
       <li><b>热身</b>（10min）：5.7 + 5.8 各一条，手指/肩关节激活</li>
-      <li><b>5.10c 冲 redpoint</b>（20min）：状态最好时打，拿下来算新高点</li>
-      <li><b>5.10d 分段练</b>（25min）：重点绣有上半段+末段，用 take/分段压您，<b>不要从头爬</b>往死给消耗力量</li>
-      <li><b>持久力补充</b>（10min）：4×4训练 或 连爬 2条 5.10a 不休息</li>
-      <li><b>收尾</b>（5min）：1条 5.8 lead 练绳感</li>
+      <li><b>5.10d 分段精读</b>（25min）：<b>不要从头爬死磕！</b>top-rope take，从难点往上反复练 3-5 遍每段；让岩友拍视频回看找漏点</li>
+      <li><b>5.10b/c onsight 巩固</b>（15min）：各爬 1 条不熟的 10b/10c 当 "心理脱敏"</li>
+      <li><b>抱石 V2→V3</b>（10min）：抱石强度直接砂指力，10d 末段就靠这个</li>
+      <li><b>收尾</b>（10min）：1条 5.8 lead 练绳感 + 1条 5.10a 当 cooldown</li>
     </ul>
-    <p style="margin-top:4px;color:var(--text2);font-size:.72rem">🎯 阶段目标：send 5.10c → 继续磨 5.10d；抱石 V2→V3</p>
-    <p style="color:var(--text2);font-size:.72rem">💪 辅助训练（2-3次/周）：指板悬垂7s×5组 + 引体向上 5×3，直接砂上限</p>`;
+    <p style="margin-top:4px;color:var(--text2);font-size:.72rem">🎯 阶段目标：5月内 send 5.10d；同步 抱石 V2→V3、补 lead</p>
+    <p style="color:var(--text2);font-size:.72rem">💪 家庭辅助（2-3次/周）：指板悬垂7s×5组 + 引体 5×3 + 死虫子 × 各15（核心）</p>`;
 
   document.getElementById('climbWarmup').innerHTML = `<h4>🧘 热身 & 拉伸</h4>
     <p style="font-weight:600">🔥 攀前热身（10min，冲 5.10d 必做）：</p>
@@ -1682,7 +1682,7 @@ function renderClimbDashboard() {
       <li>肩绕环 × 各10 + 弹力带外旋 × 15（防肩伤）</li>
       <li>引体悬垂 × 15s × 2（激活背阔）</li>
       <li>深蹲 × 10 + 弓步 × 各8 + 髋部绕环</li>
-      <li>1条 5.7-5.8 找感觉</li>
+      <li>1条 5.7-5.8 找感觉（4/28 没爬 lead，下次记得补）</li>
     </ul>
     <p style="font-weight:600;margin-top:6px">🧊 攀后拉伸（10min，重点护手指）：</p>
     <ul>
