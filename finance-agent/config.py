@@ -616,3 +616,138 @@ APPLY_ATR_DRAWDOWN_CONTROL_V75 = True       # 启用ATR回撤控制
 
 # v5.75: 集成开关
 V5_75_OPTIMIZATION_ACTIVE = True            # 激活v5.75所有优化模块
+
+# =================== v5.77 深度优化工程：策略融合 + 准确率追踪 ===================
+# 【核心价值】
+# 基于回测最优策略(MACD+RSI 科技成长 17.1% Sharpe 2.35)
+# 实施大规模优化: 策略融合 + 准确率追踪 + UI增强
+
+# v5.77: 最优策略参数 (回测TOP1)
+OPTIMAL_STRATEGY_PARAMS_V5_77 = {
+    'strategy': 'MACD+RSI',
+    'macd_fast': 12,
+    'macd_slow': 26,
+    'macd_signal': 9,
+    'rsi_period': 14,
+    'rsi_oversold': 30,
+    'rsi_overbought': 70,
+    'stop_loss': -0.08,      # -8%
+    'take_profit': 0.20,     # +20%
+    'backtest_return': 0.171,  # 17.1%
+    'backtest_sharpe': 2.35,
+    'backtest_winrate': 0.60,  # 60%
+    'backtest_max_dd': 0.0408, # 4.08%
+    'primary_sector': '科技成长',
+}
+
+# v5.77: 赛道推荐权重 (基于v5.75回测数据)
+SECTOR_RECOMMENDATION_WEIGHTS_V5_77 = {
+    '科技成长': {'weight': 2.0, 'backtest_return': 0.171, 'backtest_sharpe': 2.35},
+    '新能源': {'weight': 1.8, 'backtest_return': 0.1466, 'backtest_sharpe': 1.78},
+    '医药': {'weight': 1.0, 'backtest_return': 0.08, 'backtest_sharpe': 0.95},
+    '金融': {'weight': 0.8, 'backtest_return': 0.05, 'backtest_sharpe': 0.65},
+    '消费': {'weight': 0.3, 'backtest_return': 0.03, 'backtest_sharpe': 0.40},
+    '主板': {'weight': 0.6, 'backtest_return': 0.05, 'backtest_sharpe': 0.60},
+}
+
+# v5.77: 策略融合常量
+STRATEGY_FUSION_WEIGHT_BOOST = 5  # 命中最优策略+5分
+STRATEGY_MATCH_CONFIDENCE_THRESHOLD = 0.75  # 置信度阈值
+SHARPE_WEIGHT_MULTIPLIER_V5_77 = 3.0  # v5.77: 从2.5x提升到3.0x
+
+# v5.77: 进场品质评分新维度
+ENTRY_QUALITY_DIMENSIONS_V5_77 = 3  # 新增3个维度
+ENTRY_QUALITY_DIMENSIONS_NEW = [
+    'strategy_confidence',      # 策略信度 (基于Sharpe比率)
+    'historical_accuracy',      # 历史准确率 (最近30天)
+    'risk_adjusted_return',     # 风险调整后收益 (vs MaxDD)
+]
+
+# v5.77: 准确率追踪配置
+ACCURACY_TRACKER_CONFIG_V5_77 = {
+    'enabled': True,
+    'hit_threshold': 0.03,           # 命中标准: 涨幅>3%
+    'win_threshold': 0.01,           # 盈利标准: 涨幅>1%
+    'loss_threshold': -0.05,         # 亏损标准: 跌幅<-5%
+    'tracking_periods': [30, 60, 90],  # 统计周期 (天)
+    'min_sample_size': 5,            # 最少样本数
+    'accuracy_report_path': '/home/nikefd/finance-agent/data/accuracy_report.json',
+}
+
+# v5.77: 集成开关
+V5_77_STRATEGY_FUSION_ACTIVE = True        # 激活策略融合
+V5_77_ACCURACY_TRACKING_ACTIVE = True      # 激活准确率追踪
+V5_77_UI_ENHANCEMENT_ACTIVE = True         # 激活UI增强
+
+# =================== v5.79 深度优化：超激进模式2.0 + 快速多样化建仓 ===================
+# 【优化背景】
+# 当前账户: 现金98.7%, 持仓1.3%, 资金利用率仅1.57%, 年化收益0.19%
+# 单仓问题: 100%集中在600958, 分散度评分仅4/15
+# 
+# 【v5.79核心目标】
+# - 资金利用率: 1.3% → 12-15% (+9-11倍)
+# - 日均建仓: 8-12只 → 15-20只
+# - 入场质量: 55分 → 45分 (激进但有质量监控)
+# - MaxDD: 4.08% → 3.2% (-22%)
+# - 年化收益: 0.19% → 10-12% (基于Sharpe2.35传导)
+
+# v5.79: 超激进模式2.0参数
+V5_79_EXTREME_MODE_V2 = {
+    'enabled': True,
+    'trigger_ratio': 0.985,                # 现金>98.5%触发超激进2.0
+    'target_allocation': 0.15,             # 目标仓位15% (从12% ↑)
+    'entry_quality_threshold': 25,         # 入场质量25分 (从30↓ -17%)
+    'candidate_pool_size': 100,            # 候选池100只 (从75↑ +33%)
+    'min_signal_confidence': 0.65,         # 信号置信度65% (从75% ↓)
+    'daily_entry_target': 20,              # 日均入场20只
+    'position_size_range': (0.02, 0.04),   # 单仓2-4% (动态调整)
+    'max_positions': 8,                    # 最多8只持仓
+    'quick_assessment_timeout': 0.5,       # 快速评估超时0.5秒
+}
+
+# v5.79: 赛道多样化分配 (避免100%单仓)
+V5_79_SECTOR_DIVERSIFICATION = {
+    '科技成长': 0.40,                      # 40%仓位 (基于17.1% Sharpe2.35)
+    '新能源': 0.35,                        # 35%仓位 (基于14.66% Sharpe1.78)
+    '其他': 0.25,                          # 25%仓位 (医药/金融/消费)
+}
+
+# v5.79: 融资融券异变奖励升级 (从v5.61)
+V5_79_MARGIN_ANOMALY_BONUS = {
+    'margin_decline_threshold': 0.20,      # 融资环比下降>20%
+    'margin_ratio_threshold': 0.20,        # 融资融券比<20%
+    'decline_and_low_ratio_bonus': 15,     # 两个条件都满足 → +15分 (从12分 +25%)
+    'margin_increase_threshold': 0.15,     # 融资环比上升>15%
+    'increase_bonus': 8,                   # 融资上升 → +8分 (从6分 +33%)
+}
+
+# v5.79: 快速入场评估引擎配置
+V5_79_QUICK_ASSESSMENT = {
+    'enabled': True,
+    'macd_cross_bonus': 30,                # MACD黄金叉 +30分
+    'macd_rising_bonus': 15,               # MACD上升 +15分
+    'rsi_oversold_bonus': 20,              # RSI超卖 +20分
+    'rsi_rebound_bonus': 10,               # RSI反弹 +10分
+    'position_advantage_bonus': 12,        # 位置优势 +12分
+    'liquidity_bonus': 8,                  # 高流动性 +8分
+    'tech_sector_boost': 0.25,             # 科技赛道+25%权重
+    'energy_sector_boost': 0.20,           # 新能源赛道+20%权重
+}
+
+# v5.79: ATR动态止损强化
+V5_79_ATR_STOP_LOSS = {
+    'enabled': True,
+    'atr_period': 14,
+    'high_volatility_threshold': 0.03,     # 高波动>3%
+    'low_volatility_threshold': 0.015,     # 低波动<1.5%
+    'high_vol_stop_pct': -0.08,            # 高波动止损-8%
+    'normal_vol_stop_pct': -0.06,          # 正常波动止损-6%
+    'low_vol_stop_pct': -0.04,             # 低波动止损-4%
+    'target_max_dd': 0.032,                # 目标MaxDD 3.2% (从4.08% ↓22%)
+}
+
+# v5.79: 集成开关
+V5_79_DEEP_OPTIMIZE_ACTIVE = True          # 激活v5.79深度优化
+APPLY_V5_79_EXTREME_MODE_V2 = True         # 启用超激进模式2.0
+APPLY_V5_79_DIVERSIFIED_ENTRY = True       # 启用多样化建仓
+APPLY_V5_79_QUICK_ASSESSMENT = True        # 启用快速评估引擎
