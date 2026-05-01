@@ -1123,6 +1123,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/stop-loss-dashboard' && req.method === 'GET') return handleStopLossDashboard(req, res);
     // v5.76 盤中優化端點
     if (pathname === '/api/finance/intraday-optimize' && req.method === 'GET') return handleIntradayOptimize(req, res);
+    if (pathname === '/api/finance/performance-scorecard' && req.method === 'GET') return handlePerformanceScorecard(req, res);
+    if (pathname === '/api/finance/backtest-comparison-v77' && req.method === 'GET') return handleBacktestComparison(req, res);
     
     // Static file service for UI optimization
     if (pathname === '/ui-optimize-v5.65.js' && req.method === 'GET') {
@@ -1586,6 +1588,44 @@ function handleIntradayOptimize(req, res) {
     sendJson(res, {
       timestamp: new Date().toISOString(),
       position_heatmap: [],
+      error: e.message
+    }, 500);
+  }
+}
+
+// ==================== v5.77 UI增強 - 新增端點 ====================
+
+function handlePerformanceScorecard(req, res) {
+  // v5.77 绩效评分仪表板 - 综合健康度评分
+  try {
+    const py_script = '/home/nikefd/finance-agent/v5_77_performance_scorecard.py';
+    const out = execSync(`python3 ${py_script}`, { timeout: 5000 }).toString().trim();
+    const data = JSON.parse(out);
+    sendJson(res, data);
+  } catch (e) {
+    log(`Performance scorecard error: ${e.message}`);
+    sendJson(res, {
+      total_score: 0,
+      components: {},
+      components_bars: [],
+      error: e.message
+    }, 500);
+  }
+}
+
+function handleBacktestComparison(req, res) {
+  // v5.77 多维度回测对比 - 策略/赛道/月度对比
+  try {
+    const py_script = '/home/nikefd/finance-agent/v5_77_backtest_comparison.py';
+    const out = execSync(`python3 ${py_script}`, { timeout: 5000 }).toString().trim();
+    const data = JSON.parse(out);
+    sendJson(res, data);
+  } catch (e) {
+    log(`Backtest comparison error: ${e.message}`);
+    sendJson(res, {
+      strategy_comparison: [],
+      sector_comparison: [],
+      monthly_performance: [],
       error: e.message
     }, 500);
   }
