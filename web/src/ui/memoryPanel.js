@@ -88,6 +88,8 @@ export function memorySidebarHtml(memoryFiles, currentPath, cronTime) {
   let html = `<h3 style="cursor:pointer" onclick="showMemWelcome()">🧠 记忆管理</h3>`;
   html += memoryStatsHtml(memoryFiles);
   html += memoryCategoryHtml('📌 长期记忆', memoryFiles.longTerm, currentPath);
+  // Identity files don't get size badges (intentional — matches inline behavior).
+  html += memoryCategoryHtml('🪪 身份 & 规则', memoryFiles.identity, currentPath, { showSize: false });
   const projects = memoryFiles.projects || [];
   if (projects.length) {
     html += memoryCategoryHtml(`📂 项目记忆 (${projects.length})`, projects, currentPath);
@@ -96,8 +98,6 @@ export function memorySidebarHtml(memoryFiles, currentPath, cronTime) {
   if (daily.length) {
     html += memoryCategoryHtml(`📝 每日记录 (${daily.length})`, daily, currentPath);
   }
-  // Identity files don't get size badges (intentional — matches inline behavior).
-  html += memoryCategoryHtml('🪪 身份文件', memoryFiles.identity, currentPath, { showSize: false });
   html += memoryCronHtml(cronTime);
   return html;
 }

@@ -125,7 +125,7 @@ test('memorySidebarHtml: contains header, stats, all 4 categories, cron', () => 
   // daily (with count suffix)
   assert.match(html, /📝 每日记录 \(2\)/);
   // identity
-  assert.match(html, /🪪 身份文件/);
+  assert.match(html, /🪪 身份 & 规则/);
   // cron
   assert.match(html, /value="23:00"/);
   // current path is marked active in long-term

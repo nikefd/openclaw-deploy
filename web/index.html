@@ -631,6 +631,8 @@ const MEMORY_FILES={
     {name:'IDENTITY.md',path:WORKSPACE+'/IDENTITY.md',icon:'🪪'},
     {name:'SOUL.md',path:WORKSPACE+'/SOUL.md',icon:'👻'},
     {name:'USER.md',path:WORKSPACE+'/USER.md',icon:'👤'},
+    {name:'AGENTS.md',path:WORKSPACE+'/AGENTS.md',icon:'📜'},
+    {name:'HEARTBEAT.md',path:WORKSPACE+'/HEARTBEAT.md',icon:'💓'},
     {name:'TOOLS.md',path:WORKSPACE+'/TOOLS.md',icon:'🔧'}
   ]
 };
@@ -716,6 +718,11 @@ function renderMemorySidebar(){
     html+=`<div class="memory-file${currentMemFile===f.path?' active':''}" onclick="openMemFile('${f.path}')">${f.icon} ${f.name}${f.size?`<span class="mem-size">${(f.size/1024).toFixed(1)}K</span>`:''}</div>`;
   });
   html+=`</div>`;
+  html+=`<div class="memory-category"><div class="memory-category-title">🪪 身份 &amp; 规则</div>`;
+  MEMORY_FILES.identity.forEach(f=>{
+    html+=`<div class="memory-file${currentMemFile===f.path?' active':''}" onclick="openMemFile('${f.path}')">${f.icon} ${f.name}</div>`;
+  });
+  html+=`</div>`;
   if(MEMORY_FILES.projects&&MEMORY_FILES.projects.length){
     html+=`<div class="memory-category"><div class="memory-category-title">📂 项目记忆 (${MEMORY_FILES.projects.length})</div>`;
     MEMORY_FILES.projects.forEach(f=>{
@@ -730,11 +737,6 @@ function renderMemorySidebar(){
     });
     html+=`</div>`;
   }
-  html+=`<div class="memory-category"><div class="memory-category-title">🪪 身份文件</div>`;
-  MEMORY_FILES.identity.forEach(f=>{
-    html+=`<div class="memory-file${currentMemFile===f.path?' active':''}" onclick="openMemFile('${f.path}')">${f.icon} ${f.name}</div>`;
-  });
-  html+=`</div>`;
   html+=`<div class="memory-cron"><label>⏰ 每日自动整理</label><div class="memory-cron-row"><input type="time" id="cronTimeInput" value="${memoryCronTime}"><button class="cron-save" onclick="saveMemoryCronTime()">保存</button></div><div class="cron-status" id="cronStatus"></div></div>`;
   sidebar.innerHTML=html;
 }
