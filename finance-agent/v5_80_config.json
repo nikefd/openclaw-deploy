@@ -1,0 +1,18 @@
+{
+  "version": "v5.80",
+  "timestamp": "2026-05-02T14:02:54.173000",
+  "optimal_sector": "科技成长",
+  "parameters": {
+    "ENTRY_QUALITY_THRESHOLD": 25,
+    "MACD_RSI_SIGNAL_BOOST": 2.5,
+    "MAX_SINGLE_POSITION": 0.04,
+    "MAX_POSITIONS": 8,
+    "STOP_LOSS": -0.065,
+    "QUICK_ASSESSMENT_BOOST": 1.0
+  },
+  "rationale": {
+    "strategy_purity": "基于回测数据,单赛道策略优于混合(2.42%→6.45%+)",
+    "parameter_choice": "科技最优(2.35 Sharpe),应用相同参数",
+    "expected_improvement": "收益6.45%-6.61% (vs混合2.42%), Sharpe 1.5+ (vs 0.82)"
+  }
+}
