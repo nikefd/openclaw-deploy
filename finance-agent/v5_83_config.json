@@ -1,0 +1,180 @@
+{
+  "version": "v5.83",
+  "timestamp": "2026-05-04T07:33:15.666922",
+  "capital_allocation": {
+    "target_allocation": {
+      "defensive_positions": 0.35,
+      "offensive_positions": 0.4,
+      "tactical_positions": 0.15,
+      "cash_reserve": 0.1
+    },
+    "defensive_sectors": [
+      "消费白马",
+      "金融",
+      "医药"
+    ],
+    "offensive_sectors": [
+      "科技成长",
+      "新能源",
+      "军工"
+    ],
+    "max_single_position": 0.05,
+    "min_diversification": 3
+  },
+  "three_layer_selection": {
+    "enabled": true,
+    "layer_1_coarse": {
+      "name": "粗选",
+      "targets": {
+        "MACD_CROSS": {
+          "min": 0.5,
+          "threshold": 80
+        },
+        "RSI_RANGE": {
+          "min": 30,
+          "max": 70,
+          "threshold": 100
+        },
+        "VOLUME_SPIKE": {
+          "multiplier": 1.2,
+          "threshold": 100
+        }
+      },
+      "expected_output": 80,
+      "criteria": [
+        "MACD金叉 or MACD上升趋势",
+        "大笔买入 ≥2笔 (资金信号)",
+        "最近3日成交量 > 平均20日 × 1.2"
+      ]
+    },
+    "layer_2_refined": {
+      "name": "精选",
+      "targets": {
+        "sector_inflow_pct": 0.03,
+        "stock_major_inflow": 50000000,
+        "price_position": [
+          0.2,
+          1.0
+        ]
+      },
+      "expected_output": 25,
+      "criteria": [
+        "所在板块主力净流入占比 ≥3%",
+        "个股超大单净流入 ≥5000万",
+        "最近20日涨幅 20-100% (避免极端高位)"
+      ]
+    },
+    "layer_3_allocation": {
+      "name": "分配",
+      "first_batch_conditions": {
+        "sentiment_threshold": 0.7,
+        "allocation_pct": 0.025
+      },
+      "second_batch_conditions": {
+        "sentiment_threshold": [
+          0.6,
+          0.7
+        ],
+        "allocation_pct": 0.025
+      },
+      "expected_output": 5,
+      "total_allocation": 0.075,
+      "core_holding_days": 5,
+      "criteria": [
+        "情绪>70时: 立即买入",
+        "情绪60-70时: 等回调3%后买入",
+        "底仓持有至少5个交易日，不频繁止损"
+      ]
+    }
+  },
+  "stop_loss_take_profit": {
+    "enabled": true,
+    "rules": [
+      {
+        "name": "快速获利",
+        "condition": "进入后3日内涨 ≥8%",
+        "action": "止盈50%",
+        "rationale": "锁定利润，防止反转"
+      },
+      {
+        "name": "正常持有",
+        "condition": "进入后3-10日",
+        "action": "持有，目标+15%",
+        "rationale": "给予趋势充分时间"
+      },
+      {
+        "name": "技术止损",
+        "condition": "跌破进价 -3%",
+        "action": "割肉25%",
+        "rationale": "快速认亏，保护本金"
+      },
+      {
+        "name": "底部加仓",
+        "condition": "跌破进价 -5% 且情绪<50",
+        "action": "加仓50%",
+        "rationale": "价值区域逆向操作"
+      },
+      {
+        "name": "终极止损",
+        "condition": "跌破进价 -8%",
+        "action": "全部清空",
+        "rationale": "规避系统性风险"
+      }
+    ],
+    "trailing_stop": {
+      "enabled": true,
+      "peak_retracement_pct": 0.05,
+      "lock_ratio": 0.95,
+      "time_stop_hours": 8
+    }
+  },
+  "performance_tracking": {
+    "enabled": true,
+    "kpis": {
+      "win_rate": {
+        "name": "推荐成功率",
+        "formula": "(赢的推荐数 + 平的推荐数×0.5) / 总推荐数",
+        "target": 0.6,
+        "description": "衡量选股准确度"
+      },
+      "avg_hold_days": {
+        "name": "平均持股周期",
+        "formula": "总持股天数 / 总推荐数",
+        "target": [
+          7,
+          15
+        ],
+        "description": "太短(3-5日)止损频繁，太长(>30日)持有不动"
+      },
+      "max_single_return": {
+        "name": "最大单笔收益",
+        "formula": "最大赢利推荐 / 初始投入",
+        "target": 0.1,
+        "description": "抓住主升浪的能力"
+      },
+      "capital_utilization_rate": {
+        "name": "资金利用率",
+        "formula": "(总持仓市值 / 总资产) × 100%",
+        "target": 0.85,
+        "description": "当前1.3%，目标85%"
+      },
+      "sharpe_ratio": {
+        "name": "Sharpe比率",
+        "formula": "(日均收益 / 日波动) × √252",
+        "target": 1.5,
+        "description": "风险调整后的收益效率"
+      }
+    },
+    "evaluation_period_days": 30,
+    "report_frequency": "daily"
+  },
+  "parameters": {
+    "position_weight_cap": 0.05,
+    "min_cash_ratio": 0.1,
+    "stop_loss_threshold": -0.08,
+    "trailing_stop_ratio": 0.05,
+    "entry_quality_threshold": 45,
+    "min_position_count": 3,
+    "max_position_count": 8
+  }
+}
