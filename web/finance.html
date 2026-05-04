@@ -183,6 +183,7 @@ tr.pos-row.expanded{background:var(--hover)}
 <script src="finance-v5-51.js"></script>
 <script src="ui-optimize-v5.65.js"></script>
 <script src="finance-v5.76-risk.js"></script>
+<script src="finance-v5.82-intraday.js"></script>
 </head>
 <body>
 
@@ -257,6 +258,43 @@ tr.pos-row.expanded{background:var(--hover)}
           <div id="entryQualityAvg" style="font-size:14px;font-weight:600">--/100</div>
         </div>
       </div>
+    </div>
+    <!-- 改进③ 市场情绪动态面板 (盘中11:30更新) -->
+    <div id="sentimentDynamicsWrap" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px">
+      <h3 style="font-size:14px;color:var(--sub);margin-bottom:16px;display:flex;align-items:center;gap:8px">😊 市场情绪动态 (11:30更新)</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
+        <div style="padding:12px;background:var(--hover);border-radius:8px;text-align:center">
+          <div style="font-size:11px;color:var(--sub);margin-bottom:4px">情绪评分</div>
+          <div style="font-size:28px;font-weight:700;color:var(--accent)" id="sentimentScore">--</div>
+          <div style="font-size:11px;color:var(--sub);margin-top:4px" id="sentimentLabel">--</div>
+        </div>
+        <div style="padding:12px;background:var(--hover);border-radius:8px;text-align:center">
+          <div style="font-size:11px;color:var(--sub);margin-bottom:4px">参数调整</div>
+          <div id="emotionAdjustParams" style="font-size:12px;line-height:1.6;color:var(--text)"></div>
+        </div>
+        <div style="padding:12px;background:var(--hover);border-radius:8px;text-align:center">
+          <div style="font-size:11px;color:var(--sub);margin-bottom:4px">执行状态</div>
+          <div style="font-size:12px;line-height:1.6;color:var(--text)">
+            <div>入场信号: <span id="entrySignals" style="font-weight:600">--</span></div>
+            <div>止损触发: <span id="stopLossSignals" style="font-weight:600;color:var(--up)">--</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 改进④ 绩效评分卡 + 回测对比 -->
+    <div id="performanceScoreWrap" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px">
+      <h3 style="font-size:14px;color:var(--sub);margin-bottom:16px;display:flex;align-items:center;gap:8px">🏆 绩效评分卡 (盘中统计)</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px" id="performanceCardsGrid"></div>
+      <div style="background:var(--hover);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;color:var(--sub);margin-bottom:8px;font-weight:600">策略对比 (v5.81 vs v5.82)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12px" id="backtestComparisonGrid"></div>
+      </div>
+    </div>
+    <!-- 改进⑤ 止损黑名单实时监控 -->
+    <div id="stopLossBlacklistWrap" style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:24px">
+      <h3 style="font-size:14px;color:var(--sub);margin-bottom:12px;display:flex;align-items:center;gap:8px">🔴 止损黑名单 (近7日)</h3>
+      <div id="stopLossBlacklistGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;font-size:12px"></div>
+      <div style="margin-top:12px;padding:8px;background:var(--hover);border-radius:6px;text-align:center;color:var(--sub);font-size:11px" id="blacklistStats">--</div>
     </div>
     <!-- Health Score -->
     <div id="healthScoreWrap" style="display:grid;grid-template-columns:120px 1fr;gap:16px;margin-bottom:20px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;align-items:center">
