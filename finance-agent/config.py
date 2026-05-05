@@ -9,11 +9,26 @@ STAMP_TAX_RATE = 0.001       # 千一印花税(仅卖出)
 MIN_COMMISSION = 5.0         # 最低佣金5元
 SLIPPAGE = 0.002             # 滑点0.2%
 
-# 持仓限制
-MAX_POSITIONS = 10           # 最多同时持有10只
-MAX_SINGLE_POSITION = 0.15   # 单只最多15%仓位
-STOP_LOSS = -0.08            # 止损线 -8%
-TAKE_PROFIT = 0.20           # 止盈线 +20%
+# 持仓限制 (v5.85优化: 从保守→激进)
+MAX_POSITIONS = 8            # 最多同时持有8只 (10→8,集中度控制)
+MAX_SINGLE_POSITION = 0.05   # 单只最多5%仓位 (15%→5%,分散风险)
+STOP_LOSS = -0.08            # 止损线 -8% (保持)
+TAKE_PROFIT = 0.20           # 止盈线 +20% (保持)
+
+# v5.85新增: 动态止损 (替代固定值)
+TRAILING_STOP_ENABLED = True
+TRAILING_STOP_PCT = 0.05     # 从峰值回撤5%触发
+
+# v5.85新增: 资金配置结构 (35+40+15+10模型)
+PORTFOLIO_ALLOCATION = {
+    'defensive': 0.35,   # 消费白马/金融/医药 (+2-5%年化)
+    'offensive': 0.40,   # 科技成长/新能源/军工 (+15-30%年化)
+    'tactical': 0.15,    # 低位补漲/高分红 (防守反彈)
+    'cash_reserve': 0.10 # 应对机会或风险
+}
+
+# v5.85新增: 最少现金比例 (从25%→10%)
+MIN_CASH_RATIO = 0.10        # 释放更多建仓资金
 
 # 数据库
 DB_PATH = "/home/nikefd/finance-agent/data/trading.db"

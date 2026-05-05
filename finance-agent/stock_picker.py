@@ -39,6 +39,24 @@ except ImportError:
     print("⚠️  v5.71策略控制模块未找到，保持所有策略启用")
     V5_71_STRATEGY_CONTROL_AVAILABLE = False
 
+# v5.84: 集成深度优化工程④ (混合池重构+MACD差异化+快速选股+多样化防护)
+try:
+    from v5_84_DEEP_OPTIMIZE import (
+        apply_sector_madc_params,
+        apply_mixed_pool_sector_weights,
+        fast_pick_engine,
+        check_portfolio_concentration,
+        MIXED_POOL_SECTOR_WEIGHTS_V84,
+        MACD_PARAMS_SECTOR_V84,
+        FAST_PICK_CONFIG_V84,
+        PORTFOLIO_CONCENTRATION_CHECK_V84
+    )
+    V5_84_AVAILABLE = True
+    print("✅ v5.84深度优化已加载")
+except ImportError as e:
+    print(f"⚠️  v5.84优化模块未找到: {e}")
+    V5_84_AVAILABLE = False
+
 
 # =================== v5.61 新增函数集合 ===================
 
