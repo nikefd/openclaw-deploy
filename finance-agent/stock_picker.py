@@ -1792,6 +1792,32 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
     
     ranked = sorted(merged.values(), key=lambda x: -x['score'])[:candidate_limit]
     
+    # 【v5.87 晚间深度优化①】超激进选股 + Sharpe强制激活 + 赛道多样化 + 消费黑名单
+    try:
+        from config import V5_87_DEEP_OPTIMIZE_ACTIVE
+        if V5_87_DEEP_OPTIMIZE_ACTIVE:
+            from v5_87_DEEP_OPTIMIZE import (
+                apply_extreme_cash_v87, apply_sharpe_force_v87,
+                apply_sector_diversification_v87, apply_consumer_blacklist_v87,
+                apply_mixed_pool_upgrade_v87
+            )
+            current_cash_ratio = 0.75
+            try:
+                import importlib
+                pm = importlib.import_module('position_manager')
+                if hasattr(pm, 'get_account_cash_ratio'):
+                    current_cash_ratio = pm.get_account_cash_ratio()
+            except: pass
+            
+            if current_cash_ratio > 0.99:
+                ranked = apply_extreme_cash_v87(ranked, current_cash_ratio)
+            ranked = apply_sharpe_force_v87(ranked, current_cash_ratio)
+            ranked = apply_sector_diversification_v87(ranked)
+            ranked = apply_consumer_blacklist_v87(ranked)
+            ranked = apply_mixed_pool_upgrade_v87(ranked)
+            ranked.sort(key=lambda x: -x.get('score', 0))
+    except: pass
+    
     # v5.56: 应用Sharpe风险权重 (策略级别滤波)
     # 只推荐Sharpe>=1.5的策略,<1.0的黑名单
     try:

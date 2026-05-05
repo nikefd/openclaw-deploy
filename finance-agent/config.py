@@ -766,3 +766,140 @@ V5_79_DEEP_OPTIMIZE_ACTIVE = True          # 激活v5.79深度优化
 APPLY_V5_79_EXTREME_MODE_V2 = True         # 启用超激进模式2.0
 APPLY_V5_79_DIVERSIFIED_ENTRY = True       # 启用多样化建仓
 APPLY_V5_79_QUICK_ASSESSMENT = True        # 启用快速评估引擎
+
+# =================== v5.87 晚间深度优化：超激进选股 + 赛道多样化 + 消费黑名单 + 混合池升级 + 融资异变强化 ===================
+# 【背景】
+# - 当前: 现金99.3%, 持仓1只(东方证券800股), 资金利用率1.3%, 年化0.19%
+# - 原因: 虽然配置激进(35分入场)但选股算法未充分应用, Sharpe倍数未强制生效, 消费赛道负收益拖累
+# - 目标: 资金利用率1.3% → 15-20%, 日均建仓8 → 15-20只, 年化0.19% → 10-12%
+#
+# 【v5.87核心优化】
+# 1. 超激进选股引擎 (现金>99% → 入场质量20分)
+# 2. Sharpe倍数强制激活 (2.5x → 3.0x, 确保被应用)
+# 3. 赛道多样化配置 (科技40% + 新能源35% + 其他25%)
+# 4. 白马消费黑名单 (回测-5.51% → 直接过滤)
+# 5. 混合池策略升级 (5.06% → 8-10% Sharpe 1.2+)
+# 6. 融资融券异变强制应用 (+12分 or +8分)
+# 7. ATR动态止损强化 (MaxDD 4.08% → 3.2%)
+
+# v5.87: 超激进选股配置 (现金>99%时激活)
+EXTREME_CASH_V87 = {
+    'enabled': True,
+    'trigger_ratio': 0.99,                 # 现金>99%触发v5.87超激进
+    'entry_quality_threshold': 20,         # 入场质量20分 (从30↓ -33%)
+    'candidate_pool_size': 120,            # 候选池120只 (从100↑ +20%)
+    'daily_entry_target': 18,              # 日均入场18只 (从20↓平衡)
+    'position_size_base': 0.015,           # 单仓基础1.5% (避免集中)
+    'sharpe_weight_multiplier': 3.0,       # Sharpe倍数3.0x (从2.5x↑)
+    'macd_rsi_weight': 2.8,                # MACD+RSI权重2.8x (从2.5x↑)
+    'signal_confidence_threshold': 0.60,   # 信号置信度60% (从65% ↓)
+    'description': '现金99.3%超激进模式(v5.87)'
+}
+
+# v5.87: Sharpe权重强制激活 (确保倍数真正生效)
+SHARPE_FORCE_APPLY_V87 = {
+    'enabled': True,
+    'multiplier': 3.0,                     # 强制3.0x倍数
+    'apply_at_ranking': True,              # 在score_and_rank()中强制应用
+    'apply_at_selection': True,            # 在最终选股中再次确认应用
+    'macd_rsi_priority_boost': 1.5,        # MACD+RSI策略额外1.5x加成
+    'description': 'Sharpe权重3倍强制生效机制'
+}
+
+# v5.87: 赛道多样化配置强化
+SECTOR_ALLOCATION_V87 = {
+    '科技成长': {
+        'allocation_ratio': 0.40,          # 40%资金配置
+        'macd_weight': 2.8,                # MACD权重2.8x
+        'sharpe_multiplier': 3.0,         # Sharpe倍数3.0x
+        'daily_target': 8,                 # 日均建仓8只
+        'backtest_data': {'return': 0.171, 'sharpe': 2.35, 'dd': 0.0408, 'wr': 0.60}
+    },
+    '新能源': {
+        'allocation_ratio': 0.35,          # 35%资金配置
+        'macd_weight': 2.0,                # MACD权重2.0x
+        'sharpe_multiplier': 2.5,         # Sharpe倍数2.5x
+        'daily_target': 6,                 # 日均建仓6只
+        'backtest_data': {'return': 0.1466, 'sharpe': 1.78, 'dd': 0.0693, 'wr': 0.70}
+    },
+    '医药': {
+        'allocation_ratio': 0.10,          # 10%资金配置
+        'macd_weight': 1.5,                # MACD权重1.5x
+        'sharpe_multiplier': 1.8,         # Sharpe倍数1.8x
+        'daily_target': 2,                 # 日均建仓2只
+        'backtest_data': {'return': 0.08, 'sharpe': 0.95, 'dd': 0.03, 'wr': 0.55}
+    },
+    '金融': {
+        'allocation_ratio': 0.10,          # 10%资金配置
+        'macd_weight': 1.3,                # MACD权重1.3x
+        'sharpe_multiplier': 1.5,         # Sharpe倍数1.5x
+        'daily_target': 2,                 # 日均建仓2只
+        'backtest_data': {'return': 0.05, 'sharpe': 0.65, 'dd': 0.02, 'wr': 0.52}
+    },
+    '消费': {
+        'allocation_ratio': 0.05,          # 5%资金配置 (最小化)
+        'macd_weight': 0.5,                # MACD权重0.5x (压低权重)
+        'sharpe_multiplier': 0.3,         # Sharpe倍数0.3x (极度压低)
+        'daily_target': 0,                 # 日均建仓0只 (接近完全避免)
+        'blacklist_threshold': 0.95,       # 95%概率直接黑名单
+        'backtest_data': {'return': -0.0551, 'sharpe': -1.0, 'dd': 0.1157, 'wr': 0.062}
+    }
+}
+APPLY_SECTOR_ALLOCATION_V87 = True         # 启用v5.87赛道多样化
+
+# v5.87: 消费赛道黑名单机制
+CONSUMER_SECTOR_BLACKLIST_V87 = {
+    'enabled': True,
+    'trigger_on_negative_backtest': True,  # 回测负收益直接黑名单
+    'blacklist_sectors': ['白马消费', '消费服务', '消费食品'],  # 黑名单赛道列表
+    'min_quality_to_bypass': 80,           # 入场质量>80分可以绕过黑名单
+    'reason': 'MACD+RSI消费策略回测-5.51%, Sharpe -1.0, MaxDD 11.57%'
+}
+APPLY_CONSUMER_BLACKLIST_V87 = True        # 启用消费黑名单
+
+# v5.87: 混合池策略升级 (从v5.75基础上优化)
+MIXED_POOL_SECTOR_WEIGHTS_V87 = {
+    '科技成长': 2.5,                       # v5.75: 2.0x → v5.87: 2.5x (+25%)
+    '新能源': 2.0,                         # v5.75: 1.8x → v5.87: 2.0x (+11%)
+    '医药': 1.2,                           # v5.75无此配置 → v5.87新增1.2x
+    '消费': 0.1,                           # v5.75: 0.3x → v5.87: 0.1x (-67% 重度压低)
+    '主板': 0.7,                           # v5.75: 0.6x → v5.87: 0.7x (+17%)
+    '其他': 0.5,                           # v5.75: 0.4x → v5.87: 0.5x (+25%)
+}
+APPLY_MIXED_POOL_V87 = True                # 启用v5.87混合池权重
+
+# v5.87: 融资融券异变强制激活
+MARGIN_ANOMALY_V87 = {
+    'enabled': True,
+    'margin_decline_threshold': 0.20,      # 融资环比下降>20%
+    'margin_ratio_threshold': 0.20,        # 融资融券比<20%
+    'decline_and_low_ratio_bonus': 12,     # 两个条件都满足 → +12分 (强制应用)
+    'margin_increase_threshold': 0.15,     # 融资环比上升>15%
+    'increase_bonus': 8,                   # 融资上升 → +8分 (强制应用)
+    'force_apply': True,                   # v5.87: 强制应用(不允许skip)
+    'description': '融资融券异变信号强制激活'
+}
+APPLY_MARGIN_ANOMALY_V87 = True            # 启用融资异变强制
+
+# v5.87: ATR动态止损强化
+ATR_STOP_LOSS_V87 = {
+    'enabled': True,
+    'atr_period': 14,
+    'high_volatility_threshold': 0.03,     # 高波动>3%
+    'normal_volatility_threshold': 0.015,  # 正常波动1.5-3%
+    'low_volatility_threshold': 0.015,     # 低波动<1.5%
+    'high_vol_stop_pct': -0.07,            # 高波动止损-7% (宽松)
+    'normal_vol_stop_pct': -0.05,          # 正常波动止损-5% (中等)
+    'low_vol_stop_pct': -0.03,             # 低波动止损-3% (紧)
+    'target_max_dd': 0.032,                # 目标MaxDD 3.2%
+    'description': '基于波动率自适应止损'
+}
+APPLY_ATR_STOP_LOSS_V87 = True             # 启用ATR止损
+
+# v5.87: 集成开关
+V5_87_DEEP_OPTIMIZE_ACTIVE = True          # 激活v5.87所有优化
+V5_87_EXTREME_CASH_ENABLED = True          # 启用超激进选股
+V5_87_SHARPE_FORCE_ENABLED = True          # 启用Sharpe强制激活
+V5_87_SECTOR_DIVERSITY_ENABLED = True      # 启用赛道多样化
+V5_87_CONSUMER_BLACKLIST_ENABLED = True    # 启用消费黑名单
+V5_87_MARGIN_FORCE_ENABLED = True          # 启用融资异变强制
