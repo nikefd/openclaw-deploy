@@ -215,6 +215,161 @@ function handleReportDetail(req, res, date) {
   } catch (e) { sendError(res, '报告未找到', 404); }
 }
 
+// --- UI优化②: Kelly仓位实时数据 ---
+function handleKellyPositions(req, res) {
+  const positions = querySqlite('SELECT * FROM positions WHERE shares > 0');
+  const account = querySqlite('SELECT cash, total_value FROM account ORDER BY id DESC LIMIT 1')[0];
+  const trades = querySqlite('SELECT * FROM trades ORDER BY trade_date DESC LIMIT 30');
+  
+  const totalValue = account ? account.total_value : INITIAL_CAPITAL;
+  const totalInvested = positions.reduce((sum, p) => sum + (p.current_price * p.shares), 0);
+  const fundUtilization = totalValue > 0 ? (totalInvested / totalValue * 100) : 0;
+  const targetKelly = 15;
+  const kellyEfficiency = Math.min(100, (fundUtilization / targetKelly * 100));
+  
+  // 历史30天资金利用率
+  const history = querySqlite(`
+    SELECT DATE(trade_date) as date, 
+           COUNT(*) as trade_count,
+           SUM(shares) as total_shares
+    FROM trades
+    WHERE trade_date >= date('now', '-30 days')
+    GROUP BY DATE(trade_date)
+    ORDER BY date
+  `);
+  
+  sendJson(res, {
+    current_allocation: Math.round(fundUtilization * 10) / 10,
+    target_kelly: targetKelly,
+    kelly_efficiency: Math.round(kellyEfficiency * 10) / 10,
+    positions_count: positions.length,
+    recent_trades: trades.length,
+    history: history
+  });
+}
+
+// --- UI优化②: 市场情绪波动热力图 ---
+function handleSentimentHeatmap(req, res) {
+  const sentiments = querySqlite(`
+    SELECT date, sentiment_score, sentiment_label
+    FROM daily_snapshots
+    WHERE date >= date('now', '-5 days')
+    ORDER BY date DESC
+    LIMIT 30
+  `);
+  
+  // 30日情绪分布
+  const distribution = querySqlite(`
+    SELECT sentiment_label, COUNT(*) as count
+    FROM daily_snapshots
+    WHERE date >= date('now', '-30 days')
+    GROUP BY sentiment_label
+  `);
+  
+  // 计算情绪变化
+  const trend = [];
+  for (let i = 0; i < sentiments.length - 1; i++) {
+    const curr = sentiments[i];
+    const next = sentiments[i + 1];
+    const change = (next.sentiment_score || 50) - (curr.sentiment_score || 50);
+    trend.push({
+      date: curr.date,
+      score: curr.sentiment_score || 50,
+      label: curr.sentiment_label || '中性',
+      change: change,
+      trend_label: change > 10 ? '↑ 乐观升温' : change < -10 ? '↓ 情绪降温' : '→ 平稳'
+    });
+  }
+  
+  const distMap = {};
+  distribution.forEach(d => {
+    distMap[d.sentiment_label || '中性'] = d.count;
+  });
+  
+  sendJson(res, {
+    current_score: sentiments[0] ? sentiments[0].sentiment_score : 50,
+    current_label: sentiments[0] ? sentiments[0].sentiment_label : '中性',
+    trend: trend,
+    distribution: distMap
+  });
+}
+
+// --- UI优化②: 回测性能对标 ---
+function handleBacktestComparison(req, res) {
+  const trades = querySqlite('SELECT * FROM trades ORDER BY trade_date DESC');
+  const positions = querySqlite('SELECT * FROM positions');
+  const snapshots = querySqlite('SELECT * FROM daily_snapshots ORDER BY date DESC LIMIT 30');
+  const account = querySqlite('SELECT cash, total_value FROM account ORDER BY id DESC LIMIT 1')[0];
+  
+  // 计算胜率
+  const sellTrades = trades.filter(t => t.direction === 'SELL');
+  let winTrades = 0;
+  sellTrades.forEach(sell => {
+    const buy = trades.find(b => b.symbol === sell.symbol && b.direction === 'BUY' && new Date(b.trade_date) < new Date(sell.trade_date));
+    if (buy && sell.price > buy.price) winTrades++;
+  });
+  const winRate = sellTrades.length > 0 ? Math.round((winTrades / sellTrades.length) * 100) : 0;
+  
+  // 计算最大回撤
+  let maxDD = 0;
+  if (snapshots.length > 1) {
+    let peak = snapshots[snapshots.length - 1].total_value;
+    snapshots.forEach(s => {
+      if (s.total_value > peak) peak = s.total_value;
+      const dd = ((peak - s.total_value) / peak) * 100;
+      if (dd > maxDD) maxDD = dd;
+    });
+  }
+  
+  // 计算Sharpe
+  const returns = [];
+  for (let i = snapshots.length - 1; i > 0; i--) {
+    const ret = ((snapshots[i - 1].total_value - snapshots[i].total_value) / snapshots[i].total_value) * 100;
+    returns.push(ret);
+  }
+  const avgRet = returns.length > 0 ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
+  const stdDev = returns.length > 1 ? Math.sqrt(returns.reduce((s, r) => s + Math.pow(r - avgRet, 2), 0) / (returns.length - 1)) : 0;
+  const sharpe = stdDev > 0 ? (avgRet / stdDev * Math.sqrt(252)) : 0;
+  
+  // 资金利用率
+  const totalValue = account ? account.total_value : INITIAL_CAPITAL;
+  const totalInvested = positions.reduce((sum, p) => sum + (p.current_price * p.shares), 0);
+  const fundUtil = totalValue > 0 ? (totalInvested / totalValue * 100) : 0;
+  
+  // 赛道分布
+  const sectors = {};
+  positions.forEach(p => {
+    const sector = p.sector || '未分类';
+    sectors[sector] = (sectors[sector] || 0) + 1;
+  });
+  
+  sendJson(res, {
+    current_metrics: {
+      win_rate: Math.round(winRate * 10) / 10,
+      max_drawdown: Math.round(maxDD * 100) / 100,
+      sharpe_ratio: Math.round(sharpe * 100) / 100,
+      fund_utilization: Math.round(fundUtil * 10) / 10,
+      positions_count: positions.filter(p => p.shares > 0).length,
+      total_trades: trades.length
+    },
+    v585_targets: {
+      win_rate: 65,
+      max_drawdown: 3.5,
+      sharpe_ratio: 2.5,
+      fund_utilization: 95,
+      positions_count: 8,
+      expected_return: 18
+    },
+    achievement_rate: {
+      win_rate: Math.min(100, Math.round((winRate / 65) * 100 * 10) / 10),
+      max_drawdown: Math.min(100, Math.round((3.5 / maxDD) * 100 * 10) / 10) || 0,
+      sharpe_ratio: Math.min(100, Math.round((sharpe / 2.5) * 100 * 10) / 10),
+      fund_utilization: Math.min(100, Math.round((fundUtil / 95) * 100 * 10) / 10)
+    },
+    sector_distribution: sectors
+  });
+}
+
 function handleNews(req, res) {
   try {
     const py = `
@@ -1121,6 +1276,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     // v5.69 新增端点
     if (pathname === '/api/finance/sentiment-dashboard' && req.method === 'GET') return handleSentimentDashboard(req, res);
     if (pathname === '/api/finance/backtest-comparison' && req.method === 'GET') return handleBacktestComparison(req, res);
+    if (pathname === '/api/finance/kelly-positions' && req.method === 'GET') return handleKellyPositions(req, res);
+    if (pathname === '/api/finance/sentiment-heatmap' && req.method === 'GET') return handleSentimentHeatmap(req, res);
     if (pathname === '/api/finance/portfolio-scatter' && req.method === 'GET') return handlePortfolioScatter(req, res);
     if (pathname === '/api/finance/stop-loss-dashboard' && req.method === 'GET') return handleStopLossDashboard(req, res);
     // v5.76 盤中優化端點
