@@ -1278,6 +1278,7 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/backtest-comparison' && req.method === 'GET') return handleBacktestComparison(req, res);
     if (pathname === '/api/finance/kelly-positions' && req.method === 'GET') return handleKellyPositions(req, res);
     if (pathname === '/api/finance/sentiment-heatmap' && req.method === 'GET') return handleSentimentHeatmap(req, res);
+    if (pathname === '/api/finance/news-with-sentiment' && req.method === 'GET') return handleNewsWithSentiment(req, res);
     if (pathname === '/api/finance/portfolio-scatter' && req.method === 'GET') return handlePortfolioScatter(req, res);
     if (pathname === '/api/finance/stop-loss-dashboard' && req.method === 'GET') return handleStopLossDashboard(req, res);
     // v5.76 盤中優化端點
@@ -1864,5 +1865,42 @@ function handleBacktestComparison_v82(req, res) {
   } catch (e) {
     log(`Backtest comparison error: ${e.message}`);
     sendJson(res, { error: e.message }, 500);
+  }
+}
+
+// === NEWS SENTIMENT HANDLER (added 2026-05-05) ===
+function handleNewsWithSentiment(req, res) {
+  try {
+    const analyzeCode = `
+import sys, json
+sys.path.insert(0, '/home/nikefd/finance-agent')
+try:
+  from news_sentiment_analyzer import process_news_batch, generate_news_insight
+  from data_collector import get_stock_news
+  
+  df = get_stock_news()
+  news_list = []
+  if df is not None and not df.empty:
+    for _, row in df.head(50).iterrows():
+      news_list.append({
+        'title': str(row.get('新闻标题', '')),
+        'content': str(row.get('新闻内容', ''))[:300],
+        'time': str(row.get('发布时间', ''))
+      })
+  
+  result = process_news_batch(news_list)
+  insight = generate_news_insight(result)
+  result['insight'] = insight
+  print(json.dumps(result, ensure_ascii=False))
+except Exception as e:
+  import traceback
+  print(json.dumps({'error': str(e), 'hot_news': [], 'sentiment_distribution': {}, 'risk_level': 'green', 'avg_sentiment_score': 50}))
+`;
+    const out = execSync(`python3 -c "${analyzeCode.replace(/"/g, '\\\\"')}"`, { timeout: 15000 }).toString().trim();
+    const result = JSON.parse(out || '{}');
+    sendJson(res, result);
+  } catch (e) {
+    log(`News sentiment error: ${e.message}`);
+    sendJson(res, { hot_news: [], sentiment_distribution: {}, risk_level: 'green', avg_sentiment_score: 50, insight: '新闻分析中...' });
   }
 }
