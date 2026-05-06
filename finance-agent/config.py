@@ -903,3 +903,20 @@ V5_87_SHARPE_FORCE_ENABLED = True          # 启用Sharpe强制激活
 V5_87_SECTOR_DIVERSITY_ENABLED = True      # 启用赛道多样化
 V5_87_CONSUMER_BLACKLIST_ENABLED = True    # 启用消费黑名单
 V5_87_MARGIN_FORCE_ENABLED = True          # 启用融资异变强制
+
+# =================== v5.88 盘前优化 (现金自动检测 + MACD直方图翻正) ===================
+V5_88_PREMARKET_OPTIMIZE_ACTIVE = True     # 激活v5.88优化
+V5_88_CASH_AUTO_DETECT_ENABLED = True      # 启用现金利用率自动检测
+V5_88_MACD_HISTOGRAM_FLIP_ENABLED = True   # 启用MACD直方图翻正信号
+
+# v5.88: MACD直方图翻正信号参数
+MACD_HISTOGRAM_FLIP_BONUS = 18             # 直方图翻正信号 +18分 (强力反转)
+MACD_HISTOGRAM_FLIP_RECENT_DAYS = 3        # 过去3天内的翻正算有效
+MACD_HISTOGRAM_FLIP_STRENGTH_WEIGHT = 0.8  # 翻正强度权重 (0.5-1.0)
+
+# v5.88: 现金自动检测阈值
+CASH_AUTO_DETECTION_LEVELS = {
+    'extreme': {'threshold': 0.99, 'entry_quality': 20, 'multiplier': 1.5},  # 极度激进
+    'aggressive': {'threshold': 0.95, 'entry_quality': 25, 'multiplier': 1.2},  # 激进
+    'normal': {'threshold': 0.75, 'entry_quality': 35, 'multiplier': 1.0}  # 常规
+}

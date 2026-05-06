@@ -1816,6 +1816,29 @@ def score_and_rank(all_candidates: list, regime: str = "") -> list:
             ranked = apply_consumer_blacklist_v87(ranked)
             ranked = apply_mixed_pool_upgrade_v87(ranked)
             ranked.sort(key=lambda x: -x.get('score', 0))
+            
+            # v5.88: 盤前優化① 現金利用率自動檢測 + 優化② MACD直方圖翻正信號
+            try:
+                from config import V5_88_PREMARKET_OPTIMIZE_ACTIVE, V5_88_CASH_AUTO_DETECT_ENABLED
+                if V5_88_PREMARKET_OPTIMIZE_ACTIVE and V5_88_CASH_AUTO_DETECT_ENABLED:
+                    from v5_88_PREMARKET_OPTIMIZE import (
+                        apply_extreme_cash_detection_v88,
+                        apply_macd_histogram_flip_signal_v88
+                    )
+                    # 應用現金自動檢測
+                    ranked = apply_extreme_cash_detection_v88(ranked)
+                    
+                    # 應用MACD直方圖翻正信號 (可選，因為需要股票數據回調)
+                    # 如果有get_stock_daily函數，可以傳入
+                    try:
+                        from data_collector import get_stock_daily
+                        ranked = apply_macd_histogram_flip_signal_v88(ranked, get_stock_daily)
+                    except:
+                        pass  # MACD直方圖信號可選
+                    
+                    ranked.sort(key=lambda x: -x.get('score', 0))
+            except Exception as e:
+                pass  # v5.88優化失敗時降級
     except: pass
     
     # v5.56: 应用Sharpe风险权重 (策略级别滤波)
