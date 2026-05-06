@@ -1080,16 +1080,26 @@ function gamesDrawCharts(g){
   try{Object.values(_gamesCharts).forEach(c=>c&&c.destroy&&c.destroy())}catch{}
   _gamesCharts={};
   const aha=g.aha||{};
+  const sum=AHA_FIELDS.reduce((s,f)=>s+Number(aha[f.k]||0),0);
+  const empty=sum===0;
+  const placeholder='<div style="padding:24px;text-align:center;color:var(--text2);font-size:.88rem;line-height:1.7">还没评分，点 <b>✏️ 编辑</b> 填一下 5 个维度 🎯<br><span style="font-size:.76rem">First Touch / First Win / Aha Moment / Loop Hook / Retention</span></div>';
   const radarEl=document.getElementById('gameRadar');
-  if(radarEl)_gamesCharts.radar=new Chart(radarEl,{type:'radar',data:{labels:AHA_FIELDS.map(f=>f.label),datasets:[{label:g.name||'评分',data:AHA_FIELDS.map(f=>Number(aha[f.k]||0)),backgroundColor:'rgba(96,165,250,.25)',borderColor:'#60a5fa',pointBackgroundColor:'#60a5fa'}]},options:{responsive:true,scales:{r:{min:0,max:10,ticks:{stepSize:2,backdropColor:'transparent'}}},plugins:{legend:{display:false}}}});
+  if(radarEl){
+    if(empty){radarEl.outerHTML='<div id="gameRadar">'+placeholder+'</div>';}
+    else _gamesCharts.radar=new Chart(radarEl,{type:'radar',data:{labels:AHA_FIELDS.map(f=>f.label),datasets:[{label:g.name||'评分',data:AHA_FIELDS.map(f=>Number(aha[f.k]||0)),backgroundColor:'rgba(96,165,250,.25)',borderColor:'#60a5fa',pointBackgroundColor:'#60a5fa'}]},options:{responsive:true,scales:{r:{min:0,max:10,ticks:{stepSize:2,backdropColor:'transparent'}}},plugins:{legend:{display:false}}}});
+  }
   const curveEl=document.getElementById('gameAhaCurve');
-  if(curveEl){const points=[
-    {x:'0-30s\nFirst Touch',y:Number(aha.firstTouch||0)},
-    {x:'30s-3m\nFirst Win',y:Number(aha.firstWin||0)},
-    {x:'3-15m\nAha Moment',y:Number(aha.ahaMoment||0)},
-    {x:'15m+\nLoop Hook',y:Number(aha.loopHook||0)},
-    {x:'D2\nRetention',y:Number(aha.retention||0)}
-  ];_gamesCharts.curve=new Chart(curveEl,{type:'line',data:{labels:points.map(p=>p.x),datasets:[{label:'爽度',data:points.map(p=>p.y),borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.2)',fill:true,tension:0.35,pointRadius:5,pointBackgroundColor:'#a78bfa'}]},options:{responsive:true,scales:{y:{min:0,max:10}},plugins:{legend:{display:false}}}});}
+  if(curveEl){
+    if(empty){curveEl.outerHTML='<div id="gameAhaCurve">'+placeholder+'</div>';return;}
+    const points=[
+      {x:'0-30s\nFirst Touch',y:Number(aha.firstTouch||0)},
+      {x:'30s-3m\nFirst Win',y:Number(aha.firstWin||0)},
+      {x:'3-15m\nAha Moment',y:Number(aha.ahaMoment||0)},
+      {x:'15m+\nLoop Hook',y:Number(aha.loopHook||0)},
+      {x:'D2\nRetention',y:Number(aha.retention||0)}
+    ];
+    _gamesCharts.curve=new Chart(curveEl,{type:'line',data:{labels:points.map(p=>p.x),datasets:[{label:'爽度',data:points.map(p=>p.y),borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.2)',fill:true,tension:0.35,pointRadius:5,pointBackgroundColor:'#a78bfa'}]},options:{responsive:true,scales:{y:{min:0,max:10}},plugins:{legend:{display:false}}}});
+  }
 }
 function gamesNew(){gamesEdit(null)}
 function gamesEdit(id){
