@@ -5,12 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>A股金融Agent</title>
 
-// v5.89 盤中實時性能統計
-async function loadIntradayStats(){const d=await api("/api/finance/intraday-stats");if(!d)return;const cs=d.cash_status||{};const ml={"extreme":"🔴極激","aggressive":"🟠激進","normal":"🟢正常"};try{["intraCashRatio","intraCashAmount","intraModeLabel","intraModeMultiplier","intraActivatedBadge","intraActivatedDesc"].forEach(el=>{const e=document.getElementById(el);if(!e)return;if(el==="intraCashRatio")e.textContent=(cs.cash_ratio||0).toFixed(1)+"%";else if(el==="intraCashAmount")e.textContent=fmt(cs.cash_amount||0);else if(el==="intraModeLabel")e.textContent=ml[cs.mode]||cs.mode;else if(el==="intraModeMultiplier")e.textContent=cs.multiplier||"1.0";else if(el==="intraActivatedBadge")e.textContent=cs.activated?"✅":"❌";else if(el==="intraActivatedDesc")e.textContent=cs.activated?"已激活":"正常模式";});}catch(e){}const tr=d.trade_metrics||{};try{const el_ids=["intraTotalTrades","intraBuySell","intraWinRate","intraAvgPnl","intraWinLoss","intraTotalPnl"];el_ids.forEach(id=>{const el=document.getElementById(id);if(!el)return;if(id==="intraTotalTrades")el.textContent=tr.total_trades||0;else if(id==="intraBuySell")el.textContent=(tr.buy_orders||0)+"|"+(tr.sell_orders||0);else if(id==="intraWinRate"){const wr=tr.win_rate||0;el.textContent=wr.toFixed(1)+"%";el.style.color=wr>=50?"var(--up)":"var(--down)";}});}catch(e){}const macd=d.macd_signals||{};["intraMacdSignals","intraWeeklyAvgSignals","intraHistogramCrosses","intraWeeklyAvgCrosses"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(macd[id.replace("intra","")] || 0)});const hm=d.portfolio_heat_map||{};["intraHeatmapHighGain","intraHeatmapNormal","intraHeatmapWarning","intraHeatmapDanger"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(hm[id.replace("intraHeatmap","").toLowerCase()]||[]).length;});document.getElementById("intraStatsLastUpdate").textContent="更新: "+new Date().toLocaleTimeString("zh-CN");}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 
-// v5.89 盤中實時性能統計
-async function loadIntradayStats(){const d=await api("/api/finance/intraday-stats");if(!d)return;const cs=d.cash_status||{};const ml={"extreme":"🔴極激","aggressive":"🟠激進","normal":"🟢正常"};try{["intraCashRatio","intraCashAmount","intraModeLabel","intraModeMultiplier","intraActivatedBadge","intraActivatedDesc"].forEach(el=>{const e=document.getElementById(el);if(!e)return;if(el==="intraCashRatio")e.textContent=(cs.cash_ratio||0).toFixed(1)+"%";else if(el==="intraCashAmount")e.textContent=fmt(cs.cash_amount||0);else if(el==="intraModeLabel")e.textContent=ml[cs.mode]||cs.mode;else if(el==="intraModeMultiplier")e.textContent=cs.multiplier||"1.0";else if(el==="intraActivatedBadge")e.textContent=cs.activated?"✅":"❌";else if(el==="intraActivatedDesc")e.textContent=cs.activated?"已激活":"正常模式";});}catch(e){}const tr=d.trade_metrics||{};try{const el_ids=["intraTotalTrades","intraBuySell","intraWinRate","intraAvgPnl","intraWinLoss","intraTotalPnl"];el_ids.forEach(id=>{const el=document.getElementById(id);if(!el)return;if(id==="intraTotalTrades")el.textContent=tr.total_trades||0;else if(id==="intraBuySell")el.textContent=(tr.buy_orders||0)+"|"+(tr.sell_orders||0);else if(id==="intraWinRate"){const wr=tr.win_rate||0;el.textContent=wr.toFixed(1)+"%";el.style.color=wr>=50?"var(--up)":"var(--down)";}});}catch(e){}const macd=d.macd_signals||{};["intraMacdSignals","intraWeeklyAvgSignals","intraHistogramCrosses","intraWeeklyAvgCrosses"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(macd[id.replace("intra","")] || 0)});const hm=d.portfolio_heat_map||{};["intraHeatmapHighGain","intraHeatmapNormal","intraHeatmapWarning","intraHeatmapDanger"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(hm[id.replace("intraHeatmap","").toLowerCase()]||[]).length;});document.getElementById("intraStatsLastUpdate").textContent="更新: "+new Date().toLocaleTimeString("zh-CN");}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -187,20 +183,12 @@ tr.pos-row.expanded{background:var(--hover)}
 }
 </style>
 
-// v5.89 盤中實時性能統計
-async function loadIntradayStats(){const d=await api("/api/finance/intraday-stats");if(!d)return;const cs=d.cash_status||{};const ml={"extreme":"🔴極激","aggressive":"🟠激進","normal":"🟢正常"};try{["intraCashRatio","intraCashAmount","intraModeLabel","intraModeMultiplier","intraActivatedBadge","intraActivatedDesc"].forEach(el=>{const e=document.getElementById(el);if(!e)return;if(el==="intraCashRatio")e.textContent=(cs.cash_ratio||0).toFixed(1)+"%";else if(el==="intraCashAmount")e.textContent=fmt(cs.cash_amount||0);else if(el==="intraModeLabel")e.textContent=ml[cs.mode]||cs.mode;else if(el==="intraModeMultiplier")e.textContent=cs.multiplier||"1.0";else if(el==="intraActivatedBadge")e.textContent=cs.activated?"✅":"❌";else if(el==="intraActivatedDesc")e.textContent=cs.activated?"已激活":"正常模式";});}catch(e){}const tr=d.trade_metrics||{};try{const el_ids=["intraTotalTrades","intraBuySell","intraWinRate","intraAvgPnl","intraWinLoss","intraTotalPnl"];el_ids.forEach(id=>{const el=document.getElementById(id);if(!el)return;if(id==="intraTotalTrades")el.textContent=tr.total_trades||0;else if(id==="intraBuySell")el.textContent=(tr.buy_orders||0)+"|"+(tr.sell_orders||0);else if(id==="intraWinRate"){const wr=tr.win_rate||0;el.textContent=wr.toFixed(1)+"%";el.style.color=wr>=50?"var(--up)":"var(--down)";}});}catch(e){}const macd=d.macd_signals||{};["intraMacdSignals","intraWeeklyAvgSignals","intraHistogramCrosses","intraWeeklyAvgCrosses"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(macd[id.replace("intra","")] || 0)});const hm=d.portfolio_heat_map||{};["intraHeatmapHighGain","intraHeatmapNormal","intraHeatmapWarning","intraHeatmapDanger"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(hm[id.replace("intraHeatmap","").toLowerCase()]||[]).length;});document.getElementById("intraStatsLastUpdate").textContent="更新: "+new Date().toLocaleTimeString("zh-CN");}
 <script src="finance-v5-51.js"></script>
 
-// v5.89 盤中實時性能統計
-async function loadIntradayStats(){const d=await api("/api/finance/intraday-stats");if(!d)return;const cs=d.cash_status||{};const ml={"extreme":"🔴極激","aggressive":"🟠激進","normal":"🟢正常"};try{["intraCashRatio","intraCashAmount","intraModeLabel","intraModeMultiplier","intraActivatedBadge","intraActivatedDesc"].forEach(el=>{const e=document.getElementById(el);if(!e)return;if(el==="intraCashRatio")e.textContent=(cs.cash_ratio||0).toFixed(1)+"%";else if(el==="intraCashAmount")e.textContent=fmt(cs.cash_amount||0);else if(el==="intraModeLabel")e.textContent=ml[cs.mode]||cs.mode;else if(el==="intraModeMultiplier")e.textContent=cs.multiplier||"1.0";else if(el==="intraActivatedBadge")e.textContent=cs.activated?"✅":"❌";else if(el==="intraActivatedDesc")e.textContent=cs.activated?"已激活":"正常模式";});}catch(e){}const tr=d.trade_metrics||{};try{const el_ids=["intraTotalTrades","intraBuySell","intraWinRate","intraAvgPnl","intraWinLoss","intraTotalPnl"];el_ids.forEach(id=>{const el=document.getElementById(id);if(!el)return;if(id==="intraTotalTrades")el.textContent=tr.total_trades||0;else if(id==="intraBuySell")el.textContent=(tr.buy_orders||0)+"|"+(tr.sell_orders||0);else if(id==="intraWinRate"){const wr=tr.win_rate||0;el.textContent=wr.toFixed(1)+"%";el.style.color=wr>=50?"var(--up)":"var(--down)";}});}catch(e){}const macd=d.macd_signals||{};["intraMacdSignals","intraWeeklyAvgSignals","intraHistogramCrosses","intraWeeklyAvgCrosses"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(macd[id.replace("intra","")] || 0)});const hm=d.portfolio_heat_map||{};["intraHeatmapHighGain","intraHeatmapNormal","intraHeatmapWarning","intraHeatmapDanger"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(hm[id.replace("intraHeatmap","").toLowerCase()]||[]).length;});document.getElementById("intraStatsLastUpdate").textContent="更新: "+new Date().toLocaleTimeString("zh-CN");}
 <script src="ui-optimize-v5.65.js"></script>
 
-// v5.89 盤中實時性能統計
-async function loadIntradayStats(){const d=await api("/api/finance/intraday-stats");if(!d)return;const cs=d.cash_status||{};const ml={"extreme":"🔴極激","aggressive":"🟠激進","normal":"🟢正常"};try{["intraCashRatio","intraCashAmount","intraModeLabel","intraModeMultiplier","intraActivatedBadge","intraActivatedDesc"].forEach(el=>{const e=document.getElementById(el);if(!e)return;if(el==="intraCashRatio")e.textContent=(cs.cash_ratio||0).toFixed(1)+"%";else if(el==="intraCashAmount")e.textContent=fmt(cs.cash_amount||0);else if(el==="intraModeLabel")e.textContent=ml[cs.mode]||cs.mode;else if(el==="intraModeMultiplier")e.textContent=cs.multiplier||"1.0";else if(el==="intraActivatedBadge")e.textContent=cs.activated?"✅":"❌";else if(el==="intraActivatedDesc")e.textContent=cs.activated?"已激活":"正常模式";});}catch(e){}const tr=d.trade_metrics||{};try{const el_ids=["intraTotalTrades","intraBuySell","intraWinRate","intraAvgPnl","intraWinLoss","intraTotalPnl"];el_ids.forEach(id=>{const el=document.getElementById(id);if(!el)return;if(id==="intraTotalTrades")el.textContent=tr.total_trades||0;else if(id==="intraBuySell")el.textContent=(tr.buy_orders||0)+"|"+(tr.sell_orders||0);else if(id==="intraWinRate"){const wr=tr.win_rate||0;el.textContent=wr.toFixed(1)+"%";el.style.color=wr>=50?"var(--up)":"var(--down)";}});}catch(e){}const macd=d.macd_signals||{};["intraMacdSignals","intraWeeklyAvgSignals","intraHistogramCrosses","intraWeeklyAvgCrosses"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(macd[id.replace("intra","")] || 0)});const hm=d.portfolio_heat_map||{};["intraHeatmapHighGain","intraHeatmapNormal","intraHeatmapWarning","intraHeatmapDanger"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(hm[id.replace("intraHeatmap","").toLowerCase()]||[]).length;});document.getElementById("intraStatsLastUpdate").textContent="更新: "+new Date().toLocaleTimeString("zh-CN");}
 <script src="finance-v5.76-risk.js"></script>
 
-// v5.89 盤中實時性能統計
-async function loadIntradayStats(){const d=await api("/api/finance/intraday-stats");if(!d)return;const cs=d.cash_status||{};const ml={"extreme":"🔴極激","aggressive":"🟠激進","normal":"🟢正常"};try{["intraCashRatio","intraCashAmount","intraModeLabel","intraModeMultiplier","intraActivatedBadge","intraActivatedDesc"].forEach(el=>{const e=document.getElementById(el);if(!e)return;if(el==="intraCashRatio")e.textContent=(cs.cash_ratio||0).toFixed(1)+"%";else if(el==="intraCashAmount")e.textContent=fmt(cs.cash_amount||0);else if(el==="intraModeLabel")e.textContent=ml[cs.mode]||cs.mode;else if(el==="intraModeMultiplier")e.textContent=cs.multiplier||"1.0";else if(el==="intraActivatedBadge")e.textContent=cs.activated?"✅":"❌";else if(el==="intraActivatedDesc")e.textContent=cs.activated?"已激活":"正常模式";});}catch(e){}const tr=d.trade_metrics||{};try{const el_ids=["intraTotalTrades","intraBuySell","intraWinRate","intraAvgPnl","intraWinLoss","intraTotalPnl"];el_ids.forEach(id=>{const el=document.getElementById(id);if(!el)return;if(id==="intraTotalTrades")el.textContent=tr.total_trades||0;else if(id==="intraBuySell")el.textContent=(tr.buy_orders||0)+"|"+(tr.sell_orders||0);else if(id==="intraWinRate"){const wr=tr.win_rate||0;el.textContent=wr.toFixed(1)+"%";el.style.color=wr>=50?"var(--up)":"var(--down)";}});}catch(e){}const macd=d.macd_signals||{};["intraMacdSignals","intraWeeklyAvgSignals","intraHistogramCrosses","intraWeeklyAvgCrosses"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(macd[id.replace("intra","")] || 0)});const hm=d.portfolio_heat_map||{};["intraHeatmapHighGain","intraHeatmapNormal","intraHeatmapWarning","intraHeatmapDanger"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(hm[id.replace("intraHeatmap","").toLowerCase()]||[]).length;});document.getElementById("intraStatsLastUpdate").textContent="更新: "+new Date().toLocaleTimeString("zh-CN");}
 <script src="finance-v5.82-intraday.js"></script>
 </head>
 <body>
@@ -2338,8 +2326,6 @@ async function loadStrategyContribution(){
 refreshAll();
 setInterval(refreshAll,300000);
 
-// v5.89 盤中實時性能統計
-async function loadIntradayStats(){const d=await api("/api/finance/intraday-stats");if(!d)return;const cs=d.cash_status||{};const ml={"extreme":"🔴極激","aggressive":"🟠激進","normal":"🟢正常"};try{["intraCashRatio","intraCashAmount","intraModeLabel","intraModeMultiplier","intraActivatedBadge","intraActivatedDesc"].forEach(el=>{const e=document.getElementById(el);if(!e)return;if(el==="intraCashRatio")e.textContent=(cs.cash_ratio||0).toFixed(1)+"%";else if(el==="intraCashAmount")e.textContent=fmt(cs.cash_amount||0);else if(el==="intraModeLabel")e.textContent=ml[cs.mode]||cs.mode;else if(el==="intraModeMultiplier")e.textContent=cs.multiplier||"1.0";else if(el==="intraActivatedBadge")e.textContent=cs.activated?"✅":"❌";else if(el==="intraActivatedDesc")e.textContent=cs.activated?"已激活":"正常模式";});}catch(e){}const tr=d.trade_metrics||{};try{const el_ids=["intraTotalTrades","intraBuySell","intraWinRate","intraAvgPnl","intraWinLoss","intraTotalPnl"];el_ids.forEach(id=>{const el=document.getElementById(id);if(!el)return;if(id==="intraTotalTrades")el.textContent=tr.total_trades||0;else if(id==="intraBuySell")el.textContent=(tr.buy_orders||0)+"|"+(tr.sell_orders||0);else if(id==="intraWinRate"){const wr=tr.win_rate||0;el.textContent=wr.toFixed(1)+"%";el.style.color=wr>=50?"var(--up)":"var(--down)";}});}catch(e){}const macd=d.macd_signals||{};["intraMacdSignals","intraWeeklyAvgSignals","intraHistogramCrosses","intraWeeklyAvgCrosses"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(macd[id.replace("intra","")] || 0)});const hm=d.portfolio_heat_map||{};["intraHeatmapHighGain","intraHeatmapNormal","intraHeatmapWarning","intraHeatmapDanger"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(hm[id.replace("intraHeatmap","").toLowerCase()]||[]).length;});document.getElementById("intraStatsLastUpdate").textContent="更新: "+new Date().toLocaleTimeString("zh-CN");}
 </script>
 // v5.55 UI Enhancements - Strategy Heatmap & Position Sidebar
 let posData=[];
@@ -2412,10 +2398,8 @@ async function loadStopLossDashboard(){
 }
 const oRefresh=window.refreshAll;window.refreshAll=async function(){oRefresh&&await oRefresh();loadStrategyContribution();try{const d=await fetch('/api/finance/dashboard').then(r=>r.json());if(d.positions)posData=d.positions;}catch(e){}};
 loadIntradayStats();
-refreshAll();setInterval(refreshAll,300000);setInterval(()=>{if(document.querySelector(".tab.active[data-tab="intradeystats"]"))loadIntradayStats();},30000);
+refreshAll();setInterval(refreshAll,300000);setInterval(()=>{if(document.querySelector(".tab.active[data-tab='intradeystats']"))loadIntradayStats();},30000);
 
-// v5.89 盤中實時性能統計
-async function loadIntradayStats(){const d=await api("/api/finance/intraday-stats");if(!d)return;const cs=d.cash_status||{};const ml={"extreme":"🔴極激","aggressive":"🟠激進","normal":"🟢正常"};try{["intraCashRatio","intraCashAmount","intraModeLabel","intraModeMultiplier","intraActivatedBadge","intraActivatedDesc"].forEach(el=>{const e=document.getElementById(el);if(!e)return;if(el==="intraCashRatio")e.textContent=(cs.cash_ratio||0).toFixed(1)+"%";else if(el==="intraCashAmount")e.textContent=fmt(cs.cash_amount||0);else if(el==="intraModeLabel")e.textContent=ml[cs.mode]||cs.mode;else if(el==="intraModeMultiplier")e.textContent=cs.multiplier||"1.0";else if(el==="intraActivatedBadge")e.textContent=cs.activated?"✅":"❌";else if(el==="intraActivatedDesc")e.textContent=cs.activated?"已激活":"正常模式";});}catch(e){}const tr=d.trade_metrics||{};try{const el_ids=["intraTotalTrades","intraBuySell","intraWinRate","intraAvgPnl","intraWinLoss","intraTotalPnl"];el_ids.forEach(id=>{const el=document.getElementById(id);if(!el)return;if(id==="intraTotalTrades")el.textContent=tr.total_trades||0;else if(id==="intraBuySell")el.textContent=(tr.buy_orders||0)+"|"+(tr.sell_orders||0);else if(id==="intraWinRate"){const wr=tr.win_rate||0;el.textContent=wr.toFixed(1)+"%";el.style.color=wr>=50?"var(--up)":"var(--down)";}});}catch(e){}const macd=d.macd_signals||{};["intraMacdSignals","intraWeeklyAvgSignals","intraHistogramCrosses","intraWeeklyAvgCrosses"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(macd[id.replace("intra","")] || 0)});const hm=d.portfolio_heat_map||{};["intraHeatmapHighGain","intraHeatmapNormal","intraHeatmapWarning","intraHeatmapDanger"].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(hm[id.replace("intraHeatmap","").toLowerCase()]||[]).length;});document.getElementById("intraStatsLastUpdate").textContent="更新: "+new Date().toLocaleTimeString("zh-CN");}
 
 // v5.89 盤中實時性能統計 (loadIntradayStats)
 async function loadIntradayStats(){
@@ -2514,83 +2498,3 @@ async function loadIntradayStats(){
 </script>
 </body>
 </html>
-
-// v5.89 盤中實時性能統計函數
-async function loadIntradayStats() {
-  const d = await api('/api/finance/intraday-stats');
-  if (!d) return;
-  
-  // 現金狀態
-  const cashStatus = d.cash_status || {};
-  const modeLabels = { 'extreme': '🔴 極度激進', 'aggressive': '🟠 激進', 'normal': '🟢 正常', 'unknown': '⚪ 未知' };
-  const modeColors = { 'extreme': '#e63946', 'aggressive': '#ffd166', 'normal': '#4361ee', 'unknown': '#999' };
-  
-  try {
-    document.getElementById('intraCashRatio').textContent = (cashStatus.cash_ratio || 0).toFixed(1) + '%';
-    document.getElementById('intraCashAmount').textContent = fmt(cashStatus.cash_amount || 0);
-    document.getElementById('intraModeLabel').textContent = modeLabels[cashStatus.mode] || cashStatus.mode;
-    document.getElementById('intraModeLabel').style.color = modeColors[cashStatus.mode] || '#666';
-    document.getElementById('intraModeMultiplier').textContent = cashStatus.multiplier || '1.0';
-    document.getElementById('intraActivatedBadge').textContent = cashStatus.activated ? '✅' : '❌';
-    document.getElementById('intraActivatedDesc').textContent = cashStatus.activated ? '已激活' : '正常模式';
-  } catch (e) { console.log('Cash status rendering error:', e); }
-  
-  // 交易指標
-  const trades = d.trade_metrics || {};
-  try {
-    document.getElementById('intraTotalTrades').textContent = trades.total_trades || 0;
-    document.getElementById('intraBuySell').textContent = (trades.buy_orders || 0) + ' | ' + (trades.sell_orders || 0);
-    const winRate = trades.win_rate || 0;
-    document.getElementById('intraWinRate').textContent = winRate.toFixed(1) + '%';
-    document.getElementById('intraWinRate').style.color = winRate >= 50 ? 'var(--up)' : 'var(--down)';
-    document.getElementById('intraAvgPnl').textContent = (trades.avg_pnl_pct >= 0 ? '+' : '') + (trades.avg_pnl_pct || 0).toFixed(2) + '%';
-    document.getElementById('intraAvgPnl').style.color = trades.avg_pnl_pct >= 0 ? 'var(--up)' : 'var(--down)';
-    document.getElementById('intraWinLoss').textContent = (trades.win_trades || 0) + ' | ' + (trades.loss_trades || 0);
-    document.getElementById('intraTotalPnl').textContent = '¥' + fmt(trades.total_pnl || 0);
-    document.getElementById('intraTotalPnl').style.color = trades.total_pnl >= 0 ? 'var(--up)' : 'var(--down)';
-  } catch (e) { console.log('Trade metrics rendering error:', e); }
-  
-  // MACD信號
-  const macd = d.macd_signals || {};
-  try {
-    document.getElementById('intraMacdSignals').textContent = macd.macd_signals_today || 0;
-    document.getElementById('intraWeeklyAvgSignals').textContent = (macd.weekly_avg_signals || 0).toFixed(1);
-    document.getElementById('intraHistogramCrosses').textContent = macd.histogram_crosses_today || 0;
-    document.getElementById('intraWeeklyAvgCrosses').textContent = (macd.weekly_histogram_crosses || 0).toFixed(1);
-  } catch (e) { console.log('MACD rendering error:', e); }
-  
-  // 熱力圖
-  const heatmap = d.portfolio_heat_map || {};
-  try {
-    document.getElementById('intraHeatmapHighGain').textContent = (heatmap.high_gain || []).length;
-    document.getElementById('intraHeatmapNormal').textContent = (heatmap.normal || []).length;
-    document.getElementById('intraHeatmapWarning').textContent = (heatmap.warning || []).length;
-    document.getElementById('intraHeatmapDanger').textContent = (heatmap.danger || []).length;
-    
-    // 詳細清單
-    let listHtml = '';
-    const allPos = [...(heatmap.high_gain || []), ...(heatmap.normal || []), ...(heatmap.warning || []), ...(heatmap.danger || [])];
-    if (allPos.length === 0) {
-      listHtml = '<div style="color:var(--sub);text-align:center;padding:12px">暫無持倉</div>';
-    } else {
-      listHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">';
-      allPos.slice(0, 12).forEach(pos => {
-        const color = pos.pnl_pct >= 10 ? '#2ec4b6' : pos.pnl_pct >= -5 ? '#4361ee' : pos.pnl_pct >= -10 ? '#ffd166' : '#e63946';
-        listHtml += `<div style="padding:8px;background:${color}15;border:1px solid ${color}33;border-radius:6px;text-align:center"><div style="font-weight:600;color:${color}">${pos.symbol}</div><div style="font-size:11px;color:var(--sub)">${pos.pnl_pct > 0 ? '+' : ''}${pos.pnl_pct}%</div></div>`;
-      });
-      listHtml += '</div>';
-    }
-    document.getElementById('intraHeatmapList').innerHTML = listHtml;
-  } catch (e) { console.log('Heatmap rendering error:', e); }
-  
-  // 時間戳
-  document.getElementById('intraStatsLastUpdate').textContent = '更新時間: ' + new Date().toLocaleTimeString('zh-CN');
-}
-
-// 自動定時刷新 (30秒)
-setInterval(() => {
-  if (document.querySelector('.tab.active[data-tab="intradeystats"]')) {
-    loadIntradayStats();
-  }
-}, 30000);
-
