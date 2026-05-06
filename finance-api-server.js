@@ -1907,38 +1907,56 @@ except Exception as e:
   }
 }
 
-// === INTRADAY STATS HANDLER (v5.88 盤中優化 新增實時統計) ===
+
+// === INTRADAY STATS (v5.88) ===
 function handleIntradayStats(req, res) {
   try {
-    const pyCode = `
-import sys, json
-sys.path.insert(0, '/home/nikefd/finance-agent')
-try:
-  from ui_intraday_stats_api import IntradayStatsCollector
-  collector = IntradayStatsCollector()
-  stats = collector.collect_all_stats()
-  collector.close()
-  print(json.dumps(stats, ensure_ascii=False))
-except Exception as e:
-  print(json.dumps({
-    'timestamp': '',
-    'cash_status': {'mode': 'unknown', 'cash_ratio': 0},
-    'trade_metrics': {'total_trades': 0, 'win_rate': 0},
-    'macd_signals': {'macd_signals_today': 0},
-    'portfolio_heat_map': {'high_gain': [], 'normal': [], 'warning': [], 'danger': []}
-  }))
-`;
-    const out = execSync(\`python3 -c "\${pyCode.replace(/"/g, '\\\\"')}"\`, { timeout: 10000 }).toString().trim();
-    const result = JSON.parse(out || '{}');
-    sendJson(res, result);
+    const pyScript = '/home/nikefd/finance-agent/ui_intraday_stats_api.py';
+    const out = execSync('python3 ' + pyScript, {timeout: 5000, encoding: 'utf-8'});
+    const lines = out.split('\n');
+    // Find first line that starts with {
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
   } catch (e) {
-    log(\`Intraday stats error: \${e.message}\`);
+    log('Intraday error: ' + e.message);
     sendJson(res, {
       timestamp: new Date().toISOString(),
-      cash_status: { mode: 'error', cash_ratio: 0, activated: false },
-      trade_metrics: { total_trades: 0, win_rate: 0, avg_pnl_pct: 0 },
-      macd_signals: { macd_signals_today: 0, histogram_crosses_today: 0 },
-      portfolio_heat_map: { high_gain: [], normal: [], warning: [], danger: [] }
+      cash_status: {mode: 'error', cash_ratio: 0, activated: false},
+      trade_metrics: {total_trades: 0, win_rate: 0},
+      macd_signals: {macd_signals_today: 0},
+      portfolio_heat_map: {high_gain: [], normal: [], warning: [], danger: []}
+    });
+  }
+}
+
+// === INTRADAY STATS (v5.88) ===
+function handleIntradayStats(req, res) {
+  try {
+    const pyScript = '/home/nikefd/finance-agent/ui_intraday_stats_api.py';
+    const out = execSync('python3 ' + pyScript, {timeout: 5000, encoding: 'utf-8'});
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('Intraday: ' + e.message);
+    sendJson(res, {
+      timestamp: new Date().toISOString(),
+      cash_status: {mode: 'error', cash_ratio: 0},
+      trade_metrics: {total_trades: 0, win_rate: 0},
+      macd_signals: {macd_signals_today: 0},
+      portfolio_heat_map: {high_gain: [], normal: [], warning: [], danger: []}
     });
   }
 }

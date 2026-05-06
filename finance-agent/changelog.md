@@ -1424,3 +1424,108 @@ HTML前端:
 4. 看新闻舆情 → 了解市场主要关切点
 
 整个过程<1秒完成，数据实时更新，赋能决策。
+
+---
+
+## 2026-05-06 11:30 — 【v5.89 盤中實時性能儀表板】UI增強 + 績效統計API ⚡
+
+✅ **核心改進：實時監控 + 現金激活狀態 + MACD直方圖信號統計**
+
+### 【v5.89 改進點分析】
+
+#### 改進① - 實時性能儀表板 (UI增強) ⚡
+**新增標籤頁:** 「⚡ 實時性能」
+
+**展示內容:**
+1. **現金狀態卡片** (3大指標)
+   - 💰 現金占比 + 金額
+   - ⚡ 激活模式 (極度激進/激進/正常)
+   - 📊 激活狀態徽章 (✅已激活/❌正常模式)
+
+2. **日內交易統計**
+   - 總交易次 | 買入|賣出
+   - 勝率 (紅/綠自動判斷)
+   - 平均盈虧% + 勝|負 + 總收益
+   - 6項KPI實時展示
+
+3. **MACD信號統計 (v5.88專項)**
+   - 📈 今日MACD信號計數 + 週均
+   - 📊 直方圖翻正次數 (新增強信號) + 週均
+
+4. **持倉熱力分佈**
+   - 4級風險分類: 高收益(+10%~) | 正常(-5%~10%) | 警告(-10%~-5%) | 危險(<-10%)
+   - 實時持倉列表 (顏色分級顯示)
+
+**實時刷新:** 30秒自動刷新 (當標籤活躍時)
+
+#### 改進② - 績效統計API (/api/finance/intraday-stats)
+**新端點:** `/api/finance/intraday-stats`
+
+**返回數據結構:**
+```json
+{
+  "timestamp": "2026-05-06T03:36:06.409205",
+  "cash_status": {
+    "mode": "extreme|aggressive|normal|unknown",
+    "cash_ratio": 99.25,
+    "cash_amount": 994399.18,
+    "threshold": 99.0,
+    "multiplier": 1.5,
+    "activated": true
+  },
+  "trade_metrics": {
+    "total_trades": 0,
+    "buy_orders": 0,
+    "sell_orders": 0,
+    "win_trades": 0,
+    "loss_trades": 0,
+    "win_rate": 0.0,
+    "avg_pnl_pct": 0.0,
+    "total_pnl": 0.0
+  },
+  "macd_signals": {
+    "macd_signals_today": 0,
+    "histogram_crosses_today": 0,
+    "weekly_avg_signals": 0.0,
+    "weekly_histogram_crosses": 0.0
+  },
+  "portfolio_heat_map": {
+    "high_gain": [...],
+    "normal": [...],
+    "warning": [...],
+    "danger": [...]
+  }
+}
+```
+
+### 【技術實現】
+
+**新增文件:**
+- `ui_intraday_stats_api.py` — Python資料收集器 (1個類 + 8個方法)
+- HTML面板 (970行) — UI元件
+- JS函數 (loadIntradayStats) — 前端數據綁定
+
+**修改文件:**
+- `finance-api-server.js` — 新增 handleIntradayStats 路由
+- `finance.html` — 新增標籤頁 + 面板 + JS函數
+
+### 【性能指標】
+
+| 指標 | v5.88 | v5.89 | 改進 |
+|------|-------|-------|------|
+| 現金檢測 | 手動檢查 | 自動檢測 | ✅ 實時激活 |
+| 交易統計 | 無 | 完整 | ✅ 6大KPI |
+| MACD監控 | 基礎 | 增強 | ✅ +直方圖翻正 |
+| UI刷新頻率 | 300秒 | 30秒 | ✅ 10倍加速 |
+| 風險可視化 | 表格 | 熱力圖 | ✅ 彩色分級 |
+
+### 【下一步】
+
+1. ✅ Python收集器完成
+2. ✅ API端點添加
+3. ✅ HTML UI集成
+4. ✅ 系統測試
+5. ✅ 部署上線
+
+**狀態:** 🟢 完成 | 測試通過 | 已部署生產
+
