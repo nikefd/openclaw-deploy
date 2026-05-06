@@ -738,22 +738,6 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .game-card .verdict.go{color:#22c55e}
 .game-card .verdict.maybe{color:#f59e0b}
 .game-card .verdict.no{color:#ef4444}
-/* multi-rating extras */
-.game-card .gtag.gtag-rev{background:rgba(96,165,250,.12);color:#60a5fa;border-color:rgba(96,165,250,.4)}
-.game-card .gtag.gtag-warn{background:rgba(245,158,11,.12);color:#f59e0b;border-color:rgba(245,158,11,.4)}
-.std-warn{color:#f59e0b;font-size:.9em}
-.btn.xs{padding:2px 8px;font-size:.75rem;border-radius:5px}
-.rating-row{padding:10px 0;border-bottom:1px dashed var(--border)}
-.rating-row:last-child{border-bottom:none}
-.rating-row.me{background:rgba(96,165,250,.06);border-radius:8px;padding:10px 12px;border-bottom:1px dashed rgba(96,165,250,.3)}
-.rating-row .rr-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.88rem}
-.rating-row .rr-user{font-weight:600}
-.rating-row .me-tag{font-size:.7rem;background:#60a5fa;color:#fff;padding:1px 6px;border-radius:8px;margin-left:4px}
-.rating-row .rr-score{font-weight:700;color:#f59e0b}
-.rating-row .rr-actions{margin-left:auto;display:flex;gap:4px}
-.rating-row .rr-notes{margin-top:6px;font-size:.85rem;color:var(--text);line-height:1.5;white-space:pre-wrap}
-.rating-row .rr-aha{margin-top:6px;font-size:.72rem;color:var(--text2);line-height:1.6}
-.rating-row .rr-aha b{color:var(--text)}
 .gd-wrap{display:grid;grid-template-columns:minmax(260px,1fr) 2fr;gap:18px;margin-top:8px}
 @media(max-width:900px){.gd-wrap{grid-template-columns:1fr}}
 .gd-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
@@ -993,13 +977,11 @@ function _push(url){if(location.pathname+location.search===url)return;history.pu
 function _replace(url){if(location.pathname+location.search===url)return;history.replaceState({},'',url)}
 
 function showHub(push=true){document.getElementById('hubView').style.display='';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));if(push)_push('/agents/')}
-function showPanel(n,push=true){document.getElementById('hubView').style.display='none';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));const pe=document.getElementById('panel-'+n);if(!pe){showHub(push);return}pe.classList.add('active');if(push)_push('/agents/'+n);if(n==='ai-news'&&!window._aiNewsLoaded){window._aiNewsLoaded=true;loadNewsList().then(()=>loadTracks())}if(n==='fitness'&&!window._fitnessLoaded){window._fitnessLoaded=true;loadClimbingCoach()}if(n==='interview'&&!window._ivLoaded){window._ivLoaded=true;loadIVData()}if(n==='tasks'){loadTasks();_startTasksAutoRefresh()}else{_stopTasksAutoRefresh()}if(n==='games'){const sp=new URLSearchParams(location.search).get('share');if(sp){_gamesShareMode=true;document.body.classList.add('games-share');gamesShowDetail(sp)}else{_gamesShareMode=false;document.body.classList.remove('games-share');gamesShowList();gamesLoadList()}}}
+function showPanel(n,push=true){document.getElementById('hubView').style.display='none';document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));const pe=document.getElementById('panel-'+n);if(!pe){showHub(push);return}pe.classList.add('active');if(push)_push('/agents/'+n);if(n==='ai-news'&&!window._aiNewsLoaded){window._aiNewsLoaded=true;loadNewsList().then(()=>loadTracks())}if(n==='fitness'&&!window._fitnessLoaded){window._fitnessLoaded=true;loadClimbingCoach()}if(n==='interview'&&!window._ivLoaded){window._ivLoaded=true;loadIVData()}if(n==='tasks'){loadTasks();_startTasksAutoRefresh()}else{_stopTasksAutoRefresh()}if(n==='games'){gamesShowList();gamesLoadList()}}
 
-/* ============ 🎮 Games Aha Moment 评测（多人评分版） ============ */
+/* ============ 🎮 Games Aha Moment 评测 ============ */
 const GAMES_API='/api/games/reviews';
-let _gamesList=[];let _gamesCurrent=null;let _gamesCharts={};let _gamesShareMode=false;
-function _gamesUser(){let u=localStorage.getItem('gamesUser')||'';if(!u){u=(prompt('给自己起个名字（用于评分署名）：','斌哥')||'').trim().slice(0,30);if(u)localStorage.setItem('gamesUser',u)}return u||'Anonymous'}
-function gamesSetUser(){const cur=localStorage.getItem('gamesUser')||'';const u=(prompt('修改评分署名：',cur)||'').trim().slice(0,30);if(u){localStorage.setItem('gamesUser',u);if(_gamesCurrent)gamesShowDetail(_gamesCurrent.id)}}
+let _gamesList=[];let _gamesCurrent=null;let _gamesCharts={};
 const AHA_FIELDS=[
   {k:'firstTouch',label:'First Touch',sub:'0-30s 秒懂玩法'},
   {k:'firstWin',label:'First Win',sub:'30s-3min 第一次赢'},
@@ -1008,19 +990,15 @@ const AHA_FIELDS=[
   {k:'retention',label:'Retention',sub:'第二天还想打开'}
 ];
 function gEsc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function _gFmt(n,d=1){return n==null||isNaN(n)?'—':Number(n).toFixed(d)}
-function _gVerdictText(v){return v==='go'?'✅ 值得做':v==='no'?'❌ 别碰':v==='maybe'?'⚠️ 谨慎':'—'}
-function _gVerdictClass(v){return v==='go'?'go':v==='no'?'no':'maybe'}
-function gamesBack(){if(_gamesShareMode){return}
-  if(document.getElementById('gamesDetailView').style.display!=='none'||document.getElementById('gamesEditView').style.display!=='none'){gamesShowList();return}showHub()}
-function gamesShowList(){if(_gamesShareMode)return;document.getElementById('gamesListView').style.display='';document.getElementById('gamesDetailView').style.display='none';document.getElementById('gamesEditView').style.display='none';document.getElementById('gamesTitle').textContent='🎮 游戏 Aha Moment 评测';if(location.hash)history.replaceState({},'',location.pathname+location.search)}
+function gamesBack(){if(document.getElementById('gamesDetailView').style.display!=='none'||document.getElementById('gamesEditView').style.display!=='none'){gamesShowList();return}showHub()}
+function gamesShowList(){document.getElementById('gamesListView').style.display='';document.getElementById('gamesDetailView').style.display='none';document.getElementById('gamesEditView').style.display='none';document.getElementById('gamesTitle').textContent='🎮 游戏 Aha Moment 评测'}
 async function gamesLoadList(){
   try{
     const r=await fetch(GAMES_API);const j=await r.json();_gamesList=j.items||[];
-    const card=document.getElementById('gamesCardStatus');if(card)card.textContent='\u25cf '+_gamesList.length+' \u6b3e\u6e38\u620f';
+    const card=document.getElementById('gamesCardStatus');if(card)card.textContent=`● ${_gamesList.length} 款游戏`;
     gamesRenderList();
   }catch(e){
-    document.getElementById('gamesGrid').innerHTML='<div class="games-empty">\u26a0\ufe0f \u52a0\u8f7d\u5931\u8d25\uff1a'+gEsc(e.message)+'</div>';
+    document.getElementById('gamesGrid').innerHTML='<div class="games-empty">⚠️ 加载失败：'+gEsc(e.message)+'</div>';
   }
 }
 function gamesRenderList(){
@@ -1030,134 +1008,85 @@ function gamesRenderList(){
   let items=_gamesList.slice();
   if(q)items=items.filter(g=>(g.name||'').toLowerCase().includes(q)||(g.genre||'').toLowerCase().includes(q)||(g.target||'').toLowerCase().includes(q));
   if(genre)items=items.filter(g=>g.genre===genre);
-  if(!items.length){grid.innerHTML='<div class="games-empty">\u8fd8\u6ca1\u6709\u8bc4\u6d4b\uff0c\u70b9\u53f3\u4e0a\u89d2 <b>+ \u65b0\u589e\u8bc4\u6d4b</b> \u5f00\u59cb \ud83c\udfaf</div>';return}
+  if(!items.length){grid.innerHTML='<div class="games-empty">还没有评测，点右上角 <b>+ 新增评测</b> 开始 🎯</div>';return}
   grid.innerHTML=items.map(g=>{
-    const vClass=_gVerdictClass(g.verdict);
-    const vText=g.verdict?_gVerdictText(g.verdict):'';
-    const score=_gFmt(g.score,1);
-    const rc=g.reviewCount||0;
-    const high=Number(g.std||0)>=1.5;
-    return '<div class="game-card" onclick="gamesShowDetail(\''+gEsc(g.id)+'\')">'+
-      '<div class="gh">'+
-        '<div class="gicon">'+gEsc(g.icon||'\ud83c\udfae')+'</div>'+
-        '<div style="flex:1;min-width:0"><h3>'+gEsc(g.name||'(\u65e0\u540d)')+'</h3>'+
-          '<div class="meta">'+gEsc(g.genre||'')+(g.platform?' \u00b7 '+gEsc(g.platform):'')+'</div></div>'+
-        '<div class="gscore">\u2b50 '+score+'</div>'+
-      '</div>'+
-      '<div class="gtags">'+
-        '<span class="gtag gtag-rev">\ud83d\udc65 '+rc+' \u4eba\u8bc4</span>'+
-        (high?'<span class="gtag gtag-warn" title="\u8bc4\u5206\u6807\u51c6\u5dee \u2265 1.5">\u26a1 \u5206\u6b67</span>':'')+
-        (g.target?'<span class="gtag">\ud83d\udc64 '+gEsc(g.target)+'</span>':'')+
-        (g.monetization?'<span class="gtag">\ud83d\udcb0 '+gEsc(g.monetization)+'</span>':'')+
-      '</div>'+
-      (g.ahaSummary?'<div class="aha">\ud83d\udca1 '+gEsc(g.ahaSummary)+'</div>':'')+
-      (vText?'<div class="verdict '+vClass+'">'+vText+'</div>':'')+
-    '</div>';
+    const vClass=g.verdict==='go'?'go':g.verdict==='no'?'no':'maybe';
+    const vText=g.verdict==='go'?'✅ 值得做':g.verdict==='no'?'❌ 别碰':g.verdict==='maybe'?'⚠️ 谨慎':'';
+    const score=(g.score!=null)?Number(g.score).toFixed(1):'—';
+    return `<div class="game-card" onclick="gamesShowDetail('${gEsc(g.id)}')">
+      <div class="gh">
+        <div class="gicon">${gEsc(g.icon||'🎮')}</div>
+        <div style="flex:1;min-width:0"><h3>${gEsc(g.name||'(无名)')}</h3><div class="meta">${gEsc(g.genre||'')}${g.platform?' · '+gEsc(g.platform):''}</div></div>
+        <div class="gscore">⭐ ${score}</div>
+      </div>
+      <div class="gtags">${g.target?`<span class="gtag">👥 ${gEsc(g.target)}</span>`:''}${g.monetization?`<span class="gtag">💰 ${gEsc(g.monetization)}</span>`:''}</div>
+      ${g.ahaSummary?`<div class="aha">💡 ${gEsc(g.ahaSummary)}</div>`:''}
+      ${vText?`<div class="verdict ${vClass}">${vText}</div>`:''}
+    </div>`;
   }).join('');
 }
 async function gamesShowDetail(id){
   try{
-    const r=await fetch(GAMES_API+'/'+encodeURIComponent(id)+'/summary');
+    const r=await fetch(GAMES_API+'/'+encodeURIComponent(id));
     if(!r.ok)throw new Error('HTTP '+r.status);
-    const data=await r.json();
-    const meta=data.meta||{};
-    const summary=data.summary||{count:0};
-    const ratings=data.ratings||[];
-    const aiSummary=data.aiSummary||'';
-    const g={id,...meta,summary,ratings,aiSummary};
-    _gamesCurrent=g;
+    const g=await r.json();_gamesCurrent=g;
     document.getElementById('gamesListView').style.display='none';
     document.getElementById('gamesEditView').style.display='none';
     const dv=document.getElementById('gamesDetailView');dv.style.display='';
-    document.getElementById('gamesTitle').textContent=(meta.icon||'\ud83c\udfae')+' '+(meta.name||'');
-    const score=_gFmt(summary.score,1);
-    const vText=_gVerdictText(summary.verdict);
-    const vClass=_gVerdictClass(summary.verdict);
-    const std=Number(summary.std||0);
-    const stdHigh=std>=1.5;
-    const me=_gamesUser();
-    const myRating=ratings.find(r=>r.user===me);
-    const ahaAvg=summary.ahaAvg||{};
-
-    const ratingsHtml=ratings.length? ratings.map(r=>{
-      const isMe=r.user===me&&!_gamesShareMode;
-      const rv=_gVerdictText(r.verdict);
-      const rvc=_gVerdictClass(r.verdict);
-      const rsc=r.score!=null?Number(r.score).toFixed(1):'\u2014';
-      return '<div class="rating-row'+(isMe?' me':'')+'">'+
-        '<div class="rr-head">'+
-          '<span class="rr-user">'+gEsc(r.user||'Anon')+(isMe?' <span class="me-tag">\u4f60</span>':'')+'</span>'+
-          '<span class="rr-score">\u2b50 '+rsc+'</span>'+
-          (r.verdict?'<span class="verdict '+rvc+'">'+rv+'</span>':'')+
-          (isMe?'<span class="rr-actions"><button class="btn xs" onclick="gamesRate(\''+gEsc(g.id)+'\',\''+gEsc(r.ratingId)+'\')">\u270f\ufe0f</button>'+
-            '<button class="btn xs" style="color:#ef4444" onclick="gamesDeleteRating(\''+gEsc(g.id)+'\',\''+gEsc(r.ratingId)+'\')">\ud83d\uddd1</button></span>':'')+
-        '</div>'+
-        (r.notes?'<div class="rr-notes">'+gEsc(r.notes)+'</div>':'')+
-        '<div class="rr-aha">'+AHA_FIELDS.map(f=>'<span title="'+f.label+'">'+f.label.split(' ')[0]+': <b>'+(Number((r.aha||{})[f.k]||0)||'\u2014')+'</b></span>').join(' \u00b7 ')+'</div>'+
-      '</div>';
-    }).join('') : '<div class="games-empty" style="padding:20px">\u8fd8\u6ca1\u4eba\u8bc4\u5206\uff0c\u4f60\u6765\u9996\u8bc4 \ud83c\udfaf</div>';
-
-    dv.innerHTML=
-      '<div class="gd-wrap">'+
-        '<div>'+
-          '<div class="gd-card">'+
-            '<h4>\ud83d\udccb \u57fa\u7840\u4fe1\u606f</h4>'+
-            '<div class="gd-row"><span class="k">\u7efc\u5408\u8bc4\u5206</span><span class="v gscore">\u2b50 '+score+(stdHigh?' <span class="std-warn" title="\u6807\u51c6\u5dee '+std.toFixed(2)+'">\u26a1</span>':'')+'</span></div>'+
-            '<div class="gd-row"><span class="k">\u8bc4\u6d4b\u4eba\u6570</span><span class="v">'+(summary.count||0)+' \u4eba</span></div>'+
-            '<div class="gd-row"><span class="k">\u9898\u6750</span><span class="v">'+gEsc(meta.genre||'\u2014')+'</span></div>'+
-            '<div class="gd-row"><span class="k">\u5e73\u53f0</span><span class="v">'+gEsc(meta.platform||'\u2014')+'</span></div>'+
-            '<div class="gd-row"><span class="k">\u53d8\u73b0\u6a21\u5f0f</span><span class="v">'+gEsc(meta.monetization||'\u2014')+'</span></div>'+
-            '<div class="gd-row"><span class="k">\u76ee\u6807\u7528\u6237</span><span class="v">'+gEsc(meta.target||'\u2014')+'</span></div>'+
-            '<div class="gd-row"><span class="k">\u5355\u5c40\u65f6\u957f</span><span class="v">'+gEsc(meta.sessionLen||'\u2014')+'</span></div>'+
-            '<div class="gd-row"><span class="k">\u7acb\u9879\u5efa\u8bae</span><span class="v verdict '+vClass+'">'+vText+'</span></div>'+
-            (_gamesShareMode?'':
-              '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">'+
-                '<button class="btn primary" onclick="gamesRate(\''+gEsc(g.id)+'\',\''+(myRating?gEsc(myRating.ratingId):'')+'\')">'+(myRating?'\u270f\ufe0f \u4fee\u6539\u6211\u7684\u8bc4\u5206':'\u2795 \u6211\u6765\u8bc4\u5206')+'</button>'+
-                '<button class="btn" onclick="gamesEditMeta(\''+gEsc(g.id)+'\')">\ud83d\udcdd \u6539\u57fa\u7840\u4fe1\u606f</button>'+
-                '<button class="btn" onclick="gamesShare(\''+gEsc(g.id)+'\')">\ud83d\udd17 \u5206\u4eab</button>'+
-                '<button class="btn" onclick="gamesDelete(\''+gEsc(g.id)+'\')" style="color:#ef4444">\ud83d\uddd1 \u5220\u6e38\u620f</button>'+
-              '</div>')+
-          '</div>'+
-          '<div class="gd-card" style="margin-top:14px">'+
-            '<h4>\ud83c\udfaf 5 \u7ef4\u96f7\u8fbe\uff08\u5747\u503c\uff09</h4>'+
-            '<canvas id="gameRadar" height="220"></canvas>'+
-          '</div>'+
-        '</div>'+
-        '<div>'+
-          '<div class="gd-card">'+
-            '<h4>\ud83d\udcc8 Aha Moment \u66f2\u7ebf\uff08\u5747\u503c\uff09</h4>'+
-            '<canvas id="gameAhaCurve" height="160"></canvas>'+
-            '<div class="gd-section">'+
-              AHA_FIELDS.map(f=>{const v=Number(ahaAvg[f.k]||0);return '<div class="aha-row"><div class="label">'+f.label+'<span class="sub">'+f.sub+'</span></div><div class="bar"><span style="width:'+(v*10)+'%"></span></div><div class="num">'+(v?v.toFixed(1):'\u2014')+'</div></div>'}).join('')+
-            '</div>'+
-          '</div>'+
-          '<div class="gd-card" style="margin-top:14px">'+
-            '<h4>\ud83d\udc65 \u5404\u4eba\u8bc4\u6d4b ('+ratings.length+')</h4>'+
-            ratingsHtml+
-          '</div>'+
-          (meta.ahaSummary?'<div class="gd-card" style="margin-top:14px"><h4>\ud83d\udca1 Aha Summary</h4><div style="line-height:1.6">'+gEsc(meta.ahaSummary)+'</div></div>':'')+
-          (meta.competitors?'<div class="gd-card" style="margin-top:14px"><h4>\ud83c\udd9a \u7ade\u54c1\u5bf9\u6807</h4><div style="white-space:pre-wrap;line-height:1.6">'+gEsc(meta.competitors)+'</div></div>':'')+
-          (meta.notes?'<div class="gd-card" style="margin-top:14px"><h4>\ud83d\udcdd \u5907\u6ce8 / \u7acb\u9879\u7406\u7531</h4><div style="white-space:pre-wrap;line-height:1.6">'+gEsc(meta.notes)+'</div></div>':'')+
-          '<div class="gd-card" style="margin-top:14px" id="aiSummaryCard">'+
-            '<h4>\ud83e\udd16 AI \u603b\u7ed3 '+(_gamesShareMode?'':'<button class="btn xs" style="float:right" onclick="gamesGenAi(\''+gEsc(g.id)+'\')">'+(aiSummary?'\u91cd\u65b0\u751f\u6210':'\u751f\u6210\u603b\u7ed3')+'</button>')+'</h4>'+
-            '<div id="aiSummaryBody" style="white-space:pre-wrap;line-height:1.7;color:var(--text)">'+(aiSummary?gEsc(aiSummary):'<span style="color:var(--text2)">\u8fd8\u6ca1\u751f\u6210\u3002\u5f53\u8bc4\u6d4b\u4eba\u6570 \u2265 2 \u65f6\u70b9\u8fd9\u91cc\u53ef\u8ba9 LLM \u6c47\u603b\u5206\u6b67\u70b9\u3002</span>')+'</div>'+
-          '</div>'+
-        '</div>'+
-      '</div>';
-    setTimeout(()=>gamesDrawCharts({aha:ahaAvg,name:meta.name}),50);
-  }catch(e){alert('\u52a0\u8f7d\u5931\u8d25\uff1a'+e.message)}
+    document.getElementById('gamesTitle').textContent=(g.icon||'🎮')+' '+(g.name||'');
+    const aha=g.aha||{};
+    const score=(g.score!=null)?Number(g.score).toFixed(1):'—';
+    const vText=g.verdict==='go'?'✅ 值得做':g.verdict==='no'?'❌ 别碰':g.verdict==='maybe'?'⚠️ 谨慎':'—';
+    const vClass=g.verdict==='go'?'go':g.verdict==='no'?'no':'maybe';
+    dv.innerHTML=`
+      <div class="gd-wrap">
+        <div>
+          <div class="gd-card">
+            <h4>📋 基础信息</h4>
+            <div class="gd-row"><span class="k">综合评分</span><span class="v gscore">⭐ ${score}</span></div>
+            <div class="gd-row"><span class="k">题材</span><span class="v">${gEsc(g.genre||'—')}</span></div>
+            <div class="gd-row"><span class="k">平台</span><span class="v">${gEsc(g.platform||'—')}</span></div>
+            <div class="gd-row"><span class="k">变现模式</span><span class="v">${gEsc(g.monetization||'—')}</span></div>
+            <div class="gd-row"><span class="k">目标用户</span><span class="v">${gEsc(g.target||'—')}</span></div>
+            <div class="gd-row"><span class="k">单局时长</span><span class="v">${gEsc(g.sessionLen||'—')}</span></div>
+            <div class="gd-row"><span class="k">立项建议</span><span class="v verdict ${vClass}">${vText}</span></div>
+            <div style="margin-top:14px;display:flex;gap:8px">
+              <button class="btn" onclick="gamesEdit('${gEsc(g.id)}')">✏️ 编辑</button>
+              <button class="btn" onclick="gamesDelete('${gEsc(g.id)}')" style="color:#ef4444">🗑 删除</button>
+            </div>
+          </div>
+          <div class="gd-card" style="margin-top:14px">
+            <h4>🎯 5 维度雷达</h4>
+            <canvas id="gameRadar" height="220"></canvas>
+          </div>
+        </div>
+        <div>
+          <div class="gd-card">
+            <h4>📈 Aha Moment 曲线</h4>
+            <canvas id="gameAhaCurve" height="160"></canvas>
+            <div class="gd-section">
+              ${AHA_FIELDS.map(f=>{const v=Number(aha[f.k]||0);return `<div class="aha-row"><div class="label">${f.label}<span class="sub">${f.sub}</span></div><div class="bar"><span style="width:${v*10}%"></span></div><div class="num">${v||'—'}</div></div>`}).join('')}
+            </div>
+          </div>
+          ${g.ahaSummary?`<div class="gd-card" style="margin-top:14px"><h4>💡 Aha Summary</h4><div style="line-height:1.6">${gEsc(g.ahaSummary)}</div></div>`:''}
+          ${g.competitors?`<div class="gd-card" style="margin-top:14px"><h4>🆚 竞品对标</h4><div style="white-space:pre-wrap;line-height:1.6">${gEsc(g.competitors)}</div></div>`:''}
+          ${g.notes?`<div class="gd-card" style="margin-top:14px"><h4>📝 备注 / 立项理由</h4><div style="white-space:pre-wrap;line-height:1.6">${gEsc(g.notes)}</div></div>`:''}
+        </div>
+      </div>`;
+    setTimeout(()=>gamesDrawCharts(g),50);
+  }catch(e){alert('加载失败：'+e.message)}
 }
 function gamesDrawCharts(g){
-  try{Object.values(_gamesCharts).forEach(c=>c&&c.destroy&&c.destroy())}catch(_){}
+  try{Object.values(_gamesCharts).forEach(c=>c&&c.destroy&&c.destroy())}catch{}
   _gamesCharts={};
   const aha=g.aha||{};
   const sum=AHA_FIELDS.reduce((s,f)=>s+Number(aha[f.k]||0),0);
   const empty=sum===0;
-  const placeholder='<div style="padding:24px;text-align:center;color:var(--text2);font-size:.88rem;line-height:1.7">\u8fd8\u6ca1\u8bc4\u5206\uff0c\u70b9\u4e0a\u9762 <b>\u2795 \u6211\u6765\u8bc4\u5206</b> \u586b\u4e00\u4e0b 5 \u4e2a\u7ef4\u5ea6 \ud83c\udfaf<br><span style="font-size:.76rem">First Touch / First Win / Aha Moment / Loop Hook / Retention</span></div>';
+  const placeholder='<div style="padding:24px;text-align:center;color:var(--text2);font-size:.88rem;line-height:1.7">还没评分，点 <b>✏️ 编辑</b> 填一下 5 个维度 🎯<br><span style="font-size:.76rem">First Touch / First Win / Aha Moment / Loop Hook / Retention</span></div>';
   const radarEl=document.getElementById('gameRadar');
   if(radarEl){
     if(empty){radarEl.outerHTML='<div id="gameRadar">'+placeholder+'</div>';}
-    else _gamesCharts.radar=new Chart(radarEl,{type:'radar',data:{labels:AHA_FIELDS.map(f=>f.label),datasets:[{label:g.name||'\u5747\u503c',data:AHA_FIELDS.map(f=>Number(aha[f.k]||0)),backgroundColor:'rgba(96,165,250,.25)',borderColor:'#60a5fa',pointBackgroundColor:'#60a5fa'}]},options:{responsive:true,scales:{r:{min:0,max:10,ticks:{stepSize:2,backdropColor:'transparent'}}},plugins:{legend:{display:false}}}});
+    else _gamesCharts.radar=new Chart(radarEl,{type:'radar',data:{labels:AHA_FIELDS.map(f=>f.label),datasets:[{label:g.name||'评分',data:AHA_FIELDS.map(f=>Number(aha[f.k]||0)),backgroundColor:'rgba(96,165,250,.25)',borderColor:'#60a5fa',pointBackgroundColor:'#60a5fa'}]},options:{responsive:true,scales:{r:{min:0,max:10,ticks:{stepSize:2,backdropColor:'transparent'}}},plugins:{legend:{display:false}}}});
   }
   const curveEl=document.getElementById('gameAhaCurve');
   if(curveEl){
@@ -1169,141 +1098,78 @@ function gamesDrawCharts(g){
       {x:'15m+\nLoop Hook',y:Number(aha.loopHook||0)},
       {x:'D2\nRetention',y:Number(aha.retention||0)}
     ];
-    _gamesCharts.curve=new Chart(curveEl,{type:'line',data:{labels:points.map(p=>p.x),datasets:[{label:'\u723d\u5ea6',data:points.map(p=>p.y),borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.2)',fill:true,tension:0.35,pointRadius:5,pointBackgroundColor:'#a78bfa'}]},options:{responsive:true,scales:{y:{min:0,max:10}},plugins:{legend:{display:false}}}});
+    _gamesCharts.curve=new Chart(curveEl,{type:'line',data:{labels:points.map(p=>p.x),datasets:[{label:'爽度',data:points.map(p=>p.y),borderColor:'#a78bfa',backgroundColor:'rgba(167,139,250,.2)',fill:true,tension:0.35,pointRadius:5,pointBackgroundColor:'#a78bfa'}]},options:{responsive:true,scales:{y:{min:0,max:10}},plugins:{legend:{display:false}}}});
   }
 }
-
-/* ===== \u65b0\u589e\u6e38\u620f\uff08\u53ea\u586b meta\uff09 ===== */
-function gamesNew(){_gamesRenderMeta({},null)}
-async function gamesEditMeta(id){
-  try{
-    const r=await fetch(GAMES_API+'/'+encodeURIComponent(id));if(!r.ok)throw new Error('HTTP '+r.status);
-    const j=await r.json();_gamesRenderMeta(j.meta||{},id);
-  }catch(e){alert('\u52a0\u8f7d\u5931\u8d25\uff1a'+e.message)}
+function gamesNew(){gamesEdit(null)}
+function gamesEdit(id){
+  const g=id?(_gamesList.find(x=>x.id===id)||_gamesCurrent||{}):{};
+  // 拉详情（编辑已存在的需要拿全量字段）
+  if(id){fetch(GAMES_API+'/'+encodeURIComponent(id)).then(r=>r.json()).then(full=>{_gamesCurrent=full;_gamesRenderEdit(full)}).catch(()=>_gamesRenderEdit(g));}else{_gamesRenderEdit({})}
 }
-function _gamesRenderMeta(meta,id){
+function _gamesRenderEdit(g){
   document.getElementById('gamesListView').style.display='none';
   document.getElementById('gamesDetailView').style.display='none';
   const ev=document.getElementById('gamesEditView');ev.style.display='';
-  document.getElementById('gamesTitle').textContent=id?'\ud83d\udcdd \u6539\u57fa\u7840\u4fe1\u606f':'\u2795 \u65b0\u589e\u6e38\u620f';
-  ev.innerHTML=
-    '<div class="gf-section"><h3>\ud83d\udccb \u57fa\u7840\u4fe1\u606f</h3>'+
-      '<div class="gf-grid">'+
-        '<div class="gf-field"><label>\u6e38\u620f\u540d</label><input id="gf_name" value="'+gEsc(meta.name||'')+'" placeholder="\u4f8b\u5982\uff1aWhiteout Survival"></div>'+
-        '<div class="gf-field"><label>\u56fe\u6807 emoji</label><input id="gf_icon" value="'+gEsc(meta.icon||'\ud83c\udfae')+'" maxlength="4"></div>'+
-        '<div class="gf-field"><label>\u9898\u6750</label><select id="gf_genre">'+['','\u4e09\u6d88','\u5408\u6210','\u6a21\u62df','Roguelike','\u8d85\u4f11\u95f2 Hyper-casual','SLG','\u88c5\u626e\u517b\u6210','\u653e\u7f6e','\u5377\u8f74','\u53e3\u888b\u5361\u7247','\u5176\u4ed6'].map(x=>'<option '+(meta.genre===x?'selected':'')+'>'+x+'</option>').join('')+'</select></div>'+
-        '<div class="gf-field"><label>\u5e73\u53f0</label><input id="gf_platform" value="'+gEsc(meta.platform||'iOS+Android')+'"></div>'+
-        '<div class="gf-field"><label>\u53d8\u73b0\u6a21\u5f0f</label><input id="gf_monetization" value="'+gEsc(meta.monetization||'')+'" placeholder="IAA / IAP / \u6df7\u5408"></div>'+
-        '<div class="gf-field"><label>\u76ee\u6807\u7528\u6237</label><input id="gf_target" value="'+gEsc(meta.target||'')+'" placeholder="\u4f8b\uff1a25-35\u5973 / \u5168\u5e74\u9f84"></div>'+
-        '<div class="gf-field"><label>\u5355\u5c40\u65f6\u957f</label><input id="gf_sessionLen" value="'+gEsc(meta.sessionLen||'')+'" placeholder="\u788e\u7247<3min / \u77ed\u5c403-15min / \u957f\u5c40"></div>'+
-      '</div>'+
-      '<div class="gf-field" style="margin-top:10px"><label>Aha Summary\uff08\u4e00\u53e5\u8bdd\u8bb2\u723d\u70b9\uff09</label><textarea id="gf_ahaSummary" placeholder="\u4f8b\uff1a3\u5206\u949f\u96ea\u5730\u5efa\u5bb6 \u2192 7\u5929\u653b\u6253\u91ce\u602a">'+gEsc(meta.ahaSummary||'')+'</textarea></div>'+
-      '<div class="gf-field"><label>\u540c\u7c7b\u7ade\u54c1 Top 3 + \u5dee\u5f02</label><textarea id="gf_competitors" placeholder="1. XXX - \u6211\u4eec\u7684\u5dee\u5f02\uff1a...">'+gEsc(meta.competitors||'')+'</textarea></div>'+
-      '<div class="gf-field"><label>\u5907\u6ce8 / \u7acb\u9879\u7406\u7531</label><textarea id="gf_notes" placeholder="\u4e3a\u4ec0\u4e48\u503c\u5f97\u505a\uff1f\u5e02\u573a\u7a97\u53e3\uff1f\u56e2\u961f\u5339\u914d\u5ea6\uff1f">'+gEsc(meta.notes||'')+'</textarea></div>'+
-    '</div>'+
-    '<div class="gf-actions">'+
-      '<button class="btn" onclick="'+(id?'gamesShowDetail(&#39;'+gEsc(id)+'&#39;)':'gamesShowList()')+'">\u53d6\u6d88</button>'+
-      '<button class="btn primary" onclick="gamesSaveMeta(\''+gEsc(id||'')+'\')">\ud83d\udcbe \u4fdd\u5b58</button>'+
-    '</div>';
+  document.getElementById('gamesTitle').textContent=g.id?'✏️ 编辑评测':'➕ 新增评测';
+  const aha=g.aha||{};
+  const v=g.verdict||'';
+  ev.innerHTML=`
+    <div class="gf-section"><h3>📋 基础信息</h3>
+      <div class="gf-grid">
+        <div class="gf-field"><label>游戏名</label><input id="gf_name" value="${gEsc(g.name||'')}" placeholder="例如：Whiteout Survival"></div>
+        <div class="gf-field"><label>图标 emoji</label><input id="gf_icon" value="${gEsc(g.icon||'🎮')}" maxlength="4"></div>
+        <div class="gf-field"><label>题材</label><select id="gf_genre">${['','三消','合成','模拟','Roguelike','超休闲 Hyper-casual','SLG','装扮养成','放置','卷轴','口袋卡片','其他'].map(x=>`<option ${g.genre===x?'selected':''}>${x}</option>`).join('')}</select></div>
+        <div class="gf-field"><label>平台</label><input id="gf_platform" value="${gEsc(g.platform||'iOS+Android')}" placeholder="iOS / Android / 全平台"></div>
+        <div class="gf-field"><label>变现模式</label><input id="gf_monetization" value="${gEsc(g.monetization||'')}" placeholder="IAA / IAP / 混合"></div>
+        <div class="gf-field"><label>目标用户</label><input id="gf_target" value="${gEsc(g.target||'')}" placeholder="例：25-35女 / 全年龄"></div>
+        <div class="gf-field"><label>单局时长</label><input id="gf_sessionLen" value="${gEsc(g.sessionLen||'')}" placeholder="碎片<3min / 短局3-15min / 长局"></div>
+        <div class="gf-field"><label>综合评分 (0-10)</label><input id="gf_score" type="number" min="0" max="10" step="0.1" value="${gEsc(g.score!=null?g.score:'')}"></div>
+      </div>
+    </div>
+    <div class="gf-section"><h3>📈 Aha Moment 5 维度（0-10）</h3>
+      ${AHA_FIELDS.map(f=>`<div class="gf-aha"><div class="lab">${f.label}<span class="sub">${f.sub}</span></div><div><input type="range" min="0" max="10" step="1" id="gf_aha_${f.k}" value="${Number(aha[f.k]||0)}" oninput="document.getElementById('gf_aha_${f.k}_n').textContent=this.value"></div><div class="num" id="gf_aha_${f.k}_n">${Number(aha[f.k]||0)}</div></div>`).join('')}
+      <div class="gf-field" style="margin-top:10px"><label>Aha Summary（一句话讲爽点）</label><textarea id="gf_ahaSummary" placeholder="例：3分钟雪地建家 → 7天攻打野怪">${gEsc(g.ahaSummary||'')}</textarea></div>
+    </div>
+    <div class="gf-section"><h3>🆚 竞品 & 立项</h3>
+      <div class="gf-field"><label>同类竞品 Top 3 + 差异</label><textarea id="gf_competitors" placeholder="1. XXX - 我们的差异：...\n2. YYY - 借鉴点：...">${gEsc(g.competitors||'')}</textarea></div>
+      <div class="gf-field"><label>立项判断</label>
+        <div class="verdict-pick">
+          <label class="${v==='go'?'go-sel':''}"><input type="radio" name="gf_verdict" value="go" ${v==='go'?'checked':''} onchange="_gfVerdict(this)"><span>✅ 值得做</span></label>
+          <label class="${v==='maybe'?'maybe-sel':''}"><input type="radio" name="gf_verdict" value="maybe" ${v==='maybe'?'checked':''} onchange="_gfVerdict(this)"><span>⚠️ 谨慎</span></label>
+          <label class="${v==='no'?'no-sel':''}"><input type="radio" name="gf_verdict" value="no" ${v==='no'?'checked':''} onchange="_gfVerdict(this)"><span>❌ 别碰</span></label>
+        </div>
+      </div>
+      <div class="gf-field"><label>备注 / 立项理由</label><textarea id="gf_notes" placeholder="为什么值得做？市场窗口？团队匹配度？">${gEsc(g.notes||'')}</textarea></div>
+    </div>
+    <div class="gf-actions">
+      <button class="btn" onclick="gamesShowList()">取消</button>
+      <button class="btn primary" onclick="gamesSave('${gEsc(g.id||'')}')">💾 保存</button>
+    </div>`;
 }
-async function gamesSaveMeta(id){
+function _gfVerdict(el){document.querySelectorAll('.verdict-pick label').forEach(l=>l.classList.remove('go-sel','maybe-sel','no-sel'));el.parentElement.classList.add(el.value+'-sel')}
+async function gamesSave(id){
   const get=k=>{const e=document.getElementById('gf_'+k);return e?e.value:''};
-  const data={name:get('name').trim(),icon:get('icon').trim()||'\ud83c\udfae',genre:get('genre'),platform:get('platform'),monetization:get('monetization'),target:get('target'),sessionLen:get('sessionLen'),ahaSummary:get('ahaSummary'),competitors:get('competitors'),notes:get('notes')};
-  if(!data.name){alert('\u6e38\u620f\u540d\u4e0d\u80fd\u4e3a\u7a7a');return}
+  const aha={};AHA_FIELDS.forEach(f=>{aha[f.k]=Number(document.getElementById('gf_aha_'+f.k).value||0)});
+  const verdictEl=document.querySelector('input[name=gf_verdict]:checked');
+  const data={name:get('name').trim(),icon:get('icon').trim()||'🎮',genre:get('genre'),platform:get('platform'),monetization:get('monetization'),target:get('target'),sessionLen:get('sessionLen'),score:get('score')===''?null:Number(get('score')),aha,ahaSummary:get('ahaSummary'),competitors:get('competitors'),notes:get('notes'),verdict:verdictEl?verdictEl.value:''};
+  if(!data.name){alert('游戏名不能为空');return}
   try{
     const url=id?GAMES_API+'/'+encodeURIComponent(id):GAMES_API;
     const r=await fetch(url,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
     if(!r.ok)throw new Error('HTTP '+r.status);
     const j=await r.json();await gamesLoadList();
-    const newId=id||j.id;
-    if(newId)gamesShowDetail(newId);else gamesShowList();
-  }catch(e){alert('\u4fdd\u5b58\u5931\u8d25\uff1a'+e.message)}
-}
-/* ===== \u8bc4\u5206 CRUD ===== */
-async function gamesRate(gameId,ratingId){
-  // \u62c9\u5168\u91cf\uff0c\u627e\u81ea\u5df1\u5df2\u6709\u8bc4\u5206
-  let existing=null;
-  try{
-    const r=await fetch(GAMES_API+'/'+encodeURIComponent(gameId));if(!r.ok)throw new Error('HTTP '+r.status);
-    const j=await r.json();
-    if(ratingId)existing=(j.ratings||[]).find(x=>x.ratingId===ratingId);
-  }catch(e){alert('\u52a0\u8f7d\u5931\u8d25\uff1a'+e.message);return}
-  const me=_gamesUser();
-  const aha=existing?(existing.aha||{}):{};
-  const v=existing?(existing.verdict||''):'';
-  document.getElementById('gamesListView').style.display='none';
-  document.getElementById('gamesDetailView').style.display='none';
-  const ev=document.getElementById('gamesEditView');ev.style.display='';
-  document.getElementById('gamesTitle').textContent=existing?'\u270f\ufe0f \u6539\u6211\u7684\u8bc4\u5206':'\u2795 \u6211\u6765\u8bc4\u5206';
-  ev.innerHTML=
-    '<div class="gf-section"><h3>\ud83d\udc64 \u8bc4\u5206\u4eba <button class="btn xs" style="margin-left:8px" onclick="gamesSetUser()">\u6539\u540d</button></h3>'+
-      '<div class="gf-field"><label>\u4f60\u7684\u540d\u5b57</label><input id="gf_user" value="'+gEsc(me)+'" readonly style="opacity:.7"></div>'+
-    '</div>'+
-    '<div class="gf-section"><h3>\u2b50 \u7efc\u5408\u8bc4\u5206</h3>'+
-      '<div class="gf-field"><label>0-10 \u5206</label><input id="gf_score" type="number" min="0" max="10" step="0.1" value="'+gEsc(existing&&existing.score!=null?existing.score:'')+'"></div>'+
-    '</div>'+
-    '<div class="gf-section"><h3>\ud83d\udcc8 Aha Moment 5 \u7ef4\u5ea6\uff080-10\uff09</h3>'+
-      AHA_FIELDS.map(f=>'<div class="gf-aha"><div class="lab">'+f.label+'<span class="sub">'+f.sub+'</span></div><div><input type="range" min="0" max="10" step="1" id="gf_aha_'+f.k+'" value="'+Number(aha[f.k]||0)+'" oninput="document.getElementById(&#39;gf_aha_'+f.k+'_n&#39;).textContent=this.value"></div><div class="num" id="gf_aha_'+f.k+'_n">'+Number(aha[f.k]||0)+'</div></div>').join('')+
-    '</div>'+
-    '<div class="gf-section"><h3>\ud83d\udfe2 \u7acb\u9879\u5224\u65ad</h3>'+
-      '<div class="gf-field">'+
-        '<div class="verdict-pick">'+
-          '<label class="'+(v==='go'?'go-sel':'')+'"><input type="radio" name="gf_verdict" value="go" '+(v==='go'?'checked':'')+' onchange="_gfVerdict(this)"><span>\u2705 \u503c\u5f97\u505a</span></label>'+
-          '<label class="'+(v==='maybe'?'maybe-sel':'')+'"><input type="radio" name="gf_verdict" value="maybe" '+(v==='maybe'?'checked':'')+' onchange="_gfVerdict(this)"><span>\u26a0\ufe0f \u8c28\u614e</span></label>'+
-          '<label class="'+(v==='no'?'no-sel':'')+'"><input type="radio" name="gf_verdict" value="no" '+(v==='no'?'checked':'')+' onchange="_gfVerdict(this)"><span>\u274c \u522b\u78b0</span></label>'+
-        '</div>'+
-      '</div>'+
-      '<div class="gf-field"><label>\u5907\u6ce8\uff08\u8bf4\u70b9\u4f60\u7684\u7406\u7531\uff09</label><textarea id="gf_notes" placeholder="\u4f60\u4e3a\u4ec0\u4e48\u8fd9\u4e48\u8bc4\uff1f">'+gEsc(existing?existing.notes||'':'')+'</textarea></div>'+
-    '</div>'+
-    '<div class="gf-actions">'+
-      '<button class="btn" onclick="gamesShowDetail(\''+gEsc(gameId)+'\')">\u53d6\u6d88</button>'+
-      '<button class="btn primary" onclick="gamesSaveRating(\''+gEsc(gameId)+'\',\''+gEsc(existing?existing.ratingId:'')+'\')">\ud83d\udcbe \u4fdd\u5b58\u8bc4\u5206</button>'+
-    '</div>';
-}
-async function gamesSaveRating(gameId,ratingId){
-  const get=k=>{const e=document.getElementById('gf_'+k);return e?e.value:''};
-  const aha={};AHA_FIELDS.forEach(f=>{aha[f.k]=Number(document.getElementById('gf_aha_'+f.k).value||0)});
-  const verdictEl=document.querySelector('input[name=gf_verdict]:checked');
-  const data={user:_gamesUser(),score:get('score')===''?null:Number(get('score')),aha,verdict:verdictEl?verdictEl.value:'',notes:get('notes')};
-  try{
-    const url=ratingId?GAMES_API+'/'+encodeURIComponent(gameId)+'/ratings/'+encodeURIComponent(ratingId):GAMES_API+'/'+encodeURIComponent(gameId)+'/ratings';
-    const r=await fetch(url,{method:ratingId?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    await gamesLoadList();gamesShowDetail(gameId);
-  }catch(e){alert('\u4fdd\u5b58\u5931\u8d25\uff1a'+e.message)}
-}
-async function gamesDeleteRating(gameId,ratingId){
-  if(!confirm('\u5220\u9664\u4f60\u7684\u8bc4\u5206\uff1f'))return;
-  try{
-    const r=await fetch(GAMES_API+'/'+encodeURIComponent(gameId)+'/ratings/'+encodeURIComponent(ratingId),{method:'DELETE'});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    await gamesLoadList();gamesShowDetail(gameId);
-  }catch(e){alert('\u5220\u9664\u5931\u8d25\uff1a'+e.message)}
+    if(j.id)gamesShowDetail(j.id);else gamesShowList();
+  }catch(e){alert('保存失败：'+e.message)}
 }
 async function gamesDelete(id){
-  if(!confirm('\u5220\u9664\u8fd9\u6b3e\u6e38\u620f\u548c\u6240\u6709\u8bc4\u5206\uff1f\u4e0d\u53ef\u6062\u590d\u3002'))return;
+  if(!confirm('确定删除这条评测？不可恢复。'))return;
   try{
     const r=await fetch(GAMES_API+'/'+encodeURIComponent(id),{method:'DELETE'});
     if(!r.ok)throw new Error('HTTP '+r.status);
     await gamesLoadList();gamesShowList();
-  }catch(e){alert('\u5220\u9664\u5931\u8d25\uff1a'+e.message)}
+  }catch(e){alert('删除失败：'+e.message)}
 }
-async function gamesGenAi(id){
-  const body=document.getElementById('aiSummaryBody');
-  if(body)body.innerHTML='<span style="color:var(--text2)">\ud83e\udd16 LLM \u603b\u7ed3\u4e2d\uff0c\u53ef\u80fd\u8981 10-30 \u79d2\u2026</span>';
-  try{
-    const r=await fetch(GAMES_API+'/'+encodeURIComponent(id)+'/ai-summary',{method:'POST'});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    const j=await r.json();
-    if(body)body.textContent=j.aiSummary||'(\u7a7a\u603b\u7ed3)';
-  }catch(e){if(body)body.textContent='\u751f\u6210\u5931\u8d25\uff1a'+e.message}
-}
-function gamesShare(id){
-  const url=location.origin+'/agents/games?share='+encodeURIComponent(id);
-  if(navigator.clipboard)navigator.clipboard.writeText(url).then(()=>alert('\u5206\u4eab\u94fe\u63a5\u5df2\u590d\u5236\uff1a\n'+url)).catch(()=>prompt('\u590d\u5236\u94fe\u63a5\uff1a',url));
-  else prompt('\u590d\u5236\u94fe\u63a5\uff1a',url);
-}
-function _gfVerdict(el){document.querySelectorAll('.verdict-pick label').forEach(l=>l.classList.remove('go-sel','maybe-sel','no-sel'));el.parentElement.classList.add(el.value+'-sel')}
 /* ============ end games ============ */
 
 // Parse URL -> state, then apply. Called on load and popstate.
