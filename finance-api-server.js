@@ -1281,6 +1281,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/news-with-sentiment' && req.method === 'GET') return handleNewsWithSentiment(req, res);
     if (pathname === '/api/finance/portfolio-scatter' && req.method === 'GET') return handlePortfolioScatter(req, res);
     if (pathname === '/api/finance/stop-loss-dashboard' && req.method === 'GET') return handleStopLossDashboard(req, res);
+    // v5.88 盤中優化端點 (新增實時統計)
+    if (pathname === '/api/finance/intraday-stats' && req.method === 'GET') return handleIntradayStats(req, res);
     // v5.76 盤中優化端點
     if (pathname === '/api/finance/intraday-optimize' && req.method === 'GET') return handleIntradayOptimize(req, res);
     if (pathname === '/api/finance/performance-scorecard' && req.method === 'GET') return handlePerformanceScorecard(req, res);
@@ -1902,5 +1904,41 @@ except Exception as e:
   } catch (e) {
     log(`News sentiment error: ${e.message}`);
     sendJson(res, { hot_news: [], sentiment_distribution: {}, risk_level: 'green', avg_sentiment_score: 50, insight: '新闻分析中...' });
+  }
+}
+
+// === INTRADAY STATS HANDLER (v5.88 盤中優化 新增實時統計) ===
+function handleIntradayStats(req, res) {
+  try {
+    const pyCode = `
+import sys, json
+sys.path.insert(0, '/home/nikefd/finance-agent')
+try:
+  from ui_intraday_stats_api import IntradayStatsCollector
+  collector = IntradayStatsCollector()
+  stats = collector.collect_all_stats()
+  collector.close()
+  print(json.dumps(stats, ensure_ascii=False))
+except Exception as e:
+  print(json.dumps({
+    'timestamp': '',
+    'cash_status': {'mode': 'unknown', 'cash_ratio': 0},
+    'trade_metrics': {'total_trades': 0, 'win_rate': 0},
+    'macd_signals': {'macd_signals_today': 0},
+    'portfolio_heat_map': {'high_gain': [], 'normal': [], 'warning': [], 'danger': []}
+  }))
+`;
+    const out = execSync(\`python3 -c "\${pyCode.replace(/"/g, '\\\\"')}"\`, { timeout: 10000 }).toString().trim();
+    const result = JSON.parse(out || '{}');
+    sendJson(res, result);
+  } catch (e) {
+    log(\`Intraday stats error: \${e.message}\`);
+    sendJson(res, {
+      timestamp: new Date().toISOString(),
+      cash_status: { mode: 'error', cash_ratio: 0, activated: false },
+      trade_metrics: { total_trades: 0, win_rate: 0, avg_pnl_pct: 0 },
+      macd_signals: { macd_signals_today: 0, histogram_crosses_today: 0 },
+      portfolio_heat_map: { high_gain: [], normal: [], warning: [], danger: [] }
+    });
   }
 }
