@@ -1,0 +1,38 @@
+{
+  "version": "v5.89",
+  "created_at": "2026-05-06T07:34:00.977222",
+  "cash_detection": {
+    "enabled": true,
+    "cash_ratio": 0.9925314501632306,
+    "high_cash_threshold": 0.95,
+    "target_cash_ratio": 0.1,
+    "available_for_trading": 894210.9974600002
+  },
+  "entry_quality": {
+    "normal_threshold": 55,
+    "high_cash_threshold": 25,
+    "dynamic_enabled": true
+  },
+  "macd_optimization": {
+    "enabled": true,
+    "histogram_flip_bonus": 18,
+    "histogram_flip_required": false
+  },
+  "portfolio_allocation": {
+    "defensive": 0.35,
+    "offensive": 0.4,
+    "tactical": 0.15,
+    "cash_reserve": 0.1
+  },
+  "position_management": {
+    "min_positions": 3,
+    "max_positions": 8,
+    "single_stock_max_weight": 0.05
+  },
+  "optimization_notes": [
+    "現金檢測自動化: 觸發條件cash_ratio>95%",
+    "MACD直方圖翻正信號: 新增低位反轉確認",
+    "三層篩選精化: 結合行業熱度和主力意圖",
+    "分批建倉加速: 目標5天內建滿3-5只"
+  ]
+}
