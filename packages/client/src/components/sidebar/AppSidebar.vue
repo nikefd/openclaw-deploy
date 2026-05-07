@@ -65,15 +65,15 @@ function onSettings() {
     </div>
 
     <div v-if="!collapsed" class="aux">
+      <RouterLink to="/agents" class="aux-link">🤖 Agents</RouterLink>
+      <RouterLink to="/tasks" class="aux-link">📋 Tasks</RouterLink>
+      <RouterLink to="/usage" class="aux-link">💰 Usage</RouterLink>
+      <RouterLink to="/architecture" class="aux-link">🗺️ Architecture</RouterLink>
       <RouterLink to="/files" class="aux-link">📁 Files</RouterLink>
       <RouterLink to="/perf" class="aux-link">📊 Perf</RouterLink>
     </div>
 
     <div class="foot">
-      <RouterLink v-if="!collapsed" to="/agents" class="agents-link" title="Agents">
-        🤖 <span>Agents</span>
-      </RouterLink>
-      <RouterLink v-else to="/agents" class="agents-link collapsed" title="Agents">🤖</RouterLink>
       <div v-if="!collapsed" class="user">
         <span class="avatar">🐶</span>
         <span class="name">斌哥</span>
@@ -83,12 +83,6 @@ function onSettings() {
       </button>
       <button class="icon-btn" title="设置" @click="onSettings">⚙️</button>
     </div>
-
-    <nav v-if="!collapsed" class="aux">
-      <RouterLink to="/tasks" class="aux-link">📋 Tasks</RouterLink>
-      <RouterLink to="/usage" class="aux-link">💰 Usage</RouterLink>
-      <RouterLink to="/architecture" class="aux-link">🗺️ Architecture</RouterLink>
-    </nav>
 
     <ChatSearch />
   </aside>
