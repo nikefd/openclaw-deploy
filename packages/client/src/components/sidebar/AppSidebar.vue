@@ -120,6 +120,7 @@ const { collapsed, activeTab } = storeToRefs(sidebar)
   display: flex;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .collapsed-rail {
@@ -163,14 +164,17 @@ const { collapsed, activeTab } = storeToRefs(sidebar)
 .aux-section {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-height: 0;
   border-top: 1px solid var(--border);
+  margin-top: auto;
 }
 
 .aux {
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
   overflow-y: auto;
+  max-height: 200px;
 }
 
 .aux-collapsed {
@@ -180,5 +184,6 @@ const { collapsed, activeTab } = storeToRefs(sidebar)
   gap: 4px;
   padding: 6px;
   border-top: 1px solid var(--border);
+  margin-top: auto;
 }
 </style>
