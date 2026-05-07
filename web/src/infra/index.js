@@ -16,7 +16,6 @@ import * as uiFileHelpers from '../ui/fileHelpers.js';
 import * as uiSkillsPanel from '../ui/skillsPanel.js';
 import * as uiSearchHelpers from '../ui/searchHelpers.js';
 import * as uiMemoryPanel from '../ui/memoryPanel.js';
-import * as uiDemoCodes from '../ui/demoCodes.js';
 import * as uiNodesPanel from '../ui/nodesPanel.js';
 import * as uiModelDropdown from '../ui/modelDropdown.js';
 import * as uiWelcome from '../ui/welcome.js';
@@ -47,7 +46,6 @@ export {
   uiSkillsPanel,
   uiSearchHelpers,
   uiMemoryPanel,
-  uiDemoCodes,
   uiNodesPanel,
   uiModelDropdown,
   uiWelcome,
@@ -72,7 +70,7 @@ if (typeof window !== 'undefined') {
     backend: getBackend(),
     prefs, chatStore, perfLog,
     domain: { chat: chatDomain },
-    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel, demoCodes: uiDemoCodes, nodesPanel: uiNodesPanel, modelDropdown: uiModelDropdown, welcome: uiWelcome, chatSidebar: uiChatSidebar, fileViewer: uiFileViewer, expertTeams: uiExpertTeams, mentionPopup: uiMentionPopup, fileBreadcrumb: uiFileBreadcrumb, messageRenderer: uiMessageRenderer, streamHandler: uiStreamHandler, streamRecovery: uiStreamRecovery, streamFinalize: uiStreamFinalize, streamPerf: uiStreamPerf, streamPollLoop: uiStreamPollLoop },
+    ui: { markdown: uiMarkdown, messageActions: uiMessageActions, tts: uiTts, fileHelpers: uiFileHelpers, skillsPanel: uiSkillsPanel, searchHelpers: uiSearchHelpers, memoryPanel: uiMemoryPanel, nodesPanel: uiNodesPanel, modelDropdown: uiModelDropdown, welcome: uiWelcome, chatSidebar: uiChatSidebar, fileViewer: uiFileViewer, expertTeams: uiExpertTeams, mentionPopup: uiMentionPopup, fileBreadcrumb: uiFileBreadcrumb, messageRenderer: uiMessageRenderer, streamHandler: uiStreamHandler, streamRecovery: uiStreamRecovery, streamFinalize: uiStreamFinalize, streamPerf: uiStreamPerf, streamPollLoop: uiStreamPollLoop },
     version: 'phase-4',
   });
 }
