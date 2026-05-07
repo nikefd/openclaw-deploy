@@ -4,7 +4,7 @@
  * When user refreshes page while a stream is in progress:
  * 1. Save streaming state to localStorage before unmount
  * 2. On mount, check if we were streaming for this sid
- * 3. If so, reconnect and resume streaming
+ * 3. If so, show the partial response recovered from storage
  *
  * Follows clean architecture: composable = business logic + state recovery
  */
