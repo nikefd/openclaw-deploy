@@ -362,7 +362,16 @@ document.addEventListener('click',(e)=>{
 
 let chats=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'),currentId=null;
 // Load from server if local is empty. Phase 3.3: via infra/backend.
-(async()=>{try{const d=await(window.__oc?.backend?.loadAllChats?.()??fetch('/api/chats',{cache:'no-store'}).then(r=>r.ok?r.json():[]));if(Array.isArray(d)&&d.length>0){const merged=mergeChats(chats,d);chats=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));renderSidebar();if(currentId){const cur=chats.find(c=>c.id===currentId);if(cur)switchChat(cur.id);}else if(chats.length>0){switchChat(chats[0].id);}}}catch{}
+// safeSetChats: localStorage may overflow when chats grow past ~5MB. Try full save,
+// fall back to metadata-only (drop messages) so we still keep titles/timestamps offline.
+function safeSetChats(chatArr){
+  const tryWrite=(arr)=>{const s=JSON.stringify(arr);localStorage.setItem(STORAGE_KEY,s);localStorage.setItem(STORAGE_KEY+'_'+currentNode,s);};
+  try{tryWrite(chatArr);return 'full';}catch(e1){
+    try{const meta=chatArr.map(c=>({id:c.id,title:c.title,updatedAt:c.updatedAt,agentId:c.agentId,messages:[]}));tryWrite(meta);console.warn('[chats] localStorage quota hit, saved metadata only',e1);return 'meta';}
+    catch(e2){try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem(STORAGE_KEY+'_'+currentNode);}catch{}console.warn('[chats] localStorage save failed entirely',e2);return 'none';}
+  }
+}
+(async()=>{try{const d=await(window.__oc?.backend?.loadAllChats?.()??fetch('/api/chats',{cache:'no-store'}).then(r=>r.ok?r.json():[]));if(Array.isArray(d)&&d.length>0){const merged=mergeChats(chats,d);chats=merged;safeSetChats(chats);renderSidebar();if(currentId){const cur=chats.find(c=>c.id===currentId);if(cur)switchChat(cur.id);}else if(chats.length>0){switchChat(chats[0].id);}}}catch(e){console.warn('[chats] startup load failed',e);try{renderSidebar();}catch{}}
 // 如果还有 chat 是 _streaming 状态（服务端代理流式还没结束，或上次异常遗留）
 // 启动后台轮询，拉服务端最新内容直到 _streaming 消失。不要 save！会覆盖服务端较新的内容。
 try{
@@ -898,10 +907,8 @@ function save(chatId){
       return {...m,images:m.images.map(img=>img&&img.length>200?'[image]':img)};
     })}));
   }
-  try{
-    localStorage.setItem(STORAGE_KEY,JSON.stringify(stripImages(chats)));
-    localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(stripImages(chats)));
-  }catch(e){console.warn('localStorage save failed (quota?), continuing...',e);}
+  // safeSetChats handles quota fallback (full → metadata-only → drop)
+  safeSetChats(stripImages(chats));
   if(currentNode==='local'&&id){
     clearTimeout(_saveTimers[id]);
     _saveTimers[id]=setTimeout(()=>{
@@ -971,8 +978,7 @@ function getChat(id){return chats.find(c=>c.id===id);}
         }
         const merged=mergeChats(chats,remote);
         chats=merged;
-        try{localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));}catch{}
-        try{localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));}catch{}
+        safeSetChats(chats);
         renderSidebar();
         if(currentChanged&&currentId){
           // 计算后端 vs 本地当前主区展示的质量差异。
@@ -1676,8 +1682,7 @@ async function sendMessage(){
   //    前端此时内存 chat.messages 的最后一条 assistant 已经和后端文件一致（通过 delta 拼出来的），
   //    不需要再 PUT 前端快照（甚至可能反向覆盖）。只更新本地 localStorage 和 sidebar。
   try{
-    localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));
-    localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));
+    safeSetChats(chats);
   }catch{}
   clearTimeout(_saveTimers[chatId]);delete _saveTimers[chatId];
   chat._lastSaved=chat.updatedAt;
@@ -1689,8 +1694,7 @@ async function sendMessage(){
 // Recover interrupted streams when user returns to page (e.g. mobile app switch)
 // Save on page unload using sendBeacon (survives page close)
 window.addEventListener('beforeunload',()=>{
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));
-  localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));
+  try{safeSetChats(chats);}catch{}
   if(currentNode==='local'){
     for(const chat of chats){
       if(chat.updatedAt>((chat._lastSaved)||0)){
@@ -1873,7 +1877,7 @@ function switchGlobalNode(){
   const newNode=sel.value;
   if(newNode===currentNode)return;
   // Save current chats for old node
-  localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));
+  try{localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));}catch(e){console.warn('[chats] node save failed',e);}
   currentNode=newNode;
   // Load chats for new node
   const saved=localStorage.getItem(STORAGE_KEY+'_'+currentNode);
@@ -1881,7 +1885,7 @@ function switchGlobalNode(){
   currentId=null;
   renderSidebar();renderChat();
   // If switching back to local, also merge from server
-  if(currentNode==='local'){(async()=>{try{const d=await(window.__oc?.backend?.loadAllChats?.()??fetch('/api/chats',{cache:'no-store'}).then(r=>r.ok?r.json():[]));if(Array.isArray(d)&&d.length>0){chats=mergeChats(chats,d);localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_local',JSON.stringify(chats));renderSidebar();}}catch{}})();}
+  if(currentNode==='local'){(async()=>{try{const d=await(window.__oc?.backend?.loadAllChats?.()??fetch('/api/chats',{cache:'no-store'}).then(r=>r.ok?r.json():[]));if(Array.isArray(d)&&d.length>0){chats=mergeChats(chats,d);safeSetChats(chats);renderSidebar();}}catch(e){console.warn('[chats] node-switch reload failed',e);try{renderSidebar();}catch{}}})();}
   // Update terminal
   terminalLoaded=false;
   const termPanel=document.getElementById('panel-terminal');
@@ -2040,7 +2044,7 @@ window.loadRemoteFiles=loadRemoteFiles;window.viewRemoteFile=viewRemoteFile;
 
 // Migrate: save initial chats as local node chats
 if(!localStorage.getItem(STORAGE_KEY+'_local')&&chats.length){
-  localStorage.setItem(STORAGE_KEY+'_local',JSON.stringify(chats));
+  try{localStorage.setItem(STORAGE_KEY+'_local',JSON.stringify(chats));}catch(e){console.warn('[chats] init _local failed',e);}
 }
 
 // @mention autocomplete
