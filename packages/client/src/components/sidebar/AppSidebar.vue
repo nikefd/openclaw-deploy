@@ -52,16 +52,20 @@ const { collapsed, activeTab } = storeToRefs(sidebar)
       </button>
     </div>
 
-    <div v-if="!collapsed" class="aux">
-      <RouterLink to="/agents" class="aux-link">🤖 Agents</RouterLink>
-      <RouterLink to="/tasks" class="aux-link">📋 Tasks</RouterLink>
-      <RouterLink to="/usage" class="aux-link">💰 Usage</RouterLink>
-      <RouterLink to="/architecture" class="aux-link">🗺️ Architecture</RouterLink>
-      <RouterLink to="/files" class="aux-link">📁 Files</RouterLink>
-      <RouterLink to="/perf" class="aux-link">📊 Perf</RouterLink>
+    <div v-if="!collapsed" class="aux-section">
+      <div class="aux">
+        <RouterLink to="/agents" class="aux-link">🤖 Agents</RouterLink>
+        <RouterLink to="/tasks" class="aux-link">📋 Tasks</RouterLink>
+        <RouterLink to="/usage" class="aux-link">💰 Usage</RouterLink>
+        <RouterLink to="/architecture" class="aux-link">🗺️ Architecture</RouterLink>
+        <RouterLink to="/files" class="aux-link">📁 Files</RouterLink>
+        <RouterLink to="/perf" class="aux-link">📊 Perf</RouterLink>
+      </div>
+      <SidebarFooter :collapsed="collapsed" />
     </div>
-
-    <SidebarFooter :collapsed="collapsed" />
+    <div v-else class="aux-collapsed">
+      <SidebarFooter :collapsed="collapsed" />
+    </div>
 
     <ChatSearch />
   </aside>
@@ -143,7 +147,6 @@ const { collapsed, activeTab } = storeToRefs(sidebar)
   flex-direction: column;
   gap: 2px;
   padding: 6px 8px;
-  border-top: 1px solid var(--border);
 }
 .aux-link {
   display: block;
@@ -155,4 +158,26 @@ const { collapsed, activeTab } = storeToRefs(sidebar)
 }
 .aux-link:hover { background: var(--hover); color: var(--text); }
 .aux-link.router-link-active { background: var(--sidebar-active-bg); color: var(--text); }
+
+.aux-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+}
+
+.aux {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.aux-collapsed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border-top: 1px solid var(--border);
+}
 </style>
