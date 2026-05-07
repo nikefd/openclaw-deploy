@@ -4,6 +4,11 @@
  *  - user: right-aligned plain text bubble
  *  - assistant: left-aligned markdown-rendered bubble + caret while streaming
  *  - system: centered grey pill
+ *
+ * Phase E4: per-message action row is copy-only (see MessageActions.vue).
+ * The regenerate/delete emits are kept on the component for backwards
+ * compatibility with MessageList's listener wiring but never fire from
+ * the bubble itself anymore.
  */
 import { computed, nextTick, ref, watch } from 'vue'
 import type { ChatMessage } from '@oc/shared/chat'
@@ -19,7 +24,7 @@ const props = withDefaults(
   { streaming: false, streamingText: '' },
 )
 
-const emit = defineEmits<{
+defineEmits<{
   (e: 'regenerate', id: string): void
   (e: 'delete', id: string): void
 }>()
@@ -56,7 +61,7 @@ watch(
     <div v-else-if="isUser" class="bubble user-bubble">
       <div class="text">{{ liveText }}</div>
       <div class="row-actions">
-        <MessageActions :message="message" @delete="(id) => emit('delete', id)" />
+        <MessageActions :message="message" />
       </div>
     </div>
 
@@ -66,9 +71,7 @@ watch(
         <div ref="htmlRoot" class="text oc-md" v-html="renderedHtml" />
         <span v-if="streaming" class="oc-streaming-caret" aria-hidden="true">▌</span>
         <div v-if="!streaming" class="row-actions">
-          <MessageActions :message="message" can-regenerate
-            @regenerate="(id) => emit('regenerate', id)"
-            @delete="(id) => emit('delete', id)" />
+          <MessageActions :message="message" />
         </div>
       </div>
     </div>

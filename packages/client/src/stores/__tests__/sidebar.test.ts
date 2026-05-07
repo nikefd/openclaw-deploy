@@ -40,9 +40,17 @@ describe('stores/sidebar', () => {
     expect(s.searchQuery).toBe('')
   })
 
-  it('chat list seeded with stub data', () => {
+  it('chat list starts empty (Phase E4 — hydrated from REST)', () => {
     const s = useSidebarStore()
-    expect(s.chatList.length).toBe(5)
-    expect(s.chatList[0]!.id).toBe('stub-1')
+    expect(s.chatList).toEqual([])
+  })
+
+  it('setChatList replaces the list', () => {
+    const s = useSidebarStore()
+    s.setChatList([
+      { id: 'a', title: 't', preview: 'p', lastMessageAt: 1 },
+    ])
+    expect(s.chatList).toHaveLength(1)
+    expect(s.chatList[0]!.id).toBe('a')
   })
 })
