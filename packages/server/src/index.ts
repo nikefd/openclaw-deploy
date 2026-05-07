@@ -7,6 +7,8 @@ import { attachChatStream } from './services/chat-stream.js'
 import { createLegacyRouter } from './routes/legacy.js'
 import { createMemoryRouter } from './routes/memory.js'
 import { createSkillsRouter } from './routes/skills.js'
+import { createChatsRouter } from './routes/chats.js'
+import { createCopilotRouter } from './routes/copilot.js'
 
 const PORT = Number(process.env.PORT ?? 8001)
 const ALLOWED_ORIGINS = [
@@ -26,6 +28,13 @@ app.get('/healthz', (_req, res) => {
 // services (file-api 7682 / finance 7684 / agents 7685 / usage 7686 /
 // perf 7687). See routes/legacy.ts for the endpoint reality table.
 app.use(createLegacyRouter())
+
+// Phase E2a: chat persistence + SSE forward to legacy file-api (7682).
+// We do NOT re-implement chat storage — file-api owns the disk files
+// and the old UI still writes to it directly. We're just the entrypoint
+// nginx routes /v2/api/chats/* and /v2/api/copilot/stream to.
+app.use(createChatsRouter())
+app.use(createCopilotRouter())
 
 // Phase E3: memory + skills panels.
 app.use('/api/memory', createMemoryRouter())
