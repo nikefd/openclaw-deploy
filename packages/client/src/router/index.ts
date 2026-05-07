@@ -14,6 +14,10 @@ export const router = createRouter({
       component: () => import('@/views/ChatView.vue'),
     },
     { path: '/hello', name: 'hello', component: HelloView },
+    // Phase D2 — auxiliary pages.
+    { path: '/tasks', name: 'tasks', component: () => import('@/views/TasksView.vue') },
+    { path: '/usage', name: 'usage', component: () => import('@/views/UsageView.vue') },
+    { path: '/architecture', name: 'architecture', component: () => import('@/views/ArchitectureView.vue') },
   ],
 })
 

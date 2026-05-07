@@ -12,6 +12,7 @@ import ChatList from './ChatList.vue'
 import MemoryPanel from './MemoryPanel.vue'
 import SkillsPanel from './SkillsPanel.vue'
 import ChatSearch from './ChatSearch.vue'
+import { RouterLink } from 'vue-router'
 
 const sidebar = useSidebarStore()
 const { collapsed, activeTab } = storeToRefs(sidebar)
@@ -73,6 +74,12 @@ function onSettings() {
       </button>
       <button class="icon-btn" title="设置" @click="onSettings">⚙️</button>
     </div>
+
+    <nav v-if="!collapsed" class="aux">
+      <RouterLink to="/tasks" class="aux-link">📋 Tasks</RouterLink>
+      <RouterLink to="/usage" class="aux-link">💰 Usage</RouterLink>
+      <RouterLink to="/architecture" class="aux-link">🗺️ Architecture</RouterLink>
+    </nav>
 
     <ChatSearch />
   </aside>
@@ -164,4 +171,22 @@ function onSettings() {
   font-size: 13px;
 }
 .avatar { font-size: 18px; }
+
+.aux {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+}
+.aux-link {
+  display: block;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--text-sec);
+  text-decoration: none;
+  border-radius: 6px;
+}
+.aux-link:hover { background: var(--hover); color: var(--text); }
+.aux-link.router-link-active { background: var(--sidebar-active-bg); color: var(--text); }
 </style>
