@@ -4,6 +4,8 @@ import cors from 'cors'
 import { Server as IOServer } from 'socket.io'
 import type { ClientToServer, ServerToClient } from '@oc/shared/events'
 import { attachChatStream } from './services/chat-stream.js'
+import { createMemoryRouter } from './routes/memory.js'
+import { createSkillsRouter } from './routes/skills.js'
 
 const PORT = Number(process.env.PORT ?? 8001)
 const ALLOWED_ORIGINS = [
@@ -18,6 +20,10 @@ app.use(express.json({ limit: '2mb' }))
 app.get('/healthz', (_req, res) => {
   res.json({ ok: true, phase: 'b' })
 })
+
+// Phase E3: memory + skills panels.
+app.use('/api/memory', createMemoryRouter())
+app.use('/api/skills', createSkillsRouter())
 
 const httpServer = http.createServer(app)
 

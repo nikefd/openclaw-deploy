@@ -1,48 +1,91 @@
-// api/memory.ts — Phase C2 stub. Phase E will replace with a real fetch to
-// /api/memory/summary that reads MEMORY.md sections.
+// api/memory.ts — Phase E3 real backend client (with fixture fallback).
+// Talks to packages/server `/api/memory/*` (proxied through vite at :5174).
+import { FIXTURE_MEMORY_ENTRIES, FIXTURE_MEMORY_CONTENT } from '@/fixtures/memory'
+
+export interface MemoryEntry {
+  path: string
+  name: string
+  sizeBytes: number
+  mtime: number
+  preview: string
+  group: 'top' | 'memory'
+}
+
+export interface MemoryFile {
+  path: string
+  content: string
+  mtime: number
+}
+
+interface ListResponse {
+  entries: MemoryEntry[]
+  root?: string
+}
+
+const API_BASE = '/api/memory'
+
+async function safeFetch(url: string, init?: RequestInit): Promise<Response> {
+  // Default to no-store so the sidebar always sees fresh mtime.
+  const resp = await fetch(url, { credentials: 'same-origin', cache: 'no-store', ...init })
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '')
+    throw new Error(`HTTP ${resp.status}${text ? `: ${text}` : ''}`)
+  }
+  return resp
+}
+
+export async function fetchMemoryList(): Promise<MemoryEntry[]> {
+  try {
+    const r = await safeFetch(`${API_BASE}/list`)
+    const body = (await r.json()) as ListResponse
+    return body.entries
+  } catch (e) {
+    console.warn('[memory] list fallback to fixture:', e)
+    return FIXTURE_MEMORY_ENTRIES
+  }
+}
+
+export async function fetchMemoryFile(path: string): Promise<MemoryFile> {
+  try {
+    const r = await safeFetch(`${API_BASE}/get?path=${encodeURIComponent(path)}`)
+    return (await r.json()) as MemoryFile
+  } catch (e) {
+    console.warn('[memory] get fallback to fixture:', e)
+    const fx = FIXTURE_MEMORY_CONTENT[path]
+    if (fx) return fx
+    return { path, content: `(fixture) no content for ${path}`, mtime: Date.now() }
+  }
+}
+
+export interface SaveResult {
+  ok: boolean
+  path: string
+  sizeBytes: number
+  mtime: number
+}
+
+export async function saveMemoryFile(path: string, content: string): Promise<SaveResult> {
+  const r = await safeFetch(`${API_BASE}/save`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path, content }),
+  })
+  return (await r.json()) as SaveResult
+}
+
+// Legacy stub kept so any unconverted caller still compiles.
 export interface MemorySection {
   id: string
   title: string
   preview: string
-  /** epoch ms */
   updatedAt: number
 }
-
-const STUB: MemorySection[] = [
-  {
-    id: 'identity',
-    title: 'IDENTITY',
-    preview: '狗蛋 — 接地气、随和、偶尔贱兮兮的 AI 助手',
-    updatedAt: Date.now() - 86_400_000,
-  },
-  {
-    id: 'projects',
-    title: 'Active Projects',
-    preview: 'zhangyangbin.com chat 重构 v2，Phase A/B/C 进行中',
-    updatedAt: Date.now() - 3 * 86_400_000,
-  },
-  {
-    id: 'climbing-plan',
-    title: 'Climbing Training',
-    preview: '当前瓶颈 5.11d，每周 2 次 finger board + 拉伸',
-    updatedAt: Date.now() - 7 * 86_400_000,
-  },
-  {
-    id: 'finance',
-    title: 'Finance Dashboard Notes',
-    preview: 'NDX/BTC daily snapshot，watchlist 在 /finance 页',
-    updatedAt: Date.now() - 14 * 86_400_000,
-  },
-  {
-    id: 'lessons',
-    title: 'Lessons Learned',
-    preview: 'localStorage 配额溢出会吃掉异常 — 写入要 try/catch',
-    updatedAt: Date.now() - 30 * 86_400_000,
-  },
-]
-
 export async function fetchMemorySummary(): Promise<MemorySection[]> {
-  // Simulate the network round-trip so the UI's loading branch gets exercised.
-  await new Promise((r) => setTimeout(r, 50))
-  return STUB
+  const list = await fetchMemoryList()
+  return list.map((e) => ({
+    id: e.path,
+    title: e.name,
+    preview: e.preview,
+    updatedAt: e.mtime,
+  }))
 }
