@@ -1,5 +1,11 @@
-// Phase D1 — finance API. Currently returns fixture; Phase E will wire the
-// real backend (port 7684/7685, /api/finance/dashboard etc.).
+// Phase E1 — finance API. Tries /api/finance/dashboard on the v2 server first
+// (which proxies to finance-api on :7684); falls back to the local fixture if
+// the upstream is unreachable, errors out, or returns {fallback:true}.
+//
+// /api/finance/holdings + /api/finance/signals are NOT implemented upstream
+// (verified probe 2026-05-07). The v2 server returns 503 + fallback:true for
+// those, so the helpers below always end up using fixtures. They stay in the
+// API layer so callers don't need to know.
 
 export interface Holding {
   code: string
@@ -42,9 +48,29 @@ export interface FinanceDashboard {
   riskAlerts: RiskAlert[]
 }
 
-export async function fetchFinanceDashboard(): Promise<FinanceDashboard> {
+async function fixture(): Promise<FinanceDashboard> {
   const { FINANCE_DASHBOARD } = await import('@/fixtures/agents/finance')
-  // Simulate a small async delay so UI loading state is visible in dev.
-  await new Promise((r) => setTimeout(r, 50))
   return FINANCE_DASHBOARD
+}
+
+export async function fetchFinanceDashboard(): Promise<FinanceDashboard> {
+  try {
+    const r = await fetch('/api/finance/dashboard', { credentials: 'include' })
+    if (!r.ok) throw new Error(`http ${r.status}`)
+    const body = await r.json()
+    if (body && typeof body === 'object' && 'fallback' in body && body.fallback) {
+      return fixture()
+    }
+    // The real upstream payload is shaped quite differently from our v2
+    // dashboard (it returns {account, positions, signals, …}). For Phase E1
+    // we accept both: if the upstream response already matches our shape,
+    // pass it through; otherwise fall back to fixture so the UI keeps
+    // rendering. A proper transform lives in Phase E4.
+    if (body && typeof body === 'object' && 'netValue' in body) {
+      return body as FinanceDashboard
+    }
+    return fixture()
+  } catch {
+    return fixture()
+  }
 }
