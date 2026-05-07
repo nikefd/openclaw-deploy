@@ -25,14 +25,30 @@ const route = useRoute()
 const { chats, loading, error, reload } = useChatList()
 
 // Project DTO -> ChatSummary so the existing sidebar consumers keep working.
-const summaries = computed<ChatSummary[]>(() =>
-  chats.value.map((c) => ({
+// Also include the currently active chat as a "draft" if it's not yet persisted.
+const summaries = computed<ChatSummary[]>(() => {
+  const fromApi = chats.value.map((c) => ({
     id: c.id,
     title: c.title || '(无标题)',
     preview: c.preview,
     lastMessageAt: c.updatedAt || c.createdAt || 0,
-  })),
-)
+  }))
+  
+  // If the active chat is not in the list (fresh client-generated ID),
+  // add it as a draft entry so it shows in the sidebar immediately
+  if (activeChatId.value && !fromApi.some(c => c.id === activeChatId.value)) {
+    return [
+      {
+        id: activeChatId.value,
+        title: '新对话',  // Show "new chat" instead of "(无标题)"
+        preview: '(草稿)',
+        lastMessageAt: Date.now(),
+      },
+      ...fromApi,
+    ]
+  }
+  return fromApi
+})
 
 // Push into the store for ChatSearch reuse.
 watch(
@@ -56,15 +72,16 @@ onMounted(() => {
   void reload()
 })
 
-// When we navigate to a new chat (including fresh client-generated IDs),
-// reload the list after a brief delay so the new chat appears (backend
-// creates it on first message). Debounce to avoid hammering the API.
+// When we send a message in an active chat, reload after a brief delay
+// so the new chat (now persisted on backend) replaces the draft entry.
+// Watch the route's sid to trigger reload when user navigates away from draft.
 let reloadTimer: ReturnType<typeof setTimeout> | null = null
 watch(
-  activeChatId,
+  routeSid,
   () => {
+    // Debounce: reload 2s after navigation to give backend time to persist
     if (reloadTimer) clearTimeout(reloadTimer)
-    reloadTimer = setTimeout(() => void reload(), 1000)
+    reloadTimer = setTimeout(() => void reload(), 2000)
   },
 )
 
