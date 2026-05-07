@@ -87,21 +87,25 @@ function fmtDate(ms: number): string {
     <div v-if="!loading && !topEntries.length && !memoryEntries.length" class="empty">没有 memory 文件</div>
 
     <Transition name="drawer">
-      <div v-if="selected" class="drawer">
-        <div class="drawer-head">
-          <span class="drawer-title">{{ selected }}</span>
-          <button class="close" title="编辑（Phase F 实装）" disabled>✎</button>
-          <button class="close" @click="clearSelection">×</button>
+      <Teleport to="body">
+        <div v-if="selected" class="oc-doc-overlay" @click.self="clearSelection">
+          <div class="oc-doc-drawer">
+            <div class="drawer-head">
+              <span class="drawer-title">{{ selected }}</span>
+              <button class="close" title="编辑（Phase F 实装）" disabled>✎</button>
+              <button class="close" @click="clearSelection">×</button>
+            </div>
+            <div v-if="contentLoading" class="drawer-body empty">读取中…</div>
+            <div v-else-if="contentError" class="drawer-body error">读取失败：{{ contentError }}</div>
+            <div
+              v-else-if="current"
+              ref="previewBox"
+              class="drawer-body markdown"
+              v-html="render(current.content)"
+            />
+          </div>
         </div>
-        <div v-if="contentLoading" class="drawer-body empty">读取中…</div>
-        <div v-else-if="contentError" class="drawer-body error">读取失败：{{ contentError }}</div>
-        <div
-          v-else-if="current"
-          ref="previewBox"
-          class="drawer-body markdown"
-          v-html="render(current.content)"
-        />
-      </div>
+      </Teleport>
     </Transition>
   </div>
 </template>
@@ -206,4 +210,86 @@ function fmtDate(ms: number): string {
 
 .drawer-enter-active, .drawer-leave-active { transition: transform 0.15s ease, opacity 0.15s ease; }
 .drawer-enter-from, .drawer-leave-to { transform: translateX(8px); opacity: 0; }
+</style>
+
+<style lang="scss">
+/* Unscoped — Teleport target is outside this component's DOM tree. */
+.oc-doc-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 1000;
+}
+.oc-doc-drawer {
+  width: min(880px, 75vw);
+  height: 100%;
+  background: var(--bg, #1a1a1e);
+  color: var(--text, #e4e4e7);
+  border-left: 1px solid var(--border, #2a2a30);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  animation: oc-doc-slide 0.18s ease-out;
+}
+@keyframes oc-doc-slide {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.oc-doc-drawer .drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border, #2a2a30);
+}
+.oc-doc-drawer .drawer-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oc-doc-drawer .close {
+  background: transparent;
+  color: var(--text, #e4e4e7);
+  border: 1px solid var(--border, #2a2a30);
+  border-radius: 4px;
+  width: 30px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+.oc-doc-drawer .close[disabled] { opacity: 0.4; cursor: not-allowed; }
+.oc-doc-drawer .drawer-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.oc-doc-drawer .drawer-body.empty,
+.oc-doc-drawer .drawer-body.error { text-align: center; color: var(--text-sec, #71717a); }
+.oc-doc-drawer .drawer-body.markdown pre {
+  background: var(--bg-elevated, #27272a);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12.5px;
+}
+.oc-doc-drawer .drawer-body.markdown code {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+.oc-doc-drawer .drawer-body.markdown h1,
+.oc-doc-drawer .drawer-body.markdown h2,
+.oc-doc-drawer .drawer-body.markdown h3 {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+.oc-doc-drawer .drawer-body.markdown p { margin: 8px 0; }
+.oc-doc-drawer .drawer-body.markdown ul,
+.oc-doc-drawer .drawer-body.markdown ol { padding-left: 22px; }
 </style>

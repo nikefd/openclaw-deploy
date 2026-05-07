@@ -1,3 +1,4 @@
+import { apiUrl } from './_base'
 // api/memory.ts — Phase E3 real backend client (with fixture fallback).
 // Talks to packages/server `/api/memory/*` (proxied through vite at :5174).
 import { FIXTURE_MEMORY_ENTRIES, FIXTURE_MEMORY_CONTENT } from '@/fixtures/memory'
@@ -22,7 +23,7 @@ interface ListResponse {
   root?: string
 }
 
-const API_BASE = '/api/memory'
+const API_BASE = apiUrl('/memory')
 
 async function safeFetch(url: string, init?: RequestInit): Promise<Response> {
   // Default to no-store so the sidebar always sees fresh mtime.

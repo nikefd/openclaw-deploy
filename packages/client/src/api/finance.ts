@@ -1,3 +1,4 @@
+import { apiUrl } from './_base'
 // Phase E1 — finance API. Tries /api/finance/dashboard on the v2 server first
 // (which proxies to finance-api on :7684); falls back to the local fixture if
 // the upstream is unreachable, errors out, or returns {fallback:true}.
@@ -55,7 +56,7 @@ async function fixture(): Promise<FinanceDashboard> {
 
 export async function fetchFinanceDashboard(): Promise<FinanceDashboard> {
   try {
-    const r = await fetch('/api/finance/dashboard', { credentials: 'include' })
+    const r = await fetch(apiUrl('/finance/dashboard'), { credentials: 'include' })
     if (!r.ok) throw new Error(`http ${r.status}`)
     const body = await r.json()
     if (body && typeof body === 'object' && 'fallback' in body && body.fallback) {

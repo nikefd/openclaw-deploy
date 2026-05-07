@@ -1,3 +1,4 @@
+import { apiUrl } from './_base'
 // Phase E1 — perf API. Tries /api/perf/{summary,log} on the v2 server (proxy
 // to perf-api on :7687, which exposes /api/perf/{stats,logs}). The upstream
 // payloads have a quite different shape than the v2 dashboard wants, so when
@@ -40,7 +41,7 @@ interface UpstreamStats {
 
 export async function fetchPerfSummary(window: TimeWindow = '24h'): Promise<PerfSummaryResponse> {
   try {
-    const r = await fetch(`/api/perf/summary?window=${window}`, { credentials: 'include' })
+    const r = await fetch(apiUrl('/perf/summary?window=' + window), { credentials: 'include' })
     if (!r.ok) throw new Error(`http ${r.status}`)
     const body = (await r.json()) as UpstreamStats | { fallback?: boolean }
     if ('fallback' in body && body.fallback) return fixtureSummary(window)

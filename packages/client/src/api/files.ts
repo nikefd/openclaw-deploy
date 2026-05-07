@@ -1,3 +1,4 @@
+import { apiUrl } from './_base'
 // Phase E1 — files API. Tries /api/files/{tree,content} on the v2 server
 // (proxies to file-api on :7682, which exposes /api/files/{list,read}); falls
 // back to fixtures if the upstream is unreachable.
@@ -54,7 +55,7 @@ function listEntryToNode(e: UpstreamListEntry): FileNode {
 
 export async function fetchFileTree(rootPath?: string): Promise<FileNode> {
   try {
-    const url = '/api/files/tree' + (rootPath ? `?path=${encodeURIComponent(rootPath)}` : '')
+    const url = apiUrl('/files/tree') + (rootPath ? `?path=${encodeURIComponent(rootPath)}` : '')
     const r = await fetch(url, { credentials: 'include' })
     if (!r.ok) throw new Error(`http ${r.status}`)
     const body = (await r.json()) as UpstreamListResponse | { fallback?: boolean }
@@ -74,7 +75,7 @@ export async function fetchFileTree(rootPath?: string): Promise<FileNode> {
 export async function fetchFileContent(filePath: string): Promise<FileContentResponse> {
   const ext = (filePath.split('.').pop() ?? '').toLowerCase()
   try {
-    const r = await fetch(`/api/files/content?path=${encodeURIComponent(filePath)}`, {
+    const r = await fetch(apiUrl('/files/content?path=' + encodeURIComponent(filePath)), {
       credentials: 'include',
     })
     if (!r.ok) throw new Error(`http ${r.status}`)

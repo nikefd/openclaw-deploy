@@ -50,7 +50,7 @@ describe('MemoryPanel', () => {
     expect(html).toContain('SOUL.md')
     expect(html).toContain('2026-05-01.md')
     // Drawer should not be open yet.
-    expect(wrapper.find('.drawer').exists()).toBe(false)
+    expect(document.querySelector('.oc-doc-drawer')).toBeNull()
   })
 
   it('clicking an item opens drawer with rendered preview', async () => {
@@ -65,9 +65,10 @@ describe('MemoryPanel', () => {
     await soulItem.trigger('click')
     await flushPromises()
 
-    const drawer = wrapper.find('.drawer')
-    expect(drawer.exists()).toBe(true)
-    expect(drawer.html()).toContain('SOUL.md')
-    expect(drawer.html()).toContain('hello world')
+    // Drawer is teleported to body, so query document directly.
+    const drawer = document.querySelector('.oc-doc-drawer')
+    expect(drawer).not.toBeNull()
+    expect(drawer!.innerHTML).toContain('SOUL.md')
+    expect(drawer!.innerHTML).toContain('hello world')
   })
 })

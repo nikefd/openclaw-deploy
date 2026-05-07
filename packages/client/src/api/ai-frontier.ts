@@ -1,3 +1,4 @@
+import { apiUrl } from './_base'
 // Phase E1 — AI frontier API. Upstream /api/ai-frontier/items is NOT yet
 // implemented (probed 2026-05-07 → 404). The v2 server registers a 503
 // placeholder so we always fall through to the fixture here. Once the real
@@ -22,7 +23,7 @@ async function fixture(): Promise<FrontierItem[]> {
 
 export async function fetchFrontierItems(): Promise<FrontierItem[]> {
   try {
-    const r = await fetch('/api/ai-frontier/items', { credentials: 'include' })
+    const r = await fetch(apiUrl('/ai-frontier/items'), { credentials: 'include' })
     if (!r.ok) throw new Error(`http ${r.status}`)
     const body = await r.json()
     if (body && typeof body === 'object' && !Array.isArray(body) && 'fallback' in body && body.fallback) {

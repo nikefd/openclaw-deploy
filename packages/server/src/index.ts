@@ -4,12 +4,9 @@ import cors from 'cors'
 import { Server as IOServer } from 'socket.io'
 import type { ClientToServer, ServerToClient } from '@oc/shared/events'
 import { attachChatStream } from './services/chat-stream.js'
-<<<<<<< HEAD
 import { createLegacyRouter } from './routes/legacy.js'
-=======
 import { createMemoryRouter } from './routes/memory.js'
 import { createSkillsRouter } from './routes/skills.js'
->>>>>>> refactor-v2/phase-e3-memory-skills
 
 const PORT = Number(process.env.PORT ?? 8001)
 const ALLOWED_ORIGINS = [
@@ -25,16 +22,14 @@ app.get('/healthz', (_req, res) => {
   res.json({ ok: true, phase: 'b' })
 })
 
-<<<<<<< HEAD
 // Phase E1: legacy adapter — proxy /api/* through to the existing Node
 // services (file-api 7682 / finance 7684 / agents 7685 / usage 7686 /
 // perf 7687). See routes/legacy.ts for the endpoint reality table.
 app.use(createLegacyRouter())
-=======
+
 // Phase E3: memory + skills panels.
 app.use('/api/memory', createMemoryRouter())
 app.use('/api/skills', createSkillsRouter())
->>>>>>> refactor-v2/phase-e3-memory-skills
 
 const httpServer = http.createServer(app)
 

@@ -1,3 +1,4 @@
+import { apiUrl } from './_base'
 // Phase E1 — interview API. Tries /api/interview/schedule on the v2 server
 // (which serves the static /var/www/chat/data/interview-schedule.json file);
 // falls back to the bundled fixture if the upstream is unreachable.
@@ -43,7 +44,7 @@ async function fixture(): Promise<InterviewDashboard> {
 
 export async function fetchInterviewDashboard(): Promise<InterviewDashboard> {
   try {
-    const r = await fetch('/api/interview/schedule', { credentials: 'include' })
+    const r = await fetch(apiUrl('/interview/schedule'), { credentials: 'include' })
     if (!r.ok) throw new Error(`http ${r.status}`)
     const body = await r.json()
     if (body && typeof body === 'object' && 'fallback' in body && body.fallback) {

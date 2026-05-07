@@ -1,3 +1,4 @@
+import { apiUrl } from './_base'
 // Phase E1 — climbing coach API. Tries /api/agents/fitness/sessions on the v2
 // server (proxies to agents-api :7685); falls back to the bundled fixture if
 // the upstream is unreachable.
@@ -30,7 +31,7 @@ async function fixture(): Promise<ClimbingDashboard> {
 
 export async function fetchClimbingDashboard(): Promise<ClimbingDashboard> {
   try {
-    const r = await fetch('/api/agents/fitness/sessions', { credentials: 'include' })
+    const r = await fetch(apiUrl('/agents/fitness/sessions'), { credentials: 'include' })
     if (!r.ok) throw new Error(`http ${r.status}`)
     const body = await r.json()
     if (body && typeof body === 'object' && 'fallback' in body && body.fallback) {

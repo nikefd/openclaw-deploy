@@ -1,3 +1,4 @@
+import { apiUrl } from './_base'
 // api/skills.ts — Phase E3 real backend client (with fixture fallback).
 import { FIXTURE_SKILL_ENTRIES, FIXTURE_SKILL_CONTENT } from '@/fixtures/skills'
 
@@ -23,7 +24,7 @@ export interface SkillFile {
 
 interface ListResponse { entries: SkillEntry[] }
 
-const API_BASE = '/api/skills'
+const API_BASE = apiUrl('/skills')
 
 async function safeFetch(url: string): Promise<Response> {
   const r = await fetch(url, { credentials: 'same-origin' })
