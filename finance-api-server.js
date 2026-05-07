@@ -1253,6 +1253,7 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
 
     if (pathname === '/api/finance/health-score' && req.method === 'GET') return handleHealthScore(req, res);
     if (pathname === '/api/finance/position-details' && req.method === 'GET') return handlePositionDetails(req, res, params);
+    if (pathname === '/api/finance/intraday-ui-optimizer' && req.method === 'GET') return handleIntradayUIOptimizer(req, res);
     if (pathname === '/api/finance/monthly-returns' && req.method === 'GET') return handleMonthlyReturns(req, res);
     if (pathname === '/api/finance/weekly-returns' && req.method === 'GET') return handleWeeklyReturns(req, res);
     if (pathname === '/api/finance/period-returns' && req.method === 'GET') return handlePeriodReturns(req, res);
@@ -1958,5 +1959,43 @@ function handleIntradayStats(req, res) {
       macd_signals: {macd_signals_today: 0},
       portfolio_heat_map: {high_gain: [], normal: [], warning: [], danger: []}
     });
+  }
+}
+
+// === V5.91 INTRADAY UI OPTIMIZATION ===
+function handleIntradayUIOptimizer(req, res) {
+  try {
+    // 使用v5.91優化引擎收集數據
+    const pyCode = `
+import sys
+sys.path.insert(0, '/home/nikefd/finance-agent')
+from v5_91_INTRADAY_UI_OPTIMIZE import IntradayUIOptimizer
+import json
+
+db_path = '/home/nikefd/finance-agent/data/trading.db'
+optimizer = IntradayUIOptimizer(db_path)
+data = optimizer.get_intraday_stats_bundle()
+print(json.dumps(data, ensure_ascii=False))
+`;
+    const out = execSync(`python3 -c "${pyCode.replace(/"/g, '\\"')}"`, {timeout: 5000, encoding: 'utf-8'});
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('V5.91 UI Optimizer error: ' + e.message);
+    sendJson(res, {
+      timestamp: new Date().toISOString(),
+      cash_status: {mode: 'error', cash_ratio: 0, activated: false},
+      macd_histogram: {histogram_crosses_total: 0, top_signals: [], weekly_avg: 0},
+      position_heat_map: {high_gain: [], normal: [], warning: [], danger: [], total_positions: 0},
+      trade_metrics: {total_trades: 0, win_rate: 0, total_pnl: 0},
+      ui_version: 'v5.91_intraday_error'
+    }, 500);
   }
 }
