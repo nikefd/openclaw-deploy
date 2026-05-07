@@ -1,6 +1,37 @@
 // Global styles entrypoint. Phase A: empty placeholder; real design tokens
 // land in Phase C when we port chat UI.
 //
-// Example future content:
-//   @use './tokens' as *;
-//   @use './reset';
+// Phase C2 additions: pull in design tokens, set body defaults, ship a
+// minimal scrollbar style. C1 may also add markdown / code styles below —
+// keep this file additive on merge.
+@use './variables';
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+a { color: var(--accent); }
+button { font-family: inherit; }
+
+// Custom scrollbar (webkit)
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--text-sec); }
+*::-webkit-scrollbar-track { background: transparent; }
