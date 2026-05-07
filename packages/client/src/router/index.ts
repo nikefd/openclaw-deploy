@@ -27,6 +27,8 @@ export const router = createRouter({
     // Phase D3 — files browser & perf monitor
     { path: '/files', name: 'files', component: () => import('@/views/FilesView.vue') },
     { path: '/perf', name: 'perf', component: () => import('@/views/PerfView.vue') },
+    // Phase F0 — terminal access
+    { path: '/terminal', name: 'terminal', component: () => import('@/views/TerminalView.vue') },
     // Phase E3.1 — memory + skill readers in main content area.
     { path: '/memory/:path(.*)', name: 'memory-file', component: () => import('@/views/MemoryFileView.vue') },
     { path: '/skills/:source/:name', name: 'skill-file', component: () => import('@/views/SkillView.vue') },

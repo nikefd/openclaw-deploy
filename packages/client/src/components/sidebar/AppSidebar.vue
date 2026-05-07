@@ -55,6 +55,7 @@ const { collapsed, activeTab } = storeToRefs(sidebar)
     <div v-if="!collapsed" class="aux-section">
       <div class="aux">
         <RouterLink to="/agents" class="aux-link">🤖 Agents</RouterLink>
+        <RouterLink to="/terminal" class="aux-link">💻 Terminal</RouterLink>
         <RouterLink to="/tasks" class="aux-link">📋 Tasks</RouterLink>
         <RouterLink to="/usage" class="aux-link">💰 Usage</RouterLink>
         <RouterLink to="/architecture" class="aux-link">🗺️ Architecture</RouterLink>
