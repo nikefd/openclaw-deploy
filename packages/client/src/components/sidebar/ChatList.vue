@@ -29,7 +29,7 @@ const { chats, loading, error, reload } = useChatList()
 const summaries = computed<ChatSummary[]>(() => {
   const fromApi = chats.value.map((c) => ({
     id: c.id,
-    title: c.title || '(无标题)',
+    title: c.title || '新对话',  // 改为 '新对话' 而不是 '(无标题)'
     preview: c.preview,
     lastMessageAt: c.updatedAt || c.createdAt || 0,
   }))
