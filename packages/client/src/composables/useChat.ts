@@ -1,52 +1,28 @@
 /**
  * useChat — high-level send/abort/regenerate API for components.
  *
- * Wraps useChatStream (Phase B socket lifecycle) + chatStore (per-sid
- * history). On run.completed/failed we materialise messages into the store.
+ * Phase E2b: switched from socket.io fixture path to real SSE against
+ * `/v2/api/copilot/stream`. The legacy socket transport (chat-socket.ts +
+ * useChatStream.ts) is left in tree for now and will be removed once the
+ * SSE path proves out in production.
+ *
+ * Lifecycle:
+ *   - send(text): append user msg, open SSE, accumulate deltas into the
+ *     chat store streaming buffer, then commit a single assistant message
+ *     and PUT the chat to /v2/api/chats/:id.
+ *   - abort(): cancel the in-flight SSE; preserve buffered text + "[已中断]".
+ *   - on error: append a "⚠ ..." assistant message; never auto-retry
+ *     (tryRecover was the root cause of older infinite-loop bugs —
+ *     see MEMORY.md 4/25).
  */
 
-import { computed, watch, type Ref } from 'vue'
-import { getChatSocket } from '@/api/chat-socket'
-import { useChatStream } from '@/composables/useChatStream'
+import { computed, ref, watch, type Ref } from 'vue'
+import { apiUrl } from '@/api/_base'
+import { openSseStream, type SseError, type SseStreamHandle } from '@/composables/useSseStream'
 import { useChatStore } from '@/stores/chat'
 import type { ChatMessage } from '@oc/shared/chat'
-import type {
-  RunCompletedEvent,
-  RunFailedEvent,
-} from '@oc/shared/events'
 
 export type ChatStatus = 'idle' | 'queued' | 'streaming' | 'completed' | 'failed'
-
-let listenersBound = false
-
-function bindRunFinalizers(store: ReturnType<typeof useChatStore>) {
-  if (listenersBound) return
-  listenersBound = true
-  const socket = getChatSocket()
-
-  socket.on('run.completed', (e: RunCompletedEvent) => {
-    const list = store.ensureList(e.sid)
-    list.push({
-      id: `m_${e.runId}`,
-      role: 'assistant',
-      createdAt: Date.now(),
-      content: [{ type: 'text', text: e.output ?? '' }],
-      text: e.output ?? '',
-      usage: e.usage,
-    })
-  })
-
-  socket.on('run.failed', (e: RunFailedEvent) => {
-    const list = store.ensureList(e.sid)
-    list.push({
-      id: `m_err_${e.runId}`,
-      role: 'system',
-      createdAt: Date.now(),
-      content: [{ type: 'text', text: `[run failed] ${e.error}` }],
-      text: `[run failed] ${e.error}`,
-    })
-  })
-}
 
 export interface UseChatHandle {
   messages: Ref<ChatMessage[]>
@@ -60,35 +36,100 @@ export interface UseChatHandle {
   connect: () => void
 }
 
+interface ApiMsg { role: 'user' | 'assistant' | 'system'; content: string }
+
+function toApiMessages(list: ChatMessage[], finalUserText: string): ApiMsg[] {
+  const out: ApiMsg[] = []
+  for (const m of list) {
+    if (m.role === 'tool') continue
+    const text = m.text ?? ''
+    if (!text) continue
+    out.push({ role: m.role, content: text })
+  }
+  // The caller already pushed the user msg into the list; if for some
+  // reason it isn't last, force-append the freshly-typed text.
+  const last = out[out.length - 1]
+  if (!last || last.role !== 'user' || last.content !== finalUserText) {
+    out.push({ role: 'user', content: finalUserText })
+  }
+  return out
+}
+
+async function persistChat(sid: string, messages: ChatMessage[]): Promise<void> {
+  try {
+    await fetch(apiUrl(`/chats/${encodeURIComponent(sid)}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: sid,
+        updatedAt: Date.now(),
+        messages,
+      }),
+    })
+  } catch {
+    // Persistence is best-effort; UI already shows the message.
+  }
+}
+
+function errorBlurb(err: SseError): string {
+  switch (err.kind) {
+    case 'network': return '⚠ 后端暂不可用'
+    case 'http':    return `⚠ 连接中断 (HTTP ${err.status ?? '?'})`
+    case 'timeout': return '⚠ 连接中断（30 秒无响应）'
+    case 'aborted': return '' // handled by abort() path
+    default:        return `⚠ 连接中断（${err.message}）`
+  }
+}
+
 export function useChat(sid: Ref<string>): UseChatHandle {
   const store = useChatStore()
-  bindRunFinalizers(store)
 
-  const sidRef = computed<string | null>(() => sid.value || null)
-  const stream = useChatStream({ sessionId: sidRef })
+  const status = ref<ChatStatus>('idle')
+  const error = ref<string | null>(null)
+  let active: SseStreamHandle | null = null
 
   watch(
     sid,
     (id) => {
       if (id) store.ensureList(id)
       store.currentSid = id
+      // Hard reset transient state when the user switches chats.
+      status.value = 'idle'
+      error.value = null
     },
     { immediate: true },
   )
 
   const messages = computed<ChatMessage[]>(() => store.ensureList(sid.value))
-  const status = computed<ChatStatus>(() => stream.state.status as ChatStatus)
   const streamingDelta = computed<string>(() =>
     store.streaming.sid === sid.value ? store.streaming.delta : '',
   )
   const isStreaming = computed<boolean>(
-    () => stream.state.status === 'streaming' || stream.state.status === 'queued',
+    () => status.value === 'streaming' || status.value === 'queued',
   )
-  const error = computed<string | null>(() => stream.state.error)
+
+  function commitAssistant(text: string, suffix = ''): void {
+    const list = store.ensureList(sid.value)
+    list.push({
+      id: `m_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      role: 'assistant',
+      createdAt: Date.now(),
+      content: [{ type: 'text', text: text + suffix }],
+      text: text + suffix,
+    })
+    void persistChat(sid.value, list.slice())
+  }
 
   function send(text: string, opts: { model?: string } = {}) {
     const trimmed = text.trim()
     if (!trimmed) return
+    if (active) {
+      // Caller asked to send while a stream is in flight; ignore (UI
+      // should disable the send button, but we keep this defensive).
+      return
+    }
+
+    const list = store.ensureList(sid.value)
     const userMsg: ChatMessage = {
       id: `u_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       role: 'user',
@@ -96,12 +137,62 @@ export function useChat(sid: Ref<string>): UseChatHandle {
       content: [{ type: 'text', text: trimmed }],
       text: trimmed,
     }
-    store.appendMessage(sid.value, userMsg)
-    stream.start({ sid: sid.value, input: trimmed, model: opts.model })
+    list.push(userMsg)
+
+    // Reset streaming buffer for this sid.
+    store.streaming.sid = sid.value
+    store.streaming.delta = ''
+    status.value = 'streaming'
+    error.value = null
+
+    const apiMessages = toApiMessages(list.slice(0, -1), trimmed)
+    const targetSid = sid.value
+
+    active = openSseStream(
+      { sid: targetSid, messages: apiMessages, model: opts.model },
+      {
+        onDelta: (chunk) => {
+          if (store.streaming.sid !== targetSid) {
+            store.streaming.sid = targetSid
+            store.streaming.delta = ''
+          }
+          store.streaming.delta += chunk
+        },
+        onDone: () => {
+          const buffered = store.streaming.sid === targetSid ? store.streaming.delta : ''
+          if (buffered) {
+            commitAssistant(buffered)
+          }
+          store.clearStreaming()
+          status.value = 'completed'
+          active = null
+        },
+        onError: (err) => {
+          const buffered = store.streaming.sid === targetSid ? store.streaming.delta : ''
+          if (err.kind === 'aborted') {
+            // abort() handles UX itself.
+            store.clearStreaming()
+            status.value = 'idle'
+            active = null
+            return
+          }
+          const blurb = errorBlurb(err)
+          if (buffered) {
+            commitAssistant(buffered, '\n\n' + blurb)
+          } else {
+            commitAssistant(blurb)
+          }
+          error.value = err.message
+          store.clearStreaming()
+          status.value = 'failed'
+          active = null
+        },
+      },
+    )
   }
 
   function abort() {
-    stream.abort()
+    if (!active) return
     const buffered = store.streaming.sid === sid.value ? store.streaming.delta : ''
     const list = store.ensureList(sid.value)
     if (buffered) {
@@ -112,6 +203,7 @@ export function useChat(sid: Ref<string>): UseChatHandle {
         content: [{ type: 'text', text: buffered + '\n\n_[已中断]_' }],
         text: buffered + '\n\n_[已中断]_',
       })
+      void persistChat(sid.value, list.slice())
     } else {
       list.push({
         id: `m_abort_${Date.now()}`,
@@ -122,9 +214,13 @@ export function useChat(sid: Ref<string>): UseChatHandle {
       })
     }
     store.clearStreaming()
+    status.value = 'idle'
+    active.abort()
+    active = null
   }
 
   function regenerate() {
+    if (active) return
     const list = store.ensureList(sid.value)
     while (list.length > 0 && list[list.length - 1]!.role !== 'user') {
       list.pop()
@@ -133,10 +229,15 @@ export function useChat(sid: Ref<string>): UseChatHandle {
     if (!lastUser || lastUser.role !== 'user') return
     const text = lastUser.text ?? ''
     if (!text) return
-    stream.start({ sid: sid.value, input: text })
+    // Pop the trailing user msg; send() will re-append it.
+    list.pop()
+    send(text)
   }
 
-  function connect() { stream.connect() }
+  function connect() {
+    // No-op under SSE — kept for backwards-compat with components that
+    // still call chat.connect() on mount (ChatPane).
+  }
 
   return { messages, status, streamingDelta, isStreaming, error, send, abort, regenerate, connect }
 }
