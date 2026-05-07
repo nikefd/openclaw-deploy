@@ -14,6 +14,9 @@ export const router = createRouter({
       component: () => import('@/views/ChatView.vue'),
     },
     { path: '/hello', name: 'hello', component: HelloView },
+    // Phase D3 — files browser & perf monitor
+    { path: '/files', name: 'files', component: () => import('@/views/FilesView.vue') },
+    { path: '/perf', name: 'perf', component: () => import('@/views/PerfView.vue') },
   ],
 })
 

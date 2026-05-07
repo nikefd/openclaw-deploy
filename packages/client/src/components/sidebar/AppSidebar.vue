@@ -63,6 +63,11 @@ function onSettings() {
       </button>
     </div>
 
+    <div v-if="!collapsed" class="aux">
+      <RouterLink to="/files" class="aux-link">📁 Files</RouterLink>
+      <RouterLink to="/perf" class="aux-link">📊 Perf</RouterLink>
+    </div>
+
     <div class="foot">
       <div v-if="!collapsed" class="user">
         <span class="avatar">🐶</span>
@@ -164,4 +169,22 @@ function onSettings() {
   font-size: 13px;
 }
 .avatar { font-size: 18px; }
+
+.aux {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+}
+.aux-link {
+  display: block;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-sec);
+  font-size: 13px;
+  text-decoration: none;
+}
+.aux-link:hover { background: var(--hover); color: var(--text); }
+.aux-link.router-link-active { background: var(--sidebar-active-bg); color: var(--text); }
 </style>
