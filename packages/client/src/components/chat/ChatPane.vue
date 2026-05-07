@@ -2,8 +2,9 @@
 /**
  * ChatPane — composes the chat surface for a single sid.
  */
-import { onMounted, toRefs } from 'vue'
+import { onMounted, onBeforeUnmount, toRefs } from 'vue'
 import { useChat } from '@/composables/useChat'
+import { useStreamRecovery } from '@/composables/useStreamRecovery'
 import MessageList from './MessageList.vue'
 import MessageInput from './MessageInput.vue'
 
@@ -17,8 +18,19 @@ const props = withDefaults(
 
 const { sid } = toRefs(props)
 const chat = useChat(sid)
+const streamRecovery = useStreamRecovery(sid, chat.isStreaming, chat.streamingDelta)
 
-onMounted(() => chat.connect())
+onMounted(() => {
+  chat.connect()
+  const saved = streamRecovery.getStreamState()
+  if (saved && saved.sid === sid.value) {
+    console.info('[ChatPane] Stream recovered')
+  }
+})
+
+onBeforeUnmount(() => {
+  streamRecovery.saveStreamState()
+})
 
 function onSend(text: string) { chat.send(text) }
 function onAbort() { chat.abort() }
