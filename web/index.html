@@ -31,9 +31,6 @@
   <div class="topbar">
     <button class="toggle-btn" id="toggleBtn">☰</button>
     <div class="dot"></div>
-    <select id="globalNodeSelect" style="padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--input-bg);color:var(--text);font-size:12px;outline:none;cursor:pointer;max-width:160px" onchange="switchGlobalNode()">
-      <option value="local">🏠 本机</option>
-    </select>
     <div class="topbar-title" id="topTitle">OpenClaw</div>
     <span class="agent-badge" id="agentBadge"></span>
     <div class="model-selector" id="modelSelector" style="display:flex;align-items:center;gap:4px;font-size:11px;padding:4px 8px;border-radius:6px;background:rgba(16,163,127,.1);cursor:pointer;border:1px solid transparent;transition:all .2s" title="点击切换模型">
@@ -50,7 +47,6 @@
   </div>
   <div class="tab-bar">
     <div class="tab active" data-tab="chat">💬 对话</div>
-    <div class="tab" data-tab="terminal">🖥 终端</div>
     <div class="tab" data-tab="files">📁 文件</div>
     <div class="tab" data-tab="nodes">🌐 节点</div>
     <div class="tab" data-tab="skills">🧩 技能</div>
@@ -75,10 +71,6 @@
         </div>
         <div class="footer-text">Powered by OpenClaw · Built by Yangbin</div>
       </div>
-    </div>
-    <!-- Terminal Panel -->
-    <div class="panel" id="panel-terminal">
-      <iframe class="terminal-frame" id="terminalFrame" style="flex:1;width:100%;border:none;background:#1e1e1e"></iframe>
     </div>
     <!-- Files Panel -->
     <div class="panel" id="panel-files">
@@ -517,17 +509,12 @@ if(modelSelector){
 }
 
 // === TABS ===
-let terminalLoaded=false;
 document.querySelectorAll('.tab').forEach(tab=>{
   tab.addEventListener('click',()=>{
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
     tab.classList.add('active');
     $('panel-'+tab.dataset.tab).classList.add('active');
-    if(tab.dataset.tab==='terminal'&&!terminalLoaded){
-      if(currentNode==='local'){const f=document.getElementById('terminalFrame');if(f)f.src='/terminal/';}
-      terminalLoaded=true;
-    }
     if(tab.dataset.tab==='files'&&!filesLoaded){if(currentNode==='local')loadFiles();else loadRemoteFiles();}
     if(tab.dataset.tab==='memory'&&!memoryLoaded) loadMemoryPanel();
     if(tab.dataset.tab==='skills'&&!skillsLoaded) loadSkillsPanel();
@@ -2112,17 +2099,6 @@ function copyToken(){
   });
 }
 window.toggleToken=toggleToken;window.copyToken=copyToken;
-function switchTermNode(){
-  const sel=document.getElementById('termNodeSelect');
-  const frame=document.getElementById('terminalFrame');
-  if(sel.value==='local'){frame.src='/terminal/';}
-  else{frame.srcdoc='<div style="padding:40px;font-family:monospace;color:#ccc;background:#1e1e1e;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px"><div style="font-size:24px">\ud83c\udf10</div><div>远程节点: <strong>'+esc(sel.value)+'</strong></div><div style="font-size:12px;color:#888">远程终端暂通过主对话使用 exec --node 命令操作</div></div>';}
-}
-function switchFileNode(){
-  const sel=document.getElementById('fileNodeSelect');
-  if(sel.value==='local'){loadFiles();}
-  else{document.getElementById('fileEntries').innerHTML='<div style="padding:20px;text-align:center;color:var(--text-sec);font-size:13px"><div style="font-size:32px;margin-bottom:8px">\ud83c\udf10</div><div>远程节点: <strong>'+esc(sel.value)+'</strong></div><div style="margin-top:8px;font-size:12px">远程文件浏览暂通过主对话操作</div></div>';}
-}
 window.loadNodes=loadNodes;window.approveDevice=approveDevice;window.rejectDevice=rejectDevice;window.copyConnectCmd=copyConnectCmd;
 
 // Auto-refresh nodes when on nodes tab (check for new pairing requests)
@@ -2143,65 +2119,9 @@ window.onChatNodeChange=onChatNodeChange;
 
 let currentNode='local';
 
-// Update global node selector
-function updateNodeSelectors(nodes){
-  const onlineNodes=nodes.filter(n=>n.connected||n.status==='connected');
-  const opts='<option value="local">\ud83c\udfe0 本机</option>'+onlineNodes.map(n=>'<option value="'+esc(n.nodeId||n.name)+'">'+esc(n.displayName||n.name||n.nodeId?.slice(0,8))+' ('+( n.platform||'?')+')</option>').join('');
-  const sel=document.getElementById('globalNodeSelect');
-  if(sel){const v=sel.value;sel.innerHTML=opts;sel.value=v||'local';}
-}
-
-function switchGlobalNode(){
-  const sel=document.getElementById('globalNodeSelect');
-  const newNode=sel.value;
-  if(newNode===currentNode)return;
-  // Save current chats for old node
-  localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));
-  currentNode=newNode;
-  // Load chats for new node
-  const saved=localStorage.getItem(STORAGE_KEY+'_'+currentNode);
-  chats=saved?JSON.parse(saved):[];
-  currentId=null;
-  renderSidebar();renderChat();
-  // If switching back to local, also merge from server
-  if(currentNode==='local'){(async()=>{try{const d=await(window.__oc?.backend?.loadAllChats?.()??fetch('/api/chats').then(r=>r.ok?r.json():[]));if(Array.isArray(d)&&d.length>0){chats=mergeChats(chats,d);localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_local',JSON.stringify(chats));renderSidebar();}}catch{}})();}
-  // Update terminal
-  terminalLoaded=false;
-  const termPanel=document.getElementById('panel-terminal');
-  if(currentNode==='local'){
-    termPanel.innerHTML='<iframe class="terminal-frame" id="terminalFrame" style="flex:1;width:100%;border:none;background:#1e1e1e"></iframe>';
-    if(document.querySelector('[data-tab="terminal"]').classList.contains('active')){
-      document.getElementById('terminalFrame').src='/terminal/';terminalLoaded=true;
-    }
-  }else{
-    const nodeLabel=sel.options[sel.selectedIndex]?.text||currentNode;
-    termPanel.innerHTML=`<div class="remote-term" id="remoteTerm">
-      <div class="remote-term-cwd" id="remoteTermCwd">~</div>
-      <div class="remote-term-output" id="remoteTermOutput"><span style="color:#10a37f">已连接到 ${esc(nodeLabel)}</span>\n<span style="color:#888">输入命令执行，Ctrl+L 清屏</span>\n\n</div>
-      <div class="remote-term-input"><span class="prompt">$</span><input id="remoteTermInput" placeholder="输入命令..." autofocus></div>
-    </div>`;
-    const inp=document.getElementById('remoteTermInput');
-    let cmdHistory=[],histIdx=-1;
-    inp.addEventListener('keydown',e=>{
-      if(e.key==='Enter'){
-        const cmd=inp.value.trim();if(!cmd)return;
-        cmdHistory.unshift(cmd);histIdx=-1;
-        inp.value='';runRemoteCmd(cmd);
-      }else if(e.key==='ArrowUp'){
-        e.preventDefault();if(histIdx<cmdHistory.length-1){histIdx++;inp.value=cmdHistory[histIdx];}
-      }else if(e.key==='ArrowDown'){
-        e.preventDefault();if(histIdx>0){histIdx--;inp.value=cmdHistory[histIdx];}else{histIdx=-1;inp.value='';}
-      }else if(e.ctrlKey&&e.key==='l'){
-        e.preventDefault();document.getElementById('remoteTermOutput').innerHTML='';
-      }
-    });
-    terminalLoaded=true;
-  }
-  // Update files
-  if(currentNode==='local'){filesLoaded=false;if(document.querySelector('[data-tab="files"]').classList.contains('active'))loadFiles();}
-  else{remoteFileCwd='~';if(document.querySelector('[data-tab="files"]').classList.contains('active'))loadRemoteFiles();}
-}
-window.switchGlobalNode=switchGlobalNode;
+// updateNodeSelectors: kept as no-op shim. globalNodeSelect dropdown removed,
+// remote node switching now happens via the dedicated 节点 panel only.
+function updateNodeSelectors(_nodes){}
 
 let remoteTermCwd='~';
 async function runRemoteCmd(cmd){
@@ -2537,7 +2457,7 @@ Object.assign(window, {
   // chat / mention
   copyMsg, speakText, openLightbox, insertMention, removeImg,
   // model / agent
-  setCurrentModel, switchGlobalNode,
+  setCurrentModel,
   // expert teams
   toggleExpertPanel, selectExpertTeam,
   // memory panel
