@@ -60,8 +60,15 @@ export function createCopilotRouter(opts: CreateCopilotRouterOpts = {}): Router 
     // If the caller closes the connection, abort our upstream fetch too. The
     // upstream service (file-api) keeps reading from gateway and finishes
     // writing to disk regardless — we verified this in the legacy stack.
+    //
+    // NOTE: we listen on `res.on('close')` not `req.on('close')`. Express
+    // calls req.end() as soon as the body is fully read — with a small JSON
+    // payload that fires almost immediately (before fetch resolves), which
+    // would falsely abort our upstream fetch. `res` only emits 'close' when
+    // the response is torn down (either we send `res.end()` or the client
+    // truly drops the connection). That's the signal we actually want.
     const onClientClose = () => controller.abort()
-    req.on('close', onClientClose)
+    res.on('close', onClientClose)
 
     let upstream: Response
     try {
@@ -82,6 +89,7 @@ export function createCopilotRouter(opts: CreateCopilotRouterOpts = {}): Router 
           error: aborted ? 'upstream_timeout' : 'upstream_unreachable',
         })
       }
+      res.off('close', onClientClose)
       return
     }
     // First byte received — connect phase done.
@@ -112,7 +120,7 @@ export function createCopilotRouter(opts: CreateCopilotRouterOpts = {}): Router 
     // "chatId required").
     if (!upstream.body) {
       const text = await upstream.text()
-      req.off('close', onClientClose)
+      res.off('close', onClientClose)
       res.send(text)
       return
     }
@@ -136,7 +144,7 @@ export function createCopilotRouter(opts: CreateCopilotRouterOpts = {}): Router 
       // (Don't rethrow: would crash the request handler.)
       void err
     } finally {
-      req.off('close', onClientClose)
+      res.off('close', onClientClose)
       try {
         res.end()
       } catch {
