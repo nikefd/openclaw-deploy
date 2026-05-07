@@ -64,6 +64,10 @@ function onSettings() {
     </div>
 
     <div class="foot">
+      <RouterLink v-if="!collapsed" to="/agents" class="agents-link" title="Agents">
+        🤖 <span>Agents</span>
+      </RouterLink>
+      <RouterLink v-else to="/agents" class="agents-link collapsed" title="Agents">🤖</RouterLink>
       <div v-if="!collapsed" class="user">
         <span class="avatar">🐶</span>
         <span class="name">斌哥</span>
@@ -151,11 +155,27 @@ function onSettings() {
 
 .foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   padding: 8px;
   border-top: 1px solid var(--border);
 }
+.agents-link {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--sidebar-fg, var(--text));
+  text-decoration: none;
+  transition: background 0.12s ease;
+}
+.agents-link:hover { background: var(--hover); }
+.agents-link.collapsed { flex: 1 1 100%; justify-content: center; }
+.agents-link.router-link-active { background: var(--accent-soft); color: var(--accent); }
 .user {
   flex: 1;
   display: flex;

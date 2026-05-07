@@ -14,6 +14,13 @@ export const router = createRouter({
       component: () => import('@/views/ChatView.vue'),
     },
     { path: '/hello', name: 'hello', component: HelloView },
+
+    // Phase D1 — agents hub + sub-views.
+    { path: '/agents', name: 'agents', component: () => import('@/views/AgentsView.vue') },
+    { path: '/agents/finance', name: 'agents-finance', component: () => import('@/views/agents/FinanceView.vue') },
+    { path: '/agents/climbing', name: 'agents-climbing', component: () => import('@/views/agents/ClimbingView.vue') },
+    { path: '/agents/interview', name: 'agents-interview', component: () => import('@/views/agents/InterviewView.vue') },
+    { path: '/agents/ai-frontier', name: 'agents-ai-frontier', component: () => import('@/views/agents/AiFrontierView.vue') },
   ],
 })
 
