@@ -210,35 +210,6 @@ http.createServer(async(req,res)=>{
       res.end(JSON.stringify({ok:true,path:r,size:s.size}));
     }catch(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));}
   // === NODE MANAGEMENT API ===
-  }else if(url.pathname==='/api/tasks/list'&&req.method==='GET'){
-    const qs=url.searchParams;
-    const args=['tasks','list','--json'];
-    const rt=qs.get('runtime');if(rt)args.push('--runtime',rt);
-    const st=qs.get('status');if(st)args.push('--status',st);
-    const cacheKey=args.join('|');
-    global._tasksCache=global._tasksCache||{};
-    global._tasksInFlight=global._tasksInFlight||{};
-    const c=global._tasksCache[cacheKey];
-    const now=Date.now();
-    const FRESH=15000, STALE=10*60*1000;
-    const doFetch=(cb)=>{
-      if(global._tasksInFlight[cacheKey]){global._tasksInFlight[cacheKey].push(cb);return}
-      global._tasksInFlight[cacheKey]=[cb];
-      exec('openclaw '+args.join(' ')+' 2>&1',{env:EXEC_ENV,maxBuffer:10*1024*1024,timeout:45000},(e,o)=>{
-        const waiters=global._tasksInFlight[cacheKey]||[];delete global._tasksInFlight[cacheKey];
-        if(e){waiters.forEach(w=>w(e,null));return}
-        try{JSON.parse(o);global._tasksCache[cacheKey]={t:Date.now(),data:o};waiters.forEach(w=>w(null,o))}catch(pe){waiters.forEach(w=>w(pe,o))}
-      });
-    };
-    // 1) 新鲜缓存 → 直接返回
-    if(c&&(now-c.t)<FRESH){res.setHeader('Content-Type','application/json');res.setHeader('X-Cache','HIT');res.end(c.data);return}
-    // 2) 有用的旧缓存 → 先返回旧的，后台刷新
-    if(c&&(now-c.t)<STALE){res.setHeader('Content-Type','application/json');res.setHeader('X-Cache','STALE');res.end(c.data);doFetch(()=>{});return}
-    // 3) 完全冷启动 → 等一下
-    doFetch((e,o)=>{
-      if(e){res.writeHead(500);res.end(JSON.stringify({error:e.message,raw:String(o||'').slice(0,500)}));return}
-      res.setHeader('Content-Type','application/json');res.setHeader('X-Cache','MISS');res.end(o);
-    });
   }else if(url.pathname==='/api/nodes/status'&&req.method==='GET'){
     exec('openclaw nodes status --json 2>&1',{env:EXEC_ENV},(e,o)=>{
       if(e){res.writeHead(500);res.end(JSON.stringify({error:e.message}));return;}
