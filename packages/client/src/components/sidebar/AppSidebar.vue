@@ -3,30 +3,18 @@
 // Owns the collapse toggle, theme cycler, and a stub user/settings strip at
 // the bottom. Tab panes are kept alive so switching doesn't refetch the
 // stub APIs every time.
-import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSidebarStore } from '@/stores/sidebar'
-import { useTheme } from '@/composables/useTheme'
 import SidebarTabs from './SidebarTabs.vue'
 import ChatList from './ChatList.vue'
 import MemoryPanel from './MemoryPanel.vue'
 import SkillsPanel from './SkillsPanel.vue'
 import ChatSearch from './ChatSearch.vue'
+import SidebarFooter from './SidebarFooter.vue'
 import { RouterLink } from 'vue-router'
 
 const sidebar = useSidebarStore()
 const { collapsed, activeTab } = storeToRefs(sidebar)
-const { mode: themeMode, cycle: cycleTheme } = useTheme()
-
-const themeIcon = computed(() => {
-  if (themeMode.value === 'dark') return '🌙'
-  if (themeMode.value === 'light') return '☀️'
-  return '🌓'
-})
-
-function onSettings() {
-  console.info('[Phase E] open settings')
-}
 </script>
 
 <template>
@@ -73,16 +61,7 @@ function onSettings() {
       <RouterLink to="/perf" class="aux-link">📊 Perf</RouterLink>
     </div>
 
-    <div class="foot">
-      <div v-if="!collapsed" class="user">
-        <span class="avatar">🐶</span>
-        <span class="name">斌哥</span>
-      </div>
-      <button class="icon-btn" :title="`主题: ${themeMode}`" @click="cycleTheme">
-        {{ themeIcon }}
-      </button>
-      <button class="icon-btn" title="设置" @click="onSettings">⚙️</button>
-    </div>
+    <SidebarFooter :collapsed="collapsed" />
 
     <ChatSearch />
   </aside>
@@ -158,38 +137,6 @@ function onSettings() {
 }
 .rail-btn:hover { background: var(--hover); }
 .rail-btn.active { background: var(--sidebar-active-bg); color: var(--text); }
-
-.foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 8px;
-  border-top: 1px solid var(--border);
-}
-.agents-link {
-  flex: 1 1 100%;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  font-size: 13px;
-  color: var(--sidebar-fg, var(--text));
-  text-decoration: none;
-  transition: background 0.12s ease;
-}
-.agents-link:hover { background: var(--hover); }
-.agents-link.collapsed { flex: 1 1 100%; justify-content: center; }
-.agents-link.router-link-active { background: var(--accent-soft); color: var(--accent); }
-.user {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-}
-.avatar { font-size: 18px; }
 
 .aux {
   display: flex;
