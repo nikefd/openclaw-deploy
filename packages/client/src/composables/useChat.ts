@@ -148,8 +148,15 @@ export function useChat(sid: Ref<string>): UseChatHandle {
     const apiMessages = toApiMessages(list.slice(0, -1), trimmed)
     const targetSid = sid.value
 
+    // Map UI model id → gateway model. Gateway only accepts:
+    //   'openclaw'             — router decides per request
+    //   'openclaw/<agentId>'   — pinned to one agent
+    // For now any UI selection routes through the default 'openclaw' agent.
+    // Phase E4 will wire each ModelOption to a gateway agentId.
+    const gatewayModel = opts.model && opts.model.startsWith('openclaw') ? opts.model : 'openclaw'
+
     active = openSseStream(
-      { sid: targetSid, messages: apiMessages, model: opts.model },
+      { sid: targetSid, messages: apiMessages, model: gatewayModel },
       {
         onDelta: (chunk) => {
           if (store.streaming.sid !== targetSid) {
