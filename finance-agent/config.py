@@ -920,3 +920,78 @@ CASH_AUTO_DETECTION_LEVELS = {
     'aggressive': {'threshold': 0.95, 'entry_quality': 25, 'multiplier': 1.2},  # 激进
     'normal': {'threshold': 0.75, 'entry_quality': 35, 'multiplier': 1.0}  # 常规
 }
+
+# =================== v5.93 晚间深度优化 (混合池升级+Sharpe强制3.5x+超激进选股+赛道分散+ATR止损) ===================
+# 【v5.93核心目标】
+# 现金利用率: 1.3% → 15-20% | 日均建仓: 8只 → 20只 | 混合池: 5.06% → 8-10% | MaxDD: 4.08% → 2.8%
+#
+# 【v5.93八大优化】
+# 1. ✅ 混合池权重升级 (科技2.5x + 新能源2.0x + 消费0.05x) → 预期混合池8-10%
+# 2. ✅ Sharpe强制激活 3.5x (从3.0x↑ 确保被应用)
+# 3. ✅ 超激进选股 (入场20分 → 150只候选 → 日均20只)
+# 4. ✅ 赛道强制分散 (科技40% + 新能源35% + 其他25%)
+# 5. ✅ 融资异变强制 (+12分底部 or +8分参与)
+# 6. ✅ 信号持续性自适应 (现金>99%: 2天确认)
+# 7. ✅ 快速选股 (<10秒)
+# 8. ✅ ATR止损升级 (MaxDD 4.08% → 2.8% -31%改善)
+# 9. ✅ 消费黑名单强制 (白马消费-5.51% → 95%过滤)
+
+V5_93_DEEP_OPTIMIZE_ACTIVE = True         # v5.93激活
+V5_93_VERSION = 'v5.93'                   # 版本标记
+V5_93_TIMESTAMP = '2026-05-07T22:00:00Z'  # 晚间优化时间
+
+# v5.93: 超激进参数
+V5_93_EXTREME_CASH_TRIGGER = 0.985        # 现金>98.5%触发
+V5_93_ENTRY_QUALITY_THRESHOLD = 20        # 入场质量20分(-64% from baseline 55分)
+V5_93_CANDIDATE_POOL_SIZE = 150           # 候选池150只
+V5_93_DAILY_ENTRY_TARGET = 20             # 日均建仓20只
+V5_93_SHARPE_MULTIPLIER = 3.5             # Sharpe倍数3.5x (+16% from v5.87的3.0x)
+
+# v5.93: 赛道多样化配置
+V5_93_SECTOR_ALLOCATION = {
+    '科技成长': 0.40,    # 40%
+    '新能源': 0.35,      # 35%
+    '医药': 0.10,        # 10%
+    '金融': 0.10,        # 10%
+    '消费': 0.05,        # 5% (极度压低)
+}
+
+# v5.93: 混合池权重升级
+MIXED_POOL_WEIGHTS_V93 = {
+    '科技成长': 2.5,     # 保持v5.87
+    '新能源': 2.0,       # 保持v5.87
+    '医药': 1.5,         # 新增
+    '消费': 0.05,        # 从v5.87的0.1x → 0.05x (v5.93更激进)
+    '主板': 0.8,         # 从v5.87的0.7x↑
+    '其他': 0.6,         # 从v5.87的0.5x↑
+}
+APPLY_MIXED_POOL_V93 = True               # 启用v5.93混合池权重
+
+# v5.93: Sharpe强制激活参数
+SHARPE_FORCE_APPLY_V93 = True             # 强制应用
+SHARPE_MULTIPLIER_V93 = 3.5               # 3.5x倍数
+APPLY_SHARPE_IN_RANKING_V93 = True       # ranking()中应用
+APPLY_SHARPE_IN_SCORING_V93 = True       # score_and_rank()中应用
+
+# v5.93: 融资异变强制
+MARGIN_ANOMALY_FORCE_V93 = True
+MARGIN_DECLINE_BONUS_V93 = 12             # +12分
+MARGIN_INCREASE_BONUS_V93 = 8             # +8分
+
+# v5.93: ATR止损升级
+ATR_TARGET_MAX_DD_V93 = 0.028             # 2.8% (从4.08% ↓31%)
+ATR_HIGH_VOL_STOP_V93 = -0.05             # -5%
+ATR_NORMAL_VOL_STOP_V93 = -0.035         # -3.5%
+ATR_LOW_VOL_STOP_V93 = -0.02             # -2%
+
+# v5.93: 快速选股配置
+FAST_PICK_TIMEOUT_V93 = 10.0              # 10秒
+FAST_PICK_CACHE_SIZE_V93 = 100            # 缓存100只
+FAST_PICK_ENABLED_V93 = True
+
+# v5.93: 信号持续性自适应
+SIGNAL_PERSISTENCE_EXTREME_V93 = 2        # 现金>99%: 2天
+SIGNAL_PERSISTENCE_NORMAL_V93 = 4         # 现金<75%: 4天
+
+# v5.93: 消费黑名单
+CONSUMER_BLACKLIST_RATIO_V93 = 0.95      # 95%过滤
