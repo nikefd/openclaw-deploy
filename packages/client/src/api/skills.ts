@@ -1,46 +1,86 @@
-// api/skills.ts — Phase C2 stub. Phase E will hit /api/skills which lists the
-// real skill registry.
+// api/skills.ts — Phase E3 real backend client (with fixture fallback).
+import { FIXTURE_SKILL_ENTRIES, FIXTURE_SKILL_CONTENT } from '@/fixtures/skills'
+
+export type SkillSource = 'user' | 'builtin'
+
+export interface SkillEntry {
+  name: string
+  source: SkillSource
+  location: string
+  description: string
+  emoji?: string
+}
+
+export interface SkillFile {
+  name: string
+  source: SkillSource
+  location: string
+  path: string
+  sizeBytes: number
+  mtime: number
+  content: string
+}
+
+interface ListResponse { entries: SkillEntry[] }
+
+const API_BASE = '/api/skills'
+
+async function safeFetch(url: string): Promise<Response> {
+  const r = await fetch(url, { credentials: 'same-origin' })
+  if (!r.ok) {
+    const text = await r.text().catch(() => '')
+    throw new Error(`HTTP ${r.status}${text ? `: ${text}` : ''}`)
+  }
+  return r
+}
+
+export async function fetchSkillsList(): Promise<SkillEntry[]> {
+  try {
+    const r = await safeFetch(`${API_BASE}/list`)
+    const body = (await r.json()) as ListResponse
+    return body.entries
+  } catch (e) {
+    console.warn('[skills] list fallback to fixture:', e)
+    return FIXTURE_SKILL_ENTRIES
+  }
+}
+
+export async function fetchSkillContent(name: string, source: SkillSource): Promise<SkillFile> {
+  try {
+    const r = await safeFetch(
+      `${API_BASE}/get?name=${encodeURIComponent(name)}&source=${encodeURIComponent(source)}`,
+    )
+    return (await r.json()) as SkillFile
+  } catch (e) {
+    console.warn('[skills] get fallback to fixture:', e)
+    const key = `${source}:${name}`
+    const fx = FIXTURE_SKILL_CONTENT[key]
+    if (fx) return fx
+    return {
+      name,
+      source,
+      location: '(unknown)',
+      path: '(unknown)',
+      sizeBytes: 0,
+      mtime: Date.now(),
+      content: `(fixture) no content for ${source}/${name}`,
+    }
+  }
+}
+
+// Legacy alias for any pre-E3 caller.
 export interface SkillSummary {
   id: string
   name: string
   description: string
   emoji: string
 }
-
-const STUB: SkillSummary[] = [
-  {
-    id: 'weather',
-    name: 'weather',
-    description: '查实时天气与多日预报（wttr.in / Open-Meteo）',
-    emoji: '🌤️',
-  },
-  {
-    id: 'github',
-    name: 'github',
-    description: 'GitHub issues / PRs / CI runs（gh CLI）',
-    emoji: '🐙',
-  },
-  {
-    id: 'discord',
-    name: 'discord',
-    description: 'Discord 消息与通道操作',
-    emoji: '💬',
-  },
-  {
-    id: 'company-duediligence',
-    name: 'company-duediligence',
-    description: '私有公司尽调，融资 / 团队 / 流量 / 合规交叉核查',
-    emoji: '🔎',
-  },
-  {
-    id: 'resume-gen',
-    name: 'resume-gen',
-    description: '基于基础简历针对 JD 生成定制版 PDF',
-    emoji: '📄',
-  },
-]
-
 export async function fetchSkills(): Promise<SkillSummary[]> {
-  await new Promise((r) => setTimeout(r, 50))
-  return STUB
+  const list = await fetchSkillsList()
+  return list.map((s) => ({
+    id: `${s.source}:${s.name}`,
+    name: s.name,
+    description: s.description,
+    emoji: s.emoji ?? '🛠️',
+  }))
 }
