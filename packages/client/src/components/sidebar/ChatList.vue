@@ -9,7 +9,7 @@
  * Active highlighting follows the route's :sid param (single source of
  * truth) so opening a chat URL directly highlights the right row.
  */
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, watch, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useSidebarStore, type ChatSummary } from '@/stores/sidebar'
@@ -55,6 +55,18 @@ watch(
 onMounted(() => {
   void reload()
 })
+
+// When we navigate to a new chat (including fresh client-generated IDs),
+// reload the list after a brief delay so the new chat appears (backend
+// creates it on first message). Debounce to avoid hammering the API.
+let reloadTimer: ReturnType<typeof setTimeout> | null = null
+watch(
+  activeChatId,
+  () => {
+    if (reloadTimer) clearTimeout(reloadTimer)
+    reloadTimer = setTimeout(() => void reload(), 1000)
+  },
+)
 
 interface Group { label: string; items: ChatSummary[] }
 
