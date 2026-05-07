@@ -3,6 +3,7 @@ import express from 'express'
 import cors from 'cors'
 import { Server as IOServer } from 'socket.io'
 import type { ClientToServer, ServerToClient } from '@oc/shared/events'
+import { attachChatStream } from './services/chat-stream.js'
 
 const PORT = Number(process.env.PORT ?? 8001)
 const ALLOWED_ORIGINS = [
@@ -15,7 +16,7 @@ app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }))
 app.use(express.json({ limit: '2mb' }))
 
 app.get('/healthz', (_req, res) => {
-  res.json({ ok: true, phase: 'a' })
+  res.json({ ok: true, phase: 'b' })
 })
 
 const httpServer = http.createServer(app)
@@ -27,8 +28,10 @@ const io = new IOServer<ClientToServer, ServerToClient>(httpServer, {
   },
 })
 
-// Phase A: just log connections. The /chat-run namespace + start/resume/abort
-// handlers land in Phase B (see REFACTOR_V2.md §3 Phase B).
+// Phase B: attach the /chat-run namespace.
+attachChatStream(io)
+
+// Default-namespace connections are still logged for diagnostics.
 io.on('connection', (socket) => {
   // eslint-disable-next-line no-console
   console.log(`[socket.io] connect id=${socket.id}`)
@@ -40,5 +43,5 @@ io.on('connection', (socket) => {
 
 httpServer.listen(PORT, () => {
   // eslint-disable-next-line no-console
-  console.log(`[@oc/server] phase A scaffold listening on http://127.0.0.1:${PORT}`)
+  console.log(`[@oc/server] phase B comms listening on http://127.0.0.1:${PORT}`)
 })
