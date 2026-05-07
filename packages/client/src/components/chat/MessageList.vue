@@ -6,6 +6,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { ChatMessage } from '@oc/shared/chat'
 import { useAutoScroll } from '@/composables/useAutoScroll'
 import { useTypewriter } from '@/composables/useTypewriter'
+import { useStreamProgress } from '@/composables/useStreamProgress'
 import MessageBubble from './MessageBubble.vue'
 
 const props = withDefaults(
@@ -29,6 +30,10 @@ let unbind: (() => void) | null = null
 
 const deltaSource = computed(() => props.streamingDelta)
 const tw = useTypewriter(deltaSource, { intervalMs: 16, charsPerTick: 3 })
+const streamProgress = useStreamProgress(
+  computed(() => props.isStreaming),
+  deltaSource,
+)
 
 const streamingBubble = computed<ChatMessage | null>(() => {
   if (!props.isStreaming) return null
@@ -84,6 +89,15 @@ function bubbleKey(m: ChatMessage, i: number): string {
       @delete="(id) => emit('delete', id)"
     />
 
+    <!-- Progress indicator when streaming but not yet showing bubble -->
+    <div v-if="props.isStreaming && !streamingBubble" class="progress-indicator">
+      <span class="progress-icon">{{ streamProgress.progress.value.icon }}</span>
+      <span class="progress-text">{{ streamProgress.progress.value.message }}</span>
+      <span v-if="streamProgress.estimatedTokens.value > 0" class="progress-tokens">
+        (~{{ streamProgress.estimatedTokens.value }} tokens)
+      </span>
+    </div>
+
     <MessageBubble
       v-if="streamingBubble"
       :key="'__streaming__'"
@@ -114,6 +128,25 @@ function bubbleKey(m: ChatMessage, i: number): string {
 .empty { margin: auto; text-align: center; color: var(--text-sec); }
 .empty-title { font-size: 18px; color: var(--text); margin-bottom: 4px; }
 .empty-sub { font-size: 13px; }
+.progress-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  margin: 8px 0;
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  color: var(--text-sec);
+  font-size: 13px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+.progress-icon { font-size: 16px; }
+.progress-text { flex: 1; }
+.progress-tokens { opacity: 0.7; font-size: 12px; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
 .jump-to-bottom {
   position: sticky; bottom: 12px; align-self: center;
   background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text);
