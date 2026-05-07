@@ -223,6 +223,7 @@ tr.pos-row.expanded{background:var(--hover)}
   <div class="tab" data-tab="stoploss">🔴 止损面板</div>
   <div class="tab" data-tab="riskmonitor">⚠️ 风险监控</div>
   <div class="tab" data-tab="intradeystats">⚡ 实时性能</div>
+  <div class="tab" data-tab="intradeydashboard">📊 盤中儀表板 (v5.91)</div>
 </div>
 
 <div class="content">
@@ -1049,6 +1050,101 @@ tr.pos-row.expanded{background:var(--hover)}
       <button class="btn" onclick="loadIntradayStats()" style="margin-left:12px;font-size:11px">🔄 立即刷新</button>
     </div>
   </div>
+
+  <!-- v5.91 盤中儀表板 -->
+  <div class="tab-panel" id="panel-intradeydashboard">
+    <h2 style="margin-bottom:20px">📊 v5.91 盤中UI優化儀表板</h2>
+    
+    <!-- 現金激活狀態卡片 -->
+    <div class="cards" style="margin-bottom:24px">
+      <div class="card" style="background:linear-gradient(135deg,#4361ee15,#4361ee05);border-color:#4361ee33">
+        <div class="card-label">💰 現金占比</div>
+        <div class="card-value" id="v591CashRatio" style="font-size:32px">--</div>
+        <div style="font-size:11px;color:var(--sub);margin-top:6px">¥<span id="v591CashAmount">--</span></div>
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,#ffd16615,#ffd16605);border-color:#ffd16633">
+        <div class="card-label">⚡ 激活模式</div>
+        <div class="card-value" id="v591CashMode" style="font-size:20px">--</div>
+        <div style="font-size:11px;color:var(--sub);margin-top:6px">倍數: <b id="v591ModeMultiplier">--</b></div>
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,#2ec4b615,#2ec4b605);border-color:#2ec4b633">
+        <div class="card-label">📊 激活狀態</div>
+        <div id="v591ActivatedBadge" style="font-size:32px;margin-top:6px">✅</div>
+        <div style="font-size:11px;color:var(--sub);margin-top:6px">v5.91優化</div>
+      </div>
+    </div>
+    
+    <!-- 當日交易統計 -->
+    <div class="chart-box" style="margin-bottom:24px">
+      <h3>📋 當日交易統計 (6大KPI)</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:12px;padding:12px">
+        <div style="background:var(--hover);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:24px;font-weight:700;color:#4361ee" id="v591TotalTrades">0</div>
+          <div style="font-size:11px;color:var(--sub);margin-top:4px">總交易</div>
+        </div>
+        <div style="background:var(--hover);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:24px;font-weight:700;color:#2ec4b6" id="v591BuyOrders">0</div>
+          <div style="font-size:11px;color:var(--sub);margin-top:4px">買入</div>
+        </div>
+        <div style="background:var(--hover);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:24px;font-weight:700;color:#e63946" id="v591SellOrders">0</div>
+          <div style="font-size:11px;color:var(--sub);margin-top:4px">賣出</div>
+        </div>
+        <div style="background:var(--hover);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:24px;font-weight:700;color:#95e1d3" id="v591WinTrades">0</div>
+          <div style="font-size:11px;color:var(--sub);margin-top:4px">勝</div>
+        </div>
+        <div style="background:var(--hover);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:24px;font-weight:700;color:#ff9f1c" id="v591LossTrades">0</div>
+          <div style="font-size:11px;color:var(--sub);margin-top:4px">負</div>
+        </div>
+        <div style="background:var(--hover);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:24px;font-weight:700;color:#4361ee" id="v591WinRate">0%</div>
+          <div style="font-size:11px;color:var(--sub);margin-top:4px">勝率</div>
+        </div>
+      </div>
+      <div style="padding:12px;text-align:center;border-top:1px solid var(--border);margin-top:12px;background:var(--hover);border-radius:8px">
+        <div style="font-size:13px;color:var(--sub)">當日淨收益</div>
+        <div style="font-size:24px;font-weight:700;color:#2ec4b6;margin-top:4px" id="v591TotalPnl">¥0</div>
+      </div>
+    </div>
+    
+    <!-- MACD直方圖翻正監控 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+      <div class="chart-box">
+        <h3>📈 MACD直方圖翻正信號</h3>
+        <div style="padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:#4361ee" id="v591MacdTotal">0</div>
+          <div style="font-size:12px;color:var(--sub);margin-top:8px">近7天翻正次數</div>
+        </div>
+      </div>
+      <div class="chart-box">
+        <h3>📊 週平均翻正頻率</h3>
+        <div style="padding:16px;text-align:center">
+          <div style="font-size:28px;font-weight:700;color:#2ec4b6" id="v591MacdWeekly">0</div>
+          <div style="font-size:12px;color:var(--sub);margin-top:8px">日均次數</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- TOP MACD信號代碼 -->
+    <div class="chart-box" style="margin-bottom:24px">
+      <h3>🏆 TOP MACD翻正代碼</h3>
+      <div id="v591TopSignals" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;padding:12px">
+        <div style="text-align:center;color:var(--sub)">加載中...</div>
+      </div>
+    </div>
+    
+    <!-- 持倉熱力分佈 -->
+    <div class="chart-box">
+      <h3>🟢 持倉熱力分佈 (4色編碼)</h3>
+      <div id="v591HeatMapContainer" style="padding:12px">
+        <div style="text-align:center;color:var(--sub)">加載中...</div>
+      </div>
+      <button class="btn" onclick="loadIntradayDashboard_v591()" style="margin:12px auto;display:block">🔄 立即刷新</button>
+    </div>
+  </div>
+
 
 </div>
 
@@ -2496,6 +2592,82 @@ async function loadIntradayStats(){
   document.getElementById('intraStatsLastUpdate').textContent='更新: '+new Date().toLocaleTimeString('zh-CN');
 }
 
-</script>
+// v5.91 盤中儀表板優化
+async function loadIntradayDashboard_v591(){
+  try{
+    const resp=await fetch('/api/finance/intraday-ui-optimizer');
+    if(!resp.ok)throw new Error('API error');
+    const data=await resp.json();
+    
+    // 現金狀態面板
+    const cash=data.cash_status||{};
+    document.getElementById('v591CashRatio').textContent=(cash.cash_ratio||0).toFixed(2)+'%';
+    document.getElementById('v591CashAmount').textContent='¥'+fmt(cash.cash_amount||0);
+    document.getElementById('v591CashMode').textContent=cash.mode||'未知';
+    document.getElementById('v591ModeMultiplier').textContent=(cash.multiplier||1).toFixed(1)+'x';
+    document.getElementById('v591ActivatedBadge').textContent=cash.activated?'✅ 激活':'❌ 正常';
+    document.getElementById('v591ActivatedBadge').style.color=cash.activated?'#2ec4b6':'#95e1d3';
+    
+    // 持倉熱力分佈
+    const heat=data.position_heat_map||{};
+    const heatCards=[
+      {title:'🟢 高收益(≥+10%)',items:heat.high_gain||[],color:'#2ec4b6'},
+      {title:'🟡 正常(-5%~+10%)',items:heat.normal||[],color:'#ffd93d'},
+      {title:'🟠 警告(-10%~-5%)',items:heat.warning||[],color:'#ff9f1c'},
+      {title:'🔴 危險(<-10%)',items:heat.danger||[],color:'#e63946'}
+    ];
+    
+    const heatContainer=document.getElementById('v591HeatMapContainer');
+    heatContainer.innerHTML=heatCards.map(cat=>`
+      <div style="background:${cat.color}11;border:1px solid ${cat.color}33;border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="font-weight:600;color:${cat.color};margin-bottom:8px">${cat.title}</div>
+        <div style="font-size:12px">
+          ${cat.items.length>0?cat.items.map(p=>`
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid ${cat.color}22">
+              <span>${p.code} ${p.name}</span>
+              <span style="color:${p.pnl_pct>0?'#2ec4b6':'#e63946'}">${(p.pnl_pct||0).toFixed(2)}%</span>
+            </div>
+          `).join(''):"<div style='color:var(--sub)'>無持倉</div>"}
+        </div>
+      </div>
+    `).join('');
+    
+    // 交易統計
+    const trades=data.trade_metrics||{};
+    document.getElementById('v591TotalTrades').textContent=trades.total_trades||0;
+    document.getElementById('v591BuyOrders').textContent=trades.buy_orders||0;
+    document.getElementById('v591SellOrders').textContent=trades.sell_orders||0;
+    document.getElementById('v591WinTrades').textContent=trades.win_trades||0;
+    document.getElementById('v591LossTrades').textContent=trades.loss_trades||0;
+    document.getElementById('v591WinRate').textContent=(trades.win_rate||0).toFixed(1)+'%';
+    document.getElementById('v591TotalPnl').textContent='¥'+(trades.total_pnl||0).toFixed(2);
+    
+    // MACD直方圖監控
+    const macd=data.macd_histogram||{};
+    document.getElementById('v591MacdTotal').textContent=macd.histogram_crosses_total||0;
+    document.getElementById('v591MacdWeekly').textContent=(macd.weekly_avg||0).toFixed(1);
+    
+    const topSignals=document.getElementById('v591TopSignals');
+    if(macd.top_signals && macd.top_signals.length>0){
+      topSignals.innerHTML=macd.top_signals.map(s=>`
+        <div style="padding:8px;background:var(--hover);border-radius:6px;margin-bottom:6px">
+          <div style="font-weight:600">${s.code}</div>
+          <div style="font-size:12px;color:var(--sub)">翻正${s.crosses}次</div>
+        </div>
+      `).join('');
+    }else{
+      topSignals.innerHTML='<div style="color:var(--sub);text-align:center;padding:20px">暫無翻正信號</div>';
+    }
+  }catch(e){
+    console.error('v5.91 Dashboard Error:',e);
+}
+
+// 初始化并自動刷新
+refreshAll();
+setInterval(refreshAll,300000);
+setInterval(()=>{if(document.querySelector(".tab.active[data-tab='intradeystats']"))loadIntradayStats();},30000);
+setInterval(()=>{if(document.querySelector(".tab.active[data-tab='intradeydashboard']"))loadIntradayDashboard_v591();},30000);
+
+
 </body>
 </html>
