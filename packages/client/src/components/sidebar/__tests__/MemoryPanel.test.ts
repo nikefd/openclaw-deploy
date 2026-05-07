@@ -7,7 +7,18 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import MemoryPanel from '@/components/sidebar/MemoryPanel.vue'
+
+function makeRouter() {
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', component: { template: '<div/>' } },
+      { path: '/memory/:path(.*)', name: 'memory-file', component: { template: '<div/>' } },
+    ],
+  })
+}
 
 const sampleEntries = [
   { path: 'MEMORY.md', name: 'MEMORY.md', sizeBytes: 100, mtime: 1000, preview: 'mem preview', group: 'top' },
@@ -41,7 +52,8 @@ afterEach(() => {
 
 describe('MemoryPanel', () => {
   it('renders both groups after fetch', async () => {
-    const wrapper = mount(MemoryPanel)
+    const router = makeRouter()
+    const wrapper = mount(MemoryPanel, { global: { plugins: [router] } })
     await flushPromises()
     const html = wrapper.html()
     expect(html).toContain('身份 / 配置')
@@ -49,26 +61,22 @@ describe('MemoryPanel', () => {
     expect(html).toContain('MEMORY.md')
     expect(html).toContain('SOUL.md')
     expect(html).toContain('2026-05-01.md')
-    // Drawer should not be open yet.
-    expect(document.querySelector('.oc-doc-drawer')).toBeNull()
   })
 
-  it('clicking an item opens drawer with rendered preview', async () => {
-    const wrapper = mount(MemoryPanel)
+  it('clicking an item navigates to the reader route', async () => {
+    const router = makeRouter()
+    await router.push('/')
+    const wrapper = mount(MemoryPanel, { global: { plugins: [router] } })
     await flushPromises()
 
     const items = wrapper.findAll('.item')
     expect(items.length).toBeGreaterThan(0)
-    // Find the SOUL.md item to click.
     const soulItem = items.find((w) => w.text().includes('SOUL.md'))!
     expect(soulItem).toBeTruthy()
+    expect(soulItem.attributes('href')).toBe('/memory/SOUL.md')
+
     await soulItem.trigger('click')
     await flushPromises()
-
-    // Drawer is teleported to body, so query document directly.
-    const drawer = document.querySelector('.oc-doc-drawer')
-    expect(drawer).not.toBeNull()
-    expect(drawer!.innerHTML).toContain('SOUL.md')
-    expect(drawer!.innerHTML).toContain('hello world')
+    expect(router.currentRoute.value.path).toBe('/memory/SOUL.md')
   })
 })

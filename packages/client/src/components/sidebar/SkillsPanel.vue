@@ -1,37 +1,18 @@
 <script setup lang="ts">
-// SkillsPanel.vue — Phase E3 sidebar skills list backed by /api/skills.
-// Two groups (user / builtin); click → drawer with full SKILL.md.
-import { onMounted, ref, watch, nextTick } from 'vue'
+// SkillsPanel.vue — Phase E3.1 sidebar skills list.
+// Click → navigates to /skills/:source/:name in main content area.
+import { onMounted } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { useSkills } from '@/composables/useSkills'
-import { useMarkdown } from '@/composables/useMarkdown'
 import type { SkillSource } from '@/api/skills'
 
-const {
-  userEntries,
-  builtinEntries,
-  loading,
-  error,
-  selected,
-  current,
-  contentLoading,
-  contentError,
-  reload,
-  open,
-  clearSelection,
-} = useSkills()
-
-const { render, attachCodeCopyButtons } = useMarkdown()
-const previewBox = ref<HTMLElement | null>(null)
+const route = useRoute()
+const { userEntries, builtinEntries, loading, error, reload } = useSkills()
 
 onMounted(() => { void reload() })
 
-watch(current, async () => {
-  await nextTick()
-  attachCodeCopyButtons(previewBox.value)
-})
-
 function isActive(name: string, source: SkillSource): boolean {
-  return selected.value?.name === name && selected.value?.source === source
+  return route.params.name === name && route.params.source === source
 }
 </script>
 
@@ -46,82 +27,47 @@ function isActive(name: string, source: SkillSource): boolean {
 
     <div v-if="userEntries.length" class="group">
       <div class="group-title">👤 用户自定义（{{ userEntries.length }}）</div>
-      <button
+      <RouterLink
         v-for="s in userEntries"
         :key="`user:${s.name}`"
+        :to="`/skills/user/${s.name}`"
         class="item"
         :class="{ active: isActive(s.name, 'user') }"
         :title="s.description"
-        @click="open(s.name, 'user')"
       >
         <span class="ic">{{ s.emoji || '🛠️' }}</span>
         <span class="info">
           <span class="n">{{ s.name }}</span>
           <span class="d">{{ s.description }}</span>
         </span>
-      </button>
+      </RouterLink>
     </div>
 
     <div v-if="builtinEntries.length" class="group">
       <div class="group-title">📦 内置（{{ builtinEntries.length }}）</div>
-      <button
+      <RouterLink
         v-for="s in builtinEntries"
         :key="`builtin:${s.name}`"
+        :to="`/skills/builtin/${s.name}`"
         class="item"
         :class="{ active: isActive(s.name, 'builtin') }"
         :title="s.description"
-        @click="open(s.name, 'builtin')"
       >
         <span class="ic">{{ s.emoji || '🛠️' }}</span>
         <span class="info">
           <span class="n">{{ s.name }}</span>
           <span class="d">{{ s.description }}</span>
         </span>
-      </button>
+      </RouterLink>
     </div>
 
     <div v-if="!loading && !userEntries.length && !builtinEntries.length" class="empty">没有可用 skill</div>
-
-    <Transition name="drawer">
-      <Teleport to="body">
-        <div v-if="selected" class="oc-doc-overlay" @click.self="clearSelection">
-          <div class="oc-doc-drawer">
-            <div class="drawer-head">
-              <span class="drawer-title">
-                {{ current?.name ?? selected.name }}
-                <span class="src">[{{ selected.source }}]</span>
-              </span>
-              <button class="close" @click="clearSelection">×</button>
-            </div>
-            <div v-if="contentLoading" class="drawer-body empty">读取中…</div>
-            <div v-else-if="contentError" class="drawer-body error">读取失败：{{ contentError }}</div>
-            <div v-else-if="current" class="drawer-body">
-              <div class="loc">{{ current.location }}</div>
-              <div ref="previewBox" class="markdown" v-html="render(current.content)" />
-            </div>
-          </div>
-        </div>
-      </Teleport>
-    </Transition>
   </div>
 </template>
 
 <style scoped lang="scss">
-.skills-panel {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  padding: 8px;
-  overflow-y: auto;
-  position: relative;
-}
-.header {
-  display: flex;
-  align-items: center;
-  padding: 6px 4px;
-  font-size: 12px;
-  color: var(--text-sec);
-}
+.skills-panel { display: flex; flex-direction: column; flex: 1; padding: 8px; overflow-y: auto; }
+.header { display: flex; align-items: center; padding: 6px 4px; font-size: 12px; color: var(--text-sec); }
 .title { flex: 1; font-weight: 600; }
 .action {
   background: transparent;
@@ -156,6 +102,7 @@ function isActive(name: string, source: SkillSource): boolean {
   text-align: left;
   width: 100%;
   color: var(--sidebar-fg, var(--text));
+  text-decoration: none;
 }
 .item:hover { background: var(--hover); border-color: var(--border); }
 .item.active { background: var(--hover); border-color: var(--accent, #4c8bf5); }
@@ -170,126 +117,4 @@ function isActive(name: string, source: SkillSource): boolean {
   text-overflow: ellipsis;
 }
 .empty { padding: 16px; text-align: center; color: var(--text-sec); font-size: 12px; }
-
-.drawer {
-  position: absolute;
-  inset: 0;
-  background: var(--bg, #fff);
-  display: flex;
-  flex-direction: column;
-  z-index: 5;
-}
-.drawer-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
-}
-.drawer-title { flex: 1; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.src { font-size: 10px; color: var(--text-sec); margin-left: 4px; }
-.close {
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  width: 26px;
-  height: 24px;
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-}
-.drawer-body { padding: 10px 12px; overflow-y: auto; flex: 1; font-size: 13px; }
-.loc { font-size: 11px; color: var(--text-sec); margin-bottom: 8px; word-break: break-all; }
-.markdown :deep(pre) { background: var(--bg-elevated, #f5f5f5); padding: 8px; border-radius: 4px; overflow-x: auto; }
-.markdown :deep(code) { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; }
-.markdown :deep(h1), .markdown :deep(h2), .markdown :deep(h3) { margin-top: 12px; }
-
-.drawer-enter-active, .drawer-leave-active { transition: transform 0.15s ease, opacity 0.15s ease; }
-.drawer-enter-from, .drawer-leave-to { transform: translateX(8px); opacity: 0; }
-</style>
-
-<style lang="scss">
-/* Unscoped — Teleport target is outside this component's DOM tree.
-   Mirrors MemoryPanel's .oc-doc-overlay/.oc-doc-drawer (defined twice is
-   harmless: same selectors, identical rules). */
-.oc-doc-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  justify-content: flex-end;
-  z-index: 1000;
-}
-.oc-doc-drawer {
-  width: min(880px, 75vw);
-  height: 100%;
-  background: var(--bg, #1a1a1e);
-  color: var(--text, #e4e4e7);
-  border-left: 1px solid var(--border, #2a2a30);
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.35);
-  display: flex;
-  flex-direction: column;
-  animation: oc-doc-slide 0.18s ease-out;
-}
-@keyframes oc-doc-slide {
-  from { transform: translateX(20px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
-}
-.oc-doc-drawer .drawer-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border, #2a2a30);
-}
-.oc-doc-drawer .drawer-title {
-  flex: 1;
-  font-size: 14px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.oc-doc-drawer .src { font-size: 11px; color: var(--text-sec, #71717a); margin-left: 6px; }
-.oc-doc-drawer .close {
-  background: transparent;
-  color: var(--text, #e4e4e7);
-  border: 1px solid var(--border, #2a2a30);
-  border-radius: 4px;
-  width: 30px;
-  height: 28px;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-}
-.oc-doc-drawer .drawer-body {
-  padding: 16px 20px;
-  overflow-y: auto;
-  flex: 1;
-  font-size: 14px;
-  line-height: 1.6;
-}
-.oc-doc-drawer .drawer-body.empty,
-.oc-doc-drawer .drawer-body.error { text-align: center; color: var(--text-sec, #71717a); }
-.oc-doc-drawer .loc { font-size: 11px; color: var(--text-sec, #71717a); margin-bottom: 12px; word-break: break-all; }
-.oc-doc-drawer .markdown pre {
-  background: var(--bg-elevated, #27272a);
-  padding: 12px;
-  border-radius: 6px;
-  overflow-x: auto;
-  font-size: 12.5px;
-}
-.oc-doc-drawer .markdown code {
-  font-family: ui-monospace, SFMono-Regular, monospace;
-}
-.oc-doc-drawer .markdown h1,
-.oc-doc-drawer .markdown h2,
-.oc-doc-drawer .markdown h3 {
-  margin-top: 16px;
-  margin-bottom: 8px;
-}
-.oc-doc-drawer .markdown p { margin: 8px 0; }
-.oc-doc-drawer .markdown ul,
-.oc-doc-drawer .markdown ol { padding-left: 22px; }
 </style>
