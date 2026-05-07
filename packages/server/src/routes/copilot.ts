@@ -27,7 +27,11 @@ const FILE_API_BASE = 'http://127.0.0.1:7682'
 // SSE streams are slow; the timeout only guards the *connect* phase. Once the
 // upstream starts emitting bytes we reset/clear it and let the stream run
 // for as long as the model takes (can be minutes).
-const CONNECT_TIMEOUT_MS = 10_000
+// fetch resolves on first byte (which for SSE = first token, not TCP connect).
+// LLM cold-start — especially when gateway routes through Codex Provider — can
+// take 15–25s before the first token arrives. Anything <30s falsely aborts
+// during a cold model and surfaces as {error:'upstream_timeout'} on the user.
+const CONNECT_TIMEOUT_MS = 60_000
 
 export interface CreateCopilotRouterOpts {
   fetchImpl?: typeof fetch
