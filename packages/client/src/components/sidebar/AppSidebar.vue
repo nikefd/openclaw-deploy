@@ -70,6 +70,10 @@ function onSettings() {
     </div>
 
     <div class="foot">
+      <RouterLink v-if="!collapsed" to="/agents" class="agents-link" title="Agents">
+        🤖 <span>Agents</span>
+      </RouterLink>
+      <RouterLink v-else to="/agents" class="agents-link collapsed" title="Agents">🤖</RouterLink>
       <div v-if="!collapsed" class="user">
         <span class="avatar">🐶</span>
         <span class="name">斌哥</span>
@@ -163,11 +167,27 @@ function onSettings() {
 
 .foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   padding: 8px;
   border-top: 1px solid var(--border);
 }
+.agents-link {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--sidebar-fg, var(--text));
+  text-decoration: none;
+  transition: background 0.12s ease;
+}
+.agents-link:hover { background: var(--hover); }
+.agents-link.collapsed { flex: 1 1 100%; justify-content: center; }
+.agents-link.router-link-active { background: var(--accent-soft); color: var(--accent); }
 .user {
   flex: 1;
   display: flex;
@@ -186,19 +206,11 @@ function onSettings() {
 }
 .aux-link {
   display: block;
-<<<<<<< HEAD
   padding: 6px 10px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-sm, 6px);
   color: var(--text-sec);
   font-size: 13px;
   text-decoration: none;
-=======
-  padding: 6px 8px;
-  font-size: 13px;
-  color: var(--text-sec);
-  text-decoration: none;
-  border-radius: 6px;
->>>>>>> refactor-v2/phase-d2-tasks
 }
 .aux-link:hover { background: var(--hover); color: var(--text); }
 .aux-link.router-link-active { background: var(--sidebar-active-bg); color: var(--text); }
