@@ -80,7 +80,7 @@ function projectChat(raw: RawChat): ChatListItemDTO | null {
   if (!raw || typeof raw !== 'object') return null
   const id = typeof raw.id === 'string' ? raw.id : ''
   if (!id) return null
-  const title = typeof raw.title === 'string' && raw.title ? raw.title : '(无标题)'
+  const title = typeof raw.title === 'string' && raw.title ? raw.title : '新对话'
   const createdAt = num(raw.createdAt, 0)
   const updatedAt = num(raw.updatedAt, createdAt)
   return {
@@ -133,7 +133,7 @@ export async function fetchChat(id: string): Promise<ChatRecord | null> {
   const messages = Array.isArray(raw.messages) ? (raw.messages as ChatMessage[]) : []
   return {
     id: raw.id,
-    title: typeof raw.title === 'string' ? raw.title : '(无标题)',
+    title: typeof raw.title === 'string' ? raw.title : '新对话',
     createdAt: num(raw.createdAt, 0),
     updatedAt: num(raw.updatedAt, num(raw.createdAt, 0)),
     messages,

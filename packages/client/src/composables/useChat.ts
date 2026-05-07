@@ -57,14 +57,35 @@ function toApiMessages(list: ChatMessage[], finalUserText: string): ApiMsg[] {
 
 async function persistChat(sid: string, messages: ChatMessage[]): Promise<void> {
   try {
+    // Generate title from first user message if not already set
+    let title: string | undefined
+    if (messages.length > 0) {
+      // Find first user message
+      const firstUserMsg = messages.find((m) => m.role === 'user')
+      if (firstUserMsg && firstUserMsg.text) {
+        // Extract first 50 chars as title
+        title = firstUserMsg.text.slice(0, 50).trim()
+        if (title.length > 0 && !title.endsWith('…')) {
+          if (firstUserMsg.text.length > 50) {
+            title += '…'
+          }
+        }
+      }
+    }
+
+    const body: Record<string, unknown> = {
+      id: sid,
+      updatedAt: Date.now(),
+      messages,
+    }
+    if (title) {
+      body.title = title
+    }
+
     await fetch(apiUrl(`/chats/${encodeURIComponent(sid)}`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: sid,
-        updatedAt: Date.now(),
-        messages,
-      }),
+      body: JSON.stringify(body),
     })
   } catch {
     // Persistence is best-effort; UI already shows the message.
