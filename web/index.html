@@ -362,7 +362,7 @@ document.addEventListener('click',(e)=>{
 
 let chats=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'),currentId=null;
 // Load from server if local is empty. Phase 3.3: via infra/backend.
-(async()=>{try{const d=await(window.__oc?.backend?.loadAllChats?.()??fetch('/api/chats').then(r=>r.ok?r.json():[]));if(Array.isArray(d)&&d.length>0){const merged=mergeChats(chats,d);chats=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));renderSidebar();if(currentId){const cur=chats.find(c=>c.id===currentId);if(cur)switchChat(cur.id);}else if(chats.length>0){switchChat(chats[0].id);}}}catch{}
+(async()=>{try{const d=await(window.__oc?.backend?.loadAllChats?.()??fetch('/api/chats',{cache:'no-store'}).then(r=>r.ok?r.json():[]));if(Array.isArray(d)&&d.length>0){const merged=mergeChats(chats,d);chats=merged;localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_'+currentNode,JSON.stringify(chats));renderSidebar();if(currentId){const cur=chats.find(c=>c.id===currentId);if(cur)switchChat(cur.id);}else if(chats.length>0){switchChat(chats[0].id);}}}catch{}
 // 如果还有 chat 是 _streaming 状态（服务端代理流式还没结束，或上次异常遗留）
 // 启动后台轮询，拉服务端最新内容直到 _streaming 消失。不要 save！会覆盖服务端较新的内容。
 try{
@@ -383,7 +383,7 @@ try{
           }
           try{
             // Phase 3.3: prefer infra; raw fetch as fallback for early-boot calls.
-            const fresh=window.__oc?.backend?.getChat?(await window.__oc.backend.getChat(id)):await(async()=>{const r=await fetch('/api/chats/'+encodeURIComponent(id));return r.ok?r.json():null;})();
+            const fresh=window.__oc?.backend?.getChat?(await window.__oc.backend.getChat(id)):await(async()=>{const r=await fetch('/api/chats/'+encodeURIComponent(id),{cache:'no-store'});return r.ok?r.json():null;})();
             if(!fresh)continue;
             const idx=chats.findIndex(c=>c.id===id);
             if(idx<0)return;
@@ -1132,7 +1132,7 @@ async function hydrateChat(id){
   const c=getChat(id);if(!c||!c._stripped)return;
   try{
     // Phase 3.3: hydrate stripped chat via infra/backend.
-    const full=window.__oc?.backend?.getChat?(await window.__oc.backend.getChat(id)):await(async()=>{const r=await fetch('/api/chats/'+encodeURIComponent(id));return r.ok?r.json():null;})();
+    const full=window.__oc?.backend?.getChat?(await window.__oc.backend.getChat(id)):await(async()=>{const r=await fetch('/api/chats/'+encodeURIComponent(id),{cache:'no-store'});return r.ok?r.json():null;})();
     if(!full||!full.id)return;
     const idx=chats.findIndex(x=>x.id===id);
     if(idx<0)return;
@@ -1881,7 +1881,7 @@ function switchGlobalNode(){
   currentId=null;
   renderSidebar();renderChat();
   // If switching back to local, also merge from server
-  if(currentNode==='local'){(async()=>{try{const d=await(window.__oc?.backend?.loadAllChats?.()??fetch('/api/chats').then(r=>r.ok?r.json():[]));if(Array.isArray(d)&&d.length>0){chats=mergeChats(chats,d);localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_local',JSON.stringify(chats));renderSidebar();}}catch{}})();}
+  if(currentNode==='local'){(async()=>{try{const d=await(window.__oc?.backend?.loadAllChats?.()??fetch('/api/chats',{cache:'no-store'}).then(r=>r.ok?r.json():[]));if(Array.isArray(d)&&d.length>0){chats=mergeChats(chats,d);localStorage.setItem(STORAGE_KEY,JSON.stringify(chats));localStorage.setItem(STORAGE_KEY+'_local',JSON.stringify(chats));renderSidebar();}}catch{}})();}
   // Update terminal
   terminalLoaded=false;
   const termPanel=document.getElementById('panel-terminal');
