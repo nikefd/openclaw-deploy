@@ -1,0 +1,84 @@
+/* Mobile Layout Styles - Global CSS
+ * =====================================
+ * 不使用 scoped style，直接全局应用
+ * 确保媒体查询和响应式规则生效
+ */
+
+/* 移动端菜单按钮显示规则 */
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: block !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-menu-btn {
+    display: none !important;
+  }
+}
+
+/* 移动端侧栏抽屉模式 */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    height: 100vh !important;
+    width: 240px !important;
+    z-index: 9998 !important;
+    transform: translateX(-100%) !important;
+    transition: transform 0.3s ease !important;
+  }
+
+  /* 侧栏展开时 */
+  .sidebar:not(.collapsed) {
+    transform: translateX(0) !important;
+  }
+
+  /* 侧栏收缩时 */
+  .sidebar.collapsed {
+    transform: translateX(-100%) !important;
+  }
+
+  /* 主内容区域全屏 */
+  .main-pane {
+    width: 100vw !important;
+    margin-left: 0 !important;
+  }
+
+  /* ConnectionBanner 移动端样式 */
+  .connection-banner {
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+  }
+
+  .connection-banner .status-text {
+    max-width: 200px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  .connection-banner button {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* 桌面端布局 */
+@media (min-width: 769px) {
+  .sidebar {
+    position: relative !important;
+    width: 240px !important;
+    transform: none !important;
+  }
+
+  .main-pane {
+    width: calc(100% - 240px) !important;
+    margin-left: 0 !important;
+  }
+
+  .connection-banner {
+    padding: 8px 16px !important;
+  }
+}

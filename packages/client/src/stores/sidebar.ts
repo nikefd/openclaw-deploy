@@ -25,6 +25,7 @@ interface SidebarState {
   searchOpen: boolean
   chatList: ChatSummary[]
   activeChatId: string | null
+  isMobile: boolean
 }
 
 export const useSidebarStore = defineStore('sidebar', {
@@ -35,6 +36,7 @@ export const useSidebarStore = defineStore('sidebar', {
     searchOpen: false,
     chatList: [],
     activeChatId: null,
+    isMobile: false,
   }),
   getters: {
     width: (s) => (s.collapsed ? 56 : 240),
@@ -64,6 +66,15 @@ export const useSidebarStore = defineStore('sidebar', {
     },
     setChatList(list: ChatSummary[]) {
       this.chatList = list
+    },
+    setIsMobile(v: boolean) {
+      this.isMobile = v
+    },
+    // 在移动端自动关闭侧栏
+    ensureMobileCollapsed() {
+      if (this.isMobile && !this.collapsed) {
+        this.collapsed = true
+      }
     },
   },
 })

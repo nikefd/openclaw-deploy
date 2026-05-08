@@ -13,8 +13,10 @@
  * which is always mounted). The early-paint `applyInitialTheme` retained so
  * the very first frame doesn't flash.
  */
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useSidebarStore } from '@/stores/sidebar'
+import MobileMenuButton from '@/components/sidebar/MobileMenuButton.vue'
+import '@/styles/mobile-layout.css'
 // <!-- @C1-placeholder begin -->
 // C1 originally rendered an inline sidebar-slot here. C2 swaps in AppSidebar.
 import AppSidebar from '@/components/sidebar/AppSidebar.vue'
@@ -47,26 +49,35 @@ onMounted(() => {
   
   // Check if mobile and listen for resize
   const checkMobile = () => {
-    isMobile.value = window.innerWidth <= 768
+    const mobile = window.innerWidth <= 768
+    isMobile.value = mobile
+    sidebar.setIsMobile(mobile)
+    if (mobile) {
+      sidebar.ensureMobileCollapsed()
+    }
   }
   checkMobile()
   window.addEventListener('resize', checkMobile)
 })
+
+// 监听 isMobile 变化
+watch(
+  () => sidebar.isMobile,
+  (mobile) => {
+    if (mobile) {
+      sidebar.ensureMobileCollapsed()
+    }
+  }
+)
+
 useMentionsFallback()
 </script>
 
 <template>
   <div class="app-shell">
     <ConnectionBanner />
-    <!-- Mobile menu button - always in DOM, hidden by CSS on desktop -->
-    <button 
-      class="mobile-menu-btn" 
-      @click="sidebar.toggleCollapsed()"
-      type="button"
-      title="Toggle menu"
-    >
-      ☰
-    </button>
+    <!-- Mobile menu button -->
+    <MobileMenuButton />
     <!-- @C1-placeholder: was <aside class="sidebar-slot">…</aside> -->
     <AppSidebar />
     <main class="main-pane">
@@ -108,36 +119,8 @@ useMentionsFallback()
   z-index: 30;
 }
 
-/* 菜单按钮 - 桌面隐藏，移动显示 */
-.mobile-menu-btn {
-  display: none !important;
-  position: fixed;
-  top: 50px;
-  left: 12px;
-  z-index: 9999;
-  width: 40px;
-  height: 40px;
-  background: var(--sidebar-bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 20px;
-  cursor: pointer;
-  color: var(--text);
-  transition: background 0.2s ease;
-  padding: 0;
-}
-.mobile-menu-btn:hover {
-  background: var(--hover);
-}
-.mobile-menu-btn:active {
-  opacity: 0.8;
-}
-
-/* 移动端：显示菜单按钮 */
+/* 移动端布局调整 */
 @media (max-width: 768px) {
-  .mobile-menu-btn {
-    display: block !important;
-  }
   .app-shell {
     flex-direction: column;
   }
