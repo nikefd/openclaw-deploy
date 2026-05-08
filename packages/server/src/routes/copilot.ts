@@ -23,6 +23,7 @@ export function createCopilotRouter(opts: CreateCopilotRouterOpts = {}): Router 
   const doFetch = opts.fetchImpl ?? fetch
 
   router.post('/api/copilot/stream', async (req: Request, res: ExResponse) => {
+    console.log('[DEBUG-COPILOT] POST /api/copilot/stream, body:', JSON.stringify(req.body).slice(0, 100))
     const body = req.body ?? {}
     // Ensure model is in openclaw format for gateway
     if (body.model && !body.model.startsWith('openclaw')) {
@@ -46,12 +47,14 @@ export function createCopilotRouter(opts: CreateCopilotRouterOpts = {}): Router 
     let upstream: Response
     try {
       // Try gateway's chat completions endpoint with openclaw model
+      console.log(`[DEBUG] Proxying to ${base}/v1/chat/completions with model: ${body.model}`)
       upstream = (await doFetch(`${base}/v1/chat/completions`, {
         method: 'POST',
         headers,
         body: bodyStr,
         signal: controller.signal,
       })) as Response
+      console.log(`[DEBUG] Gateway responded with status ${upstream.status}`)
     } catch (err) {
       clearTimeout(connectTimer)
       req.off('close', onClientClose)
