@@ -57,16 +57,6 @@ app.use(createLegacyRouter())
 // and the old UI still writes to it directly. We're just the entrypoint
 // nginx routes /v2/api/chats/* and /v2/api/copilot/stream to.
 app.use(createChatsRouter())
-
-// DEBUG: log all requests before copilot router
-app.use((req, res, next) => {
-  if (req.path.includes('copilot')) {
-    // eslint-disable-next-line no-console
-    console.log(`[DEBUG-COPILOT] ${req.method} ${req.path}`)
-  }
-  next()
-})
-
 app.use(createCopilotRouter())
 
 // Phase E3: memory + skills panels.
