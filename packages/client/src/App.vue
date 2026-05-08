@@ -29,6 +29,7 @@ import { setupConnectionMonitor } from '@/composables/useConnectionRecovery'
 
 const sidebar = useSidebarStore()
 const isMobile = ref(false)
+const showBackdrop = ref(false)
 
 function applyInitialTheme() {
   if (typeof document === 'undefined') return
@@ -60,15 +61,19 @@ onMounted(() => {
   window.addEventListener('resize', checkMobile)
 })
 
-// 监听 isMobile 变化
+// Show backdrop when sidebar is open on mobile
 watch(
-  () => sidebar.isMobile,
-  (mobile) => {
-    if (mobile) {
-      sidebar.ensureMobileCollapsed()
-    }
+  () => sidebar.collapsed,
+  (collapsed) => {
+    showBackdrop.value = isMobile.value && !collapsed
   }
 )
+
+function closeTouch() {
+  if (isMobile.value && !sidebar.collapsed) {
+    sidebar.collapsed = true
+  }
+}
 
 useMentionsFallback()
 </script>
@@ -78,6 +83,12 @@ useMentionsFallback()
     <ConnectionBanner />
     <!-- Mobile menu button -->
     <MobileMenuButton />
+    <!-- Mobile backdrop - close sidebar when clicked -->
+    <div
+      v-if="showBackdrop"
+      class="mobile-backdrop"
+      @click="closeTouch"
+    />
     <!-- @C1-placeholder: was <aside class="sidebar-slot">…</aside> -->
     <AppSidebar />
     <main class="main-pane">
@@ -119,6 +130,25 @@ useMentionsFallback()
   z-index: 30;
 }
 
+/* Mobile backdrop */
+.mobile-backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-backdrop {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 9997; /* Between sidebar (9998) and other overlays */
+    cursor: pointer;
+  }
+}
+
 /* 移动端布局调整 */
 @media (max-width: 768px) {
   .app-shell {
@@ -128,6 +158,10 @@ useMentionsFallback()
     width: 100vw;
     height: 100vh;
     padding-top: 40px;
+  }
+  /* 侧边栏展开时，给主区域添加一个伪遮罩来防止误触 */
+  .sidebar:not(.collapsed) ~ .main-pane {
+    pointer-events: none;
   }
 }
 </style>

@@ -4,7 +4,7 @@
 // the bottom. Tab panes are kept alive so switching doesn't refetch the
 // stub APIs every time.
 import { storeToRefs } from 'pinia'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useSidebarStore } from '@/stores/sidebar'
 import SidebarTabs from './SidebarTabs.vue'
 import ChatList from './ChatList.vue'
@@ -12,23 +12,33 @@ import MemoryPanel from './MemoryPanel.vue'
 import SkillsPanel from './SkillsPanel.vue'
 import ChatSearch from './ChatSearch.vue'
 import SidebarFooter from './SidebarFooter.vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 
 const sidebar = useSidebarStore()
-const { collapsed, activeTab } = storeToRefs(sidebar)
-const isMobile = ref(false)
+const { collapsed, activeTab, isMobile } = storeToRefs(sidebar)
+const route = useRoute()
 
 onMounted(() => {
   const checkMobile = () => {
-    isMobile.value = window.innerWidth <= 768
+    sidebar.setIsMobile(window.innerWidth <= 768)
   }
   checkMobile()
   window.addEventListener('resize', checkMobile)
 })
+
+// Auto-close sidebar on mobile when navigating
+watch(
+  () => route.path,
+  () => {
+    if (sidebar.isMobile && !collapsed.value) {
+      collapsed.value = true
+    }
+  }
+)
 </script>
 
 <template>
-  <aside class="sidebar" :class="{ collapsed: collapsed || isMobile }">
+  <aside class="sidebar" :class="{ collapsed, 'mobile': isMobile }">
     <div class="head">
       <div class="logo">
         <span class="dot">🐶</span>
@@ -39,9 +49,9 @@ onMounted(() => {
       </button>
     </div>
 
-    <SidebarTabs v-if="!collapsed" />
+    <SidebarTabs v-if="!collapsed && (!isMobile || !collapsed)" />
 
-    <div v-if="!collapsed" class="pane">
+    <div v-if="!collapsed" class="pane" @click="() => { if (isMobile) collapsed = true }">
       <KeepAlive>
         <ChatList v-if="activeTab === 'chats'" />
         <MemoryPanel v-else-if="activeTab === 'memory'" />
@@ -110,11 +120,16 @@ onMounted(() => {
   }
   .sidebar.collapsed {
     width: 240px;
-    transform: translateX(-100%); /* 保持隐藏 */
+    transform: translateX(-100%); /* 隐藏 */
   }
   /* 展开时显示 */
   .sidebar:not(.collapsed) {
     transform: translateX(0);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  }
+  /* 防止移动端滚动 */
+  .sidebar:not(.collapsed) + .main-pane {
+    pointer-events: none;
   }
 }
 
