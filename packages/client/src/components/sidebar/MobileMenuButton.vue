@@ -1,42 +1,21 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useSidebarStore } from '@/stores/sidebar'
 
 const sidebar = useSidebarStore()
-const isMobile = ref(false)
-const btnRef = ref<HTMLButtonElement | null>(null)
 
-function checkAndUpdate() {
-  isMobile.value = window.innerWidth <= 768
+// 按钮仅在移动端显示并启用
+const handleClick = () => {
+  sidebar.toggleCollapsed()
 }
-
-onMounted(() => {
-  checkAndUpdate()
-  window.addEventListener('resize', checkAndUpdate)
-  
-  // 用原生 JS 添加事件监听器（确保工作）
-  if (btnRef.value) {
-    const handleClick = () => {
-      console.log('[原生JS] 点击按钮，当前 collapsed:', sidebar.collapsed);
-      sidebar.toggleCollapsed();
-      console.log('[原生JS] 执行后 collapsed:', sidebar.collapsed);
-    }
-    btnRef.value.addEventListener('click', handleClick)
-  }
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', checkAndUpdate)
-})
 </script>
 
 <template>
   <button
-    ref="btnRef"
+    v-if="sidebar.isMobile"
+    @click="handleClick"
     type="button"
     title="Toggle sidebar"
     class="mobile-menu-btn"
-    :style="{ display: isMobile ? 'block' : 'none' }"
   >
     ☰
   </button>

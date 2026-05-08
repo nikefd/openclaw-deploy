@@ -2,8 +2,6 @@
 // ChatListItem.vue — single chat row. Pure presentational; click bubbles up
 // to ChatList which handles the router push so the row stays test-friendly.
 import { computed } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useSidebarStore } from '@/stores/sidebar'
 import type { ChatSummary } from '@/stores/sidebar'
 
 const props = defineProps<{
@@ -13,14 +11,11 @@ const props = defineProps<{
   hasUnread?: boolean
 }>()
 
-const emit = defineEmits<{
+defineEmits<{
   (e: 'select', id: string): void
   (e: 'rename', id: string): void
   (e: 'delete', id: string): void
 }>()
-
-const sidebar = useSidebarStore()
-const { isMobile, collapsed } = storeToRefs(sidebar)
 
 function pad2(n: number) {
   return n < 10 ? '0' + n : '' + n
@@ -38,21 +33,13 @@ const timeLabel = computed(() => {
 })
 
 const agentEmoji = computed(() => props.chat.agent?.emoji ?? '💬')
-
-function handleSelect() {
-  emit('select', props.chat.id)
-  // Auto-close sidebar on mobile
-  if (isMobile.value && !collapsed.value) {
-    collapsed.value = true
-  }
-}
 </script>
 
 <template>
   <div
     class="chat-item"
     :class="{ active }"
-    @click="handleSelect"
+    @click="$emit('select', chat.id)"
   >
     <div class="emoji">{{ agentEmoji }}</div>
     <div class="info">
@@ -64,8 +51,8 @@ function handleSelect() {
     </div>
     <span v-if="hasUnread" class="dot" />
     <div class="actions" @click.stop>
-      <button title="重命名" @click.stop="emit('rename', chat.id)">✎</button>
-      <button title="删除" @click.stop="emit('delete', chat.id)">✕</button>
+      <button title="重命名" @click="$emit('rename', chat.id)">✎</button>
+      <button title="删除" @click="$emit('delete', chat.id)">✕</button>
     </div>
   </div>
 </template>
@@ -142,11 +129,18 @@ function handleSelect() {
   opacity: 0;
   transition: opacity 0.12s;
 }
-// Auto-close sidebar backdrop on mobile
-@media (max-width: 768px) {
-  .chat-item {
-    cursor: pointer;
-    touch-action: manipulation;
+.actions button {
+  background: transparent;
+  border: none;
+  color: var(--text-sec);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 11px;
+
+  &:hover {
+    background: var(--bg-elevated);
+    color: var(--text);
   }
 }
 </style>

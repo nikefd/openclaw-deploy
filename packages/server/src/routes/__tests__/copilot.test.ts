@@ -31,7 +31,7 @@ afterEach(() => {
 async function bootApp(fetchImpl: typeof fetch) {
   const app = express()
   app.use(express.json({ limit: '2mb' }))
-  app.use(createCopilotRouter({ fetchImpl, upstreamBase: 'http://127.0.0.1:7682' }))
+  app.use(createCopilotRouter())
   const server = http.createServer(app)
   await new Promise<void>((r) => server.listen(0, r))
   activeServer = server

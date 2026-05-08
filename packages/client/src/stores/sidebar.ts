@@ -30,22 +30,20 @@ interface SidebarState {
 
 export const useSidebarStore = defineStore('sidebar', {
   state: (): SidebarState => ({
-    collapsed: false, // 默认展开，会在 App.vue 中根据设备类型调整
+    collapsed: false,
     activeTab: 'chats',
     searchQuery: '',
     searchOpen: false,
     chatList: [],
     activeChatId: null,
-    isMobile: false,
+    isMobile: typeof window !== 'undefined' && window.innerWidth <= 768,
   }),
   getters: {
     width: (s) => (s.collapsed ? 56 : 240),
   },
   actions: {
     toggleCollapsed() {
-      console.log('[Store] toggleCollapsed 被调用，当前值:', this.collapsed);
-      this.collapsed = !this.collapsed;
-      console.log('[Store] toggleCollapsed 执行后:', this.collapsed);
+      this.collapsed = !this.collapsed
     },
     setCollapsed(v: boolean) {
       this.collapsed = v
@@ -72,12 +70,10 @@ export const useSidebarStore = defineStore('sidebar', {
     setIsMobile(v: boolean) {
       this.isMobile = v
     },
+    // 在移动端自动关闭侧栏
     ensureMobileCollapsed() {
-      if (this.isMobile) {
+      if (this.isMobile && !this.collapsed) {
         this.collapsed = true
-      } else {
-        // 桌面端默认展开
-        this.collapsed = false
       }
     },
   },
