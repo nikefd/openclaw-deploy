@@ -9,6 +9,7 @@ import { createMemoryRouter } from './routes/memory.js'
 import { createSkillsRouter } from './routes/skills.js'
 import { createChatsRouter } from './routes/chats.js'
 import { createCopilotRouter } from './routes/copilot.js'
+import { errorHandler } from './middleware/error-handler.js'
 
 const PORT = Number(process.env.PORT ?? 8001)
 const ALLOWED_ORIGINS = [
@@ -19,6 +20,12 @@ const ALLOWED_ORIGINS = [
 const app = express()
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }))
 app.use(express.json({ limit: '2mb' }))
+
+// Add request ID to all requests for tracing
+app.use((req, res, next) => {
+  res.locals.requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  next()
+})
 
 app.get('/healthz', (_req, res) => {
   res.json({ ok: true, phase: 'b' })
@@ -61,6 +68,9 @@ io.on('connection', (socket) => {
     console.log(`[socket.io] disconnect id=${socket.id} reason=${reason}`)
   })
 })
+
+// Error handler middleware (must be last)
+app.use(errorHandler)
 
 httpServer.listen(PORT, () => {
   // eslint-disable-next-line no-console
