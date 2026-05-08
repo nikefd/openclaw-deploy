@@ -92,7 +92,7 @@ watch(
   </aside>
 </template>
 
-<style scoped lang="scss">
+<style lang="scss">
 .sidebar {
   display: flex;
   flex-direction: column;
