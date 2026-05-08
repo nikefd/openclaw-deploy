@@ -1,138 +1,94 @@
 /**
- * copilot.ts — Phase E2a SSE streaming pipe — NOW POINTS TO GATEWAY.
- *
- * /api/copilot/stream forwards requests to gateway :18789's streaming endpoint.
- * (file-api doesn't actually implement this route in the current codebase.)
+ * copilot.ts — Stream LLM responses from Gateway
+ * 
+ * Gateway already returns SSE format, we just passthrough.
  */
 
 import express, { type Request, type Response as ExResponse, type Router } from 'express'
 
+const router = express.Router()
 const GATEWAY_BASE = 'http://127.0.0.1:18789'
-const CONNECT_TIMEOUT_MS = 60_000
+const GATEWAY_TOKEN = '17043bad6b19491dfa222d681d43584fbc3e8dd3781edfbc'
+const CONNECT_TIMEOUT_MS = 60000
 
-export interface CreateCopilotRouterOpts {
-  fetchImpl?: typeof fetch
-  upstreamBase?: string
-  connectTimeoutMs?: number
-}
+async function streamLLMResponse(req: Request, res: ExResponse) {
+  const body = req.body ?? {}
 
-export function createCopilotRouter(opts: CreateCopilotRouterOpts = {}): Router {
-  const router = express.Router()
-  const base = opts.upstreamBase ?? GATEWAY_BASE
-  const connectTimeoutMs = opts.connectTimeoutMs ?? CONNECT_TIMEOUT_MS
-  const doFetch = opts.fetchImpl ?? fetch
+  // Normalize model name to 'openclaw' (gateway requirement)
+  if (body.model && !body.model.startsWith('openclaw')) {
+    body.model = 'openclaw'
+  }
 
-  router.post('/api/copilot/stream', async (req: Request, res: ExResponse) => {
-    console.log('[DEBUG-COPILOT] POST /api/copilot/stream, body:', JSON.stringify(req.body).slice(0, 100))
-    const body = req.body ?? {}
-    // Ensure model is in openclaw format for gateway
-    if (body.model && !body.model.startsWith('openclaw')) {
-      body.model = 'openclaw'
-    }
-    const bodyStr = JSON.stringify(body)
+  const bodyStr = JSON.stringify(body)
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    'authorization': `Bearer ${GATEWAY_TOKEN}`,
+  }
 
-    const headers: Record<string, string> = {
-      'content-type': 'application/json',
-      'authorization': 'Bearer 17043bad6b19491dfa222d681d43584fbc3e8dd3781edfbc',
-    }
-    if (req.headers.cookie) headers.cookie = String(req.headers.cookie)
-    if (req.headers.accept) headers.accept = String(req.headers.accept)
+  console.log(`[copilot] POST /api/copilot/stream | model: ${body.model}`)
 
+  let upstream: Response
+  try {
     const controller = new AbortController()
-    const connectTimer = setTimeout(() => controller.abort(), connectTimeoutMs)
-
+    const connectTimer = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS)
     const onClientClose = () => controller.abort()
     res.on('close', onClientClose)
 
-    let upstream: Response
-    try {
-      // Try gateway's chat completions endpoint with openclaw model
-      console.log(`[DEBUG] Proxying to ${base}/v1/chat/completions with model: ${body.model}`)
-      upstream = (await doFetch(`${base}/v1/chat/completions`, {
-        method: 'POST',
-        headers,
-        body: bodyStr,
-        signal: controller.signal,
-      })) as Response
-      console.log(`[DEBUG] Gateway responded with status ${upstream.status}`)
-    } catch (err) {
-      clearTimeout(connectTimer)
-      req.off('close', onClientClose)
-      if (!res.headersSent) {
-        const aborted = (err as { name?: string } | null)?.name === 'AbortError'
-        res.status(502).json({
-          error: aborted ? 'upstream_timeout' : 'upstream_unreachable',
-        })
-      }
+    upstream = (await fetch(`${GATEWAY_BASE}/v1/chat/completions`, {
+      method: 'POST',
+      headers,
+      body: bodyStr,
+      signal: controller.signal,
+    })) as Response
+
+    clearTimeout(connectTimer)
+
+    if (!upstream.ok) {
+      const text = await upstream.text()
+      console.error(`[copilot] Upstream error ${upstream.status}:`, text.slice(0, 200))
+      res.status(upstream.status).send(text)
       res.off('close', onClientClose)
       return
     }
-    clearTimeout(connectTimer)
 
-    res.status(upstream.status)
-    upstream.headers.forEach((value, key) => {
-      const k = key.toLowerCase()
-      if (
-        k === 'content-length' ||
-        k === 'transfer-encoding' ||
-        k === 'connection' ||
-        k === 'keep-alive'
-      ) {
-        return
-      }
-      res.setHeader(key, value)
-    })
-    if (!res.getHeader('cache-control')) res.setHeader('cache-control', 'no-cache')
+    res.setHeader('content-type', 'text/event-stream')
+    res.setHeader('cache-control', 'no-cache')
     res.setHeader('x-accel-buffering', 'no')
 
     if (!upstream.body) {
-      const text = await upstream.text()
+      console.warn('[copilot] No response body')
+      res.end()
       res.off('close', onClientClose)
-      res.send(text)
       return
     }
 
-    // Set SSE headers
-    res.setHeader('content-type', 'text/event-stream')
-    
+    // Gateway returns SSE — passthrough directly
     const reader = upstream.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    
     try {
       while (true) {
         const { value, done } = await reader.read()
         if (done) break
-        
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''  // Keep incomplete line in buffer
-        
-        for (const line of lines) {
-          if (!line.trim()) continue  // Skip empty lines
-          try {
-            const obj = JSON.parse(line)
-            // Convert NDJSON to SSE format
-            res.write(`data: ${JSON.stringify(obj)}\n\n`)
-          } catch {
-            // Malformed JSON, skip
-          }
+        if (value && value.byteLength > 0) {
+          res.write(Buffer.from(value))
         }
       }
-      
-      // Send final [DONE] marker
-      res.write('data: [DONE]\n\n')
-    } catch (err) {
-      void err
     } finally {
       res.off('close', onClientClose)
       try {
         res.end()
       } catch {
-        /* response already torn down */
+        /* noop */
       }
     }
-  })
+  } catch (err) {
+    const msg = (err as Error).message
+    console.error('[copilot] Error:', msg)
+    res.status(502).json({ error: msg })
+  }
+}
 
+router.post('/api/copilot/stream', streamLLMResponse)
+
+export function createCopilotRouter(): Router {
   return router
 }
