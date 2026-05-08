@@ -11,6 +11,7 @@ import { createChatsRouter } from './routes/chats.js'
 import { createCopilotRouter } from './routes/copilot.js'
 import { errorHandler } from './middleware/error-handler.js'
 import { requestLogger, slowQueryLogger } from './middleware/request-logger.js'
+import { limiters } from './middleware/rate-limiter.js'
 
 const PORT = Number(process.env.PORT ?? 8001)
 const ALLOWED_ORIGINS = [
@@ -25,6 +26,10 @@ app.use(express.json({ limit: '2mb' }))
 // Logging middleware (early in chain)
 app.use(requestLogger)
 app.use(slowQueryLogger(2000)) // warn if slower than 2s
+
+// Rate limiting (before routes)
+app.use('/api/copilot/stream', limiters.strict.middleware()) // 10/min for LLM calls
+app.use('/api/', limiters.normal.middleware()) // 100/min for other APIs
 
 // Add request ID to all requests for tracing
 app.use((req, res, next) => {
