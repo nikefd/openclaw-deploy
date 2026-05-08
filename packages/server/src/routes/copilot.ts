@@ -23,7 +23,12 @@ export function createCopilotRouter(opts: CreateCopilotRouterOpts = {}): Router 
   const doFetch = opts.fetchImpl ?? fetch
 
   router.post('/api/copilot/stream', async (req: Request, res: ExResponse) => {
-    const body = JSON.stringify(req.body ?? {})
+    const body = req.body ?? {}
+    // Ensure model is in openclaw format for gateway
+    if (body.model && !body.model.startsWith('openclaw')) {
+      body.model = 'openclaw'
+    }
+    const bodyStr = JSON.stringify(body)
 
     const headers: Record<string, string> = {
       'content-type': 'application/json',
@@ -40,11 +45,11 @@ export function createCopilotRouter(opts: CreateCopilotRouterOpts = {}): Router 
 
     let upstream: Response
     try {
-      // Try gateway's streaming endpoint
-      upstream = (await doFetch(`${base}/v1/responses`, {
+      // Try gateway's chat completions endpoint with openclaw model
+      upstream = (await doFetch(`${base}/v1/chat/completions`, {
         method: 'POST',
         headers,
-        body,
+        body: bodyStr,
         signal: controller.signal,
       })) as Response
     } catch (err) {
