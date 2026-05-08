@@ -10,6 +10,7 @@ import { createSkillsRouter } from './routes/skills.js'
 import { createChatsRouter } from './routes/chats.js'
 import { createCopilotRouter } from './routes/copilot.js'
 import { errorHandler } from './middleware/error-handler.js'
+import { requestLogger, slowQueryLogger } from './middleware/request-logger.js'
 
 const PORT = Number(process.env.PORT ?? 8001)
 const ALLOWED_ORIGINS = [
@@ -20,6 +21,10 @@ const ALLOWED_ORIGINS = [
 const app = express()
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }))
 app.use(express.json({ limit: '2mb' }))
+
+// Logging middleware (early in chain)
+app.use(requestLogger)
+app.use(slowQueryLogger(2000)) // warn if slower than 2s
 
 // Add request ID to all requests for tracing
 app.use((req, res, next) => {
