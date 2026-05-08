@@ -89,15 +89,36 @@ export function createCopilotRouter(opts: CreateCopilotRouterOpts = {}): Router 
       return
     }
 
+    // Set SSE headers
+    res.setHeader('content-type', 'text/event-stream')
+    
     const reader = upstream.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    
     try {
       while (true) {
         const { value, done } = await reader.read()
         if (done) break
-        if (value && value.byteLength > 0) {
-          res.write(Buffer.from(value))
+        
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''  // Keep incomplete line in buffer
+        
+        for (const line of lines) {
+          if (!line.trim()) continue  // Skip empty lines
+          try {
+            const obj = JSON.parse(line)
+            // Convert NDJSON to SSE format
+            res.write(`data: ${JSON.stringify(obj)}\n\n`)
+          } catch {
+            // Malformed JSON, skip
+          }
         }
       }
+      
+      // Send final [DONE] marker
+      res.write('data: [DONE]\n\n')
     } catch (err) {
       void err
     } finally {
