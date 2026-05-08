@@ -58,9 +58,8 @@ useMentionsFallback()
 <template>
   <div class="app-shell">
     <ConnectionBanner />
-    <!-- Mobile menu button - shows only on mobile -->
+    <!-- Mobile menu button - always in DOM, hidden by CSS on desktop -->
     <button 
-      v-if="isMobile" 
       class="mobile-menu-btn" 
       @click="sidebar.toggleCollapsed()"
       type="button"
@@ -108,7 +107,7 @@ useMentionsFallback()
   z-index: 30;
 }
 
-/* Mobile menu button */
+/* Mobile menu button - hidden by default (desktop) */
 .mobile-menu-btn {
   display: none;
   position: fixed;
@@ -124,15 +123,19 @@ useMentionsFallback()
   cursor: pointer;
   color: var(--text);
   transition: background 0.2s ease;
+  padding: 0;
 }
 .mobile-menu-btn:hover {
   background: var(--hover);
 }
+.mobile-menu-btn:active {
+  opacity: 0.8;
+}
 
-/* Mobile: full-width layout */
+/* Mobile: show menu button */
 @media (max-width: 768px) {
   .mobile-menu-btn {
-    display: block;
+    display: block !important;
   }
   .app-shell {
     flex-direction: column;
