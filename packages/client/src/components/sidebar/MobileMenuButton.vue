@@ -1,9 +1,20 @@
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import { useSidebarStore } from '@/stores/sidebar'
 
 const sidebar = useSidebarStore()
+const isMobileCheckDone = ref(false)
 
-// 按钮仅在移动端显示并启用
+onMounted(() => {
+  // 立即检查是否移动端并显示按钮
+  const checkMobile = () => {
+    sidebar.setIsMobile(window.innerWidth <= 768)
+    isMobileCheckDone.value = true
+  }
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
+
 const handleClick = () => {
   sidebar.toggleCollapsed()
 }
@@ -11,7 +22,7 @@ const handleClick = () => {
 
 <template>
   <button
-    v-if="sidebar.isMobile"
+    v-if="isMobileCheckDone && sidebar.isMobile"
     @click="handleClick"
     type="button"
     title="Toggle sidebar"

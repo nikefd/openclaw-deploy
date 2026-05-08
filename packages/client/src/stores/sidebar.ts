@@ -30,7 +30,7 @@ interface SidebarState {
 
 export const useSidebarStore = defineStore('sidebar', {
   state: (): SidebarState => ({
-    collapsed: false,
+    collapsed: true, // Start collapsed, will be managed in App.vue based on device
     activeTab: 'chats',
     searchQuery: '',
     searchOpen: false,
@@ -70,10 +70,12 @@ export const useSidebarStore = defineStore('sidebar', {
     setIsMobile(v: boolean) {
       this.isMobile = v
     },
-    // 在移动端自动关闭侧栏
     ensureMobileCollapsed() {
-      if (this.isMobile && !this.collapsed) {
+      if (this.isMobile) {
         this.collapsed = true
+      } else {
+        // 桌面端默认展开
+        this.collapsed = false
       }
     },
   },

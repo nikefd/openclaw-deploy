@@ -28,7 +28,6 @@ import { setupConnectionMonitor } from '@/composables/useConnectionRecovery'
 // <!-- @C1-placeholder end -->
 
 const sidebar = useSidebarStore()
-const isMobile = ref(false)
 const showBackdrop = ref(false)
 
 function applyInitialTheme() {
@@ -51,11 +50,9 @@ onMounted(() => {
   // Check if mobile and listen for resize
   const checkMobile = () => {
     const mobile = window.innerWidth <= 768
-    isMobile.value = mobile
     sidebar.setIsMobile(mobile)
-    if (mobile) {
-      sidebar.ensureMobileCollapsed()
-    }
+    // Set collapsed state based on device type
+    sidebar.setCollapsed(mobile)
   }
   checkMobile()
   window.addEventListener('resize', checkMobile)
@@ -63,14 +60,14 @@ onMounted(() => {
 
 // Show backdrop when sidebar is open on mobile
 watch(
-  () => sidebar.collapsed,
-  (collapsed) => {
-    showBackdrop.value = isMobile.value && !collapsed
+  () => [sidebar.collapsed, sidebar.isMobile],
+  ([collapsed, isMobile]) => {
+    showBackdrop.value = isMobile && !collapsed
   }
 )
 
 function closeTouch() {
-  if (isMobile.value && !sidebar.collapsed) {
+  if (sidebar.isMobile && !sidebar.collapsed) {
     sidebar.collapsed = true
   }
 }
