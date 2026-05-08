@@ -4,6 +4,7 @@
 // the bottom. Tab panes are kept alive so switching doesn't refetch the
 // stub APIs every time.
 import { storeToRefs } from 'pinia'
+import { ref, onMounted } from 'vue'
 import { useSidebarStore } from '@/stores/sidebar'
 import SidebarTabs from './SidebarTabs.vue'
 import ChatList from './ChatList.vue'
@@ -15,10 +16,19 @@ import { RouterLink } from 'vue-router'
 
 const sidebar = useSidebarStore()
 const { collapsed, activeTab } = storeToRefs(sidebar)
+const isMobile = ref(false)
+
+onMounted(() => {
+  const checkMobile = () => {
+    isMobile.value = window.innerWidth <= 768
+  }
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
+})
 </script>
 
 <template>
-  <aside class="sidebar" :class="{ collapsed }">
+  <aside class="sidebar" :class="{ collapsed: collapsed || isMobile }">
     <div class="head">
       <div class="logo">
         <span class="dot">🐶</span>
