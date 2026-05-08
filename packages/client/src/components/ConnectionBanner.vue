@@ -162,6 +162,31 @@ const handleRetry = async () => {
   }
 }
 
+/* Mobile: compact banner */
+@media (max-width: 768px) {
+  .connection-banner {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .banner-content {
+    gap: 6px;
+  }
+  .banner-icon {
+    font-size: 14px;
+  }
+  .banner-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .banner-btn {
+    padding: 3px 8px;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+}
+
 @keyframes slide-down {
   from {
     transform: translateY(-100%);

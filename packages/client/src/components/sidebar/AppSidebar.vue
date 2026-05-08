@@ -104,6 +104,24 @@ const { collapsed, activeTab } = storeToRefs(sidebar)
   }
 }
 
+/* Mobile: drawer mode */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    width: 240px;
+    z-index: 9998; /* Below ConnectionBanner */
+    transform: translateX(0);
+    transition: transform 0.3s ease;
+  }
+  .sidebar.collapsed {
+    width: 240px;
+    transform: translateX(-100%);
+  }
+}
+
 .head {
   display: flex;
   align-items: center;
