@@ -26,6 +26,7 @@ import { setupConnectionMonitor } from '@/composables/useConnectionRecovery'
 // <!-- @C1-placeholder end -->
 
 const sidebar = useSidebarStore()
+const isMobile = ref(false)
 
 function applyInitialTheme() {
   if (typeof document === 'undefined') return
@@ -43,6 +44,13 @@ function applyInitialTheme() {
 onMounted(() => {
   applyInitialTheme()
   setupConnectionMonitor() // Monitor connection health
+  
+  // Check if mobile and listen for resize
+  const checkMobile = () => {
+    isMobile.value = window.innerWidth <= 768
+  }
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
 })
 useMentionsFallback()
 </script>
@@ -50,6 +58,10 @@ useMentionsFallback()
 <template>
   <div class="app-shell">
     <ConnectionBanner />
+    <!-- Mobile menu button - shows only on mobile -->
+    <button v-if="isMobile" class="mobile-menu-btn" @click="sidebar.toggleCollapsed" title="Toggle menu">
+      ☰
+    </button>
     <!-- @C1-placeholder: was <aside class="sidebar-slot">…</aside> -->
     <AppSidebar />
     <main class="main-pane">
@@ -90,8 +102,32 @@ useMentionsFallback()
   z-index: 30;
 }
 
+/* Mobile menu button */
+.mobile-menu-btn {
+  display: none;
+  position: fixed;
+  top: 50px;
+  left: 12px;
+  z-index: 9999;
+  width: 40px;
+  height: 40px;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text);
+  transition: background 0.2s ease;
+}
+.mobile-menu-btn:hover {
+  background: var(--hover);
+}
+
 /* Mobile: full-width layout */
 @media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: block;
+  }
   .app-shell {
     flex-direction: column;
   }
