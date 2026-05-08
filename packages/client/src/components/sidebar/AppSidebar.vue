@@ -86,6 +86,28 @@ const { collapsed, activeTab } = storeToRefs(sidebar)
 }
 .sidebar.collapsed { width: 56px; }
 
+/* Mobile: drawer mode (隐藏左侧栏) */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100vh;
+    width: 240px;
+    z-index: 9998; /* Below ConnectionBanner */
+    transform: translateX(-100%); /* 默认隐藏 */
+    transition: transform 0.3s ease;
+  }
+  .sidebar.collapsed {
+    width: 240px;
+    transform: translateX(-100%); /* 保持隐藏 */
+  }
+  /* 展开时显示 */
+  .sidebar:not(.collapsed) {
+    transform: translateX(0);
+  }
+}
+
 /* Mobile: drawer mode */
 @media (max-width: 768px) {
   .sidebar {
