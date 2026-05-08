@@ -30,7 +30,7 @@ interface SidebarState {
 
 export const useSidebarStore = defineStore('sidebar', {
   state: (): SidebarState => ({
-    collapsed: true, // Start collapsed, will be managed in App.vue based on device
+    collapsed: false, // 默认展开，会在 App.vue 中根据设备类型调整
     activeTab: 'chats',
     searchQuery: '',
     searchOpen: false,

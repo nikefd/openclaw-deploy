@@ -51,7 +51,7 @@ onMounted(() => {
   const checkMobile = () => {
     const mobile = window.innerWidth <= 768
     sidebar.setIsMobile(mobile)
-    // Set collapsed state based on device type
+    // Set collapsed state: mobile -> true (隐藏), desktop -> false (展开)
     sidebar.setCollapsed(mobile)
   }
   checkMobile()
