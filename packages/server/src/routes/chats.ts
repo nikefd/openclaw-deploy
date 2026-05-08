@@ -25,6 +25,7 @@
  */
 
 import express, { type Request, type Response as ExResponse, type Router } from 'express'
+import { cacheManager } from '../services/cache.js'
 
 const FILE_API_BASE = 'http://127.0.0.1:7682'
 const DEFAULT_TIMEOUT_MS = 5000
@@ -43,12 +44,16 @@ export interface CreateChatsRouterOpts {
  * app level, so req.body is the parsed object — we re-stringify for the
  * upstream call). For chat docs that is fine: the docs are JSON and not
  * larger than a few MB.
+ *
+ * Cache strategy:
+ * - GET requests with no cache key collision → cache for 30s
+ * - PUT/POST/DELETE → invalidate relevant cache entries
  */
 async function forwardToFileApi(
   upstreamUrl: string,
   req: Request,
   res: ExResponse,
-  opts: { fetchImpl?: typeof fetch; timeoutMs: number },
+  opts: { fetchImpl?: typeof fetch; timeoutMs: number; cacheKey?: string },
 ): Promise<void> {
   const doFetch = opts.fetchImpl ?? fetch
   const controller = new AbortController()
@@ -88,6 +93,22 @@ async function forwardToFileApi(
 
   const text = await upstream.text()
   const ct = upstream.headers.get('content-type') ?? 'application/json'
+
+  // Cache successful GET responses
+  if (req.method === 'GET' && upstream.status === 200 && opts.cacheKey) {
+    try {
+      const data = JSON.parse(text)
+      cacheManager.chats.set(opts.cacheKey, data)
+    } catch {
+      // ignore parse errors
+    }
+  }
+
+  // Invalidate cache on mutations
+  if (['PUT', 'POST', 'DELETE'].includes(req.method)) {
+    cacheManager.chats.clear()
+  }
+
   res.status(upstream.status).type(ct).send(text)
 }
 
@@ -97,12 +118,23 @@ export function createChatsRouter(opts: CreateChatsRouterOpts = {}): Router {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
   const fetchImpl = opts.fetchImpl
 
-  // GET /api/chats — list (with ?full / ?since query forwarded). We must
-  // preserve the query string; build it off req.url since express.Router
-  // strips its mount prefix but keeps the search.
+  // GET /api/chats — list with caching. Check cache first before hitting upstream.
   router.get('/api/chats', (req, res) => {
     const search = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''
-    return forwardToFileApi(`${base}/api/chats${search}`, req, res, { fetchImpl, timeoutMs })
+    const cacheKey = `chats:list${search}` // include query in cache key
+
+    // Try cache first
+    const cached = cacheManager.chats.get(cacheKey)
+    if (cached) {
+      return res.json(cached)
+    }
+
+    // Not cached, forward to upstream and cache response
+    return forwardToFileApi(`${base}/api/chats${search}`, req, res, {
+      fetchImpl,
+      timeoutMs,
+      cacheKey,
+    })
   })
 
   // POST /api/chats — legacy bulk save. Pass through unchanged.
@@ -110,17 +142,23 @@ export function createChatsRouter(opts: CreateChatsRouterOpts = {}): Router {
     forwardToFileApi(`${base}/api/chats`, req, res, { fetchImpl, timeoutMs }),
   )
 
-  // Per-chat CRUD — the id is in the path so we copy it verbatim. We do not
-  // re-encode because file-api accepts the raw id (chat_<ts>_<rand>) and
-  // historically tolerated whatever the UI sends.
-  router.get('/api/chats/:id', (req, res) =>
-    forwardToFileApi(
+  // GET /api/chats/:id — single chat with caching
+  router.get('/api/chats/:id', (req, res) => {
+    const cacheKey = `chats:${req.params.id}`
+    const cached = cacheManager.chats.get(cacheKey)
+    if (cached) {
+      return res.json(cached)
+    }
+
+    return forwardToFileApi(
       `${base}/api/chats/${encodeURIComponent(req.params.id)}`,
       req,
       res,
-      { fetchImpl, timeoutMs },
-    ),
-  )
+      { fetchImpl, timeoutMs, cacheKey },
+    )
+  })
+
+  // PUT /api/chats/:id — update (invalidates cache)
   router.put('/api/chats/:id', (req, res) =>
     forwardToFileApi(
       `${base}/api/chats/${encodeURIComponent(req.params.id)}`,
@@ -129,6 +167,8 @@ export function createChatsRouter(opts: CreateChatsRouterOpts = {}): Router {
       { fetchImpl, timeoutMs },
     ),
   )
+
+  // POST /api/chats/:id — update (invalidates cache)
   router.post('/api/chats/:id', (req, res) =>
     forwardToFileApi(
       `${base}/api/chats/${encodeURIComponent(req.params.id)}`,
@@ -137,6 +177,8 @@ export function createChatsRouter(opts: CreateChatsRouterOpts = {}): Router {
       { fetchImpl, timeoutMs },
     ),
   )
+
+  // DELETE /api/chats/:id — delete (invalidates cache)
   router.delete('/api/chats/:id', (req, res) =>
     forwardToFileApi(
       `${base}/api/chats/${encodeURIComponent(req.params.id)}`,
