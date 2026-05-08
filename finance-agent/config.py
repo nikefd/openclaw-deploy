@@ -27,8 +27,8 @@ PORTFOLIO_ALLOCATION = {
     'cash_reserve': 0.10 # 应对机会或风险
 }
 
-# v5.85新增: 最少现金比例 (从25%→10%)
-MIN_CASH_RATIO = 0.10        # 释放更多建仓资金
+# v5.85新增: 最少现金比例 (从25%→10%) | v5.94盘前优化: 10%→15%
+MIN_CASH_RATIO = 0.15        # v5.94: 提升至15% (保证止损灵活性)
 
 # 数据库
 DB_PATH = "/home/nikefd/finance-agent/data/trading.db"
@@ -86,7 +86,8 @@ HIGH_SHARPE_STOP_LOSS_RELAX = 0.02  # 止损容错放宽+2%
 
 # =================== v5.53: 入场质量评分系统 ===================
 # 4维×25分模型: 趋势对齐 + 位置优势 + 量价确认 + 动量确认
-ENTRY_QUALITY_THRESHOLD = 55  # v5.70优化: 从65→55 (快速建仓)
+# v5.94盘前优化: 平衡激进与稳定 (20→35)
+ENTRY_QUALITY_THRESHOLD = 35  # v5.94: 从v5.93的20→35 (垃圾股过滤+激进平衡)
 
 # v5.53: 过滤器动态松绑参数
 HIGH_CASH_RATIO_THRESHOLD = 0.90  # v5.70优化: 从95%→90% (激进建仓触发)
@@ -995,3 +996,96 @@ SIGNAL_PERSISTENCE_NORMAL_V93 = 4         # 现金<75%: 4天
 
 # v5.93: 消费黑名单
 CONSUMER_BLACKLIST_RATIO_V93 = 0.95      # 95%过滤
+
+# =================== v5.94 晚间深度优化: 混合池升级 + 超激进入场 + 赛道分散 + ATR3级止损 ===================
+# 基于回测TOP3策略集成 + 大幅优化 (5.06% → 8-10%)
+
+V5_94_DEEP_OPTIMIZE_ACTIVE = True         # 启用v5.94深度优化
+V5_94_VERSION = '2026-05-08_晚间深度优化'  # 版本标签
+
+# v5.94: 混合池权重升级 (5.06% → 8-10%)
+# 诊断: 科技MACD+RSI 17.1% (Sharpe 2.35) vs 混合池5.06% (Sharpe 0.86)
+# 优化: 科技2.5x + 新能源2.0x + 消费0.05x (极度压低)
+MIXED_POOL_SECTOR_WEIGHTS_V94 = {
+    '科技成长': 2.5,      # ↑ from 1.8x (TOP1: 17.1% Sharpe 2.35)
+    '新能源': 2.0,        # ↑ from 1.5x (TOP2: 14.66% Sharpe 1.78)
+    '医药': 1.3,          # 新增稳定性
+    '消费白马': 0.05,     # ↓↓ from 0.5x (极度压低)
+    '主板': 0.9,          # ↑ from 0.8x
+    '金融': 0.8,          # 新增
+    '其他': 0.6,          # 保持
+}
+APPLY_MIXED_POOL_V94 = True               # 启用v5.94混合池权重
+
+# v5.94: 超激进入场机制
+# 现金>99%: 20分 | 现金>95%: 25分 | 现金>90%: 30分 | 正常: 35分
+ENTRY_QUALITY_THRESHOLDS_V94 = {
+    'extreme': (0.99, 20, 200),      # 现金>99%: 质量20 + 候选200只
+    'ultra': (0.95, 25, 180),        # 现金>95%: 质量25 + 候选180只
+    'high': (0.90, 30, 150),         # 现金>90%: 质量30 + 候选150只
+    'normal': (0.75, 35, 120),       # 正常: 质量35 + 候选120只
+    'cautious': (0.0, 45, 80),       # 谨慎: 质量45 + 候选80只
+}
+APPLY_ULTRA_AGGRESSIVE_V94 = True        # 启用超激进入场
+
+# v5.94: 融资异变强制激活
+MARGIN_ANOMALY_FORCE_V94 = True           # 启用融资异变强制
+MARGIN_STRONG_BOTTOM_BONUS_V94 = 12      # 融资暴跌+低融资比 → +12分
+MARGIN_INCREASE_BONUS_V94 = 6             # 融资上升 → +6分
+
+# v5.94: 赛道强制分散
+# 科技40% + 新能源35% + 医药15% + 金融10%
+SECTOR_ALLOCATION_TARGET_V94 = {
+    'tech_growth': {
+        'min_positions': 3,
+        'max_positions': 4,
+        'weight': 0.40,
+        'sectors': ['软件服务', '芯片', '计算机', '互联网']
+    },
+    'new_energy': {
+        'min_positions': 2,
+        'max_positions': 3,
+        'weight': 0.35,
+        'sectors': ['新能源', '电池', '光伏']
+    },
+    'healthcare': {
+        'min_positions': 1,
+        'max_positions': 2,
+        'weight': 0.15,
+        'sectors': ['医药生物', '医疗器械']
+    },
+    'finance': {
+        'min_positions': 1,
+        'max_positions': 1,
+        'weight': 0.10,
+        'sectors': ['银行', '证券', '保险']
+    },
+}
+APPLY_SECTOR_DIVERSIFY_V94 = True        # 启用赛道分散
+
+# v5.94: ATR动态止损3级
+# 高波动(>3%): -5% | 正常(1.5-3%): -3.5% | 低波动(<1.5%): -2%
+ATR_STOP_LOSS_CONFIG_V94 = {
+    'high': {'atr_threshold': 0.03, 'stop_loss_pct': -0.05, 'label': '高波动'},
+    'normal': {'atr_threshold': 0.015, 'stop_loss_pct': -0.035, 'label': '正常波动'},
+    'low': {'atr_threshold': 0.0, 'stop_loss_pct': -0.02, 'label': '低波动'},
+}
+APPLY_ATR_DYNAMIC_STOP_V94 = True        # 启用ATR3级止损
+ATR_TARGET_MAX_DD_V94 = 0.028            # 目标MaxDD 2.8% (from 4.08% ↓31%)
+
+# v5.94: 信号持续性高精度验证
+# 检查: MACD持续 + 价格同向 + 成交量确认 (≥2项通过为高质量)
+SIGNAL_PERSISTENCE_CHECKS_V94 = 2        # 至少2项通过
+SIGNAL_PERSIST_DISCOUNT_V94 = 0.7        # 低质量打折30%
+APPLY_SIGNAL_PERSIST_V94 = True          # 启用信号持续性验证
+
+# v5.94: 预期成果 (30天评估)
+V5_94_TARGETS = {
+    'cash_ratio': (0.10, 0.15),           # 10-15%
+    'fund_utilization': (0.15, 0.20),     # 15-20%
+    'daily_builds': 20,                    # 日均20只
+    'position_count': 8,                   # 8只
+    'mixed_pool_return': (0.08, 0.10),    # 8-10%
+    'max_drawdown': 0.028,                 # 2.8%
+    'annual_return': (0.10, 0.12),        # 10-12%
+}

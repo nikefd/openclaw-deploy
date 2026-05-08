@@ -48,14 +48,25 @@ onMounted(() => {
   setupConnectionMonitor() // Monitor connection health
   
   // Check if mobile and listen for resize
-  const checkMobile = () => {
-    const mobile = window.innerWidth <= 768
-    sidebar.setIsMobile(mobile)
-    // Set collapsed state: mobile -> true (隐藏), desktop -> false (展开)
-    sidebar.setCollapsed(mobile)
+  // 初始化：根据当前窗口宽度强制同步 isMobile + collapsed
+  const initMobile = () => {
+    const isMobileNow = window.innerWidth <= 768
+    sidebar.setIsMobile(isMobileNow)
+    // 移动端初始隐藏（collapsed=true 在移动端 = drawer 关闭）
+    // 桌面端初始展开
+    sidebar.setCollapsed(isMobileNow)
   }
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
+  initMobile()
+
+  const onResize = () => {
+    const wasMobile = sidebar.isMobile
+    const isMobileNow = window.innerWidth <= 768
+    if (wasMobile !== isMobileNow) {
+      sidebar.setIsMobile(isMobileNow)
+      sidebar.setCollapsed(isMobileNow)
+    }
+  }
+  window.addEventListener('resize', onResize)
 })
 
 // Show backdrop when sidebar is open on mobile

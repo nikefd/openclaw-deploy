@@ -3,8 +3,13 @@
 // Owns the collapse toggle, theme cycler, and a stub user/settings strip at
 // the bottom. Tab panes are kept alive so switching doesn't refetch the
 // stub APIs every time.
+//
+// FIX (2026-05-08): 修复移动端侧边栏逻辑
+// - 区分 collapsed (折叠状态) 和 isMobile (是否移动设备)
+// - 移动端默认隐藏，点击菜单按钮展开
+// - 修复 :class 中的双重条件导致无法切换的问题
 import { storeToRefs } from 'pinia'
-import { ref, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useSidebarStore } from '@/stores/sidebar'
 import SidebarTabs from './SidebarTabs.vue'
 import ChatList from './ChatList.vue'
@@ -15,20 +20,26 @@ import SidebarFooter from './SidebarFooter.vue'
 import { RouterLink } from 'vue-router'
 
 const sidebar = useSidebarStore()
-const { collapsed, activeTab } = storeToRefs(sidebar)
-const isMobile = ref(false)
+const { collapsed, isMobile, activeTab } = storeToRefs(sidebar)
+
+// 计算侧边栏是否应该显示折叠样式
+// 桌面端：根据 collapsed 状态
+// 移动端：根据 collapsed 状态（true = 隐藏，false = 展开）
+const shouldShowCollapsedStyle = computed(() => {
+  // 只在桌面端且 collapsed=true 时应用 collapsed class（width: 56px）
+  // 移动端不应用此 class，让 CSS 的 @media 规则完全控制显示
+  if (isMobile.value) return false
+  return collapsed.value
+})
 
 onMounted(() => {
-  const checkMobile = () => {
-    isMobile.value = window.innerWidth <= 768
-  }
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
+  // App.vue 已经负责初始化 isMobile 和初始的 collapsed 状态
+  // 这里不需要再设置
 })
 </script>
 
 <template>
-  <aside class="sidebar" :class="{ collapsed: collapsed || isMobile }">
+  <aside class="sidebar" :class="{ collapsed: shouldShowCollapsedStyle }">
     <div class="head">
       <div class="logo">
         <span class="dot">🐶</span>
@@ -41,6 +52,7 @@ onMounted(() => {
 
     <SidebarTabs v-if="!collapsed" />
 
+    <!-- 仅在非移动端或已展开时显示内容面板 -->
     <div v-if="!collapsed" class="pane">
       <KeepAlive>
         <ChatList v-if="activeTab === 'chats'" />

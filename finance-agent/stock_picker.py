@@ -3090,6 +3090,43 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
     except Exception as e:
         print(f"  ⚠️ 入场质量评分失败: {e}")
 
+    # ========== v5.94 晚间深度优化: 回测驱动的大幅优化 ==========
+    # 基于TOP3策略集成 (科技17.1%+新能源14.66%)
+    try:
+        from config import V5_94_DEEP_OPTIMIZE_ACTIVE
+        if V5_94_DEEP_OPTIMIZE_ACTIVE:
+            from v5_94_DEEP_OPTIMIZE import execute_v5_94_deep_optimize
+            from trading_engine import get_account, get_positions
+            
+            account = get_account()
+            positions = get_positions()
+            cash_ratio = account.get('cash', 0) / max(account.get('total_value', 1), 1)
+            
+            print(f"  🚀 v5.94 晚间深度优化启动 (现金占比{cash_ratio:.1%})...")
+            
+            v5_94_result = execute_v5_94_deep_optimize(
+                candidates=tradeable,
+                current_positions=positions,
+                cash_ratio=cash_ratio,
+                account=account,
+                regime=regime
+            )
+            
+            tradeable = v5_94_result['candidates']
+            optimization_report = v5_94_result['report']
+            
+            print(f"  ✅ v5.94优化完成: {optimization_report['status']}")
+            for opt in optimization_report.get('optimizations', []):
+                print(f"    {opt}")
+            
+            # 优化后的候选排序
+            tradeable = sorted(tradeable, key=lambda x: -x.get('score', 0))
+            print(f"  📊 v5.94优化后: {len(tradeable)}只候选, 平均分{optimization_report['metrics'].get('avg_score', 0):.1f}分")
+    except Exception as e:
+        print(f"  ⚠️ v5.94深度优化异常(不影响选股): {e}")
+        import traceback
+        traceback.print_exc()
+
     return {
         'candidates': tradeable,
         'news_signals': news_signals,

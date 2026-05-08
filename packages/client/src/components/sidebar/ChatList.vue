@@ -123,6 +123,11 @@ const grouped = computed<Group[]>(() => {
 function onSelect(id: string) {
   sidebar.setActiveChatId(id)
   router.push(`/c/${id}`).catch(() => {})
+  
+  // 移动端：选择聊天后自动关闭侧边栏
+  if (sidebar.isMobile && !sidebar.collapsed) {
+    setTimeout(() => sidebar.setCollapsed(true), 100)
+  }
 }
 
 function onNewChat() {

@@ -16,6 +16,7 @@ const handleClick = () => {
     type="button"
     title="Toggle sidebar"
     class="mobile-menu-btn"
+    data-testid="mobile-menu-btn"
   >
     ☰
   </button>
