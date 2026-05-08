@@ -19,7 +19,9 @@ import { onMounted } from 'vue'
 import AppSidebar from '@/components/sidebar/AppSidebar.vue'
 import MentionPopup from '@/components/chat/MentionPopup.vue'
 import ModelDropdown from '@/components/chat/ModelDropdown.vue'
+import ConnectionBanner from '@/components/ConnectionBanner.vue'
 import { useMentionsFallback } from '@/composables/useMentions'
+import { setupConnectionMonitor } from '@/composables/useConnectionRecovery'
 // <!-- @C1-placeholder end -->
 
 function applyInitialTheme() {
@@ -35,12 +37,16 @@ function applyInitialTheme() {
   html.setAttribute('data-theme', dark ? 'dark' : 'light')
 }
 
-onMounted(applyInitialTheme)
+onMounted(() => {
+  applyInitialTheme()
+  setupConnectionMonitor() // Monitor connection health
+})
 useMentionsFallback()
 </script>
 
 <template>
   <div class="app-shell">
+    <ConnectionBanner />
     <!-- @C1-placeholder: was <aside class="sidebar-slot">…</aside> -->
     <AppSidebar />
     <main class="main-pane">

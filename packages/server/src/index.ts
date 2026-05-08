@@ -41,6 +41,11 @@ app.get('/healthz', (_req, res) => {
   res.json({ ok: true, phase: 'b' })
 })
 
+// Health check endpoint for mobile reconnection
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: Date.now() })
+})
+
 // Phase E1: legacy adapter — proxy /api/* through to the existing Node
 // services (file-api 7682 / finance 7684 / agents 7685 / usage 7686 /
 // perf 7687). See routes/legacy.ts for the endpoint reality table.
