@@ -27,6 +27,7 @@ export function createCopilotRouter(opts: CreateCopilotRouterOpts = {}): Router 
 
     const headers: Record<string, string> = {
       'content-type': 'application/json',
+      'authorization': 'Bearer 17043bad6b19491dfa222d681d43584fbc3e8dd3781edfbc',
     }
     if (req.headers.cookie) headers.cookie = String(req.headers.cookie)
     if (req.headers.accept) headers.accept = String(req.headers.accept)
