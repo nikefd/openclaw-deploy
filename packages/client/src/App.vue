@@ -84,7 +84,8 @@ useMentionsFallback()
   </div>
 </template>
 
-<style scoped>
+<style>
+/* 全局样式 - 不用 scoped，确保 media query 生效 */
 .app-shell {
   display: flex;
   height: 100vh;
@@ -98,7 +99,7 @@ useMentionsFallback()
   min-width: 0;
   background: var(--bg);
   position: relative;
-  padding-top: 0; /* ConnectionBanner is fixed */
+  padding-top: 0;
 }
 .model-dd-overlay {
   position: absolute;
@@ -107,9 +108,9 @@ useMentionsFallback()
   z-index: 30;
 }
 
-/* Mobile menu button - hidden by default (desktop) */
+/* 菜单按钮 - 桌面隐藏，移动显示 */
 .mobile-menu-btn {
-  display: none;
+  display: none !important;
   position: fixed;
   top: 50px;
   left: 12px;
@@ -132,7 +133,7 @@ useMentionsFallback()
   opacity: 0.8;
 }
 
-/* Mobile: show menu button */
+/* 移动端：显示菜单按钮 */
 @media (max-width: 768px) {
   .mobile-menu-btn {
     display: block !important;
@@ -143,7 +144,7 @@ useMentionsFallback()
   .main-pane {
     width: 100vw;
     height: 100vh;
-    padding-top: 40px; /* Space for ConnectionBanner */
+    padding-top: 40px;
   }
 }
 </style>
