@@ -12,6 +12,7 @@ import { createCopilotRouter } from './routes/copilot.js'
 import { errorHandler } from './middleware/error-handler.js'
 import { requestLogger, slowQueryLogger } from './middleware/request-logger.js'
 import { limiters } from './middleware/rate-limiter.js'
+import { createHealthRouter } from './routes/health.js'
 
 const PORT = Number(process.env.PORT ?? 8001)
 const ALLOWED_ORIGINS = [
@@ -61,6 +62,9 @@ app.use(createCopilotRouter())
 // Phase E3: memory + skills panels.
 app.use('/api/memory', createMemoryRouter())
 app.use('/api/skills', createSkillsRouter())
+
+// Phase E4: health checks and observability
+app.use(createHealthRouter())
 
 const httpServer = http.createServer(app)
 
