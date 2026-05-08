@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useSidebarStore } from '@/stores/sidebar'
 
 const sidebar = useSidebarStore()
-const shouldShow = ref(false)
+const isMobile = ref(false)
 
 function checkAndUpdate() {
-  shouldShow.value = window.innerWidth <= 768
+  isMobile.value = window.innerWidth <= 768
+}
+
+const handleClick = () => {
+  console.log('[MobileMenuButton] 点击按钮，当前 collapsed:', sidebar.collapsed);
+  sidebar.toggleCollapsed();
+  console.log('[MobileMenuButton] 点击后 collapsed:', sidebar.collapsed);
 }
 
 onMounted(() => {
@@ -17,19 +23,16 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', checkAndUpdate)
 })
-
-const handleClick = () => {
-  sidebar.toggleCollapsed()
-}
 </script>
 
 <template>
+  <!-- 不用 v-if，直接用 CSS 隐藏 -->
   <button
-    v-if="shouldShow"
     @click="handleClick"
     type="button"
     title="Toggle sidebar"
     class="mobile-menu-btn"
+    :style="{ display: isMobile ? 'block' : 'none' }"
   >
     ☰
   </button>

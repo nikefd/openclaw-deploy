@@ -43,7 +43,9 @@ export const useSidebarStore = defineStore('sidebar', {
   },
   actions: {
     toggleCollapsed() {
-      this.collapsed = !this.collapsed
+      console.log('[Store] toggleCollapsed 被调用，当前值:', this.collapsed);
+      this.collapsed = !this.collapsed;
+      console.log('[Store] toggleCollapsed 执行后:', this.collapsed);
     },
     setCollapsed(v: boolean) {
       this.collapsed = v
