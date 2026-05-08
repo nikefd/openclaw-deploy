@@ -59,7 +59,13 @@ useMentionsFallback()
   <div class="app-shell">
     <ConnectionBanner />
     <!-- Mobile menu button - shows only on mobile -->
-    <button v-if="isMobile" class="mobile-menu-btn" @click="sidebar.toggleCollapsed" title="Toggle menu">
+    <button 
+      v-if="isMobile" 
+      class="mobile-menu-btn" 
+      @click="sidebar.toggleCollapsed()"
+      type="button"
+      title="Toggle menu"
+    >
       ☰
     </button>
     <!-- @C1-placeholder: was <aside class="sidebar-slot">…</aside> -->
