@@ -1,23 +1,28 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useSidebarStore } from '@/stores/sidebar'
 
 const sidebar = useSidebarStore()
 const isMobile = ref(false)
+const btnRef = ref<HTMLButtonElement | null>(null)
 
 function checkAndUpdate() {
   isMobile.value = window.innerWidth <= 768
 }
 
-const handleClick = () => {
-  console.log('[MobileMenuButton] 点击按钮，当前 collapsed:', sidebar.collapsed);
-  sidebar.toggleCollapsed();
-  console.log('[MobileMenuButton] 点击后 collapsed:', sidebar.collapsed);
-}
-
 onMounted(() => {
   checkAndUpdate()
   window.addEventListener('resize', checkAndUpdate)
+  
+  // 用原生 JS 添加事件监听器（确保工作）
+  if (btnRef.value) {
+    const handleClick = () => {
+      console.log('[原生JS] 点击按钮，当前 collapsed:', sidebar.collapsed);
+      sidebar.toggleCollapsed();
+      console.log('[原生JS] 执行后 collapsed:', sidebar.collapsed);
+    }
+    btnRef.value.addEventListener('click', handleClick)
+  }
 })
 
 onBeforeUnmount(() => {
@@ -26,9 +31,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <!-- 不用 v-if，直接用 CSS 隐藏 -->
   <button
-    @click="handleClick"
+    ref="btnRef"
     type="button"
     title="Toggle sidebar"
     class="mobile-menu-btn"
