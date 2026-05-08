@@ -13,7 +13,8 @@
  * which is always mounted). The early-paint `applyInitialTheme` retained so
  * the very first frame doesn't flash.
  */
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useSidebarStore } from '@/stores/sidebar'
 // <!-- @C1-placeholder begin -->
 // C1 originally rendered an inline sidebar-slot here. C2 swaps in AppSidebar.
 import AppSidebar from '@/components/sidebar/AppSidebar.vue'
@@ -23,6 +24,8 @@ import ConnectionBanner from '@/components/ConnectionBanner.vue'
 import { useMentionsFallback } from '@/composables/useMentions'
 import { setupConnectionMonitor } from '@/composables/useConnectionRecovery'
 // <!-- @C1-placeholder end -->
+
+const sidebar = useSidebarStore()
 
 function applyInitialTheme() {
   if (typeof document === 'undefined') return
@@ -78,11 +81,24 @@ useMentionsFallback()
   min-width: 0;
   background: var(--bg);
   position: relative;
+  padding-top: 0; /* ConnectionBanner is fixed */
 }
 .model-dd-overlay {
   position: absolute;
   top: 12px;
   right: 16px;
   z-index: 30;
+}
+
+/* Mobile: full-width layout */
+@media (max-width: 768px) {
+  .app-shell {
+    flex-direction: column;
+  }
+  .main-pane {
+    width: 100vw;
+    height: 100vh;
+    padding-top: 40px; /* Space for ConnectionBanner */
+  }
 }
 </style>
