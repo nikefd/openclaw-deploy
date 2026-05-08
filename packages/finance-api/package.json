@@ -1,0 +1,15 @@
+{
+  "name": "@oc/finance-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Finance API server - stock picking, position management, trading",
+  "main": "src/finance-api-server.js",
+  "scripts": {
+    "start": "node src/finance-api-server.js",
+    "dev": "node src/finance-api-server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.0"
+  }
+}
