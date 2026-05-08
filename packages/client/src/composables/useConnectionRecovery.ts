@@ -19,8 +19,8 @@ export interface ConnectionState {
 }
 
 const MAX_RETRIES = 5
-const INITIAL_RETRY_DELAY = 1000 // 1s
-const MAX_RETRY_DELAY = 30000 // 30s
+const INITIAL_RETRY_DELAY = 500 // 0.5s (更快)
+const MAX_RETRY_DELAY = 15000 // 15s (比之前改为 30s)
 
 export function useConnectionRecovery() {
   const state = ref<ConnectionState>({
@@ -80,7 +80,7 @@ export function useConnectionRecovery() {
       const response = await fetch('/api/health', {
         method: 'GET',
         cache: 'no-cache',
-        signal: AbortSignal.timeout(5000), // 5s timeout
+        signal: AbortSignal.timeout(3000), // 3s timeout (更快失败)
       })
 
       if (response.ok) {
@@ -151,12 +151,22 @@ export function useConnectionRecovery() {
   }
 
   /**
-   * Force immediate reconnect
+   * Force immediate reconnect (reset retry counter)
    */
   const forceReconnect = async () => {
+    // 重置重试计数，立即重连
     state.value.retryCount = 0
     clearRetryTimer()
-    return reconnect()
+    
+    // 直接尝试连接，不等待
+    const result = await reconnect()
+    
+    if (!result) {
+      // 如果第一次连接失败，立即安排第二次尝试（不等指数退避）
+      scheduleRetry(2000) // 2 秒后再试
+    }
+    
+    return result
   }
 
   onMounted(() => {
@@ -167,13 +177,27 @@ export function useConnectionRecovery() {
     // Check connection on visibility change (app comes to foreground)
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        // User came back to app, check connection
+        // User came back to app, check connection immediately
+        console.debug('[ConnectionRecovery] App visible - forcing reconnect')
         void forceReconnect()
       }
     })
 
     // Also check on app focus
     window.addEventListener('focus', () => {
+      console.debug('[ConnectionRecovery] Window focus - forcing reconnect')
+      void forceReconnect()
+    })
+
+    // Page show event (when navigating back to tab)
+    window.addEventListener('pageshow', () => {
+      console.debug('[ConnectionRecovery] Page show - forcing reconnect')
+      void forceReconnect()
+    })
+
+    // Resume event (iOS specific)
+    document.addEventListener('resume', () => {
+      console.debug('[ConnectionRecovery] App resume - forcing reconnect')
       void forceReconnect()
     })
   })
