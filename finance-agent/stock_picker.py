@@ -57,6 +57,22 @@ except ImportError as e:
     print(f"⚠️  v5.84优化模块未找到: {e}")
     V5_84_AVAILABLE = False
 
+# v5.95: 新增超级深度优化④ (回测融合+多因子精细化+现金激进配置+Kelly持仓)
+try:
+    from v5_95_DEEP_OPTIMIZE import (
+        execute_v5_95_deep_optimize,
+        V5_95_BacktestDataFusion,
+        V5_95_MultiFactorRefinement,
+        V5_95_CashAggressiveAllocation,
+        V5_95_PositionOptimization,
+        V5_95_RiskWarning
+    )
+    V5_95_AVAILABLE = True
+    print("✅ v5.95超级深度优化已加载")
+except ImportError as e:
+    print(f"⚠️  v5.95优化模块未找到: {e}")
+    V5_95_AVAILABLE = False
+
 
 # =================== v5.61 新增函数集合 ===================
 
@@ -3126,6 +3142,58 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
         print(f"  ⚠️ v5.94深度优化异常(不影响选股): {e}")
         import traceback
         traceback.print_exc()
+
+    # ========== v5.95 超级深度优化④: 回测融合+多因子精细化+Kelly持仓 ==========
+    if V5_95_AVAILABLE:
+        try:
+            from trading_engine import get_account, get_positions
+            import copy
+            
+            print("\n  🚀 v5.95 超级深度优化④ 启动...")
+            
+            account = get_account() if 'get_account' in dir() else {
+                'total_value': 1_000_000,
+                'cash': 100_000,
+                'positions': []
+            }
+            positions = get_positions() if 'get_positions' in dir() else []
+            cash_ratio = account.get('cash', 0) / max(account.get('total_value', 1), 1)
+            
+            # 执行 v5.95 超级优化
+            v5_95_result = execute_v5_95_deep_optimize(
+                candidates=copy.deepcopy(tradeable),
+                current_positions=positions,
+                cash_ratio=cash_ratio,
+                account=account,
+                regime=regime
+            )
+            
+            # 更新 tradeable
+            tradeable = v5_95_result['candidates']
+            v5_95_report = v5_95_result['report']
+            
+            print(f"  ✅ v5.95优化完成: {v5_95_report['status']}")
+            for opt in v5_95_report.get('optimizations', []):
+                print(f"    {opt}")
+            
+            # 警告信息
+            if v5_95_report.get('warnings'):
+                for warn in v5_95_report['warnings']:
+                    print(f"    {warn}")
+            
+            # 统计信息
+            metrics = v5_95_report.get('metrics', {})
+            print(f"  📊 v5.95统计: {len(tradeable)}只候选 | "
+                  f"入场模式:{metrics.get('cash_regime','?')} | "
+                  f"配置软仄:{metrics.get('recommended_deployment_pct', 0)*100:.1f}%")
+            
+            # 重新排序
+            tradeable = sorted(tradeable, key=lambda x: -x.get('score', 0))
+            
+        except Exception as e:
+            print(f"  ⚠️ v5.95超级优化异常(不影响选股): {e}")
+            import traceback
+            traceback.print_exc()
 
     return {
         'candidates': tradeable,

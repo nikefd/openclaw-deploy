@@ -20,7 +20,7 @@ function makeSessionCookie() {
 }
 
 test.use({
-  ...devices['iPhone 12'],
+  ...devices['Pixel 5'],
   baseURL: ORIGIN,
   ignoreHTTPSErrors: true,
 })

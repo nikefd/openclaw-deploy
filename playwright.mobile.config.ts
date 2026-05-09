@@ -6,5 +6,5 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' },
-  projects: [{ name: 'mobile', use: { ...devices['iPhone 12'] } }],
+  projects: [{ name: 'mobile', use: { ...devices['Pixel 5'] } }],
 })
