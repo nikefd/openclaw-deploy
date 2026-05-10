@@ -73,6 +73,20 @@ except ImportError as e:
     print(f"⚠️  v5.95优化模块未找到: {e}")
     V5_95_AVAILABLE = False
 
+# v5.96: 新增超级增强④ (交易反馈循环+多因子融合2.0+智能现金3.0)
+try:
+    from v5_96_SUPER_ENHANCE import (
+        execute_v5_96_super_enhance,
+        TradingFeedbackLoop,
+        MultiFactorFusion2,
+        SmartCashAllocation3
+    )
+    V5_96_AVAILABLE = True
+    print("✅ v5.96超级增强已加载")
+except ImportError as e:
+    print(f"⚠️  v5.96超级增强模块未找到: {e}")
+    V5_96_AVAILABLE = False
+
 
 # =================== v5.61 新增函数集合 ===================
 
@@ -3192,6 +3206,54 @@ def multi_strategy_pick(regime: str = "", use_news: bool = True, loss_streak: in
             
         except Exception as e:
             print(f"  ⚠️ v5.95超级优化异常(不影响选股): {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # v5.96: 新增超级增强④ (交易反馈循环+多因子融合2.0+智能现金配置3.0)
+    if V5_96_AVAILABLE:
+        try:
+            print("\n  🚀 v5.96 超级增强④ 启动...")
+            
+            from trading_engine import get_account, get_positions
+            import copy
+            
+            account = get_account() if 'get_account' in dir() else {
+                'total_value': 1_000_000,
+                'cash': 100_000,
+                'max_drawdown': 0.04,
+                'positions': []
+            }
+            positions = get_positions() if 'get_positions' in dir() else []
+            
+            # 执行 v5.96 超级增强
+            v5_96_result = execute_v5_96_super_enhance(
+                candidates=copy.deepcopy(tradeable),
+                current_positions=positions,
+                account=account,
+                trading_history=[]
+            )
+            
+            # 更新 tradeable
+            tradeable = v5_96_result['candidates']
+            v5_96_report = v5_96_result['report']
+            
+            print(f"  ✅ v5.96超级增强完成: {v5_96_report['status']}")
+            for opt in v5_96_report.get('optimizations', []):
+                print(f"    {opt}")
+            
+            # 智能现金配置信息
+            smart_alloc = v5_96_result.get('smart_allocation', {})
+            if smart_alloc:
+                print(f"  📊 v5.96智能配置: {smart_alloc.get('regime', '?')} | "
+                      f"建仓频率:{smart_alloc.get('buy_frequency_minutes', 60)}分/次 | "
+                      f"日均:{smart_alloc.get('daily_target_buys', 22)}只/日 | "
+                      f"质量门槛:{smart_alloc.get('quality_threshold', 35)}分")
+            
+            # 重新排序
+            tradeable = sorted(tradeable, key=lambda x: -x.get('score', 0))
+            
+        except Exception as e:
+            print(f"  ⚠️ v5.96超级增强异常(不影响选股): {e}")
             import traceback
             traceback.print_exc()
 

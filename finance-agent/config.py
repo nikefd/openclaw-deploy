@@ -1089,3 +1089,53 @@ V5_94_TARGETS = {
     'max_drawdown': 0.028,                 # 2.8%
     'annual_return': (0.10, 0.12),        # 10-12%
 }
+
+# =================== v5.96: 超级增强④配置 ===================
+# 三大破局: 交易反馈循环 + 多因子融合2.0 + 智能现金配置3.0
+
+V5_96_ENABLE = True                      # 启用v5.96超级增强
+
+# v5.96: 交易反馈循环配置
+TRADING_FEEDBACK_LOOKBACK_DAYS = 7       # 分析过去7天的交易数据
+TRADING_FEEDBACK_MIN_RECORDS = 20        # 最少需要20条记录才认为有效
+TRADING_FEEDBACK_ACCURACY_THRESHOLD = 0.50  # 准确率阈值
+
+# v5.96: 多因子融合2.0权重配置
+MULTIFACTOR_FUSION_V2_WEIGHTS = {
+    'margin_factor': 0.25,                # 融资因子
+    'institution_factor': 0.20,           # 机构因子
+    'volume_price_factor': 0.20,          # 量价因子
+    'technical_factor': 0.25,             # 技术因子
+    'news_sentiment_factor': 0.10,        # 新闻舆情因子
+}
+
+# v5.96: 根据准确率动态调整权重
+MULTIFACTOR_DYNAMIC_WEIGHTS_HIGH = {
+    'margin_factor': 0.30,                # 高准确率: 融资权重↑
+    'technical_factor': 0.20,             # 技术权重↓
+}
+MULTIFACTOR_DYNAMIC_WEIGHTS_LOW = {
+    'technical_factor': 0.30,             # 低准确率: 技术权重↑
+    'margin_factor': 0.20,                # 融资权重↓
+}
+
+# v5.96: 智能现金配置3.0阈值
+SMART_CASH_ALLOCATION_THRESHOLDS_V96 = [
+    # (现金占比, 质量阈值, 候选池, 日均建仓, 建仓频率, 模式)
+    (0.99, 20, 250, 35, 15, 'extreme'),
+    (0.95, 25, 200, 28, 30, 'ultra_aggressive'),
+    (0.90, 30, 180, 22, 60, 'aggressive'),
+    (0.80, 35, 150, 18, 120, 'balanced'),
+    (0.0, 45, 100, 12, 240, 'conservative'),
+]
+
+# v5.96: 预期成果 (14天评估)
+V5_96_TARGETS = {
+    'accuracy_rate': (0.55, 0.60),        # 日均建仓准确率 55-60% (+41-53%)
+    'daily_builds': (30, 35),              # 日均建仓数 30-35只 (+36-59%)
+    'fund_utilization': (0.35, 0.40),    # 资金利用率 35-40% (+40-75%)
+    'sharpe_ratio': (1.5, 2.0),           # Sharpe比 1.5-2.0+ (+33%)
+    'avg_holding_days': (3, 7),           # 平均持仓周期 3-7天
+    'max_drawdown': (0.02, 0.025),        # 最大回撤 2-2.5%
+    'total_return_30d': (0.15, 0.18),    # 30天总收益 15-18%
+}
