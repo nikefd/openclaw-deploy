@@ -1,0 +1,72 @@
+{
+  "version": "v5.90",
+  "timestamp": "2026-05-06T14:02:59.916472",
+  "total_stocks": 3,
+  "final_count": 3,
+  "optimizations": {
+    "cash_detection": {
+      "applied": false,
+      "cash_mode": "normal",
+      "cash_ratio": 0.5,
+      "entry_quality_threshold": 35,
+      "score_multiplier": 1.0,
+      "affected_stocks": 0,
+      "timestamp": "2026-05-06T14:02:59.916083",
+      "log_message": "💰 [v5.90現金檢測] 模式:normal | 現金:50.0% | 閾值:35分 | 倍數:1.0x | 影響股票:0只"
+    },
+    "sharpe_multiplier": {
+      "applied": true,
+      "sharpe_multiplier": 2.5,
+      "affected_stocks": 3,
+      "top_3_changes": [
+        {
+          "rank": 1,
+          "code": "000858",
+          "name": "五粮液",
+          "old_score": 75,
+          "new_score": 187
+        },
+        {
+          "rank": 2,
+          "code": "000651",
+          "name": "格力电器",
+          "old_score": 65,
+          "new_score": 162
+        },
+        {
+          "rank": 3,
+          "code": "300750",
+          "name": "宁德时代",
+          "old_score": 80,
+          "new_score": 200
+        }
+      ]
+    },
+    "macd_histogram": {
+      "applied": true,
+      "affected_stocks": 1,
+      "bonus_scores": [
+        {
+          "code": "300750",
+          "bonus": 15
+        }
+      ]
+    },
+    "stop_loss_filter": {
+      "filtered_count": 0,
+      "removed_stocks": []
+    },
+    "portfolio_allocation": {
+      "defensive": 0.35,
+      "offensive": 0.4,
+      "tactical": 0.15,
+      "cash_reserve": 0.1,
+      "mode": "normal"
+    },
+    "stop_loss_blacklist": {
+      "consecutive_stopouts": [],
+      "blacklist_updated": false,
+      "count": 0
+    }
+  }
+}

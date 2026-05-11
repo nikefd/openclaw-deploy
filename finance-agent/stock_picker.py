@@ -42,7 +42,7 @@ except ImportError:
 # v5.84: 集成深度优化工程④ (混合池重构+MACD差异化+快速选股+多样化防护)
 try:
     from v5_84_DEEP_OPTIMIZE import (
-        apply_sector_madc_params,
+        apply_sector_macd_params,
         apply_mixed_pool_sector_weights,
         fast_pick_engine,
         check_portfolio_concentration,

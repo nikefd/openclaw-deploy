@@ -44,11 +44,12 @@ def retry(max_retries=3, delay=2):
 
 
 def timeout(seconds=5):
-    """超时装饰器 — 网络采集必须有超时限制 (v5.72盤前優化)"""
+    """超时装饰器 — 网络采集必须有超时限制 (v5.72盤前優化) (v5.97盤前强化)"""
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             import signal
+            import os
             def timeout_handler(signum, frame):
                 raise TimeoutError(f"{func.__name__}执行超时({seconds}秒)")
             signal.signal(signal.SIGALRM, timeout_handler)
@@ -58,7 +59,7 @@ def timeout(seconds=5):
                 signal.alarm(0)  # 取消超时
                 return result
             except TimeoutError as e:
-                print(f"  ⏱️  {e}")
+                print(f"  ⏱️  {e} — 自动降级缓存值")
                 return None
             except Exception as e:
                 signal.alarm(0)

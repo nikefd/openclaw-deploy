@@ -1,0 +1,120 @@
+{
+  "version": "v5.84",
+  "timestamp": "2026-05-04T14:03:51.770417",
+  "mixed_pool_sector_weights": {
+    "科技成长": 2.0,
+    "新能源": 1.8,
+    "消费白马": 0.3,
+    "主板": 0.8,
+    "金融": 0.5,
+    "医药": 0.6
+  },
+  "macd_params_sector": {
+    "科技成长": {
+      "fast": 12,
+      "slow": 26,
+      "signal": 9,
+      "description": "TOP1最优, 标准参数"
+    },
+    "新能源": {
+      "fast": 10,
+      "slow": 24,
+      "signal": 7,
+      "description": "TOP2优化, 快速反应"
+    },
+    "消费白马": {
+      "fast": 14,
+      "slow": 28,
+      "signal": 9,
+      "description": "保守参数, 平滑信号"
+    },
+    "默认": {
+      "fast": 12,
+      "slow": 26,
+      "signal": 9
+    }
+  },
+  "fast_pick_config": {
+    "enabled": true,
+    "cash_ratio_trigger": 0.9,
+    "timeout_seconds": 5.0,
+    "use_cache": true,
+    "cache_ttl_minutes": 30,
+    "fast_dimensions": [
+      "MACD_signal",
+      "RSI_level",
+      "volume_spike",
+      "sector_inflow",
+      "price_momentum"
+    ],
+    "full_dimensions": [
+      "MACD_signal",
+      "RSI_level",
+      "volume_spike",
+      "sector_inflow",
+      "price_momentum",
+      "support_level",
+      "entry_quality",
+      "institution_holding",
+      "margin_balance",
+      "northbound_flow"
+    ]
+  },
+  "portfolio_concentration": {
+    "enabled": true,
+    "top5_max_ratio": 0.7,
+    "top3_max_ratio": 0.5,
+    "single_max_ratio": 0.15,
+    "min_sector_diversity": 3,
+    "auto_rebalance": true,
+    "rebalance_action": "prefer_other_sectors"
+  },
+  "backtest_accuracy_analysis": {
+    "enabled": true,
+    "quality_grades": {
+      "A": {
+        "range": [
+          80,
+          100
+        ],
+        "description": "极优质",
+        "target_win_rate": 0.75
+      },
+      "B": {
+        "range": [
+          70,
+          80
+        ],
+        "description": "高质量",
+        "target_win_rate": 0.65
+      },
+      "C": {
+        "range": [
+          55,
+          70
+        ],
+        "description": "中等",
+        "target_win_rate": 0.5
+      },
+      "D": {
+        "range": [
+          40,
+          55
+        ],
+        "description": "低质量",
+        "target_win_rate": 0.4
+      },
+      "E": {
+        "range": [
+          0,
+          40
+        ],
+        "description": "极低",
+        "target_win_rate": 0.2
+      }
+    },
+    "min_win_rate_threshold": 0.4,
+    "auto_adjust_threshold": true,
+    "analysis_period_days": 30
+  }
+}
