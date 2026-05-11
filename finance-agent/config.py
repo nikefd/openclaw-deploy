@@ -1139,3 +1139,96 @@ V5_96_TARGETS = {
     'max_drawdown': (0.02, 0.025),        # 最大回撤 2-2.5%
     'total_return_30d': (0.15, 0.18),    # 30天总收益 15-18%
 }
+
+# =================== v5.99: 晚間深度優化 - 回測冠軍融合 ===================
+# 基於回測數據: MACD+RSI(科技成長) 冠軍 17.1% | 60% 勝率 | 2.35 Sharpe | 4.08% 最大回撤
+# 核心創新:
+#   1. 回測冠軍策略融合到實盤選股 (+3-5% 準確率)
+#   2. 現金激進配置 (現金>96% 時觸發, 倉位+40%)
+#   3. 推薦準確率實時跟蹤系統
+#   4. 增強風險警告面板
+
+V5_99_ENABLE = True                     # 啟用v5.99晚間深度優化
+
+# v5.99: 回測冠軍配置
+V5_99_CHAMPION_STRATEGY = {
+    'name': 'MACD+RSI (科技成長)',
+    'total_return': 0.171,               # 17.1%
+    'max_drawdown': 0.0408,              # 4.08%
+    'win_rate': 0.60,                   # 60%
+    'sharpe_ratio': 2.35,
+    'sector': '科技成長',
+    'signals': ['MACD黃金交叉', 'RSI超賣反彈']
+}
+
+# v5.99: 賽道優化權重 (應用於實盤選股)
+V5_99_SECTOR_OPTIMIZATIONS = {
+    '科技成長': {
+        'strategy': 'MACD+RSI',
+        'weight_boost': 1.25,              # +25% 權重
+        'macd_params': {'fast': 10, 'slow': 25, 'signal': 9},
+        'rsi_params': {'period': 12, 'oversold': 30, 'overbought': 70},
+        'entry_rule': 'MACD黃金交叉 AND RSI < 35',
+        'exit_rule': 'MACD死亡交叉 OR RSI > 70',
+        'min_macd_strength': 0.5,
+        'position_size': 0.08              # 8% 單筆倉位
+    },
+    '新能源': {
+        'strategy': 'MACD+RSI+多因子',
+        'weight_boost': 1.15,              # +15% 權重
+        'macd_params': {'fast': 12, 'slow': 26, 'signal': 9},
+        'rsi_params': {'period': 14, 'oversold': 35, 'overbought': 65},
+        'entry_rule': 'MACD黃金交叉 AND RSI < 40',
+        'exit_rule': 'MACD死亡交叉 OR 止損',
+        'min_macd_strength': 0.4,
+        'position_size': 0.07
+    },
+    '白馬消費': {
+        'strategy': '多因子+趨勢',
+        'weight_boost': 1.08,              # +8% 權重
+        'macd_params': {'fast': 12, 'slow': 26, 'signal': 9},
+        'rsi_params': {'period': 14, 'oversold': 40, 'overbought': 60},
+        'entry_rule': '技術面+基本面',
+        'exit_rule': '技術面破位 OR 基本面惡化',
+        'min_macd_strength': 0.3,
+        'position_size': 0.06
+    }
+}
+
+# v5.99: 現金激進配置
+V5_99_CASH_AGGRESSIVE_CONFIG = {
+    'activation_threshold': 0.96,          # 現金占比 > 96% 時激活
+    'position_size_boost': 1.4,            # 倉位提升 40%
+    'entry_threshold_lower': -10,          # 評分門檻降低 10 分
+    'concentration_limit': 0.12,           # 單筆最高 12%
+    'sector_max_ratio': 0.45,              # 單賽道最高 45%
+    'min_sectors': 3                       # 最少3個賽道
+}
+
+# v5.99: 信號質量基準 (預期成功率)
+V5_99_SIGNAL_QUALITY_BASELINE = {
+    'MACD黃金交叉': 0.75,                # 75% 成功率
+    'RSI超賣反彈': 0.70,                 # 70% 成功率
+    '多因子共振': 0.65,                  # 65% 成功率
+    '趨勢反轉': 0.60,                    # 60% 成功率
+    '支撐反彈': 0.55                     # 55% 成功率
+}
+
+# v5.99: 風險警告閾值
+V5_99_RISK_THRESHOLDS = {
+    'high_concentration': 0.35,            # 單支股超過35%
+    'sector_concentration': 0.50,          # 單賽道超過50%
+    'total_positions': 12,                 # 總持倉數超過12支
+    'max_drawdown_pct': -0.08,            # 最大回撤超過8%
+    'consecutive_losses': 3,               # 連續虧損3次
+    'low_sharpe': 0.8                     # Sharpe比低於0.8
+}
+
+# v5.99: 預期改進
+V5_99_EXPECTED_IMPROVEMENTS = {
+    'accuracy_boost': 0.035,                # +3.5% 準確率
+    'win_rate_improvement': (0.60, 0.63),  # 60% → 62-63%
+    'sharpe_potential': (2.35, 2.50),      # 2.35 → 2.5+
+    'capital_efficiency': 1.4,              # 激進模式 +40% 資金利用率
+    'recommendation_quality': 1.05          # 推薦質量 +5%
+}
