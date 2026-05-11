@@ -210,7 +210,7 @@ EXTREME_CASH_RATIO = 0.98           # 現金占比>98%觸發超激進
 EXTREME_CASH_TARGET_ALLOCATION = 0.12  # 目標配置12%持倉(快速消耗現金)
 EXTREME_CASH_ENTRY_QUALITY = 35     # 超激進下的入場質量閾值(45→35, -28%) [v5.66優化:已驗證]
 EXTREME_CASH_V3 = {
-    'trigger_ratio': 0.984,         # 現金>98.4%觸發v5.66激進選股
+    'trigger_ratio': 0.95,  # v5.96: 从98.4% → 95% 立即激活         # 現金>98.4%觸發v5.66激進選股
     'quality_threshold': 35,        # 入場質量門檻降至35分(-27%)
     'signal_boost_v3': 2.5,         # 信號權重激進度提升到2.5x (v5.65: 2.2x)
 }
@@ -314,7 +314,7 @@ CASH_RATIO_STRATEGY_BOOST_V2 = {
 # v5.61: 超激进模式V3参数矩阵
 EXTREME_CASH_V3_MODE = {
     'enabled': True,                    # v5.61启用
-    'trigger_ratio': 0.98,              # 现金>98%触发
+    'trigger_ratio': 0.95,  # v5.96降低: 从98% → 95% 立即激活              # 现金>98%触发
     'target_allocation': 0.12,          # 目标持仓12%
     'entry_quality_threshold': 30,      # 入场质量30分(从35↓)
     'candidate_pool_target': 45,        # v5.96优化: 75→45只(防超时,保质量TOP45)
@@ -418,7 +418,7 @@ CANDIDATE_POOL_EXPANDED = {
 # v5.61: EXTREME_CASH_V3 - 超激进模式强化 (Sharpe权重2.5x)
 EXTREME_CASH_V3 = {
     'enabled': True,                                    # 启用v5.61超激进模式
-    'trigger_ratio': 0.98,                             # 现金>98%触发
+    'trigger_ratio': 0.95,  # v5.96降低: 从98% → 95% 立即激活                             # 现金>98%触发
     'entry_quality_threshold': 30,                     # 入场质量30分 (从35↓ -14%)
     'candidate_pool_size': 75,                         # 候选池75只 (从60↑ +25%)
     'sharpe_weight_multiplier': 2.5,                   # Sharpe权重倍数 2.5x (从2.0x↑ +25%)
