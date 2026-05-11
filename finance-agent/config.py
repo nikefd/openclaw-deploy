@@ -317,7 +317,7 @@ EXTREME_CASH_V3_MODE = {
     'trigger_ratio': 0.98,              # 现金>98%触发
     'target_allocation': 0.12,          # 目标持仓12%
     'entry_quality_threshold': 30,      # 入场质量30分(从35↓)
-    'candidate_pool_target': 75,        # 候选池75只(从60↑)
+    'candidate_pool_target': 45,        # v5.96优化: 75→45只(防超时,保质量TOP45)
 }
 
 # v5.61: 策略权重激进系数 v3 (超激进增强版)
@@ -401,8 +401,8 @@ ENTRY_QUALITY_DYNAMIC_V2 = {
 
 # v5.61: 候选池规模扩展参数
 CANDIDATE_POOL_EXPANDED = {
-    'momentum_target': 75,      # 动量候选 75只 (从55↑ +36%)
-    'volume_target': 40,        # 量价候选 40只 (从30↑ +33%)
+    'momentum_target': 45,  # v5.96优化: 防止超时      # 动量候选 75只 (从55↑ +36%)
+    'volume_target': 25,  # v5.96优化: 防止超时        # 量价候选 40只 (从30↑ +33%)
     'custom_score_threshold_extreme': 15,  # 极端模式最低分 15 (从20↓)
     'apply_margin_bonus': True, # 应用融资融券+12分
 }
