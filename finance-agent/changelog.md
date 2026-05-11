@@ -1,3 +1,125 @@
+## 2026-05-11 03:35 — 【v5.98 盤中UI優化②】性能統計API + MACD/RSI信號面板 🎨
+
+✅ **盤中UI增強完成**：新增實時性能指標儀表板 + MACD/RSI信號質量展示面板
+
+### 【優化方案】
+
+| 優化項 | 位置 | 功能 | 優先級 |
+|---------|------|------|--------|
+| 新API①: `/performance-indicators` | 後端 | 計算實時勝率/平均持倉/最大盈虧 | 🔴 P0 |
+| 新API②: `/macd-rsi-signals` | 後端 | 統計MACD/RSI信號質量評分 | 🔴 P0 |
+| UI卡片①: 性能指標面板 | 前端 | 胜率/持仓天数/最大单笔盈亏/总交易数 | 🔴 P0 |
+| UI卡片②: MACD/RSI面板 | 前端 | 信號數/質量平均分/最近信號 + 綜合質量分 | 🔴 P0 |
+
+### 【後端新增API】
+
+**① `/api/finance/performance-indicators` (GET)**
+- 计算交易绩效指标
+- 返回: `win_rate_pct` / `avg_holding_days` / `max_single_gain` / `max_single_loss` / `total_trades` / `winning_trades` / `losing_trades`
+- 字段: 当前状态 (cash_ratio_pct / positions_count / today_buys / today_sells)
+
+**② `/api/finance/macd-rsi-signals` (GET)**
+- 收集最近50笔交易的信号类型
+- 计算MACD/RSI信号质量平均分
+- 返回: `macd.total_signals` / `macd.quality_avg` / `rsi.total_signals` / `rsi.quality_avg` / `combined_quality`
+
+### 【前端新增UI】
+
+**卡片③: 實時性能指標 (盤中儀表板)**
+- 4個主要指标: 胜率 / 平均持仓天数 / 最大单笔盈利 / 最大单笔亏损
+- 3個統計數據: 総交易数 / 赢利交易 / 亏损交易
+- 更新频率: 與dashboard同步 (首次+每5分钟)
+
+**卡片④: MACD/RSI信號質量面板 (盤中儀表板)**
+- MACD信號: 信号数 / 平均质量分 / 最近信号
+- RSI信號: 信号数 / 平均质量分 / 最近信号
+- 綜合評分: 両者平均质量分 (可視化大字体)
+- 用途: 盤中快速判斷信號質量是否下降
+
+### 【集成清單】
+
+- [x] finance-api-server.js 新增2个API处理函数
+- [x] 路由注册: /api/finance/performance-indicators + /api/finance/macd-rsi-signals
+- [x] finance.html 新增2個UI卡片 (性能指標 + MACD/RSI面板)
+- [x] JavaScript 集成: loadPerformanceIndicators() + loadMacdRsiSignals()
+- [x] 服務重啟驗證 ✅
+
+### 【數據範例】
+
+**API① 性能指標**:
+```json
+{
+  "performance": {
+    "win_rate_pct": 57.89,
+    "avg_holding_days": 24,
+    "max_single_gain": 12500,
+    "max_single_loss": -8300,
+    "total_trades": 34,
+    "winning_trades": 11,
+    "losing_trades": 8
+  },
+  "current_status": {
+    "cash_ratio_pct": 96.59,
+    "positions_count": 2,
+    "total_value": 1001863.17,
+    "cash_amount": 967700.17
+  }
+}
+```
+
+**API② MACD/RSI信號**:
+```json
+{
+  "macd": {
+    "total_signals": 12,
+    "quality_avg": 65.5,
+    "recent": [{"symbol": "000858", "signal": "macd_golden_cross", "quality_score": 68}]
+  },
+  "rsi": {
+    "total_signals": 8,
+    "quality_avg": 58.3,
+    "recent": [{"symbol": "300670", "signal": "rsi_oversold", "quality_score": 62}]
+  },
+  "combined_quality": 61.9
+}
+```
+
+### 【盤中可視化效果】
+
+1. **性能指標卡片** — 4列網格，快速掃描關鍵指標
+   - 胜率: 57.89% (綠色表示)
+   - 平均持倉: 24天
+   - 最大盈利: ¥12,500 (正向)
+   - 最大虧損: ¥-8,300 (負向)
+
+2. **MACD/RSI面板** — 雙欄 + 綜合評分
+   - MACD: N=12 中値=65.5/100
+   - RSI: N=8 中値=58.3/100
+   - 綜合: 61.9/100 (大字體, accent色)
+
+### 【預期效果】
+
+1. **盤中快速決策支援** → 一眼看清績效 + 信號質量狀態
+2. **風險評估視覺化** → 胜率下跌 / 信號質量下降立即感知
+3. **實時監控** → 無需翻表 對比數據 輕鬆掌握
+4. **UI體驗升級** → 從數據表格 → 儀表板卡片 專業感提升
+
+### 【技術細節】
+
+- **計算邏輯**: 動態查詢trades表 計算實時勝率 / 持倉天數 / 極值
+- **信號解析**: 檢查signal_type欄位 分類MACD/RSI 篩選quality_score
+- **前端更新**: 異步加載 防止阻塞 錯誤處理fallback
+- **兼容性**: 無新依賴 純JS實現 輕量化設計
+
+### 【下一步(v5.99)】
+
+- 對標盤後復盤: v5.98實盤績效 vs 預期績效對比分析
+- 新聞情緒推送: 重大利好/利空實時告警集成
+- 即時風險評分: 按分鐘更新組合健康度
+- 策略AB測試: v5.98 vs v5.97實盤收益對比
+
+---
+
 ## 2026-05-11 00:00 — 【v5.97 盤前優化①】v5.84 MACD typo修復 + 網絡超時強化 + 候選緩存機制 🚀
 
 ✅ **盤前快速修復完成**: 診斷生產環境3大關鍵缺陷，實施小步快跑優化

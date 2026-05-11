@@ -1289,6 +1289,9 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/performance-scorecard' && req.method === 'GET') return handlePerformanceScorecard(req, res);
     if (pathname === '/api/finance/backtest-comparison-v77' && req.method === 'GET') return handleBacktestComparison(req, res);
     if (pathname === '/api/finance/intraday-dashboard-v593' && req.method === 'GET') return handleIntradayDashboard_v593(req, res);
+    // v5.98 盤中UI優化新端點
+    if (pathname === '/api/finance/performance-indicators' && req.method === 'GET') return handlePerfomanceIndicators(req, res);
+    if (pathname === '/api/finance/macd-rsi-signals' && req.method === 'GET') return handleMacdRsiSignals(req, res);
     
     // Static file service for UI optimization
     if (pathname === '/ui-optimize-v5.65.js' && req.method === 'GET') {
@@ -2107,5 +2110,146 @@ print(json.dumps(data, ensure_ascii=False))
       trade_metrics: {total_trades: 0, win_rate: 0, total_pnl: 0},
       ui_version: 'v5.91_intraday_error'
     }, 500);
+  }
+}
+
+// === 【v5.98 盤中UI優化②】性能統計API ===
+function handlePerfomanceIndicators(req, res) {
+  try {
+    // 計算盤中性能指標
+    const allTrades = querySqlite('SELECT * FROM trades ORDER BY trade_date ASC');
+    const positions = querySqlite('SELECT * FROM positions');
+    const account = querySqlite('SELECT * FROM account ORDER BY id DESC LIMIT 1')[0] || {};
+    
+    // 1. 勝率計算
+    const sellTrades = allTrades.filter(t => t.direction === 'SELL');
+    let wins = 0, losses = 0;
+    const costMap = {};
+    allTrades.filter(t => t.direction === 'BUY').forEach(t => {
+      if (!costMap[t.symbol]) costMap[t.symbol] = t.price;
+    });
+    sellTrades.forEach(t => {
+      const cost = costMap[t.symbol];
+      if (cost && t.price > cost) wins++; else losses++;
+    });
+    const winRate = sellTrades.length > 0 ? Math.round(wins / sellTrades.length * 10000) / 100 : 0;
+    
+    // 2. 平均持倉時間
+    let totalDays = 0;
+    positions.forEach(p => {
+      if (p.buy_date) {
+        const days = Math.round((new Date() - new Date(p.buy_date)) / 86400000);
+        totalDays += days;
+      }
+    });
+    const avgHoldingDays = positions.length > 0 ? Math.round(totalDays / positions.length) : 0;
+    
+    // 3. 最大單筆盈虧
+    let maxGain = 0, maxLoss = 0;
+    allTrades.forEach(t => {
+      const pnl = t.pnl || 0;
+      if (pnl > maxGain) maxGain = pnl;
+      if (pnl < maxLoss) maxLoss = pnl;
+    });
+    
+    // 4. 當前現金比
+    const cashRatio = account.total_value ? Math.round(account.cash / account.total_value * 10000) / 100 : 0;
+    
+    // 5. 今日交易
+    const today = new Date().toISOString().slice(0, 10);
+    const todayTrades = allTrades.filter(t => t.trade_date === today);
+    const buyCount = todayTrades.filter(t => t.direction === 'BUY').length;
+    const sellCount = todayTrades.filter(t => t.direction === 'SELL').length;
+    
+    sendJson(res, {
+      timestamp: new Date().toISOString(),
+      performance: {
+        win_rate_pct: winRate,
+        avg_holding_days: avgHoldingDays,
+        max_single_gain: Math.round(maxGain * 100) / 100,
+        max_single_loss: Math.round(maxLoss * 100) / 100,
+        total_trades: allTrades.length,
+        winning_trades: wins,
+        losing_trades: losses
+      },
+      current_status: {
+        cash_ratio_pct: cashRatio,
+        positions_count: positions.length,
+        today_buys: buyCount,
+        today_sells: sellCount,
+        total_value: Math.round((account.total_value || 0) * 100) / 100,
+        cash_amount: Math.round((account.cash || 0) * 100) / 100
+      }
+    });
+  } catch (e) {
+    log('Performance indicators error: ' + e.message);
+    sendJson(res, {
+      timestamp: new Date().toISOString(),
+      performance: { win_rate_pct: 0, avg_holding_days: 0 },
+      current_status: { cash_ratio_pct: 0, positions_count: 0 }
+    });
+  }
+}
+
+// === 【v5.98 盤中UI優化②】MACD/RSI信號實時面板 ===
+function handleMacdRsiSignals(req, res) {
+  try {
+    // 收集最近50筆交易的MACD/RSI信號品質
+    const trades = querySqlite('SELECT * FROM trades ORDER BY trade_date DESC, id DESC LIMIT 50');
+    const macdSignals = [];
+    const rsiSignals = [];
+    
+    trades.forEach(t => {
+      if (t.signal_type) {
+        const sig = (t.signal_type || '').toLowerCase();
+        const quality = t.quality_score || 0;
+        if (sig.includes('macd')) {
+          macdSignals.push({
+            symbol: t.symbol,
+            signal: sig,
+            date: t.trade_date,
+            quality_score: quality
+          });
+        } else if (sig.includes('rsi')) {
+          rsiSignals.push({
+            symbol: t.symbol,
+            signal: sig,
+            date: t.trade_date,
+            quality_score: quality
+          });
+        }
+      }
+    });
+    
+    // 統計信號品質
+    const macdQualityAvg = macdSignals.length > 0 
+      ? Math.round(macdSignals.reduce((s, x) => s + (x.quality_score || 0), 0) / macdSignals.length * 100) / 100
+      : 0;
+    const rsiQualityAvg = rsiSignals.length > 0
+      ? Math.round(rsiSignals.reduce((s, x) => s + (x.quality_score || 0), 0) / rsiSignals.length * 100) / 100
+      : 0;
+    
+    sendJson(res, {
+      timestamp: new Date().toISOString(),
+      macd: {
+        total_signals: macdSignals.length,
+        quality_avg: macdQualityAvg,
+        recent: macdSignals.slice(0, 5)
+      },
+      rsi: {
+        total_signals: rsiSignals.length,
+        quality_avg: rsiQualityAvg,
+        recent: rsiSignals.slice(0, 5)
+      },
+      combined_quality: Math.round((macdQualityAvg + rsiQualityAvg) / 2 * 100) / 100
+    });
+  } catch (e) {
+    log('MACD/RSI signals error: ' + e.message);
+    sendJson(res, {
+      timestamp: new Date().toISOString(),
+      macd: { total_signals: 0, quality_avg: 0, recent: [] },
+      rsi: { total_signals: 0, quality_avg: 0, recent: [] },
+      combined_quality: 0
+    });
   }
 }
