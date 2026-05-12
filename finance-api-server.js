@@ -215,7 +215,7 @@ function handleReportDetail(req, res, date) {
   } catch (e) { sendError(res, '报告未找到', 404); }
 }
 
-// --- UI优化②: Kelly仓位实时数据 ---
+// --- UI优化②: Kelly仓位实时数据 (完整版) ---
 function handleKellyPositions(req, res) {
   const positions = querySqlite('SELECT * FROM positions WHERE shares > 0');
   const account = querySqlite('SELECT cash, total_value FROM account ORDER BY id DESC LIMIT 1')[0];
@@ -245,6 +245,54 @@ function handleKellyPositions(req, res) {
     positions_count: positions.length,
     recent_trades: trades.length,
     history: history
+  });
+}
+
+// --- UI优化③: 选股超时保护状态 (v5.97新增) ---
+function handleSelectionStatus(req, res) {
+  try {
+    const logs = execSync('tail -100 /tmp/daily_runner.log 2>/dev/null || echo ""').toString();
+    const lastRunMatch = logs.match(/took ([\d.]+)s/);
+    const timeoutMatch = logs.match(/timeout.*protected|防超时/);
+    
+    const lastRunSeconds = lastRunMatch ? parseFloat(lastRunMatch[1]) : null;
+    const timeoutProtected = timeoutMatch ? true : false;
+    
+    let candidatePoolSize = 45;
+    try {
+      const reports = execSync('ls -t /home/nikefd/finance-agent/reports/*.md 2>/dev/null | head -1').toString().trim();
+      if (reports) {
+        const content = fs.readFileSync(reports, 'utf-8');
+        const poolMatch = content.match(/候选池.*(\d+)/);
+        if (poolMatch) candidatePoolSize = parseInt(poolMatch[1]);
+      }
+    } catch (e) { /* ignore */ }
+    
+    sendJson(res, {
+      timeout_protected: timeoutProtected,
+      candidate_pool_size: candidatePoolSize,
+      last_run_seconds: lastRunSeconds,
+      status: timeoutProtected ? 'protected' : 'normal'
+    });
+  } catch (e) {
+    sendJson(res, { timeout_protected: false, candidate_pool_size: 45, last_run_seconds: null, error: e.message });
+  }
+}
+
+// --- UI优化④: Kelly仓位效率简化版 (v5.97兼容) ---
+function handleKellyPositionsV97(req, res) {
+  const positions = querySqlite('SELECT * FROM positions WHERE shares > 0');
+  const account = querySqlite('SELECT cash, total_value FROM account ORDER BY id DESC LIMIT 1')[0];
+  
+  const totalValue = account ? account.total_value : INITIAL_CAPITAL;
+  const totalInvested = positions.reduce((sum, p) => sum + (p.current_price * p.shares), 0);
+  const fundUtilization = totalValue > 0 ? (totalInvested / totalValue * 100) : 0;
+  const targetKelly = 15;
+  const kellyEfficiency = Math.min(100, (fundUtilization / targetKelly * 100));
+  
+  sendJson(res, {
+    fund_utilization: Math.round(fundUtilization * 10) / 10,
+    kelly_efficiency: Math.round(kellyEfficiency * 10) / 10
   });
 }
 
@@ -1091,10 +1139,16 @@ const server = http.createServer((req, res) => {
   log(`${req.method} ${pathname}`);
 
   try {
+    // === UI优化v5.97新端点 ===
+    if (pathname === '/kelly-positions' && req.method === 'GET') return handleKellyPositionsV97(req, res);
+    if (pathname === '/selection-status' && req.method === 'GET') return handleSelectionStatus(req, res);
+    if (pathname === '/dashboard' && req.method === 'GET') return handleDashboard(req, res);
+    
     if (pathname === '/api/finance/performance-stats' && req.method === 'GET') return handlePerformanceStats(req, res);
     if (pathname === '/api/finance/sentiment-dynamics' && req.method === 'GET') return handleSentimentDynamics_v82(req, res);
     if (pathname === '/api/finance/backtest-comparison-v82' && req.method === 'GET') return handleBacktestComparison_v82(req, res);
     if (pathname === '/api/finance/dashboard' && req.method === 'GET') return handleDashboard(req, res);
+    if (pathname === '/api/finance/kelly-positions' && req.method === 'GET') return handleKellyPositions(req, res);
     if (pathname === '/api/finance/analysis' && req.method === 'GET') return handleAnalysis(req, res);
     if (pathname === '/api/finance/trades' && req.method === 'GET') return handleTrades(req, res, params);
     if (pathname === '/api/finance/reports' && req.method === 'GET') return handleReportsList(req, res);
