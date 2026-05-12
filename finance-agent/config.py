@@ -1227,8 +1227,6 @@ V5_99_RISK_THRESHOLDS = {
 # v5.99: 預期改進
 V5_99_EXPECTED_IMPROVEMENTS = {
     'accuracy_boost': 0.035,                # +3.5% 準確率
-    'win_rate_improvement': (0.60, 0.63),  # 60% → 62-63%
-    'sharpe_potential': (2.35, 2.50),      # 2.35 → 2.5+
-    'capital_efficiency': 1.4,              # 激進模式 +40% 資金利用率
-    'recommendation_quality': 1.05          # 推薦質量 +5%
 }
+# 目標: 資金利用率 3.5% → 25-30%, 日均建倉 2只 → 8-12只, Sharpe保持2.35+
+# 來源: 回測數據 MACD+RSI(科技成長) 17.1% return, 2.35 Sharpe, 60% win_rate
