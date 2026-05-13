@@ -1198,6 +1198,35 @@ const server = http.createServer((req, res) => {
         return sendJson(res, JSON.parse(out));
       } catch(e) { return sendJson(res, { regime: 'unknown', error: e.message }); }
     }
+    // === v5.102 UI优化② (11:30) ===
+    if (pathname === '/api/finance/sentiment-dynamics-v102' && req.method === 'GET') {
+      try {
+        const py = `import json,sys; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_102_INTRADAY_UI_OPTIMIZE import get_sentiment_dynamics; print(json.dumps(get_sentiment_dynamics(), ensure_ascii=False, default=str))`;
+        const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 15000 }).toString().trim();
+        return sendJson(res, JSON.parse(out));
+      } catch(e) { return sendJson(res, { error: e.message }); }
+    }
+    if (pathname === '/api/finance/performance-stats-v102' && req.method === 'GET') {
+      try {
+        const py = `import json,sys; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_102_INTRADAY_UI_OPTIMIZE import get_performance_stats; print(json.dumps(get_performance_stats(), ensure_ascii=False, default=str))`;
+        const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 15000 }).toString().trim();
+        return sendJson(res, JSON.parse(out));
+      } catch(e) { return sendJson(res, { error: e.message }); }
+    }
+    if (pathname === '/api/finance/signal-quality-v102' && req.method === 'GET') {
+      try {
+        const py = `import json,sys; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_102_INTRADAY_UI_OPTIMIZE import get_signal_quality; print(json.dumps(get_signal_quality(), ensure_ascii=False, default=str))`;
+        const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 15000 }).toString().trim();
+        return sendJson(res, JSON.parse(out));
+      } catch(e) { return sendJson(res, { error: e.message }); }
+    }
+    if (pathname === '/api/finance/intraday-performance-v102' && req.method === 'GET') {
+      try {
+        const py = `import json,sys; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_102_INTRADAY_UI_OPTIMIZE import get_intraday_performance; print(json.dumps(get_intraday_performance(), ensure_ascii=False, default=str))`;
+        const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 15000 }).toString().trim();
+        return sendJson(res, JSON.parse(out));
+      } catch(e) { return sendJson(res, { error: e.message }); }
+    }
     if (pathname === '/api/finance/datasources' && req.method === 'GET') {
       try {
         const py = `import json,sys; sys.path.insert(0,'/home/nikefd/finance-agent'); from datasource_monitor import get_health_summary; print(json.dumps(get_health_summary(24), ensure_ascii=False, default=str))`;
