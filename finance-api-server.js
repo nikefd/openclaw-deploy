@@ -279,6 +279,51 @@ function handleSelectionStatus(req, res) {
   }
 }
 
+// === 新增③: 情緒動態 + 績效統計 + 信號質量 (v5.105) ===
+function handleSentimentDynamicsV102(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_105_INTRADAY_OPTIMIZE import get_sentiment_dynamics_v102; print(json.dumps(get_sentiment_dynamics_v102(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    sendJson(res, JSON.parse(out || '{}'));
+  } catch (e) {
+    log('sentiment-dynamics-v102 error: ' + e.message);
+    sendJson(res, { sentiment_score: 50, sentiment_label: '中性' });
+  }
+}
+
+function handlePerformanceStatsV102(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_105_INTRADAY_OPTIMIZE import get_performance_stats_v102; print(json.dumps(get_performance_stats_v102(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    sendJson(res, JSON.parse(out || '{}'));
+  } catch (e) {
+    log('performance-stats-v102 error: ' + e.message);
+    sendJson(res, { strategy_win_rate: [], sector_distribution: {} });
+  }
+}
+
+function handleSignalQualityV102(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_105_INTRADAY_OPTIMIZE import get_signal_quality_v102; print(json.dumps(get_signal_quality_v102(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    sendJson(res, JSON.parse(out || '{}'));
+  } catch (e) {
+    log('signal-quality-v102 error: ' + e.message);
+    sendJson(res, { macd: {}, rsi: {} });
+  }
+}
+
+function handleIntradayPerformanceV102(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_105_INTRADAY_OPTIMIZE import get_intraday_performance_v102; print(json.dumps(get_intraday_performance_v102(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    sendJson(res, JSON.parse(out || '{}'));
+  } catch (e) {
+    log('intraday-performance-v102 error: ' + e.message);
+    sendJson(res, { win_rate: 0, avg_holding_days: 0 });
+  }
+}
+
 // --- UI优化④: Kelly仓位效率简化版 (v5.97兼容) ---
 function handleKellyPositionsV97(req, res) {
   const positions = querySqlite('SELECT * FROM positions WHERE shares > 0');
@@ -1140,6 +1185,12 @@ const server = http.createServer((req, res) => {
 
   try {
     // === UI优化v5.97新端点 ===
+    // === UI优化v5.105新端点 (11:30盘中优化) ===
+    if (pathname === '/api/finance/sentiment-dynamics-v102' && req.method === 'GET') return handleSentimentDynamicsV102(req, res);
+    if (pathname === '/api/finance/performance-stats-v102' && req.method === 'GET') return handlePerformanceStatsV102(req, res);
+    if (pathname === '/api/finance/signal-quality-v102' && req.method === 'GET') return handleSignalQualityV102(req, res);
+    if (pathname === '/api/finance/intraday-performance-v102' && req.method === 'GET') return handleIntradayPerformanceV102(req, res);
+    // === UI优化v5.97旧端点 ===
     if (pathname === '/kelly-positions' && req.method === 'GET') return handleKellyPositionsV97(req, res);
     if (pathname === '/selection-status' && req.method === 'GET') return handleSelectionStatus(req, res);
     if (pathname === '/dashboard' && req.method === 'GET') return handleDashboard(req, res);
