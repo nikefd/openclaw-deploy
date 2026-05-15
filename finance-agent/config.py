@@ -10,7 +10,7 @@ MIN_COMMISSION = 5.0         # 最低佣金5元
 SLIPPAGE = 0.002             # 滑点0.2%
 
 # 持仓限制 (v5.85优化: 从保守→激进)
-MAX_POSITIONS = 8            # 最多同时持有8只 (10→8,集中度控制)
+MAX_POSITIONS = 10           # v5.108: 激进模式 8→10 (加快资金配置)
 MAX_SINGLE_POSITION = 0.05   # 单只最多5%仓位 (15%→5%,分散风险)
 STOP_LOSS = -0.08            # 止损线 -8% (保持)
 TAKE_PROFIT = 0.20           # 止盈线 +20% (保持)
@@ -28,7 +28,7 @@ PORTFOLIO_ALLOCATION = {
 }
 
 # v5.85新增: 最少现金比例 (从25%→10%) | v5.94盘前优化: 10%→15%
-MIN_CASH_RATIO = 0.15        # v5.94: 提升至15% (保证止损灵活性)
+MIN_CASH_RATIO = 0.20        # v5.108: 激进模式 15%→20% (激活现金利用)
 
 # 数据库
 DB_PATH = "/home/nikefd/finance-agent/data/trading.db"
@@ -1230,3 +1230,39 @@ V5_99_EXPECTED_IMPROVEMENTS = {
 }
 # 目標: 資金利用率 3.5% → 25-30%, 日均建倉 2只 → 8-12只, Sharpe保持2.35+
 # 來源: 回測數據 MACD+RSI(科技成長) 17.1% return, 2.35 Sharpe, 60% win_rate
+
+# ============================================================================
+# v5.108: 激进建仓模式 (盘后优化③)
+# ============================================================================
+# 现金占比 96.6% 过高，启用激进模式加快资金配置速度
+# 调整核心参数:
+#  1. 最少现金比例: 15% → 20% (给予建仓空间)
+#  2. 最大持仓数: 8 → 10 (加快多元化步伐)
+#  3. 持仓规划: 8只股票 × ¥30,241/只 = ¥241,925 (从现有现金)
+
+V5_108_AGGRESSIVE_CONFIG = {
+    'enabled': True,                       # 启用激进模式
+    'target_cash_ratio': 0.20,            # 目标现金比 20%
+    'target_positions': 10,               # 目标持仓数 10只
+    'max_per_trade': 5,                   # 单次交易最多5只
+    'per_position_budget': 30241,         # 每只初始预算 (¥30,241)
+    'quality_threshold': 35,              # 入选标准 45→35分
+    'reserve_ratio': 0.20,                # 保留现金比例 20%
+    'activation_timestamp': '2026-05-15T07:30:00Z',
+    'expected_daily_additions': 5,        # 预期日均新增5只
+    'plan': {
+        'step1': '启用激进模式，调整现金比例 96.6% → 80%',
+        'step2': '准备第一轮建仓：5只股票 × ¥30,241 = ¥151,205',
+        'step3': '准备第二轮建仓：3只股票 × ¥30,241 = ¥90,723',
+        'step4': '持仓达到10只后，评估策略效果'
+    }
+}
+
+# v5.108: 预期改进指标
+V5_108_EXPECTED_METRICS = {
+    'cash_ratio_improvement': '96.6% → 20-25%',
+    'positions_increase': '2只 → 10只',
+    'capital_utilization': '3.4% → 75-80%',
+    'daily_transactions': '2-3只 → 5-8只',
+    'revenue_target': '保持Sharpe 2.35+，追求15-20%年化收益'
+}
