@@ -1190,6 +1190,7 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/finance/performance-stats-v102' && req.method === 'GET') return handlePerformanceStatsV102(req, res);
     if (pathname === '/api/finance/signal-quality-v102' && req.method === 'GET') return handleSignalQualityV102(req, res);
     if (pathname === '/api/finance/intraday-performance-v102' && req.method === 'GET') return handleIntradayPerformanceV102(req, res);
+    if (pathname === '/api/finance/dashboard-aggregate-v107' && req.method === 'GET') return handleDashboardAggregateV107(req, res);
     // === UI优化v5.97旧端点 ===
     if (pathname === '/kelly-positions' && req.method === 'GET') return handleKellyPositionsV97(req, res);
     if (pathname === '/selection-status' && req.method === 'GET') return handleSelectionStatus(req, res);
@@ -2384,6 +2385,24 @@ function handleMacdRsiSignals(req, res) {
       macd: { total_signals: 0, quality_avg: 0, recent: [] },
       rsi: { total_signals: 0, quality_avg: 0, recent: [] },
       combined_quality: 0
+    });
+  }
+}
+
+// === 【v5.107 盤前UI優化④】多維熱力圖聚合API ===
+function handleDashboardAggregateV107(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_107_HEATMAP_OPTIMIZE import get_dashboard_aggregate_v107; print(json.dumps(get_dashboard_aggregate_v107(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    const data = JSON.parse(out || '{}');
+    sendJson(res, data);
+  } catch (e) {
+    log('dashboard-aggregate-v107 error: ' + e.message);
+    sendJson(res, {
+      sentiment_heatmap: { heatmap: [], distribution: {}, current_score: 50 },
+      winrate_heatmap: { sectors: {}, weekly: [], overall_winrate: 0 },
+      position_heatmap: { sectors: {}, pnl_distribution: {}, concentration: 0 },
+      timestamp: new Date().toISOString()
     });
   }
 }
