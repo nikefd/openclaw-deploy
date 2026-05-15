@@ -1266,3 +1266,104 @@ V5_108_EXPECTED_METRICS = {
     'daily_transactions': '2-3只 → 5-8只',
     'revenue_target': '保持Sharpe 2.35+，追求15-20%年化收益'
 }
+
+# ============================================================================
+# v5.109: 晚间深度优化④ - 激进融合+回测驱动 (2026-05-15 22:00)
+# ============================================================================
+# 基于回测数据: MACD+RSI(科技成长) 冠军策略 17.1% | 2.35 Sharpe | 60% 胜率
+# 创新方向:
+#   1. 策略权重集中: MACD+RSI 90% (从65%)，MULTI_FACTOR 10%
+#   2. 激进入选阈值: 25分 (从35分，下降28%)  
+#   3. 激进建仓并发: 单次8只 (从5只)，目标20持仓
+#   4. 快速循环评估: 3-7天自动反馈，清出弱持仓
+#   5. Kelly激进系数: 1.2x (从1.0x)
+#   6. 回测对标: 实时对标历史最优性能
+
+V5_109_ENABLE = True                      # 启用v5.109激进融合
+
+# v5.109: 激进策略权重重构 (基于回测TOP1)
+V5_109_SECTOR_STRATEGY_ROUTING = {
+    '科技成长': {
+        'primary': ('MACD_RSI', 0.90),           # ⬆️ 65% → 90% (回测TOP1优先)
+        'secondary': ('MULTI_FACTOR', 0.10)     # ⬇️ 20% → 10% (风险底线)
+    },
+    '新能源': {
+        'primary': ('MACD_RSI', 0.85),           # ⬆️ 60% → 85%
+        'secondary': ('MULTI_FACTOR', 0.15)     # ⬇️ 25% → 15%
+    },
+    '白马消费': {
+        'primary': ('MULTI_FACTOR', 0.70),      # 保守赛道用多因子
+        'secondary': ('MACD_RSI', 0.30)         # MACD+RSI作补充
+    }
+}
+
+# v5.109: 激进Sharpe阈值 (支持激进建仓)
+V5_109_SHARPE_RISK_THRESHOLDS = {
+    'high_quality': 1.2,                  # ⬇️ 1.5 → 1.2 (激进纳入)
+    'medium_quality': 0.8,                # ⬇️ 1.0 → 0.8 (宽松中位)
+    'low_quality': 0.4,                   # ⬇️ 0.5 → 0.4 (接纳次优)
+}
+
+# v5.109: 激进入选配置
+V5_109_AGGRESSIVE_PICK_CONFIG = {
+    'enabled': True,
+    'quality_threshold': 25,              # 激进: 35分→25分 (-28%)
+    'max_candidates': 20,                 # 最多筛选20只候选
+    'macd_rsi_only': True,                # 只用MACD+RSI主策略
+    'min_volume_pct': 0.003,              # 流动性要求: 日均成交>500w
+    'quick_cycle_days': 3,                # 3日快速评估
+    'auto_exit_losers': True,             # 7日内持续亏损自动清出
+    'auto_exit_threshold': -0.08,         # 止损线保持-8%
+    'auto_tp_threshold': 0.20             # 止盈线保持+20%
+}
+
+# v5.109: 激进并发建仓配置
+V5_109_AGGRESSIVE_ALLOCATION = {
+    'enabled': True,
+    'max_per_batch': 8,                   # ⬆️ 单次建仓 5只 → 8只
+    'batch_interval_hours': 4,            # 批次间隔 4小时
+    'target_positions': 20,               # ⬆️ 目标持仓 10只 → 20只
+    'per_position_budget': 21737,         # ¥967,700 / 45
+    'max_opening_days': 7,                # 7天内完成首批建仓
+    'quick_feedback_loop': True,          # 启动3-7日快速反馈
+    'kelly_multiplier': 1.2               # Kelly系数激进 1.0→1.2
+}
+
+# v5.109: 激进质量评分权重
+V5_109_ENTRY_QUALITY_WEIGHTS = {
+    'trend_alignment': {
+        'weight': 0.30,                   # ⬆️ 25% → 30% (MACD+RSI驱动)
+        'bonus_macd_rsi': 5               # MACD+RSI信号+5分
+    },
+    'position_advantage': {
+        'weight': 0.25,                   # 保持
+        'bonus_strong_support': 3
+    },
+    'volume_price_confirm': {
+        'weight': 0.25,                   # 保持
+        'bonus_volume_surge': 2
+    },
+    'momentum_confirm': {
+        'weight': 0.20,                   # ⬇️ 25% → 20% (降低权重)
+        'bonus_rsi_oversold': 3
+    }
+}
+
+# v5.109: 激进阈值表
+V5_109_QUALITY_THRESHOLDS = {
+    'normal_mode': 45,                    # 正常: 45分
+    'aggressive_mode': 25,                # 激进: 25分 (下降44%)
+    'ultra_aggressive': 15                # 超激进: 15分 (下降67%)
+}
+
+# v5.109: 预期改进目标
+V5_109_EXPECTED_METRICS = {
+    'cash_ratio': '96.6% → 55% (7天)',
+    'positions': '2只 → 20只 (+900%)',
+    'capital_utilization': '3.4% → 80%',
+    'annual_return': '2.35% → 13.7%',
+    'sharpe_ratio': '保持 2.35+',
+    'win_rate': '60%',
+    'max_drawdown': '<5% (目标<4.08%)',
+    'build_cycle': '<7天完成首批20只'
+}
