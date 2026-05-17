@@ -1367,3 +1367,88 @@ V5_109_EXPECTED_METRICS = {
     'max_drawdown': '<5% (目标<4.08%)',
     'build_cycle': '<7天完成首批20只'
 }
+
+# ============================================================================
+# v5.110: 晚间深度优化④ - 四大模块大改进 (2026-05-17 22:00)
+# ============================================================================
+# 目标: 13.7% → 15-17% (+1.3~3.3%)
+# 对标: 17.1% + 2.35 Sharpe (当前达成93.1%)
+
+V5_110_ENABLE = True
+
+# 模块① - 白马消费赛道革新 (-5.51% → 8-12% 目标)
+V5_110_WHITEHORSE_OPTIMIZATION = {
+    'enabled': True,
+    'problem': 'MACD+RSI在白马消费完全失效 -5.51%',
+    'solution': '多策略融合(TREND+MULTI+MA)',
+    'weights': {
+        'TREND_FOLLOW': 0.30,
+        'MULTI_FACTOR': 0.50,
+        'MA_CROSS': 0.20,
+        'MACD_RSI': 0.00,
+    },
+    'expected_improvement': '从 -5.51% 到 8-12%',
+}
+
+# 模块② - 混合池选股路由精细化 (5.06% → 8%+ 目标)
+V5_110_MIXED_POOL_OPTIMIZATION = {
+    'enabled': True,
+    'problem': '混合池被低效赛道拖累 5.06% vs 科技 17.1%',
+    'solution': '按赛道回测绩效加权',
+    'sector_weights': {
+        'tech_growth': 0.54,      # 科技54% (TOP1: 17.1%)
+        'new_energy': 0.35,       # 新能源35% (14.66%)
+        'white_horse': 0.11,      # 消费11% (改进后目标)
+    },
+    'expected_improvement': '从 5.06% 到 7.5-8.5%',
+}
+
+# 模块③ - 激进并发建仓加速 (8→12只/批)
+V5_110_AGGRESSIVE_ALLOCATION = {
+    'enabled': True,
+    'batch_size': 12,            # 8 → 12 (+50%)
+    'kelly_coefficient': 1.25,   # 1.2 → 1.25 (+1% per position)
+    'single_position_size': 0.29,  # 28% → 29%
+    'cash_utilization_target': 0.35,  # 55% → 35%
+    'allocation_plan': {
+        'day1': {'batch_size': 12, 'capital': 260_844, 'cash_remaining': 0.56},
+        'day4': {'batch_size': 10, 'capital': 217_370, 'cash_remaining': 0.37},
+        'day7': {'batch_size': 3, 'capital': 65_211, 'cash_remaining': 0.11},
+        'total_positions': 25,
+        'completion_days': '<5',
+    },
+}
+
+# 模块④ - 回测对标动态监控系统
+V5_110_BACKTEST_BENCHMARK = {
+    'enabled': True,
+    'target_return': 17.1,
+    'target_sharpe': 2.35,
+    'target_win_rate': 0.60,
+    'target_max_drawdown': 0.0408,
+    'current_achievement': 0.931,  # 93.1% 达成率
+    'current_status': 'YELLOW',    # 黄色(正常)
+    'status_transitions': {
+        'GREEN': {
+            'achievement_min': 0.85,
+            'action': '进一步激进 (batch 15, Kelly 1.35x)',
+        },
+        'YELLOW': {
+            'achievement_min': 0.50,
+            'action': '保持当前 (维持v5.110)',
+        },
+        'RED': {
+            'achievement_min': 0.00,
+            'action': '回滚到v5.108 (Kelly 1.0x)',
+        },
+    },
+}
+
+# v5.110集成检查清单
+V5_110_INTEGRATION_CHECKLIST = {
+    'step1': 'stock_picker.py - 集成混合池赛道权重',
+    'step2': 'position_manager.py - 集成12只/批 + Kelly1.25x',
+    'step3': 'daily_runner.py - 集成回测对标监控',
+    'step4': '系统重启验证',
+    'step5': '实盘激活监控',
+}
