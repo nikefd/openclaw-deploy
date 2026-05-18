@@ -10,8 +10,8 @@ MIN_COMMISSION = 5.0         # 最低佣金5元
 SLIPPAGE = 0.002             # 滑点0.2%
 
 # 持仓限制 (v5.85优化: 从保守→激进)
-MAX_POSITIONS = 10           # v5.108: 激进模式 8→10 (加快资金配置)
-MAX_SINGLE_POSITION = 0.05   # 单只最多5%仓位 (15%→5%,分散风险)
+MAX_POSITIONS = 12           # v5.109: 激进模式 10→12 (快速扩展至目标)
+MAX_SINGLE_POSITION = 0.04   # 单只最多4%仓位 (5%→4%,风险进一步分散)
 STOP_LOSS = -0.08            # 止损线 -8% (保持)
 TAKE_PROFIT = 0.20           # 止盈线 +20% (保持)
 
@@ -28,7 +28,7 @@ PORTFOLIO_ALLOCATION = {
 }
 
 # v5.85新增: 最少现金比例 (从25%→10%) | v5.94盘前优化: 10%→15%
-MIN_CASH_RATIO = 0.20        # v5.108: 激进模式 15%→20% (激活现金利用)
+MIN_CASH_RATIO = 0.15        # v5.109: 激进模式 20%→15% (MAX缓冲,激活更多资金)
 
 # 数据库
 DB_PATH = "/home/nikefd/finance-agent/data/trading.db"

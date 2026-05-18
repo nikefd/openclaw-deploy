@@ -875,7 +875,7 @@ def run_daily():
 
     # 4. 多策略选股（传入市场状态）
     print("🔍 多策略选股中...")
-    pick_result = multi_strategy_pick(regime=regime, loss_streak=loss_streak)
+    pick_result = multi_strategy_pick(regime=regime, loss_streak=loss_streak, use_news=False)  # v5.109: 禁用新闻收集加快选股(超时)
     candidates = pick_result['candidates']
     pick_stats = pick_result['stats']
     breadth_info = pick_result.get('breadth', {})
