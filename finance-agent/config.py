@@ -1452,3 +1452,57 @@ V5_110_INTEGRATION_CHECKLIST = {
     'step4': '系统重启验证',
     'step5': '实盘激活监控',
 }
+
+# =================== v5.111 盤前優化⑤ (激进加速版) - 2026-05-18 ===================
+# 基于v5.110 + 3大改进: 激进入选阈值v2 + Sharpe分级止损 + 并发15只加速
+# 目标: 15-17% → 16-18% (+1-2%) | Sharpe: 2.35+ (保持)
+
+# 改进① 激进入选阈值v2 (按现金占比动态调整)
+V5_111_ENTRY_QUALITY_V2 = {
+    'enabled': True,
+    'cash_extreme': {'ratio': 0.50, 'threshold': 25},    # 现金>50%: 25分 (激进)
+    'cash_high': {'ratio': 0.40, 'threshold': 30},       # 现金40-50%: 30分
+    'cash_normal': {'ratio': 0.30, 'threshold': 35},     # 现金30-40%: 35分
+    'expected_effect': '建仓候选+60%, 资金利用55%→40%',
+}
+
+# 改进② Sharpe分级止损 (按策略质量动态调整)
+V5_111_SHARPE_BASED_STOP_LOSS = {
+    'enabled': True,
+    'high_quality': {'sharpe_min': 1.5, 'stop_loss': -0.10},   # Sharpe>1.5: -10%
+    'medium_quality': {'sharpe_min': 1.0, 'sharpe_max': 1.5, 'stop_loss': -0.08},  # 1.0-1.5: -8%
+    'low_quality': {'sharpe_max': 1.0, 'stop_loss': -0.05},    # <1.0: -5%
+    'expected_effect': '胜率↑3-5%, 回撤↓1-2%',
+}
+
+# 改进③ 并发加速 (12→15只/批)
+V5_111_AGGRESSIVE_ALLOCATION = {
+    'enabled': True,
+    'batch_size': 15,            # 12 → 15 (+25%)
+    'kelly_coefficient': 1.28,   # 1.25 → 1.28 (+2.4% per position)
+    'single_position_size': 0.32,  # 29% → 32% (单只最大仓位)
+    'cash_utilization_target': 0.28,  # 35% → 28%
+    'allocation_plan': {
+        'day1': {'batch_size': 15, 'capital': 325_055, 'positions': 15},
+        'day3': {'batch_size': 10, 'capital': 217_370, 'positions': 10},
+        'day5': {'batch_size': 5, 'capital': 108_685, 'positions': 5},
+        'total_positions': 30,  # v5.110: 25 → 30
+        'completion_days': '<5',  # 保持
+    },
+    'expected_effect': '现金利用28%, 7日完成30只持仓',
+}
+
+# v5.111预期改进总结
+V5_111_EXPECTED_IMPROVEMENTS = {
+    'entry_quality_threshold': '35分→25/30分 (按现金占比)',
+    'stop_loss_dynamic': '固定-8%→分级 (-5%/-8%/-10%)',
+    'batch_size': '12只→15只',
+    'kelly_multiplier': '1.25→1.28',
+    'target_positions': '25只→30只',
+    'cash_utilization': '35%→28%',
+    'expected_return': '15-17%→16-18% (+1-2%)',
+    'sharpe_target': '2.35+ (保持)',
+    'priority': 'P0 (关键优化)',
+    'version': 'v5.111',
+    'status': '盤前优化⑤ - 激进加速版',
+}

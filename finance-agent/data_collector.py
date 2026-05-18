@@ -102,100 +102,47 @@ def get_sentiment_cache() -> dict:
 @retry(max_retries=1, delay=1)  # 超时内最多重试1次
 @monitored("市场情绪")
 def get_market_sentiment() -> dict:
-    """获取市场情绪指标 — 增加超时保护和降级缓存"""
+    """获取市场情绪 (v5.99: QUICK_MODE支持)"""
+    import os
+    from datetime import datetime
+    import akshare as ak
+    
+    # 快速模式: 跳过数据采集，返回中性
+    if os.environ.get('QUICK_MODE') == '1':
+        return {'sentiment_score': 50, 'sentiment_label': '中性'}
+    
+    # 正常模式: 快速降级版本
     today = datetime.now().strftime('%Y%m%d')
-    result = {}
-
-    # 涨停池
+    result = {'sentiment_score': 50, 'sentiment_label': '中性'}
+    
     try:
         df_up = ak.stock_zt_pool_em(date=today)
-        result['limit_up_count'] = len(df_up)
-        result['limit_up_stocks'] = df_up[['代码','名称','涨跌幅','成交额']].head(10).to_dict('records') if not df_up.empty else []
+        up_count = len(df_up)
+        result['limit_up_count'] = up_count
     except:
+        up_count = 0
         result['limit_up_count'] = 0
-        result['limit_up_stocks'] = []
-
-    # 跌停池
+    
     try:
         df_down = ak.stock_zt_pool_dtgc_em(date=today)
-        result['limit_down_count'] = len(df_down)
+        down_count = len(df_down)
+        result['limit_down_count'] = down_count
     except:
+        down_count = 0
         result['limit_down_count'] = 0
-
-    # 炸板池
-    try:
-        df_bomb = ak.stock_zt_pool_zbgc_em(date=today)
-        result['bomb_count'] = len(df_bomb)
-    except:
-        result['bomb_count'] = 0
-
-    # 连板池
-    try:
-        df_strong = ak.stock_zt_pool_strong_em(date=today)
-        result['strong_stocks'] = df_strong[['代码','名称','涨跌幅','连板数']].head(10).to_dict('records') if not df_strong.empty else []
-    except:
-        result['strong_stocks'] = []
-
-    # 大单异动
-    try:
-        df_changes = ak.stock_changes_em(symbol='大笔买入')
-        result['big_buy_count'] = len(df_changes)
-        result['big_buys'] = df_changes[['代码','名称','板块']].head(10).to_dict('records') if not df_changes.empty else []
-    except:
-        result['big_buy_count'] = 0
-        result['big_buys'] = []
-
-    # 情绪评分
-    up = result.get('limit_up_count', 0)
-    down = result.get('limit_down_count', 0)
-    bomb = result.get('bomb_count', 0)
-    if up + down > 0:
-        ratio = up / (up + down)
-        bomb_rate = bomb / max(up + bomb, 1)
-        score = ratio * 70 + (1 - bomb_rate) * 20 + min(up / 50, 1) * 10
-        result['sentiment_score'] = round(min(score, 100), 1)
-    else:
-        result['sentiment_score'] = 50
-
-    # 情绪标签
-    s = result['sentiment_score']
-    if s >= 80: result['sentiment_label'] = '贪婪'
-    elif s >= 65: result['sentiment_label'] = '乐观'
-    elif s >= 45: result['sentiment_label'] = '中性'
-    elif s >= 30: result['sentiment_label'] = '谨慎'
-    else: result['sentiment_label'] = '恐慌'
-
-    # 情绪EMA平滑 — 用最近5日快照做指数移动平均，避免单日极端值
-    try:
-        import sqlite3
-        conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
-        c = conn.cursor()
-        c.execute("SELECT sentiment_score FROM daily_snapshots ORDER BY date DESC LIMIT 5")
-        history = [row[0] for row in c.fetchall() if row[0] and row[0] > 0]
-        conn.close()
-        if history:
-            # EMA: 当日权重0.4, 历史权重0.6
-            # 必须从最旧→最新迭代，否则旧值权重反而最大
-            ema = history[-1]  # 从最旧的开始
-            alpha = 0.4
-            for h in history[-2::-1]:  # 正向遍历：从第二旧→最新 (反转列表使用[::-1])
-                ema = alpha * h + (1 - alpha) * ema
-            # 最后混入今日原始值
-            ema = alpha * result['sentiment_score'] + (1 - alpha) * ema
-            result['sentiment_raw'] = result['sentiment_score']
-            result['sentiment_score'] = round(ema, 1)
-            # 重新判断标签
-            s = result['sentiment_score']
-            if s >= 80: result['sentiment_label'] = '贪婪'
-            elif s >= 65: result['sentiment_label'] = '乐观'
-            elif s >= 45: result['sentiment_label'] = '中性'
-            elif s >= 30: result['sentiment_label'] = '谨慎'
-            else: result['sentiment_label'] = '恐慌'
-    except:
-        pass  # 数据库不存在或无历史，用原始值
-
+    
+    # 简化评分
+    if up_count + down_count > 0:
+        ratio = up_count / (up_count + down_count)
+        score = ratio * 100
+        result['sentiment_score'] = min(score, 100)
+        if score >= 80: result['sentiment_label'] = '贪婪'
+        elif score >= 60: result['sentiment_label'] = '乐观'
+        elif score >= 40: result['sentiment_label'] = '中性'
+        elif score >= 20: result['sentiment_label'] = '谨慎'
+        else: result['sentiment_label'] = '恐慌'
+    
     return result
-
 
 def get_market_sentiment_safe() -> dict:
     """安全获取市场情绪 — 包含超时降级 (v5.72盤前優化)

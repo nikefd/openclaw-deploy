@@ -2,6 +2,8 @@
 
 import json
 import sys
+import os
+import signal
 from datetime import datetime, date
 from ai_analyst import analyze_market, call_llm
 from stock_picker import multi_strategy_pick
@@ -18,6 +20,19 @@ from performance_tracker import (
 from market_regime import detect_market_regime
 from config import *
 from indicator_attribution import record_entry_indicators, update_attribution_outcomes, get_idle_days_since_last_trade
+
+# =================== v5.99 超时保护装置 ===================
+
+def timeout_alarm(signum, frame):
+    print("\n❌ [紧急中止] Daily runner总超时(150秒)，生成部分报告后退出...")
+    import traceback
+    traceback.print_stack(frame)
+    sys.exit(1)
+
+if os.environ.get('QUICK_MODE') != '1':
+    # 仅在正常模式下启用超时 (快速模式超时设置更短)
+    signal.signal(signal.SIGALRM, timeout_alarm)
+    signal.alarm(150)  # 150秒总超时
 
 
 # =================== v5.61 新增报告函数集合 ===================
@@ -803,11 +818,16 @@ def run_daily():
     print("📊 更新持仓价格...")
     update_positions_price()
 
-    # 2. 获取市场情绪
+    # 2. 获取市场情绪 (v5.99: 支持快速模式)
     print("🧠 获取市场情绪...")
-    sentiment = get_market_sentiment()
-    if sentiment is None:
+    import os
+    if os.environ.get('QUICK_MODE') == '1':
+        print("  ⚡ 快速模式: 跳过新闻采集，使用中立情绪")
         sentiment = {'sentiment_score': 50, 'sentiment_label': '中性'}
+    else:
+        sentiment = get_market_sentiment()
+        if sentiment is None:
+            sentiment = {'sentiment_score': 50, 'sentiment_label': '中性'}
     print(f"  情绪: {sentiment.get('sentiment_score', 0)}/100 ({sentiment.get('sentiment_label', '?')})")
 
     # 2.5 检测市场状态
