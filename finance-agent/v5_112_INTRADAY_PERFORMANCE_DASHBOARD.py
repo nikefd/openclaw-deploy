@@ -29,7 +29,7 @@ def query_sqlite(sql):
         cursor = conn.execute(sql)
         return [dict(row) for row in cursor.fetchall()]
     except Exception as e:
-        print(f"[ERROR] SQL: {e}")
+        # 靜默失敗，返回空列表 (避免影響JSON輸出)
         return []
 
 def get_intraday_trade_stats():

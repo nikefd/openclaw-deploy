@@ -2412,23 +2412,25 @@ function handleDashboardAggregateV107(req, res) {
 // === v5.112 盤中性能儀表板 (11:30優化) ===
 function handleIntradayDashboardV112(req, res) {
   try {
-    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_112_INTRADAY_PERFORMANCE_DASHBOARD import get_dashboard_aggregate; print(json.dumps(get_dashboard_aggregate(), ensure_ascii=False, default=str))`;
-    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
-    sendJson(res, JSON.parse(out || '{}'));
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_112_INTRADAY_PERFORMANCE_DASHBOARD import get_dashboard_aggregate; data = get_dashboard_aggregate(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}" 2>/dev/null`, { timeout: 10000 }).toString().trim();
+    const data = JSON.parse(out || '{}');
+    sendJson(res, data);
   } catch (e) {
     log('intraday-dashboard-v112 error: ' + e.message);
-    sendJson(res, { timestamp: new Date().toISOString(), error: e.message });
+    sendJson(res, { timestamp: new Date().toISOString(), error: e.message, version: 'v5.112' });
   }
 }
 
 // === v5.112 市場情緒-持倉關聯熱力圖 ===
 function handleSentimentPositionHeatmapV112(req, res) {
   try {
-    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_112_INTRADAY_PERFORMANCE_DASHBOARD import get_sentiment_position_correlation; print(json.dumps(get_sentiment_position_correlation(), ensure_ascii=False, default=str))`;
-    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
-    sendJson(res, JSON.parse(out || {}));
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_112_INTRADAY_PERFORMANCE_DASHBOARD import get_sentiment_position_correlation; data = get_sentiment_position_correlation(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}" 2>/dev/null`, { timeout: 10000 }).toString().trim();
+    const data = JSON.parse(out || '{}');
+    sendJson(res, data);
   } catch (e) {
     log('sentiment-position-heatmap-v112 error: ' + e.message);
-    sendJson(res, { current_sentiment: '中性', sentiment_score: 50, positions_correlation: [] });
+    sendJson(res, { current_sentiment: '中性', sentiment_score: 50, positions_correlation: [], version: 'v5.112' });
   }
 }
