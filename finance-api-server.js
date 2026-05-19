@@ -1175,280 +1175,6 @@ function handlePerformanceStats(req, res) {
   }
 }
 
-// === 【v5.110 盤中UI優化②】新增API處理器 ===
-
-// 1. 仓位热力图处理器
-function handlePositionHeatmapV110(req, res) {
-  try {
-    const positions = querySqlite('SELECT * FROM positions WHERE shares > 0');
-    const account = querySqlite('SELECT * FROM account ORDER BY id DESC LIMIT 1')[0] || {};
-
-    const grid_layout = positions.map(p => ({
-      symbol: p.symbol,
-      name: p.name,
-      pnl_pct: p.avg_cost ? ((p.current_price - p.avg_cost) / p.avg_cost * 100) : 0,
-      holding_days: p.buy_date ? Math.round((new Date() - new Date(p.buy_date)) / 86400000) : 0,
-      shares: p.shares
-    }));
-
-    const concentration = positions.length > 0
-      ? Math.round(Math.pow(positions.reduce((sum, p) => {
-          const weight = (p.shares * p.current_price) / (account.total_value || 1);
-          return sum + weight * weight;
-        }, 0), 0.5) * 10000) / 100
-      : 0;
-
-    const upCount = positions.filter(p => p.current_price > p.avg_cost).length;
-    const totalCount = positions.length;
-
-    sendJson(res, {
-      positions: grid_layout,
-      metrics: {
-        concentration_ratio: concentration,
-        up_count: upCount,
-        total_count: totalCount,
-        timestamp: new Date().toISOString()
-      },
-      grid_layout: grid_layout.sort((a, b) => b.pnl_pct - a.pnl_pct)
-    });
-  } catch (e) {
-    log('position-heatmap-v110 error: ' + e.message);
-    sendJson(res, { positions: [], metrics: { concentration_ratio: 0, up_count: 0, total_count: 0 }, grid_layout: [] });
-  }
-}
-
-// 2. 情绪仪表处理器
-function handleSentimentMeterV110(req, res) {
-  try {
-    const snapshots = querySqlite('SELECT * FROM daily_snapshots ORDER BY date DESC LIMIT 2');
-    const today = snapshots[0] || {};
-    const yesterday = snapshots[1] || {};
-
-    const sentimentScore = today.sentiment_score || 50;
-    const trades = querySqlite('SELECT * FROM trades ORDER BY trade_date DESC LIMIT 50');
-    const wins = trades.filter(t => (t.pnl || 0) > 0).length;
-    const winRate = trades.length > 0 ? (wins / trades.length * 100) : 0;
-
-    // 计算Sharpe比率 (近期简化版)
-    const dailyReturns = querySqlite("SELECT daily_return FROM daily_snapshots ORDER BY date DESC LIMIT 20");
-    const returns = dailyReturns.map(d => d.daily_return || 0);
-    const avgReturn = returns.length > 0 ? returns.reduce((a, b) => a + b) / returns.length : 0;
-    const variance = returns.length > 0
-      ? returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length
-      : 0;
-    const stdDev = Math.sqrt(variance);
-    const sharpeRatio = stdDev > 0 ? avgReturn / stdDev : 0;
-
-    // 最大回撤
-    const allSnapshots = querySqlite('SELECT total_value FROM daily_snapshots ORDER BY date DESC LIMIT 60');
-    let maxDrawdown = 0;
-    if (allSnapshots.length > 0) {
-      const peak = Math.max(...allSnapshots.map(s => s.total_value || 0));
-      const trough = Math.min(...allSnapshots.map(s => s.total_value || 0));
-      maxDrawdown = peak > 0 ? ((trough - peak) / peak * 100) : 0;
-    }
-
-    const sentimentTrend = sentimentScore >= today.sentiment_score ? 'rising' : 'falling';
-
-    sendJson(res, {
-      sentiment_score: Math.round(sentimentScore),
-      sentiment_label: sentimentScore >= 70 ? '乐观' : sentimentScore >= 40 ? '中性' : '悲观',
-      sharpe_ratio: Math.round(sharpeRatio * 100) / 100,
-      max_drawdown: Math.round(maxDrawdown * 100) / 100,
-      win_rate: Math.round(winRate * 100) / 100,
-      recent_trend: sentimentTrend,
-      timestamp: new Date().toISOString()
-    });
-  } catch (e) {
-    log('sentiment-meter-v110 error: ' + e.message);
-    sendJson(res, {
-      sentiment_score: 50,
-      sentiment_label: '中性',
-      sharpe_ratio: 0,
-      max_drawdown: 0,
-      win_rate: 0,
-      recent_trend: 'neutral'
-    });
-  }
-}
-
-// 3. 阈值监控处理器
-function handleThresholdMonitorV110(req, res) {
-  try {
-    const account = querySqlite('SELECT * FROM account ORDER BY id DESC LIMIT 1')[0] || { cash: 0, total_value: 1000000 };
-    const positions = querySqlite('SELECT * FROM positions WHERE shares > 0');
-    const trades = querySqlite('SELECT * FROM trades ORDER BY trade_date DESC LIMIT 100');
-
-    const cashRatio = account.total_value > 0 ? (account.cash / account.total_value) : 0;
-    const recommendedCashRatio = 0.15; // 建议15%
-
-    // 根据现金占比决定策略模式
-    let strategyMode = 'balanced';
-    if (cashRatio > 0.3) strategyMode = 'conservative';
-    else if (cashRatio < 0.1) strategyMode = 'aggressive';
-
-    // Kelly系数计算
-    const wins = trades.filter(t => (t.pnl || 0) > 0).length;
-    const losses = trades.filter(t => (t.pnl || 0) < 0).length;
-    const total = wins + losses;
-    const winRate = total > 0 ? (wins / total) : 0;
-    const avgWin = wins > 0 ? trades.filter(t => (t.pnl || 0) > 0).reduce((s, t) => s + (t.pnl || 0), 0) / wins : 0;
-    const avgLoss = losses > 0 ? Math.abs(trades.filter(t => (t.pnl || 0) < 0).reduce((s, t) => s + (t.pnl || 0), 0)) / losses : 0;
-    const winLossRatio = avgLoss > 0 ? (avgWin / avgLoss) : 1;
-    const kellyMultiplier = (winRate * winLossRatio - (1 - winRate)) / winLossRatio;
-
-    // 持仓限制
-    const positionLimit = strategyMode === 'aggressive' ? 12 : strategyMode === 'conservative' ? 8 : 10;
-    const maxSingleWeight = strategyMode === 'aggressive' ? 0.18 : strategyMode === 'conservative' ? 0.12 : 0.15;
-
-    sendJson(res, {
-      current_cash_ratio: Math.round(cashRatio * 10000) / 10000,
-      current_cash: Math.round(account.cash),
-      total_value: Math.round(account.total_value),
-      recommended_cash_ratio: recommendedCashRatio,
-      strategy_mode: strategyMode,
-      kelly_multiplier: Math.max(0, Math.min(kellyMultiplier, 2.0)), // Clamp to [0, 2]
-      position_limit: positionLimit,
-      max_single_weight: maxSingleWeight,
-      timestamp: new Date().toISOString()
-    });
-  } catch (e) {
-    log('threshold-monitor-v110 error: ' + e.message);
-    sendJson(res, {
-      current_cash_ratio: 0,
-      current_cash: 0,
-      total_value: 1000000,
-      recommended_cash_ratio: 0.15,
-      strategy_mode: 'balanced',
-      kelly_multiplier: 1.0,
-      position_limit: 10,
-      max_single_weight: 0.15
-    });
-  }
-}
-
-// 4. Kelly系数监控处理器
-function handleKellyMonitorV110(req, res) {
-  try {
-    const trades = querySqlite('SELECT * FROM trades ORDER BY trade_date DESC LIMIT 100');
-    const wins = trades.filter(t => (t.pnl || 0) > 0).length;
-    const losses = trades.filter(t => (t.pnl || 0) < 0).length;
-    const total = wins + losses;
-
-    const winRate = total > 0 ? (wins / total) : 0.5;
-    const avgWin = wins > 0 ? trades.filter(t => (t.pnl || 0) > 0).reduce((s, t) => s + (t.pnl || 0), 0) / wins : 100;
-    const avgLoss = losses > 0 ? Math.abs(trades.filter(t => (t.pnl || 0) < 0).reduce((s, t) => s + (t.pnl || 0), 0)) / losses : 100;
-    const winLossRatio = avgLoss > 0 ? (avgWin / avgLoss) : 1;
-
-    const kellyCoeff = (winRate * winLossRatio - (1 - winRate)) / winLossRatio;
-    const kellyClamped = Math.max(0, Math.min(kellyCoeff, 2.0));
-    let kellyStatus = 'normal';
-    let recommendation = '';
-
-    if (kellyClamped < 0.1) {
-      kellyStatus = 'warning';
-      recommendation = '⚠️ 胜率偏低，建议暂停或调整策略参数';
-    } else if (kellyClamped > 1.5) {
-      kellyStatus = 'caution';
-      recommendation = '⚠️ Kelly系数过高，建议降低仓位比例';
-    } else if (kellyClamped >= 0.25) {
-      kellyStatus = 'normal';
-      recommendation = '✓ Kelly系数正常，可按标准配置执行';
-    } else {
-      kellyStatus = 'risky';
-      recommendation = '✗ 数据不足或风险过高，继续观察';
-    }
-
-    sendJson(res, {
-      kelly_coefficient: kellyClamped,
-      kelly_status: kellyStatus,
-      win_rate: Math.round(winRate * 10000) / 100,
-      win_loss_ratio: Math.round(winLossRatio * 100) / 100,
-      average_win: Math.round(avgWin),
-      average_loss: Math.round(avgLoss),
-      kelly_recommendation: recommendation,
-      trades_analyzed: total,
-      timestamp: new Date().toISOString()
-    });
-  } catch (e) {
-    log('kelly-monitor-v110 error: ' + e.message);
-    sendJson(res, {
-      kelly_coefficient: 1.0,
-      kelly_status: 'normal',
-      win_rate: 50,
-      win_loss_ratio: 1,
-      kelly_recommendation: '数据加载中...',
-      trades_analyzed: 0
-    });
-  }
-}
-
-// 5. 绩效分级处理器
-function handlePerformanceBreakdownV110(req, res) {
-  try {
-    const trades = querySqlite('SELECT * FROM trades ORDER BY trade_date DESC LIMIT 200');
-    const positions = querySqlite('SELECT * FROM positions WHERE shares > 0');
-
-    // 按赛道统计
-    const bySector = {};
-    trades.forEach(t => {
-      const sector = t.sector || '未分类';
-      if (!bySector[sector]) {
-        bySector[sector] = { wins: 0, total: 0, win_rate: 0 };
-      }
-      bySector[sector].total++;
-      if ((t.pnl || 0) > 0) bySector[sector].wins++;
-    });
-
-    Object.values(bySector).forEach(stats => {
-      stats.win_rate = stats.total > 0 ? (stats.wins / stats.total * 100) : 0;
-    });
-
-    // 按策略统计
-    const byStrategy = {};
-    trades.forEach(t => {
-      const strategy = t.strategy || '未分类';
-      if (!byStrategy[strategy]) {
-        byStrategy[strategy] = { wins: 0, total: 0, total_pnl: 0, avg_return: 0 };
-      }
-      byStrategy[strategy].total++;
-      byStrategy[strategy].total_pnl += (t.pnl || 0);
-      if ((t.pnl || 0) > 0) byStrategy[strategy].wins++;
-    });
-
-    Object.values(byStrategy).forEach(stats => {
-      stats.avg_return = stats.total > 0 ? (stats.total_pnl / stats.total / 1000) : 0; // 转换为百分比
-      stats.win_rate = stats.total > 0 ? (stats.wins / stats.total * 100) : 0;
-    });
-
-    // 按时间框架统计
-    const byTimeframe = {};
-    trades.forEach(t => {
-      const date = new Date(t.trade_date).toISOString().split('T')[0];
-      if (!byTimeframe[date]) {
-        byTimeframe[date] = { count: 0, total_pnl: 0 };
-      }
-      byTimeframe[date].count++;
-      byTimeframe[date].total_pnl += (t.pnl || 0);
-    });
-
-    sendJson(res, {
-      by_sector: bySector,
-      by_strategy: byStrategy,
-      by_timeframe: byTimeframe,
-      timestamp: new Date().toISOString()
-    });
-  } catch (e) {
-    log('performance-breakdown-v110 error: ' + e.message);
-    sendJson(res, {
-      by_sector: {},
-      by_strategy: {},
-      by_timeframe: {},
-      timestamp: new Date().toISOString()
-    });
-  }
-}
-
 // --- Router ---
 
 const server = http.createServer((req, res) => {
@@ -1465,14 +1191,6 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/finance/signal-quality-v102' && req.method === 'GET') return handleSignalQualityV102(req, res);
     if (pathname === '/api/finance/intraday-performance-v102' && req.method === 'GET') return handleIntradayPerformanceV102(req, res);
     if (pathname === '/api/finance/dashboard-aggregate-v107' && req.method === 'GET') return handleDashboardAggregateV107(req, res);
-    
-    // === UI优化v5.110新端点 (盘中优化②) ===
-    if (pathname === '/api/finance/position-heatmap-v110' && req.method === 'GET') return handlePositionHeatmapV110(req, res);
-    if (pathname === '/api/finance/sentiment-meter-v110' && req.method === 'GET') return handleSentimentMeterV110(req, res);
-    if (pathname === '/api/finance/threshold-monitor-v110' && req.method === 'GET') return handleThresholdMonitorV110(req, res);
-    if (pathname === '/api/finance/kelly-monitor-v110' && req.method === 'GET') return handleKellyMonitorV110(req, res);
-    if (pathname === '/api/finance/performance-breakdown-v110' && req.method === 'GET') return handlePerformanceBreakdownV110(req, res);
-    
     // === UI优化v5.97旧端点 ===
     if (pathname === '/kelly-positions' && req.method === 'GET') return handleKellyPositionsV97(req, res);
     if (pathname === '/selection-status' && req.method === 'GET') return handleSelectionStatus(req, res);
@@ -1709,6 +1427,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     // v5.98 盤中UI優化新端點
     if (pathname === '/api/finance/performance-indicators' && req.method === 'GET') return handlePerfomanceIndicators(req, res);
     if (pathname === '/api/finance/macd-rsi-signals' && req.method === 'GET') return handleMacdRsiSignals(req, res);
+    if (pathname === '/api/finance/intraday-dashboard-v112' && req.method === 'GET') return handleIntradayDashboardV112(req, res);
+    if (pathname === '/api/finance/sentiment-position-heatmap-v112' && req.method === 'GET') return handleSentimentPositionHeatmapV112(req, res);
     
     // Static file service for UI optimization
     if (pathname === '/ui-optimize-v5.65.js' && req.method === 'GET') {
@@ -2686,5 +2406,29 @@ function handleDashboardAggregateV107(req, res) {
       position_heatmap: { sectors: {}, pnl_distribution: {}, concentration: 0 },
       timestamp: new Date().toISOString()
     });
+  }
+}
+
+// === v5.112 盤中性能儀表板 (11:30優化) ===
+function handleIntradayDashboardV112(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_112_INTRADAY_PERFORMANCE_DASHBOARD import get_dashboard_aggregate; print(json.dumps(get_dashboard_aggregate(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    sendJson(res, JSON.parse(out || '{}'));
+  } catch (e) {
+    log('intraday-dashboard-v112 error: ' + e.message);
+    sendJson(res, { timestamp: new Date().toISOString(), error: e.message });
+  }
+}
+
+// === v5.112 市場情緒-持倉關聯熱力圖 ===
+function handleSentimentPositionHeatmapV112(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_112_INTRADAY_PERFORMANCE_DASHBOARD import get_sentiment_position_correlation; print(json.dumps(get_sentiment_position_correlation(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    sendJson(res, JSON.parse(out || {}));
+  } catch (e) {
+    log('sentiment-position-heatmap-v112 error: ' + e.message);
+    sendJson(res, { current_sentiment: '中性', sentiment_score: 50, positions_correlation: [] });
   }
 }

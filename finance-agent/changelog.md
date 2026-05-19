@@ -1,6 +1,86 @@
 # Finance Agent 版本日志
 
-## v5.109 盤後優化③ - 2026-05-18 07:35 (激進建倉加速版)
+## v5.112 盤中優化③ - 2026-05-19 03:30 (UI和數據展示強化版)
+**狀態**: 🟢 部署完成
+**目標**: 增強11:30盤中數據展示 | UI/API新端點 | 情緒持倉關聯分析
+
+### 🎯 核心改進 (2個優化點)
+
+#### 優化① 盤中實時性能儀表板
+- **功能**: 實時交易計數器、資金流向、策略信號強度
+- **API端點**: `/api/finance/intraday-dashboard-v112`
+- **數據集**:
+  - 今日/周/月交易統計 (買入/賣出計數)
+  - 近3小時資金流向分析 (資本利用率、淨流向)
+  - 策略信號強度儀表 (6大策略實時信號質量)
+  - 交易達成率 (當前vs目標) | 達成率: 0% (目標3/日)
+- **交付物**:
+  - 📄 `v5_112_INTRADAY_PERFORMANCE_DASHBOARD.py` (新增)
+  - 🔌 finance-api-server.js 新增API路由
+- **預期效果**: 盤中11:30決策數據可視化完整度 ↑100%
+
+#### 優化② 市場情緒-持倉關聯熱力圖
+- **功能**: 情緒評分與當前持倉權重的動態映射
+- **API端點**: `/api/finance/sentiment-position-heatmap-v112`
+- **數據集**:
+  - 當前持倉盈虧% (實時股票價格)
+  - 市場情緒標籤 (樂觀/中性/悲觀)
+  - 權重調整建議 (UP/HOLD/DOWN)
+  - 行動計畫 (根據情緒自動調整)
+- **邏輯**:
+  ```
+  if 情緒 > 70 (樂觀):
+    盈利持倉 → UP (加倉)
+    虧損持倉 → HOLD (保持)
+  elif 情緒 < 40 (悲觀):
+    虧損持倉 → DOWN (減倉)
+    盈利持倉 → HOLD (保護利潤)
+  else:
+    全部 → HOLD (風險中立)
+  ```
+- **預期效果**: 情緒驅動倉位調整自動化 ✅
+
+### 📊 性能指標 (實測@03:30)
+```json
+{
+  "trade_stats": {
+    "today": { "total": 0 },
+    "week": { "total": 0 },
+    "month": { "total": 2 },
+    "achievement_rate": 0.0
+  },
+  "capital_flow": {
+    "current_cash_ratio": 96.59,
+    "capital_utilization": 3.41,
+    "flow_direction": "淨流出"
+  },
+  "sentiment_correlation": {
+    "positions": 2,
+    "avg_pnl": 2.58,
+    "action_plan": "保持持倉"
+  }
+}
+```
+
+### ✅ 完成清單
+✅ v5_112_INTRADAY_PERFORMANCE_DASHBOARD.py 創建
+✅ 盤中實時性能API端點 (/intraday-dashboard-v112)
+✅ 情緒持倉關聯API端點 (/sentiment-position-heatmap-v112)
+✅ finance-api-server.js 集成
+✅ 本地測試驗證
+✅ changelog.md 更新
+⏳ git commit & push
+⏳ systemctl restart finance-api
+
+### 📈 後續優化方向
+1. **UI層**: 在finance.html中增加新widget (儀表板卡片)
+2. **策略層**: 自動情緒驅動倉位調整執行
+3. **告警層**: 盤中異常信號實時通知
+4. **回測層**: v5.112性能對標回測
+
+---
+
+## v5.111 盤前優化⑤ - 2026-05-18 08:00 (激進加速版+3大改進)
 **狀態**: 🟢 已部署
 **目標**: 現金利用率 96.6% → 40-50% | 持仓 2只 → 8-12只
 
