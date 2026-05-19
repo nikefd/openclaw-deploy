@@ -87,6 +87,40 @@ except ImportError as e:
     print(f"⚠️  v5.96超级增强模块未找到: {e}")
     V5_96_AVAILABLE = False
 
+# v5.107: 晚间深度优化④ (Kelly+多因子融合3.0+赛道差异化MACD+动态门槛+6维评分+快速选股)
+try:
+    from v5_107_DEEP_OPTIMIZE import (
+        BacktestDataFusion,
+        KellyPositionCalculator,
+        SectorMACD,
+        DynamicCashActivation,
+        DynamicPositionLimits,
+        EnhancedEntryQualityScoring,
+        FastPickEngine,
+        MultiFactorFusion3
+    )
+    V5_107_AVAILABLE = True
+    print("✅ v5.107晚间深度优化已加载")
+    
+    # 初始化v5.107全局模块
+    _backtest_fusion = BacktestDataFusion()
+    _kelly_calc = KellyPositionCalculator(conservative_factor=0.25)
+    _sector_macd = SectorMACD()
+    _cash_activation = DynamicCashActivation()
+    _pos_limits = DynamicPositionLimits()
+    _entry_scorer = EnhancedEntryQualityScoring()
+    _fast_pick = FastPickEngine(timeout_sec=0.8)
+    _fusion3 = MultiFactorFusion3(
+        kelly_calc=_kelly_calc,
+        sector_macd=_sector_macd,
+        cash_activation=_cash_activation,
+        pos_limits=_pos_limits,
+        entry_scorer=_entry_scorer
+    )
+except ImportError as e:
+    print(f"⚠️  v5.107深度优化模块未找到: {e}")
+    V5_107_AVAILABLE = False
+
 
 # =================== v5.61 新增函数集合 ===================
 
