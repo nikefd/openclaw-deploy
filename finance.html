@@ -194,7 +194,6 @@ tr.pos-row.expanded{background:var(--hover)}
 <script src="ui-optimize-intraday-v5.97.js"></script>
 
 <script src="ui-optimize-intraday-v5.105.js"></script>
-<script src="ui-optimize-intraday-v5.110.js"></script>
 <script src="finance-v5.107-heatmap.js"></script>
 </head>
 <body>
@@ -1340,6 +1339,7 @@ async function loadDashboard(){
   loadPositionRiskHeatmap();
   loadPerformanceIndicators();
   loadMacdRsiSignals();
+  loadIntradayAlertV116();
   updateTime();
 }
 
@@ -2085,7 +2085,7 @@ async function loadRecentTrades(){
 }
 
 async function refreshAll(){
-  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadMonthlyReturns(),loadWeeklyReturns(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics(),loadPeriodReturns(),loadHealthScore(),loadDailyPnl(),loadTradeOutcomes(),loadRollingReturns(),loadCapitalUtilization(),loadTradeCalendar(),loadRecentTrades()]);
+  await Promise.all([loadDashboard(),loadChart(),loadDrawdownChart(),loadMonthlyReturns(),loadWeeklyReturns(),loadHeatmap(),loadAnalysis(),loadTrades(),loadReports(),loadRegime(),loadRiskMetrics(),loadPeriodReturns(),loadHealthScore(),loadDailyPnl(),loadTradeOutcomes(),loadRollingReturns(),loadCapitalUtilization(),loadTradeCalendar(),loadRecentTrades(),loadIntradayAlertV116()]);
 }
 
 // Period Returns
@@ -2577,6 +2577,39 @@ async function loadMacdRsiSignals(){
     document.getElementById('combinedQuality').textContent=(d.combined_quality||0).toFixed(0);
   }catch(e){
     console.error('Load MACD/RSI signals error:',e);
+  }
+}
+
+// v5.116 實時情緒警告面板
+async function loadIntradayAlertV116(){
+  try{
+    const d=await api('/api/finance/intraday-alert-v116');
+    if(!d)return;
+    const s=d.sentiment||{};
+    const adj=d.adjustments||{};
+    const m=d.metrics||{};
+    const ui=d.ui||{};
+    
+    // 更新情緒評分
+    document.getElementById('sentimentScore').textContent=s.score||'--';
+    document.getElementById('sentimentScore').style.color=s.color||'#ffd166';
+    document.getElementById('sentimentLabel').textContent=(s.emoji||'🟡')+' '+s.level;
+    
+    // 更新參數調整
+    const adjHtml=`
+      持倉調整: ${adj.max_positions_adjust>0?'+':''}<b>${adj.max_positions_adjust}%</b><br>
+      閾值調整: ${adj.entry_threshold_adjust>0?'+':''}<b>${adj.entry_threshold_adjust}</b>分<br>
+      資金調整: ${adj.position_size_adjust>0?'+':''}<b>${adj.position_size_adjust}%</b>
+    `;
+    document.getElementById('emotionAdjustParams').innerHTML=adjHtml;
+    
+    // 更新執行狀態
+    const acts=d.actions||{};
+    document.getElementById('entrySignals').textContent=acts.building_allowed?'🟢 允許':'🔴 禁止';
+    document.getElementById('stopLossSignals').textContent=acts.stop_loss_active?'🔴 '+m.stop_loss_triggers:'';
+    
+  }catch(e){
+    console.error('Load intraday alert error:',e);
   }
 }
 
