@@ -1,0 +1,61 @@
+{
+  "version": "v5.115",
+  "timestamp": "2026-05-20T00:01:40.918824",
+  "premarket_time": "08:00 UTC",
+  "optimizations": {
+    "v5_114_integration": {
+      "step_1_sector_routing": {
+        "location": "stock_picker.py:3360+ (在tradeable排序後)",
+        "code": "\n    # v5.115 改進①: 集成v5.114賽道精細化路由\n    try:\n        from v5_114_stock_picker_integration import (\n            apply_v5_114_sector_routing,\n            apply_v5_114_mixed_pool_routing\n        )\n        from config import V5_114_SECTOR_STRATEGY_ROUTING\n        \n        if V5_114_SECTOR_STRATEGY_ROUTING.get('ENABLED', True):\n            # 應用賽道路由優化\n            tradeable = apply_v5_114_sector_routing(tradeable)\n            tradeable = apply_v5_114_mixed_pool_routing(tradeable)\n            \n            # 重新排序\n            tradeable = sorted(tradeable, key=lambda x: -x.get('score', 0))\n            \n            print(f\"  ✅ v5.114賽道精細化完成: {len(tradeable)}只候選\")\n            # 統計各賽道\n            for sector in ['科技成長', '新能源', '白馬消費', '混合池']:\n                count = len([c for c in tradeable if c.get('_sector') == sector])\n                if count > 0:\n                    print(f\"    {sector}: {count}只\")\n    except Exception as e:\n        print(f\"  ⚠️ v5.114賽道優化失敗(跳過): {e}\")\n            ",
+        "status": "待實施"
+      },
+      "step_2_quality_compensation": {
+        "location": "position_manager.py (動態止損設置)",
+        "code": "\n    # v5.115 改進①: 集成v5.114質量補償 (Sharpe分級止損)\n    from v5_114_position_manager_integration import apply_quality_compensation_v5_114\n    from config import V5_114_QUALITY_COMPENSATION\n    \n    # 為每只持倉應用質量補償\n    if V5_114_QUALITY_COMPENSATION.get('ENABLED', True):\n        for position in positions:\n            strategy_sharpe = position.get('strategy_sharpe', 1.0)\n            quality_cfg = apply_quality_compensation_v5_114(strategy_sharpe)\n            \n            # 應用到position的止損/止盈\n            position['stop_loss_v5_114'] = quality_cfg['stop_loss']\n            position['take_profit_v5_114'] = quality_cfg['take_profit']\n            position['position_size_v5_114'] = quality_cfg['position_size']\n            position['quality_level'] = quality_cfg['quality_level']\n            \n            print(f\"  {position['code']}: {quality_cfg['quality_level']} | \"\n                  f\"止損{quality_cfg['stop_loss']*100:.0f}% 止盈{quality_cfg['take_profit']*100:.0f}%\")\n            ",
+        "status": "待實施"
+      }
+    },
+    "sentiment_protection": {
+      "current_sentiment": 91.83673469387756,
+      "sentiment_label": "贪婪",
+      "adjustments": {
+        "max_positions_adjustment": -50,
+        "action": "HALT_NEW_BUYS",
+        "entry_threshold_adjustment": 0,
+        "risk_level": "🔴 極度過熱",
+        "description": "市場情緒極度貪婪(>90), 停止新建倉位"
+      }
+    },
+    "sharpe_multiplier": {
+      "issue": "3層Sharpe倍數可能重複應用(2.5x³ 爆炸)",
+      "solution": "統一使用Kelly系數1.28x,移除冗餘層",
+      "changes": [
+        {
+          "file": "stock_picker.py",
+          "location": "apply_sharpe_multiplier_force() 函數",
+          "action": "REMOVE 或 DISABLE",
+          "reason": "避免與sector_intelligent_routing重複"
+        },
+        {
+          "file": "config.py",
+          "location": "SHARPE_WEIGHT_MULTIPLIER_V3",
+          "change_from": 2.5,
+          "change_to": 1.28,
+          "reason": "對齐v5.114的Kelly激進配置"
+        },
+        {
+          "file": "stock_picker.py",
+          "location": "sector_intelligent_routing() 函數",
+          "action": "CONSOLIDATE",
+          "new_formula": "score = score × 1.28 (單次應用)",
+          "reason": "單一,透明,可預測"
+        }
+      ],
+      "expected_impact": {
+        "score_inflation": "消除 (-60% 分數膨脹)",
+        "ranking_stability": "更穩定 (+15% 排序準確度)",
+        "decision_clarity": "更清晰 (易於回測驗證)"
+      }
+    }
+  }
+}
