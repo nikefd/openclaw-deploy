@@ -10,7 +10,7 @@ MIN_COMMISSION = 5.0         # 最低佣金5元
 SLIPPAGE = 0.002             # 滑点0.2%
 
 # 持仓限制 (v5.85优化: 从保守→激进)
-MAX_POSITIONS = 12           # v5.109: 激进模式 10→12 (快速扩展至目标)
+MAX_POSITIONS = 15  # v5.121: 12→15 (资金利用75-85%) 激进模式 10→12 (快速扩展至目标)
 MAX_SINGLE_POSITION = 0.04   # 单只最多4%仓位 (5%→4%,风险进一步分散)
 STOP_LOSS = -0.08            # 止损线 -8% (保持)
 TAKE_PROFIT = 0.20           # 止盈线 +20% (保持)
@@ -28,7 +28,7 @@ PORTFOLIO_ALLOCATION = {
 }
 
 # v5.85新增: 最少现金比例 (从25%→10%) | v5.94盘前优化: 10%→15% | v5.114: 15%→10%激进模式 | v5.115: 5%超激进
-MIN_CASH_RATIO = 0.05        # v5.115: 超激进模式 10%→5% (盘后优化③,现金97%极端情况加速建仓)
+MIN_CASH_RATIO = 0.03  # v5.121: 5%→3% (激进建仓) 超激进模式 10%→5% (盘后优化③,现金97%极端情况加速建仓)
 
 # 数据库
 DB_PATH = "/home/nikefd/finance-agent/data/trading.db"
@@ -77,9 +77,9 @@ LOW_WIN_RATE_THRESHOLD = 0.40  # 胜率<40%
 SIGNAL_BLACKLIST_DAYS = 30     # 黑名单保留30天
 
 # Kelly准则参数 | v5.114: 激进版本 | v5.115盘后优化: 超激进模式
-KELLY_MAX_POSITION = 0.035     # Kelly最大仓位3.5% (v5.111: 30%→32%, v5.115: 32%→3.5% 微仓超分散)
-KELLY_WIN_RATE_BOOST = 0.08    # 胜率每高5%，仓位+1.6% (v5.111: 1%→1.2%, v5.115: 1.2%→1.6%)
-KELLY_COEFFICIENT = 1.35       # Kelly系数 (v5.111: 1.25→1.28, v5.115: 1.28→1.35, +5.5%)
+KELLY_MAX_POSITION = 0.042  # Kelly最大仓位 (v5.121: +10.5%)3.8% (v5.115: 3.5%, v5.120: +8.6%激进建仓加速)
+KELLY_WIN_RATE_BOOST = 0.10    # 胜率每高5%，仓位+2% (v5.120: 激进+25%, 配合1.45系数)
+KELLY_COEFFICIENT = 1.52  # Kelly系数 (v5.121: 1.45→1.52, +4.8%激进) (v5.111: 1.25→1.28, v5.115: 1.28→1.35, v5.120: 1.35→1.45, +7.4%)
 
 # 高Sharpe持仓保留
 HIGH_SHARPE_THRESHOLD = 1.5    # Sharpe>1.5的持仓加强保留
@@ -90,7 +90,7 @@ HIGH_SHARPE_STOP_LOSS_RELAX = 0.02  # 止损容错放宽+2%
 # =================== v5.53: 入场质量评分系统 ===================
 # 4维×30分模型: 趋势对齐 + 位置优势 + 量价确认 + 动量确认
 # v5.94盘前优化: 平衡激进与稳定 (20→35) | v5.115盘后优化: 35→25 (超激进日均20-25只)
-ENTRY_QUALITY_THRESHOLD = 25  # v5.115: 从v5.94的 35→25 (-28%, 现金97%极端情况打破阈值)
+ENTRY_QUALITY_THRESHOLD = 18  # v5.121: 20→18 (-10%, 激进建仓) 从v5.115的 25→20 (-20%, 现金96.6%激发加速建仓④)
 
 # v5.53: 过滤器动态松绑参数
 HIGH_CASH_RATIO_THRESHOLD = 0.95  # v5.115: 从0.90→0.95 (现金>95%时质量阈值→15分超激进)
@@ -1565,6 +1565,49 @@ V5_114_SECTOR_STRATEGY_ROUTING = {
         'note': '按回测绩效权重，替代单一策略'
     },
 }
+
+# =================== v5.121: 赛道入场质量阈值 + Kelly倍数 ===================
+# 基于回测数据的赛道差异化配置
+SECTOR_QUALITY_THRESHOLDS = {
+    '科技成长': 22,      # MACD+RSI最优(17.1%) - 要求高
+    '新能源': 18,        # MACD+RSI次优(14.66%) - 趋势强
+    '消费白马': 20,      # MULTI_FACTOR防御(6.61%) - 稳定性
+    '金融周期': 19,      # 中等要求
+    '其他': 20           # 默认
+}
+
+SECTOR_KELLY_MULTIPLIERS = {
+    '科技成长': 1.0,     # 基础Kelly系数
+    '新能源': 0.95,      # 略保守
+    '消费白马': 0.85,    # 防御型保守
+    '金融周期': 0.90,    # 中等保守
+    '其他': 0.80         # 默认保守
+}
+
+# =================== v5.121: Sharpe分级风险管理 ===================
+SHARPE_GRADED_RISK = {
+    'high': {
+        'threshold': 2.0,
+        'position_multiplier': 1.3,
+        'stop_loss': -0.10
+    },
+    'medium': {
+        'threshold': 1.5,
+        'position_multiplier': 1.15,
+        'stop_loss': -0.09
+    },
+    'normal': {
+        'threshold': 1.0,
+        'position_multiplier': 1.0,
+        'stop_loss': -0.08
+    },
+    'low': {
+        'threshold': 0.5,
+        'position_multiplier': 0.75,
+        'stop_loss': -0.07
+    }
+}
+
 
 # 激进并发建仓计划 (v5.114)
 V5_114_AGGRESSIVE_BUILD_PLAN = {
