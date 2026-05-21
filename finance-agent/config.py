@@ -359,7 +359,7 @@ CASH_RATIO_STRATEGY_BOOST_V3 = {
 
 # v5.61: Sharpe权重强制激活参数
 SHARPE_WEIGHT_FORCE_APPLY_V3 = True                    # 强制在stock_picker中应用
-SHARPE_WEIGHT_MULTIPLIER_V3 = 2.5                      # 倍数升至2.5x (从2.0x)
+SHARPE_WEIGHT_MULTIPLIER_V3 = 1.28                     # v5.118盤前優化①: Kelly標準系數 (從2.5x降至1.28x,防止BLOOM BUG)
 APPLY_SHARPE_WEIGHTS_WITH_EXTREME_MODE = True          # 与极端模式组合应用
 
 # v5.61: 融资融券高级判别 (融资异变信号)
@@ -472,7 +472,7 @@ SECTOR_WEIGHT_BOOST_V2 = {
 
 # v5.61: Sharpe权重应用强制激活
 APPLY_SHARPE_MULTIPLIER_FORCE = True                    # 强制应用Sharpe权重倍数
-SHARPE_WEIGHT_MULTIPLIER_V3 = 2.5                       # v5.61升级: 2.5x (从2.0x)
+# DEPRECATED - 見362行配置
 
 # =================== v5.62 盘前优化②: 信号持续性验证 + 低质量入场监控 ===================
 # 目标: 在超激进模式(30分入场)下,通过信号质量检查 + 绩效监控避免虚假入场
