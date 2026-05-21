@@ -1430,6 +1430,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/intraday-dashboard-v112' && req.method === 'GET') return handleIntradayDashboardV112(req, res);
     if (pathname === '/api/finance/sentiment-position-heatmap-v112' && req.method === 'GET') return handleSentimentPositionHeatmapV112(req, res);
     if (pathname === '/api/finance/intraday-alert-v116' && req.method === 'GET') return handleIntradayAlertV116(req, res);
+    if (pathname === '/api/finance/performance-dashboard-v119' && req.method === 'GET') return handlePerformanceDashboardV119(req, res);
+    if (pathname === '/api/finance/sector-heatmap-v119' && req.method === 'GET') return handleSectorHeatmapV119(req, res);
     
     // Static file service for UI optimization
     if (pathname === '/ui-optimize-v5.65.js' && req.method === 'GET') {
@@ -2458,6 +2460,54 @@ function handleIntradayAlertV116(req, res) {
       adjustments: { max_positions_adjust: 0, entry_threshold_adjust: 0, position_size_adjust: 0 },
       metrics: { entry_count_today: 0, positions_count: 0 },
       version: 'v5.116_error'
+    });
+  }
+}
+
+function handlePerformanceDashboardV119(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_119_performance_dashboard import generate_performance_dashboard_json; data = generate_performance_dashboard_json(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}" 2>/dev/null`, { timeout: 5000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('performance-dashboard-v119 error: ' + e.message);
+    sendJson(res, {
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: e.message,
+      version: 'v5.119_fallback'
+    });
+  }
+}
+
+function handleSectorHeatmapV119(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_119_sector_heatmap import get_sector_heatmap_data, generate_heatmap_html; data = get_sector_heatmap_data(); data['html'] = generate_heatmap_html(data); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}" 2>/dev/null`, { timeout: 5000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('sector-heatmap-v119 error: ' + e.message);
+    sendJson(res, {
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: e.message,
+      version: 'v5.119_fallback'
     });
   }
 }
