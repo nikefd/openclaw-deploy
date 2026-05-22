@@ -72,14 +72,58 @@ TECH_GROWTH_WEIGHT_BOOST = 0.30  # 从0.20提升到0.30 (+50%权重加成)
 # 信号持续性要求
 MIN_SIGNAL_PERSISTENCE_DAYS = 3  # 至少连续3天才算持续性信号
 
+# =================== v5.122 动态止损系统 ===================
+DYNAMIC_STOP_LOSS_ENABLED = True  # 启用动态止损
+DYNAMIC_STOP_LOSS_METHOD = 'atr_adaptive'  # atr_adaptive | drawdown_tiered | hybrid
+ATR_MULTIPLIER = 2.5  # 止损线 = entry_price - 2.5 * ATR(14d)
+ATR_PERIOD = 14  # ATR计算周期(天)
+DYNAMIC_STOP_LOSS_MAX = 0.15  # 动态止损最多-15%
+
+# =================== v5.122 情感驱动的资金配置 ===================
+SENTIMENT_DRIVEN_ALLOCATION_ENABLED = True  # 启用情感驱动配置
+SENTIMENT_EXTREME_GREED_THRESHOLD = 92  # 极度贪婪阈值 (>92)
+SENTIMENT_GREED_THRESHOLD = 85  # 贪婪阈值 (>85)
+SENTIMENT_FEAR_THRESHOLD = 40  # 恐惧阈值 (<40)
+SENTIMENT_EXTREME_FEAR_THRESHOLD = 25  # 极度恐惧阈值 (<25)
+
+# 情感调整参数 (相对于基础配置)
+SENTIMENT_ADJUSTMENT = {
+    'extreme_fear': {
+        'max_positions_delta': 0.25,     # +25%
+        'entry_quality_delta': -8,        # 降低8分
+        'min_cash_ratio_delta': -0.03,    # 降低3%
+        'kelly_multiplier': 1.15          # Kelly+15%
+    },
+    'fear': {
+        'max_positions_delta': 0.10,
+        'entry_quality_delta': -4,
+        'min_cash_ratio_delta': -0.02,
+        'kelly_multiplier': 1.08
+    },
+    'greed': {
+        'max_positions_delta': -0.10,
+        'entry_quality_delta': 4,
+        'min_cash_ratio_delta': 0.02,
+        'kelly_multiplier': 0.92
+    },
+    'extreme_greed': {
+        'max_positions_delta': -0.30,      # -30%
+        'entry_quality_delta': 8,          # 提高8分
+        'min_cash_ratio_delta': 0.05,      # 提高5%
+        'kelly_multiplier': 0.80           # Kelly-20%
+    }
+}
+
 # 低胜率信号黑名单
 LOW_WIN_RATE_THRESHOLD = 0.40  # 胜率<40%
 SIGNAL_BLACKLIST_DAYS = 30     # 黑名单保留30天
 
-# Kelly准则参数 | v5.114: 激进版本 | v5.115盘后优化: 超激进模式
+# Kelly准则参数 | v5.122: 激进系数安全验证 | v5.114: 激进版本 | v5.115盘后优化: 超激进模式
 KELLY_MAX_POSITION = 0.042  # Kelly最大仓位 (v5.121: +10.5%)3.8% (v5.115: 3.5%, v5.120: +8.6%激进建仓加速)
 KELLY_WIN_RATE_BOOST = 0.10    # 胜率每高5%，仓位+2% (v5.120: 激进+25%, 配合1.45系数)
-KELLY_COEFFICIENT = 1.52  # Kelly系数 (v5.121: 1.45→1.52, +4.8%激进) (v5.111: 1.25→1.28, v5.115: 1.28→1.35, v5.120: 1.35→1.45, +7.4%)
+KELLY_COEFFICIENT = 1.52  # Kelly系数 (v5.122: 新增安全验证 + 低胜率降级至1.35) (v5.121: 1.45→1.52, +4.8%激进) (v5.111: 1.25→1.28, v5.115: 1.28→1.35, v5.120: 1.35→1.45, +7.4%)
+KELLY_SAFE_COEFFICIENT = 1.35  # v5.122: 低胜率(<60%)时自动降级至安全Kelly
+KELLY_MIN_WINRATE_FOR_AGGRESSIVE = 0.60  # v5.122: 激进Kelly需要最少60%胜率
 
 # 高Sharpe持仓保留
 HIGH_SHARPE_THRESHOLD = 1.5    # Sharpe>1.5的持仓加强保留
