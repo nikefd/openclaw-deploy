@@ -1432,6 +1432,9 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/intraday-alert-v116' && req.method === 'GET') return handleIntradayAlertV116(req, res);
     if (pathname === '/api/finance/performance-dashboard-v119' && req.method === 'GET') return handlePerformanceDashboardV119(req, res);
     if (pathname === '/api/finance/sector-heatmap-v119' && req.method === 'GET') return handleSectorHeatmapV119(req, res);
+    if (pathname === '/api/finance/intraday-stop-loss-v122' && req.method === 'GET') return handleIntradayStopLossV122(req, res);
+    if (pathname === '/api/finance/intraday-emotion-v122' && req.method === 'GET') return handleIntradayEmotionV122(req, res);
+    if (pathname === '/api/finance/intraday-combined-v122' && req.method === 'GET') return handleIntradayCombinedV122(req, res);
     
     // Static file service for UI optimization
     if (pathname === '/ui-optimize-v5.65.js' && req.method === 'GET') {
@@ -2508,6 +2511,87 @@ function handleSectorHeatmapV119(req, res) {
       timestamp: new Date().toISOString(),
       error: e.message,
       version: 'v5.119_fallback'
+    });
+  }
+}
+
+// === v5.122 盤中實時止損監控 (11:30優化①) ===
+function handleIntradayStopLossV122(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_122_intraday_optimize import get_intraday_stop_loss_report; data = get_intraday_stop_loss_report(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}" 2>/dev/null`, { timeout: 10000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('intraday-stop-loss-v122 error: ' + e.message);
+    sendJson(res, {
+      status: 'NO_POSITIONS',
+      timestamp: new Date().toISOString(),
+      message: '當前無持倉或取得失敗',
+      error: e.message,
+      version: 'v5.122_fallback'
+    });
+  }
+}
+
+// === v5.122 情感實時觸發系統 (11:30優化②) ===
+function handleIntradayEmotionV122(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_122_intraday_optimize import get_intraday_emotion_report; data = get_intraday_emotion_report(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}" 2>/dev/null`, { timeout: 10000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('intraday-emotion-v122 error: ' + e.message);
+    sendJson(res, {
+      status: 'ERROR',
+      timestamp: new Date().toISOString(),
+      sentiment_info: { score: 50, level: 'UNKNOWN', emoji: '?' },
+      position_limits: {},
+      error: e.message,
+      version: 'v5.122_fallback'
+    });
+  }
+}
+
+// === v5.122 綜合盤中報告 (11:30優化③) ===
+function handleIntradayCombinedV122(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_122_intraday_optimize import get_combined_intraday_report; data = get_combined_intraday_report(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}" 2>/dev/null`, { timeout: 15000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('intraday-combined-v122 error: ' + e.message);
+    sendJson(res, {
+      status: 'ERROR',
+      timestamp: new Date().toISOString(),
+      stop_loss_report: { status: 'ERROR', message: '獲取失敗' },
+      emotion_report: { status: 'ERROR', message: '獲取失敗' },
+      summary: { total_positions: 0, market_sentiment_emoji: '?', risk_status: 'UNKNOWN' },
+      error: e.message,
+      version: 'v5.122_fallback'
     });
   }
 }
