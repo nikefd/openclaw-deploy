@@ -1,0 +1,193 @@
+{
+  "version": "v5.124",
+  "timestamp": "2026-05-22T14:02:03.671607",
+  "title": "晚间深度优化④ — 回测融合+参数精细化+情感触发",
+  "status": "配置优化完成,部署待执行",
+  "backtest_analysis": {
+    "top_strategies": [
+      {
+        "strategy": "MACD+RSI (科技成长)",
+        "total_return": 17.1,
+        "max_drawdown": 4.08,
+        "win_rate": 60.0,
+        "sharpe_ratio": 2.35
+      },
+      {
+        "strategy": "MACD+RSI (新能源)",
+        "total_return": 14.66,
+        "max_drawdown": 6.93,
+        "win_rate": 70.0,
+        "sharpe_ratio": 1.78
+      },
+      {
+        "strategy": "MULTI_FACTOR (新能源)",
+        "total_return": 6.61,
+        "max_drawdown": 4.34,
+        "win_rate": 71.4,
+        "sharpe_ratio": 1.51
+      },
+      {
+        "strategy": "MULTI_FACTOR (科技成长)",
+        "total_return": 6.45,
+        "max_drawdown": 3.09,
+        "win_rate": 57.1,
+        "sharpe_ratio": 1.66
+      },
+      {
+        "strategy": "MA_CROSS (科技成长)",
+        "total_return": 5.3,
+        "max_drawdown": 2.86,
+        "win_rate": 66.7,
+        "sharpe_ratio": 1.38
+      }
+    ],
+    "recommended_params": {
+      "kelly_multiplier": 1.595,
+      "entry_quality_threshold": 17,
+      "target_win_rate": 60.0,
+      "target_sharpe": 2.35,
+      "max_drawdown_tolerance": 4.488,
+      "expected_annual_return": 20.52
+    }
+  },
+  "sentiment_kelly": {
+    "20": {
+      "kelly_multiplier": 1.84,
+      "emotion": "🔴极度恐惧",
+      "max_positions_delta": 0.25,
+      "entry_quality_delta": -8,
+      "min_cash_ratio_delta": -0.03,
+      "recommended_action": "✅ 激进建仓机会 - 市场极度恐惧,质量股强化买入"
+    },
+    "35": {
+      "kelly_multiplier": 1.73,
+      "emotion": "🟠恐惧",
+      "max_positions_delta": 0.1,
+      "entry_quality_delta": -4,
+      "min_cash_ratio_delta": -0.02,
+      "recommended_action": "⚠️  谨慎建仓 - 市场恐惧,选择优质股"
+    },
+    "50": {
+      "kelly_multiplier": 1.6,
+      "emotion": "🟢中立",
+      "max_positions_delta": 0.0,
+      "entry_quality_delta": 0,
+      "min_cash_ratio_delta": 0,
+      "recommended_action": "➡️  正常运作 - 市场中立,按既定策略"
+    },
+    "70": {
+      "kelly_multiplier": 1.44,
+      "emotion": "🟡贪婪",
+      "max_positions_delta": -0.15,
+      "entry_quality_delta": 4,
+      "min_cash_ratio_delta": 0.02,
+      "recommended_action": "🔔 风险提示 - 市场贪婪,减少新建仓,加强止损"
+    },
+    "90": {
+      "kelly_multiplier": 1.28,
+      "emotion": "🔴极度贪婪",
+      "max_positions_delta": -0.3,
+      "entry_quality_delta": 8,
+      "min_cash_ratio_delta": 0.05,
+      "recommended_action": "🛑 防守模式 - 市场极度贪婪,停止新建仓,保护利润"
+    }
+  },
+  "stop_loss_optimization": {
+    "old_method": "固定-8%",
+    "new_method": "ATR 2.5x",
+    "benefit": "波动性自适应,同时保护最大回撤"
+  },
+  "accuracy_analysis": {},
+  "multi_dimensional_scoring": {
+    "weights": {
+      "technical": 0.3,
+      "fundamental": 0.15,
+      "funding": 0.2,
+      "sentiment": 0.2,
+      "entry_quality": 0.15
+    },
+    "example": {
+      "symbol": "600000.SH",
+      "scores": {
+        "technical": 85,
+        "fundamental": 70,
+        "funding": 75,
+        "sentiment": 80,
+        "entry_quality": 88
+      },
+      "composite": 80.2
+    }
+  },
+  "config_changes": {
+    "入选评分门槛": {
+      "old": "18分",
+      "new": "15分",
+      "change": "-16.7%",
+      "reason": "激进模式,加速建仓"
+    },
+    "Kelly系数": {
+      "old": "1.52",
+      "new": "1.60",
+      "change": "+5.3%",
+      "reason": "理论胜率60%,提升头寸利用效率"
+    },
+    "单倉配置": {
+      "old": "4.2%",
+      "new": "4.8%",
+      "change": "+14.3%",
+      "reason": "Kelly优化导致单倉上升"
+    },
+    "最小现金比": {
+      "old": "3%",
+      "new": "3%",
+      "change": "无变",
+      "reason": "保持极端激进"
+    },
+    "止损机制": {
+      "old": "固定-8%",
+      "new": "ATR 2.5x",
+      "change": "动态自适应",
+      "reason": "波动自适应,更灵活"
+    },
+    "持仓上限": {
+      "old": "12只",
+      "new": "15只",
+      "change": "+3",
+      "reason": "资金充足,快速扩展"
+    }
+  },
+  "expected_effects": {
+    "Sharpe": {
+      "current": 1.8,
+      "target": 2.2,
+      "unit": ""
+    },
+    "年化收益": {
+      "current": "12-15%",
+      "target": "18-21%",
+      "unit": ""
+    },
+    "持仓数": {
+      "current": 2,
+      "target": 12,
+      "unit": "只"
+    },
+    "资金利用率": {
+      "current": "3.4%",
+      "target": "57.6%",
+      "unit": ""
+    },
+    "最大回撤": {
+      "current": "<5%",
+      "target": "<4%",
+      "unit": ""
+    }
+  },
+  "risk_warnings": [
+    "🔴 高持仓数(12-15只)→ 需要更好的相关性监控,防止集中风险",
+    "🔴 激进Kelly(1.60)→ 回测数据有限,需要持续验证胜率",
+    "🔴 低入选门槛(15分)→ 候选股数激增,质量控制更重要",
+    "🟡 情感驱动→ 情感指数可靠性影响最终效果",
+    "🟡 动态止损→ ATR参数需要定期优化调整"
+  ]
+}

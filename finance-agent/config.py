@@ -1712,3 +1712,50 @@ V5_114_EXPECTED_IMPROVEMENTS = {
     'status': '晚间深度优化④ (大改进版)',
     'deployment': '待核心模块集成',
 }
+
+# =================== v5.124 情感驱动Kelly动态调整 ===================
+SENTIMENT_KELLY_ENABLED = True  # 启用情感驱动Kelly调整
+
+# 基础Kelly系数
+BASE_KELLY_MULTIPLIER = 1.60
+
+# 情感指数阈值
+SENTIMENT_KELLY_THRESHOLDS = {
+    'extreme_fear': 25,    # <25: 极度恐惧
+    'fear': 40,           # 25-40: 恐惧
+    'neutral': 60,        # 40-60: 中立
+    'greed': 75,          # 60-75: 贪婪
+    'extreme_greed': 100  # >75: 极度贪婪
+}
+
+# Kelly系数调整倍数
+SENTIMENT_KELLY_MULTIPLIERS = {
+    'extreme_fear': 1.15,    # Kelly * 1.15 (+15%)
+    'fear': 1.08,            # Kelly * 1.08 (+8%)
+    'neutral': 1.00,         # Kelly * 1.00 (无调整)
+    'greed': 0.90,           # Kelly * 0.90 (-10%)
+    'extreme_greed': 0.80    # Kelly * 0.80 (-20%)
+}
+
+# 头寸限制调整
+SENTIMENT_POSITION_ADJUSTMENTS = {
+    'extreme_fear': {'max_positions_delta': 0.25, 'entry_quality_delta': -8},
+    'fear': {'max_positions_delta': 0.10, 'entry_quality_delta': -4},
+    'neutral': {'max_positions_delta': 0.0, 'entry_quality_delta': 0},
+    'greed': {'max_positions_delta': -0.15, 'entry_quality_delta': 4},
+    'extreme_greed': {'max_positions_delta': -0.30, 'entry_quality_delta': 8}
+}
+
+# =================== v5.124 动态止损(ATR自适应) ===================
+DYNAMIC_STOP_LOSS_ENABLED = True
+DYNAMIC_STOP_LOSS_METHOD = 'atr_adaptive'  # atr_adaptive | drawdown_tiered | hybrid
+ATR_PERIOD = 14                # ATR计算周期(天)
+ATR_MULTIPLIER = 2.5          # 止损线 = entry_price - 2.5 * ATR(14d)
+DYNAMIC_STOP_LOSS_MAX = 0.15   # 动态止损最多-15%(安全网)
+
+# 备选: 分级止损法
+DRAWDOWN_TIERED_STOP_LOSS = {
+    'tier1': {'loss_pct': -0.08, 'volume': 0.5},    # -8%时卖出50%
+    'tier2': {'loss_pct': -0.12, 'volume': 0.8},    # -12%时再卖出80%
+    'tier3': {'loss_pct': -0.15, 'volume': 1.0},    # -15%时全部止损
+}

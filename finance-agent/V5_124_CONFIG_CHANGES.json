@@ -1,0 +1,56 @@
+{
+  "version": "v5.124",
+  "timestamp": "2026-05-22T14:02:29.752105",
+  "backup": "/home/nikefd/finance-agent/config.py.backup_v5.123_20260522_140229",
+  "changes": [
+    {
+      "key": "ENTRY_QUALITY_THRESHOLD",
+      "old": 18,
+      "new": 15,
+      "timestamp": "2026-05-22T14:02:29.747119"
+    },
+    {
+      "key": "KELLY_MULTIPLIER",
+      "old": 1.52,
+      "new": 1.6,
+      "timestamp": "2026-05-22T14:02:29.747761"
+    },
+    {
+      "key": "MAX_SINGLE_POSITION",
+      "old": 0.042,
+      "new": 0.048,
+      "timestamp": "2026-05-22T14:02:29.748394"
+    },
+    {
+      "key": "MAX_POSITIONS",
+      "old": 12,
+      "new": 15,
+      "timestamp": "2026-05-22T14:02:29.748993"
+    },
+    {
+      "key": "DYNAMIC_STOP_LOSS_ENABLED",
+      "old": false,
+      "new": true,
+      "timestamp": "2026-05-22T14:02:29.749590"
+    },
+    {
+      "key": "DYNAMIC_STOP_LOSS_METHOD",
+      "old": "fixed",
+      "new": "atr_adaptive",
+      "timestamp": "2026-05-22T14:02:29.750363"
+    },
+    {
+      "key": "ATR_MULTIPLIER",
+      "old": 1.5,
+      "new": 2.5,
+      "timestamp": "2026-05-22T14:02:29.750986"
+    },
+    {
+      "key": "SENTIMENT_DRIVEN_ALLOCATION_ENABLED",
+      "old": false,
+      "new": true,
+      "timestamp": "2026-05-22T14:02:29.751582"
+    }
+  ],
+  "status": "⚠️  警告"
+}
