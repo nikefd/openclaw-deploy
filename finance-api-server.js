@@ -773,6 +773,18 @@ function handleIndicatorAttribution(req, res) {
   }
 }
 
+// === UI优化④: 盤中聚合API (v5.128) ===
+function handleIntradayAggregateV128(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_128_intraday_ui_optimize import get_dashboard_aggregate_v128; print(json.dumps(get_dashboard_aggregate_v128(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 15000 }).toString().trim();
+    sendJson(res, JSON.parse(out || '{}'));
+  } catch (e) {
+    log('intraday-aggregate-v128 error: ' + e.message);
+    sendJson(res, { error: e.message, timestamp: new Date().toISOString() });
+  }
+}
+
 function handleSignalPersistence(req, res) {
   // Get signal persistence data from candidate_snapshots table
   try {
@@ -1191,6 +1203,7 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/finance/signal-quality-v102' && req.method === 'GET') return handleSignalQualityV102(req, res);
     if (pathname === '/api/finance/intraday-performance-v102' && req.method === 'GET') return handleIntradayPerformanceV102(req, res);
     if (pathname === '/api/finance/dashboard-aggregate-v107' && req.method === 'GET') return handleDashboardAggregateV107(req, res);
+    if (pathname === '/api/finance/intraday-aggregate-v128' && req.method === 'GET') return handleIntradayAggregateV128(req, res);
     // === UI优化v5.97旧端点 ===
     if (pathname === '/kelly-positions' && req.method === 'GET') return handleKellyPositionsV97(req, res);
     if (pathname === '/selection-status' && req.method === 'GET') return handleSelectionStatus(req, res);
