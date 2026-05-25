@@ -1759,3 +1759,278 @@ DRAWDOWN_TIERED_STOP_LOSS = {
     'tier2': {'loss_pct': -0.12, 'volume': 0.8},    # -12%时再卖出80%
     'tier3': {'loss_pct': -0.15, 'volume': 1.0},    # -15%时全部止损
 }
+
+# =================== v5.125 晚間深度優化⑤ (多策略組合+Kelly分層+ATR精細化+7維評分) ===================
+
+# v5.125 多策略精準組合 (基於回測TOP排名)
+STRATEGY_ALLOCATION_V125 = {
+    'MACD_RSI_TECH': 0.65,           # 科技成長 TOP1: 17.1% + 2.35 Sharpe
+    'MACD_RSI_RENEWABLE': 0.25,      # 新能源 TOP2: 14.66% + 1.78 Sharpe
+    'MULTI_FACTOR_HEDGE': 0.10       # 多因子對沖: 6.45% + 1.66 Sharpe
+}
+
+# v5.125 Kelly系數動態分層 (v5.124增強版)
+KELLY_SENTIMENT_LEVELS_V125 = {
+    'extreme_fear': {
+        'range': (0, 25),
+        'kelly_multiplier': 1.25,    # +25% (v5.124: +15%)
+        'position_delta': 0.25
+    },
+    'fear': {
+        'range': (25, 40),
+        'kelly_multiplier': 1.15,    # +15% (v5.124: +8%)
+        'position_delta': 0.10
+    },
+    'neutral': {
+        'range': (40, 60),
+        'kelly_multiplier': 1.0,
+        'position_delta': 0.0
+    },
+    'greed': {
+        'range': (60, 75),
+        'kelly_multiplier': 0.85,    # -15% (v5.124: -10%)
+        'position_delta': -0.15
+    },
+    'extreme_greed': {
+        'range': (75, 100),
+        'kelly_multiplier': 0.72,    # -28% (v5.124: -20%)
+        'position_delta': -0.30
+    }
+}
+
+# v5.125 行業差異化Kelly調整
+SECTOR_KELLY_ADJUSTMENTS_V125 = {
+    '科技成長': 1.15,      # +15% (TOP1策略更自信)
+    '新能源': 1.10,        # +10% (TOP2策略較自信)
+    '消費白馬': 0.95,      # -5% (多因子較保守)
+    '金融保險': 0.90,      # -10% (穩定性優先)
+    '醫藥生物': 0.85       # -15% (政策風險)
+}
+
+# v5.125 行業差異化ATR止損 (v5.124增強版)
+DYNAMIC_STOP_LOSS_SECTOR_V125 = {
+    '科技成長': {
+        'atr_multiplier': 3.0,      # v5.124: 2.5 → v5.125: 3.0 (更寬容)
+        'max_stop_loss': -0.15,
+        'min_stop_loss': -0.02
+    },
+    '新能源': {
+        'atr_multiplier': 2.8,      # v5.124: 2.5 → v5.125: 2.8
+        'max_stop_loss': -0.15,
+        'min_stop_loss': -0.03
+    },
+    '消費白馬': {
+        'atr_multiplier': 2.0,      # v5.124: 2.5 → v5.125: 2.0 (更嚴格)
+        'max_stop_loss': -0.10,
+        'min_stop_loss': -0.015
+    },
+    '金融保險': {
+        'atr_multiplier': 1.8,
+        'max_stop_loss': -0.08,
+        'min_stop_loss': -0.01
+    },
+    '醫藥生物': {
+        'atr_multiplier': 2.2,
+        'max_stop_loss': -0.12,
+        'min_stop_loss': -0.02
+    }
+}
+
+# v5.125 7維評分權重 (新增流動性+Sharpe驗證)
+ENTRY_QUALITY_SCORE_WEIGHTS_V125 = {
+    '技術面': 0.30,
+    '基本面': 0.15,
+    '資金面': 0.15,
+    '情感面': 0.15,
+    '流動性': 0.10,      # ⭐ 新增
+    'Sharpe驗證': 0.10,  # ⭐ 新增
+    '入場質量': 0.05
+}
+
+# v5.125 流動性評分配置
+LIQUIDITY_BONUS_CONFIG_V125 = {
+    'high': {
+        'min_daily_volume': 1_000_000_000,  # 10億+
+        'bonus': 15
+    },
+    'medium': {
+        'min_daily_volume': 500_000_000,    # 5-10億
+        'bonus': 8
+    },
+    'low': {
+        'max_daily_volume': 500_000_000,    # <5億
+        'penalty': -5
+    }
+}
+
+# v5.125 Sharpe驗證配置 (過去60天Sharpe比率)
+SHARPE_VERIFICATION_CONFIG_V125 = {
+    'high_sharpe': {
+        'min': 1.5,
+        'bonus': 12
+    },
+    'medium_sharpe': {
+        'min': 1.0,
+        'max': 1.5,
+        'bonus': 6
+    },
+    'low_sharpe': {
+        'max': 1.0,
+        'penalty': -5
+    }
+}
+
+# v5.125 評分分布映射
+ENTRY_QUALITY_INTERPRETATION_V125 = {
+    'range_85_100': {'level': '強烈推薦', 'position_target': 10},
+    'range_75_85': {'level': '推薦', 'position_target': 15},
+    'range_65_75': {'level': '中性', 'position_target': 10},
+    'range_below_65': {'level': '不推薦', 'position_target': 0}
+}
+
+# v5.125 版本狀態
+V5_125_CONFIG = {
+    'version': 'v5.125',
+    'status': '晚間深度優化⑤ (回測融合+多策略組合+風險動態調控)',
+    'enabled': True,
+    'deployment': '配置集成完成',
+    'expected_sharpe': '2.15-2.35',
+    'expected_annual_return': '16-19%',
+    'expected_max_drawdown': '<3.5%'
+}
+
+# =================== v5.126 晚間深度優化工程 (多策略組合+Kelly分層+ATR精細化+7維評分) ===================
+# 版本: v5.126 (晚間22:00 UTC優化④)
+# 目標: 回測TOP策略融合(Sharpe 2.35) + Kelly動態分層 + ATR行業分級 + 流動性+Sharpe驗證評分
+# 預期: Sharpe 2.14-2.35, 年化16-19%, 回撤<3.5%, 持倉10-15只
+
+# ========== 多策略精準組合 ==========
+MULTI_STRATEGY_ENABLED = True                    # 啟用多策略組合模式
+
+MULTI_STRATEGY_ALLOCATION = {
+    'macd_rsi_tech_weight': 0.65,               # MACD+RSI(科技成長): 65% 權重, TOP1: 17.1% + 2.35Sharpe
+    'macd_rsi_energy_weight': 0.25,             # MACD+RSI(新能源): 25% 權重, TOP2: 14.66% + 1.78Sharpe
+    'multi_factor_hedge_weight': 0.10,          # MULTI_FACTOR(對沖): 10% 權重, 6.45% + 1.66Sharpe
+    'expected_sharpe': 2.14,                    # 綜合Sharpe: 2.35×0.65 + 1.78×0.25 + 1.66×0.10 = 2.14
+    'expected_return': 0.175,                   # 年化收益: 16-19%
+    'expected_drawdown': 0.035,                 # 最大回撤: <3.5%
+}
+
+# ========== Kelly系數動態分層 (情感驅動) ==========
+KELLY_DYNAMIC_ENABLED = True                    # 啟用Kelly動態分層
+KELLY_BASE_COEFFICIENT = 1.60                   # 基礎Kelly系數
+
+KELLY_SENTIMENT_ADJUSTMENTS = {
+    'extreme_fear': 1.25,                       # 極度恐懼(<25): Kelly×1.25 (+25%激進)
+    'fear': 1.15,                               # 恐懼(25-40): Kelly×1.15 (+15%)
+    'normal': 1.0,                              # 正常(40-60): Kelly×1.0 (保持)
+    'greed': 0.85,                              # 貪婪(60-75): Kelly×0.85 (-15%防守)
+    'extreme_greed': 0.72,                      # 極度貪婪(>75): Kelly×0.72 (-28%加強防守)
+}
+
+# ========== Kelly系數動態分層 (行業差異化) ==========
+KELLY_SECTOR_ADJUSTMENTS = {
+    '科技成長': 1.15,                           # +15% (TOP1)
+    '新能源': 1.10,                             # +10% (TOP2)
+    '消費白馬': 0.95,                           # -5%
+    '金融保險': 0.90,                           # -10% (最保守)
+    '醫藥生物': 1.0,                            # 保持
+    '其他': 0.95,                               # -5%
+}
+
+# ========== ATR動態止損行業分級 ==========
+ATR_SECTOR_MULTIPLIERS = {
+    '科技成長': 3.0,                            # ATR 3.0倍 (寬容, TOP1)
+    '新能源': 2.8,                              # ATR 2.8倍 (加強, TOP2)
+    '醫藥生物': 2.2,                            # ATR 2.2倍 (中等)
+    '消費白馬': 2.0,                            # ATR 2.0倍 (嚴格)
+    '金融保險': 1.8,                            # ATR 1.8倍 (最嚴格)
+    '其他': 2.2,                                # ATR 2.2倍 (中等)
+}
+
+# ========== ATR動態止損 Sharpe微調 ==========
+ATR_SHARPE_ADJUSTMENTS = {
+    'high': 0.10,                               # Sharpe>1.8: 止損放寬10%
+    'normal': 0.0,                              # Sharpe 1.0-1.8: 保持
+    'low': -0.10,                               # Sharpe<1.0: 止損緊縮10%
+}
+
+# ========== ATR動態止損 回撤微調 ==========
+ATR_DRAWDOWN_ADJUSTMENTS = {
+    'small': 0.15,                              # 回撤<3%: 止損放寬15%
+    'normal': 0.0,                              # 回撤3-8%: 保持
+    'large': -0.15,                             # 回撤>8%: 止損緊縮15%
+}
+
+# ========== v5.127 盤前優化 - MACD背離+量能確認+評分快取 ==========
+MACD_DIVERGENCE_ENABLED = True                  # 啟用MACD背離檢測 (風控) - NEW v5.127
+VOLUME_CONFIRMATION_ENABLED = True              # 啟用量能確認評分 - NEW v5.127
+SCORING_CACHE_ENABLED = True                    # 啟用評分快取層 (TTL=5分鐘) - NEW v5.127
+
+# MACD背離閾值
+MACD_DIVERGENCE_THRESHOLD = 5                   # K線差距 >5 = 背離
+MACD_DIVERGENCE_STRONG_THRESHOLD = 8            # K線差距 >8 + 量能萎縮 = 強背離 (止損)
+
+# 量能確認係數
+VOLUME_BREAKOUT_RATIO_STRONG = 1.5              # >1.5倍20日均量 = 強確認 (+15分)
+VOLUME_BREAKOUT_RATIO_GOOD = 1.2                # 1.2-1.5倍 = 良好 (+8分)
+VOLUME_WEAKNESS_THRESHOLD = 0.7                 # <0.7倍20日均量 = 量能萎縮
+
+# ========== 7維評分系統 ==========
+SCORING_SYSTEM_7D_ENABLED = True                # 啟用7維評分系統
+
+SCORING_WEIGHTS = {
+    'technical': 25,                            # 技術評分 (0-25分)
+    'fundamental': 25,                          # 基本面評分 (0-25分)
+    'capital': 20,                              # 資金面評分 (0-20分)
+    'sentiment': 15,                            # 情感評分 (0-15分)
+    'entry_quality': 10,                        # 入場質量 (0-10分)
+    'liquidity': 15,                            # 流動性評分 (0-15分) ← NEW
+    'sharpe_verify': 12,                        # Sharpe驗證 (0-12分) ← NEW
+}
+
+# ========== 推薦等級閾值 ==========
+RECOMMENDATION_THRESHOLDS = {
+    'strong_buy': 85,                           # 85-100分: 強烈推薦 (10個位置)
+    'buy': 75,                                  # 75-85分: 推薦 (15個位置)
+    'neutral': 65,                              # 65-75分: 中性 (10個位置)
+    'blacklist': 0,                             # <65分: 黑名單
+}
+
+# ========== 流動性評分標準 ==========
+LIQUIDITY_THRESHOLDS = {
+    'high': 10.0,                               # >10億元: +15分
+    'medium': 5.0,                              # 5-10億元: +8分
+    'low': 0.0,                                 # <5億元: -5分
+}
+
+# ========== Sharpe驗證評分標準 ==========
+SHARPE_VERIFY_THRESHOLDS = {
+    'high': 1.5,                                # 過去60天Sharpe>1.5: +12分
+    'medium': 1.0,                              # 過去60天Sharpe 1.0-1.5: +6分
+    'low': 0.0,                                 # 過去60天Sharpe<1.0: -5分
+}
+
+# ========== 預期性能對標 ==========
+V5_126_EXPECTED_METRICS = {
+    'sharpe_range': (2.14, 2.35),               # 綜合Sharpe範圍
+    'annual_return_range': (0.16, 0.19),        # 年化收益範圍
+    'max_drawdown': 0.035,                      # 最大回撤
+    'win_rate': 0.62,                           # 勝率
+    'kelly_range': (1.15, 2.0),                 # Kelly幅度
+    'position_count_range': (10, 15),           # 持倉數範圍
+    'capital_usage_rate': 0.5625,               # 資金利用率 (50-65%, 中位56.25%)
+}
+
+# v5.126 版本狀態
+V5_126_CONFIG = {
+    'version': 'v5.126',
+    'status': '晚間深度優化④ (多策略組合+Kelly分層+ATR精細化+7維評分)',
+    'enabled': True,
+    'deployment': '配置集成完成',
+    'expected_sharpe': '2.14-2.35',
+    'expected_annual_return': '16-19%',
+    'expected_max_drawdown': '<3.5%',
+    'position_count': '10-15只',
+    'capital_usage': '50-65%',
+}
