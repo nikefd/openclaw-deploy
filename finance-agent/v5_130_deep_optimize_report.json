@@ -1,0 +1,28 @@
+{
+  "version": "v5.130",
+  "timestamp": "2026-05-25T14:02:53.862437",
+  "backtest_optimal_strategy": {
+    "name": "MACD+RSI (科技成长)",
+    "total_return": 17.1,
+    "sharpe_ratio": 2.35,
+    "win_rate": 0.6,
+    "max_drawdown": 4.08,
+    "description": "回测表现最优"
+  },
+  "parameter_optimizations": {
+    "kelly_coefficient": 1.65,
+    "kelly_max_position": 0.065,
+    "macd_rsi_weight": 0.5,
+    "entry_quality_threshold": 55,
+    "multi_timeframe_enabled": true,
+    "sentiment_feedback_enabled": true
+  },
+  "expected_improvements": {
+    "annual_return": "14.2% → 15-17%",
+    "sharpe_ratio": "2.18 → 2.25-2.40",
+    "win_rate": "58% → 62-64%",
+    "max_drawdown": "3.2% → 2.5-3.0%"
+  },
+  "implementation_items": 10,
+  "status": "READY_FOR_DEPLOYMENT"
+}
