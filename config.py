@@ -1962,6 +1962,20 @@ ATR_DRAWDOWN_ADJUSTMENTS = {
     'large': -0.15,                             # 回撤>8%: 止損緊縮15%
 }
 
+# ========== v5.127 盤前優化 - MACD背離+量能確認+評分快取 ==========
+MACD_DIVERGENCE_ENABLED = True                  # 啟用MACD背離檢測 (風控) - NEW v5.127
+VOLUME_CONFIRMATION_ENABLED = True              # 啟用量能確認評分 - NEW v5.127
+SCORING_CACHE_ENABLED = True                    # 啟用評分快取層 (TTL=5分鐘) - NEW v5.127
+
+# MACD背離閾值
+MACD_DIVERGENCE_THRESHOLD = 5                   # K線差距 >5 = 背離
+MACD_DIVERGENCE_STRONG_THRESHOLD = 8            # K線差距 >8 + 量能萎縮 = 強背離 (止損)
+
+# 量能確認係數
+VOLUME_BREAKOUT_RATIO_STRONG = 1.5              # >1.5倍20日均量 = 強確認 (+15分)
+VOLUME_BREAKOUT_RATIO_GOOD = 1.2                # 1.2-1.5倍 = 良好 (+8分)
+VOLUME_WEAKNESS_THRESHOLD = 0.7                 # <0.7倍20日均量 = 量能萎縮
+
 # ========== 7維評分系統 ==========
 SCORING_SYSTEM_7D_ENABLED = True                # 啟用7維評分系統
 
