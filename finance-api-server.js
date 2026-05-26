@@ -1448,6 +1448,8 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/intraday-stop-loss-v122' && req.method === 'GET') return handleIntradayStopLossV122(req, res);
     if (pathname === '/api/finance/intraday-emotion-v122' && req.method === 'GET') return handleIntradayEmotionV122(req, res);
     if (pathname === '/api/finance/intraday-combined-v122' && req.method === 'GET') return handleIntradayCombinedV122(req, res);
+    if (pathname === '/api/finance/intraday-heatmap-v132' && req.method === 'GET') return handleIntradayHeatmapV132(req, res);
+    if (pathname === '/api/finance/intraday-minute-stats-v132' && req.method === 'GET') return handleIntradayMinuteStatsV132(req, res);
     
     // Static file service for UI optimization
     if (pathname === '/ui-optimize-v5.65.js' && req.method === 'GET') {
@@ -2606,5 +2608,51 @@ function handleIntradayCombinedV122(req, res) {
       error: e.message,
       version: 'v5.122_fallback'
     });
+  }
+}
+
+// === v5.132 盤中實時熱力圖儀表板 (11:30優化②新增) ===
+function handleIntradayHeatmapV132(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_132_intraday_heatmap import get_intraday_heatmap_v132; data = get_intraday_heatmap_v132(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 8000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('intraday-heatmap-v132: ' + e.message);
+    sendJson(res, { timestamp: new Date().toISOString(), positions_heatmap: [], version: 'v5.132_error', error: e.message });
+  }
+}
+
+// === v5.132 盤中分鐘級績效統計 (11:30優化②新增) ===
+function handleIntradayMinuteStatsV132(req, res) {
+  try {
+    const trades = querySqlite("SELECT * FROM trades WHERE trade_date >= datetime('now', '-60 minutes')");
+    const positions = querySqlite('SELECT * FROM positions WHERE shares > 0');
+    const buyTrades = trades.filter(t => t.direction === 'BUY');
+    const sellTrades = trades.filter(t => t.direction === 'SELL');
+    const winTrades = sellTrades.filter(t => {
+      const buyPrice = buyTrades.find(b => b.symbol === t.symbol)?.price || t.price;
+      return t.price > buyPrice;
+    });
+    const intradayWinRate = sellTrades.length > 0 ? Math.round((winTrades.length / sellTrades.length) * 100) : 0;
+    sendJson(res, {
+      timestamp: new Date().toISOString(),
+      intraday_win_rate: intradayWinRate,
+      buy_count_60m: buyTrades.length,
+      sell_count_60m: sellTrades.length,
+      total_positions: positions.length,
+      version: 'v5.132'
+    });
+  } catch (e) {
+    log('intraday-minute-stats-v132: ' + e.message);
+    sendJson(res, { timestamp: new Date().toISOString(), intraday_win_rate: 0, version: 'v5.132_error', error: e.message });
   }
 }
