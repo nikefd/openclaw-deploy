@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-05-26T07:31:09.903004",
+  "version": "v5.133",
+  "portfolio_analysis": {
+    "positions": [
+      {
+        "symbol": "300833",
+        "name": "浩洋股份",
+        "shares": 700,
+        "price": 37.17,
+        "pnl_pct": -0.9,
+        "weight": 2.5972768472119627
+      },
+      {
+        "symbol": "000536",
+        "name": "华映科技",
+        "shares": 5200,
+        "price": 4.6,
+        "pnl_pct": 0.0,
+        "weight": 2.387749805346483
+      },
+      {
+        "symbol": "600958",
+        "name": "东方证券",
+        "shares": 800,
+        "price": 9.6,
+        "pnl_pct": 5.1,
+        "weight": 0.7666353890075664
+      }
+    ],
+    "concentration_highest": 2.5972768472119627,
+    "herfindahl_index": 0.13034925973674263,
+    "risk_level": "MEDIUM"
+  },
+  "recommended_actions": [
+    {
+      "action": "TAKE_PROFIT",
+      "symbol": "600958",
+      "name": "东方证券",
+      "reason": "止盈目标 (已涨5.1%)",
+      "target_sale": 320,
+      "expected_cash": 3072.0
+    }
+  ],
+  "estimated_impact": {
+    "freed_cash": 3072.0,
+    "new_total_cash": 947937.0,
+    "new_cash_pct": 94.62526702469603,
+    "current_cash_pct": 94.31861286909302
+  },
+  "summary": {
+    "total_actions": 1,
+    "reduce_actions": 0,
+    "take_profit_actions": 1,
+    "stop_loss_actions": 0
+  }
+}

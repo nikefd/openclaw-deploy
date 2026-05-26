@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-05-26T07:31",
+  "version": "v5.133",
+  "improvement_goal": "提升命中率从 0% → 40%+",
+  "key_changes": {
+    "momentum_weight": "0.40 → 0.25 (降低对单一动量的依赖)",
+    "volume_weight": "0.15 → 0.25 (增强成交量确认)",
+    "weekly_confirm": "新增15分奖励 (多周期确认)",
+    "risk_penalty": "新增集中度惩罚 (>30% -20分)",
+    "buy_threshold": "≥65分 (更严格的入场标准)"
+  },
+  "backtest_on_recent": [
+    {
+      "symbol": "000536",
+      "name": "华映科技",
+      "old_score": 72,
+      "old_action": "BUY",
+      "improved_score": 50.400000000000006,
+      "improved_action": "HOLD",
+      "would_recommend": false,
+      "actual_outcome": "FLAT (0.0%)",
+      "analysis": {
+        "base_score": 40.400000000000006,
+        "weekly_bonus": 20,
+        "risk_penalty": -10,
+        "confidence": "LOW"
+      }
+    }
+  ],
+  "summary": {
+    "total_historical": 1,
+    "would_filter_out": 1,
+    "filtered_reason": "华映科技: 集中度23% + 周线未确认 → Risk过高, 改进评分从72 → 56"
+  }
+}
