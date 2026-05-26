@@ -1,0 +1,171 @@
+{
+  "version": "v5.134",
+  "title": "v5.134 集成方案 - 回測驅動策略深度融合",
+  "execution_date": "2026-05-26T14:02:24.702666",
+  "phase": "integration_planning",
+  "config_py_updates": {
+    "MACD_PARAMS_V5_134": {
+      "old": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9
+      },
+      "new": {
+        "fast": 12,
+        "slow": 26,
+        "signal": 9
+      },
+      "note": "保持不變 (已是回測最優)"
+    },
+    "MACD_RSI_SIGNAL_BOOST": {
+      "old": 1.8,
+      "new": 2.0,
+      "description": "TOP策略權重從1.8 → 2.0 (+11%)",
+      "reason": "回測TOP1: 17.1% 收益, 60% 胜率, 2.35 Sharpe"
+    },
+    "TECH_GROWTH_WEIGHT_BOOST": {
+      "old": 0.4,
+      "new": 0.45,
+      "description": "科技成長權重 0.40 → 0.45 (+12.5%)",
+      "reason": "回測TOP策略主要應用於科技成長行業"
+    },
+    "ENTRY_QUALITY_DYNAMIC_THRESHOLDS_V5_134": {
+      "normal": {
+        "old": 55,
+        "new": 60,
+        "description": "正常市場入場門檻 55 → 60分"
+      },
+      "high_cash": {
+        "old": 45,
+        "new": 50,
+        "description": "高現金(75-95%)入場門檻 45 → 50分"
+      },
+      "extreme_cash": {
+        "old": 35,
+        "new": 35,
+        "description": "極端現金(>95%)入場門檻保持35分 (超激進微倉試單)"
+      },
+      "low_winrate": {
+        "old": null,
+        "new": 75,
+        "description": "低胜率(<50%)時提高到75分 (新增謹慎規則)"
+      },
+      "high_risk_concentration": {
+        "old": null,
+        "new": 70,
+        "description": "集中度>30%時提高到70分 (新增風控規則)"
+      }
+    },
+    "KELLY_POSITION_SIZE_V5_134": {
+      "KELLY_MAX_POSITION": {
+        "old": 0.065,
+        "new": 0.072,
+        "description": "Kelly單倉 6.5% → 7.2% (+10.8%)",
+        "basis": "胜率60%, Sharpe2.35 激進模式"
+      },
+      "KELLY_COEFFICIENT": {
+        "old": 1.65,
+        "new": 1.75,
+        "description": "Kelly係數 1.65 → 1.75 (+6.1%)",
+        "reason": "回測TOP策略驗證 (60%胜率)"
+      },
+      "KELLY_MIN_WINRATE_FOR_AGGRESSIVE": {
+        "old": 0.6,
+        "new": 0.6,
+        "description": "激進Kelly最少胜率 60% (保持)",
+        "note": "與TOP策略胜率一致"
+      }
+    },
+    "TRAILING_STOP_V5_134": {
+      "TRAILING_STOP_ENABLED": true,
+      "TRAILING_STOP_PCT": {
+        "old": 0.05,
+        "new": 0.04,
+        "description": "尾隨止損 5% → 4% (-20%)",
+        "reason": "基於回測MAX_DRAWDOWN 4.08% 的安全邊際"
+      },
+      "DYNAMIC_STOP_LOSS_MAX": {
+        "old": 0.15,
+        "new": 0.12,
+        "description": "動態止損最大 -15% → -12%",
+        "reason": "回測顯示4.08%回撤, 給予3倍安全邊際"
+      }
+    },
+    "TAKEPROFIT_LADDER_V5_134": {
+      "ladder_1": {
+        "profit_target": 0.05,
+        "sell_size": 0.4,
+        "description": "第1檔: +5%時賣出40%鎖定收益"
+      },
+      "ladder_2": {
+        "profit_target": 0.1,
+        "sell_size": 0.3,
+        "description": "第2檔: +10%時賣出30%"
+      },
+      "ladder_3": {
+        "profit_target": 0.15,
+        "sell_size": 0.3,
+        "description": "第3檔: +15%時清倉剩餘"
+      }
+    },
+    "SIGNAL_WEIGHTS_V5_134": {
+      "description": "多因子加權評分新結構 (基於回測TOP策略)",
+      "weights": {
+        "MACD_RSI": 0.25,
+        "Volume": 0.25,
+        "Sentiment": 0.2,
+        "Weekly_Confirm": 0.15,
+        "Risk_Control": 0.15
+      },
+      "improvements_from_v5_133": {
+        "MACD_RSI": "+0 (保持25%)",
+        "Volume": "+0 (保持25%)",
+        "Sentiment": "+0 (保持20%)",
+        "Weekly_Confirm": "+0 (保持15%)",
+        "Risk_Control": "+0 (保持15%)"
+      },
+      "note": "v5.133已最優化, v5.134保持同一權重結構"
+    }
+  },
+  "stock_picker_integrations": {
+    "1. backtest_fusion_adapter": "\n    def apply_backtest_top_strategy(sector, market_regime='sideways'):\n        \"\"\"應用回測TOP1策略 (MACD+RSI 17.1%, 60%, 2.35 Sharpe)\"\"\"\n        \n        sector_adaptations = {\n            'tech_growth': {'boost': 1.8, 'macd_fast': 10, 'macd_slow': 24},\n            'finance': {'boost': 1.2, 'macd_fast': 12, 'macd_slow': 28},\n            'healthcare': {'boost': 1.3, 'macd_fast': 14, 'macd_slow': 30},\n        }\n        \n        market_multipliers = {\n            'bull': 1.5,\n            'sideways': 1.0,\n            'bear': 0.7\n        }\n        \n        sector_params = sector_adaptations.get(sector, {'boost': 1.0})\n        market_multi = market_multipliers.get(market_regime, 1.0)\n        \n        signal_boost = sector_params['boost'] * market_multi\n        \n        return {\n            'macd_fast': sector_params['macd_fast'],\n            'macd_slow': sector_params['macd_slow'],\n            'macd_signal': 9,\n            'rsi_period': 14,\n            'signal_boost': signal_boost,\n            'expected_return': 0.171 * signal_boost / 1.5  # 基準回測17.1%\n        }\n    ",
+    "2. multi_cycle_confirmation": "\n    def confirm_with_multi_cycles(stock_data):\n        \"\"\"日+週+月多週期確認\"\"\"\n        \n        daily_signal = get_macd_signal(stock_data['daily'])\n        weekly_signal = get_macd_signal(stock_data['weekly'])\n        monthly_trend = get_trend(stock_data['monthly'])\n        \n        if daily_signal == 'BUY' and weekly_signal == 'BUY' and monthly_trend == 'UP':\n            return {'confirmation': 'STRONG_BUY', 'bonus': 20}\n        elif daily_signal == 'BUY' and weekly_signal == 'BUY':\n            return {'confirmation': 'BUY', 'bonus': 15}\n        elif daily_signal == 'BUY':\n            return {'confirmation': 'WEAK_BUY', 'bonus': 8}\n        else:\n            return {'confirmation': 'HOLD', 'bonus': 0}\n    ",
+    "3. smart_entry_threshold": "\n    def calculate_adaptive_threshold(cash_ratio, recent_winrate, concentration):\n        \"\"\"智能動態入場門檻\"\"\"\n        \n        base = 60\n        \n        # 現金比例調整\n        if cash_ratio > 0.95:\n            adjust = -25  # 極端現金: 35分\n        elif cash_ratio > 0.75:\n            adjust = -10  # 高現金: 50分\n        else:\n            adjust = 0    # 正常: 60分\n        \n        # 胜率調整\n        if recent_winrate < 0.50:\n            adjust += 15  # 低胜率: +75分保守\n        elif recent_winrate >= 0.65:\n            adjust -= 5   # 高胜率: -5分激進\n        \n        # 集中度調整\n        if concentration > 0.30:\n            adjust += 10  # 高風險: +70分\n        \n        return base + adjust\n    ",
+    "4. risk_weighted_scoring": "\n    def calculate_composite_score(macd_rsi, volume, sentiment, weekly, concentration):\n        \"\"\"風險加權綜合評分 (MACD25% + 量25% + 情20% + 週15% + 風15%)\"\"\"\n        \n        weights = {\n            'macd_rsi': 0.25,\n            'volume': 0.25,\n            'sentiment': 0.20,\n            'weekly': 0.15,\n            'risk': 0.15\n        }\n        \n        # 風控懲罰\n        risk_penalty = 0\n        if concentration > 0.30:\n            risk_penalty -= 20\n        elif concentration > 0.20:\n            risk_penalty -= 10\n        \n        composite = (\n            macd_rsi * weights['macd_rsi'] +\n            volume * weights['volume'] +\n            sentiment * weights['sentiment'] +\n            weekly * weights['weekly'] +\n            risk_penalty * weights['risk']\n        )\n        \n        return composite\n    ",
+    "5. dynamic_takeprofit": "\n    def get_takeprofit_plan(entry_price, volatility_level='normal'):\n        \"\"\"梯度止盈計劃\"\"\"\n        \n        plans = [\n            {'target': entry_price * 1.05, 'sell_pct': 0.40, 'desc': '+5%賣40%'},\n            {'target': entry_price * 1.10, 'sell_pct': 0.30, 'desc': '+10%賣30%'},\n            {'target': entry_price * 1.15, 'sell_pct': 0.30, 'desc': '+15%清倉'}\n        ]\n        \n        # 波動率調整 (±20%)\n        if volatility_level == 'high':\n            plans = [{'target': p['target'] * 1.2, **{k:v for k,v in p.items() if k != 'target'}} for p in plans]\n        elif volatility_level == 'low':\n            plans = [{'target': p['target'] * 0.8, **{k:v for k,v in p.items() if k != 'target'}} for p in plans]\n        \n        return plans\n    "
+  },
+  "implementation_order": [
+    "1. 更新 config.py 中 MACD/RSI/Kelly 參數",
+    "2. 添加 apply_backtest_top_strategy() 函數到 stock_picker.py",
+    "3. 集成 multi_cycle_confirmation() 多週期確認",
+    "4. 集成 calculate_adaptive_threshold() 動態門檻",
+    "5. 集成 calculate_composite_score() 風險加權評分",
+    "6. 集成 get_takeprofit_plan() 梯度止盈",
+    "7. 在 pick_stocks() 主流程中調用所有集成函數",
+    "8. 測試選股流程 (預期命中率提升到50%+)",
+    "9. 部署到實盤 (daily_runner.py)"
+  ],
+  "expected_results": {
+    "win_rate_improvement": "0% → 50%+",
+    "command_hit_rate": "0/6 → 3+/6",
+    "max_drawdown": "基於回測降至-3% (安全邊際x3)",
+    "sharpe_ratio": "提升至2.0+ (回測2.35)",
+    "avg_holding_period": "10-20天 (梯度止盈)",
+    "capital_utilization": "激進配置 85-90%",
+    "execution_speed": "<8秒 (多週期確認優化)"
+  },
+  "risk_controls": {
+    "trailing_stop": "尾隨止損4% (MAX_DRAWDOWN 4.08%)",
+    "dynamic_stop_loss": "最大-12% (安全邊際)",
+    "kelly_position": "單倉7.2% (Kelly激進)",
+    "concentration_check": "集中度>30% 自動扣20分",
+    "low_winrate_check": "胜率<50% 門檻提高到75分"
+  },
+  "backcompat_notes": [
+    "✅ 保持與v5.133兼容 (權重結構相同)",
+    "✅ 回測TOP策略為核心基礎 (17.1%, 60%, 2.35)",
+    "✅ 現有止損/止盈機制仍保留",
+    "✅ Kelly持倉計算升級到1.75係數",
+    "✅ 動態門檻完全替代固定門檻"
+  ]
+}

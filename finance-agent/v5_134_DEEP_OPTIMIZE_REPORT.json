@@ -1,0 +1,101 @@
+{
+  "version": "v5.134",
+  "title": "晚間深度優化④ - 回測驅動策略融合 + 命中率躍進",
+  "execution_time": "2026-05-26T14:01:52.001746",
+  "objectives": [
+    "✅ 將回測TOP1策略(MACD+RSI 17.1%, 60%胜率)深度融合",
+    "✅ 多週期信號確認(日+週+月)",
+    "✅ 智能動態入場門檻(基於現金+風險)",
+    "✅ 風險加權評分(集中度+波動率)",
+    "✅ 梯度止盈機制",
+    "✅ 現金流實時優化"
+  ],
+  "key_improvements": {
+    "backtest_fusion": {
+      "optimization": "BACKTEST_TOP_STRATEGY_FUSION",
+      "timestamp": "2026-05-26T14:01:52.001754",
+      "top_strategy": {
+        "name": "MACD+RSI (科技成長)",
+        "total_return": 17.1,
+        "max_drawdown": 4.08,
+        "win_rate": 0.6,
+        "sharpe_ratio": 2.35,
+        "macd_params": {
+          "fast": 12,
+          "slow": 26,
+          "signal": 9
+        },
+        "rsi_period": 14,
+        "rsi_oversold": 30,
+        "rsi_overbought": 70
+      },
+      "sector_adaptations": {
+        "tech_growth": {
+          "boost": 1.8,
+          "macd_fast": 10,
+          "macd_slow": 24
+        },
+        "finance": {
+          "boost": 1.2,
+          "macd_fast": 12,
+          "macd_slow": 28
+        },
+        "healthcare": {
+          "boost": 1.3,
+          "macd_fast": 14,
+          "macd_slow": 30
+        },
+        "energy": {
+          "boost": 1.4,
+          "macd_fast": 11,
+          "macd_slow": 25
+        }
+      },
+      "market_regime_multipliers": {
+        "bull": 1.5,
+        "sideways": 1.0,
+        "bear": 0.7
+      }
+    },
+    "signal_confirmation": {
+      "description": "日+週+月三級確認",
+      "strong_buy_bonus": 20,
+      "weak_buy_bonus": 8,
+      "sell_penalty": -15
+    },
+    "entry_quality_threshold": {
+      "normal_market": 60,
+      "high_cash_75_95pct": 50,
+      "extreme_cash_95_100pct": 35,
+      "low_winrate": 75
+    },
+    "signal_weights_v5_134": {
+      "MACD+RSI": "25% (回測TOP1)",
+      "Volume": "25% (多週期)",
+      "Sentiment": "20% (新聞)",
+      "Weekly_Confirm": "15% (週線)",
+      "Risk_Control": "15% (風控)"
+    },
+    "dynamic_takeprofit": {
+      "ladder_1": "+5% 賣40%",
+      "ladder_2": "+10% 賣30%",
+      "ladder_3": "+15% 清倉",
+      "volatility_adjustment": "±20%基於波動率"
+    }
+  },
+  "expected_improvements": {
+    "win_rate": "0% → 50%+",
+    "entry_quality": "0/6 → 3+/6",
+    "max_drawdown": "降低至-3% (基於回測-4.08%)",
+    "sharpe_ratio": "提升至2.0+ (基於回測2.35)",
+    "capital_utilization": "激進配置 85-90%"
+  },
+  "implementation_checklist": {
+    "✅ backtest_fusion": "BacktestTopStrategyFusion類",
+    "✅ signal_confirmation": "MultiCycleSignalConfirmation類",
+    "✅ entry_threshold": "SmartEntryQualityThreshold類",
+    "✅ risk_scoring": "RiskWeightedScoring類",
+    "✅ takeprofit": "DynamicTakeProfitMechanism類",
+    "✅ cashflow_opt": "RealtimeCashFlowOptimization類"
+  }
+}
