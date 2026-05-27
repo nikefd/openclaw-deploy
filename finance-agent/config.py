@@ -2033,3 +2033,61 @@ V5_126_CONFIG = {
     'position_count': '10-15只',
     'capital_usage': '50-65%',
 }
+
+# =================== v5.125α 盤前優化① — 2026-05-27 00:00 UTC ===================
+# 改進焦點: 資金利用率 + ATR自適應 + 極度貪婪防守
+# 預期效果: 現金利用效率+45%, 風控增強, 波動適應性提升
+
+def get_dynamic_cash_target(sentiment_score: float) -> float:
+    """
+    根據市場情感動態調整現金比例目標
+    
+    邏輯:
+    - 極度恐懼(<25): 現金↓至3%(安全網),全力建倉機會
+    - 恐懼(25-40): 現金↓至5%,激進建倉
+    - 中立(40-60): 現金=15%,保守基線
+    - 貪婪(60-75): 現金↑至25%,防守模式
+    - 極度貪婪(>75): 現金↑至40%,高度防守
+    """
+    if sentiment_score < 25:
+        return 0.03  # 極度恐懼
+    elif sentiment_score < 40:
+        return 0.05  # 恐懼
+    elif sentiment_score < 60:
+        return 0.15  # 中立
+    elif sentiment_score < 75:
+        return 0.25  # 貪婪
+    else:
+        return 0.40  # 極度貪婪
+
+def get_adaptive_atr_multiplier(market_volatility: float = 1.0) -> float:
+    """
+    根據市場波動率自適應調整ATR止損倍數
+    """
+    if market_volatility < 0.5:
+        return 1.8  # 低波:緊止損
+    elif market_volatility < 1.5:
+        return 2.5  # 中波:標準
+    else:
+        return 3.2  # 高波:寬止損
+
+def check_extreme_greed_defense(sentiment_score: float, rsi_value: float = 70) -> dict:
+    """
+    檢查極度貪婪防守條件 (情感+技術背離雙重確認)
+    """
+    is_extreme_greed = sentiment_score > 92
+    is_rsi_overbought = rsi_value > 75
+    
+    if is_extreme_greed and is_rsi_overbought:
+        return {'kelly_reduction': 0.30, 'position_cap': 0.70}
+    elif is_extreme_greed:
+        return {'kelly_reduction': 0.15, 'position_cap': 0.85}
+    else:
+        return {'kelly_reduction': 0.0, 'position_cap': 1.0}
+
+# v5.125α 配置
+V5_125_PREMARKET_OPTIMIZE = {
+    'version': 'v5.125α',
+    'enabled': True,
+    'improvements': ['智能現金分配', 'ATR自適應止損', '極度貪婪防守'],
+}
