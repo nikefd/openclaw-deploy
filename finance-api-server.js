@@ -1204,6 +1204,9 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/finance/intraday-performance-v102' && req.method === 'GET') return handleIntradayPerformanceV102(req, res);
     if (pathname === '/api/finance/dashboard-aggregate-v107' && req.method === 'GET') return handleDashboardAggregateV107(req, res);
     if (pathname === '/api/finance/intraday-aggregate-v128' && req.method === 'GET') return handleIntradayAggregateV128(req, res);
+    if (pathname === '/api/finance/emotion-trigger-v135' && req.method === 'GET') return handleEmotionTriggerDecisionsV135(req, res);
+    if (pathname === '/api/finance/intraday-performance-v135' && req.method === 'GET') return handleIntradayPerformanceStatsV135(req, res);
+    if (pathname === '/api/finance/combined-metrics-v135' && req.method === 'GET') return handleCombinedIntradayMetricsV135(req, res);
     // === UI优化v5.97旧端点 ===
     if (pathname === '/kelly-positions' && req.method === 'GET') return handleKellyPositionsV97(req, res);
     if (pathname === '/selection-status' && req.method === 'GET') return handleSelectionStatus(req, res);
@@ -2654,5 +2657,86 @@ function handleIntradayMinuteStatsV132(req, res) {
   } catch (e) {
     log('intraday-minute-stats-v132: ' + e.message);
     sendJson(res, { timestamp: new Date().toISOString(), intraday_win_rate: 0, version: 'v5.132_error', error: e.message });
+  }
+}
+
+// === v5.135 情感觸發決策面板 + 績效維度增強 (盤中11:30優化②) ===
+function handleEmotionTriggerDecisionsV135(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_135_INTRADAY_UI_OPTIMIZE import get_emotion_trigger_decisions_v135; data = get_emotion_trigger_decisions_v135(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('emotion-trigger-v135 error: ' + e.message);
+    sendJson(res, {
+      emotion_levels: { level: 'unknown', score: 50 },
+      signals_stats: { total_signals: 0, buy_signals: 0, sell_signals: 0 },
+      param_adjustments: [],
+      action_recommendation: '-- 出錯 --',
+      error: e.message,
+      version: 'v5.135_fallback'
+    });
+  }
+}
+
+function handleIntradayPerformanceStatsV135(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_135_INTRADAY_UI_OPTIMIZE import get_intraday_performance_stats_v135; data = get_intraday_performance_stats_v135(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('intraday-performance-v135 error: ' + e.message);
+    sendJson(res, {
+      strategy_performance: [],
+      sector_distribution: [],
+      entry_quality_score: 0,
+      entry_quality_distribution: {},
+      indicator_quality: {},
+      cash_ratio: 0,
+      error: e.message,
+      version: 'v5.135_fallback'
+    });
+  }
+}
+
+function handleCombinedIntradayMetricsV135(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_135_INTRADAY_UI_OPTIMIZE import get_combined_intraday_metrics_v135; data = get_combined_intraday_metrics_v135(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('combined-metrics-v135 error: ' + e.message);
+    sendJson(res, {
+      total_trades_30d: 0,
+      win_rate_pct: 0,
+      positions_count: 0,
+      market_strength_index: 0,
+      error: e.message,
+      version: 'v5.135_fallback'
+    });
   }
 }
