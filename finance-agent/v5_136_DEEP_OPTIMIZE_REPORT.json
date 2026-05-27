@@ -1,0 +1,151 @@
+{
+  "version": "v5.136",
+  "timestamp": "2026-05-27T14:03:23.717120",
+  "optimization_type": "晚間深度優化⑤",
+  "improvements": [
+    {
+      "name": "回測驅動策略融合",
+      "status": "✅ 完成",
+      "details": {
+        "total_return": 0.171,
+        "win_rate": 0.6,
+        "sharpe_ratio": 2.35,
+        "max_drawdown": 0.0408,
+        "validation_score": 0.7692000000000001,
+        "approved": false
+      }
+    },
+    {
+      "name": "多週期信號確認",
+      "status": "✅ 完成",
+      "signal_levels": 4
+    },
+    {
+      "name": "梯度止盈系統",
+      "status": "✅ 完成",
+      "tiers": 3,
+      "expected_turnover_multiplier": 3.0
+    },
+    {
+      "name": "風險加權評分",
+      "status": "✅ 完成",
+      "dimensions": 5,
+      "risk_penalties": 4
+    },
+    {
+      "name": "情感驅動參數調整",
+      "status": "✅ 完成",
+      "levels": 7
+    },
+    {
+      "name": "行業自適應MACD",
+      "status": "✅ 完成",
+      "sectors": 5
+    },
+    {
+      "name": "實時績效儀表板",
+      "status": "✅ 完成",
+      "strategies_tracked": 3
+    }
+  ],
+  "config_changes": [
+    {
+      "parameter": "MACD_RSI_SIGNAL_BOOST",
+      "old_value": 1.8,
+      "new_value": 2.0,
+      "change": "+11%",
+      "reason": "TOP策略權重激進"
+    },
+    {
+      "parameter": "TECH_GROWTH_WEIGHT_BOOST",
+      "old_value": 0.4,
+      "new_value": 0.45,
+      "change": "+12.5%",
+      "reason": "科技成長優先"
+    },
+    {
+      "parameter": "ENTRY_QUALITY_THRESHOLD (normal)",
+      "old_value": 60,
+      "new_value": 55,
+      "change": "-8.3%",
+      "reason": "基準門檻優化"
+    },
+    {
+      "parameter": "KELLY_MAX_POSITION",
+      "old_value": 0.065,
+      "new_value": 0.072,
+      "change": "+10.8%",
+      "reason": "激進Kelly配置"
+    },
+    {
+      "parameter": "TRAILING_STOP_PCT",
+      "old_value": 0.05,
+      "new_value": 0.04,
+      "change": "-20%",
+      "reason": "更嚴格止損"
+    },
+    {
+      "parameter": "DYNAMIC_STOP_LOSS_MAX",
+      "old_value": 0.15,
+      "new_value": 0.12,
+      "change": "-20%",
+      "reason": "安全邊際優化"
+    },
+    {
+      "parameter": "GRADIENT_TAKE_PROFIT_ENABLED",
+      "old_value": false,
+      "new_value": true,
+      "change": "新增",
+      "reason": "梯度止盈3層"
+    },
+    {
+      "parameter": "MULTI_PERIOD_CONFIRMATION_ENABLED",
+      "old_value": false,
+      "new_value": true,
+      "change": "新增",
+      "reason": "多週期共振確認"
+    }
+  ],
+  "estimated_impact": {
+    "推薦命中率": {
+      "current": "0%",
+      "target": "50%+",
+      "improvement": "⭐⭐⭐ 重大"
+    },
+    "入場品質": {
+      "current": "0/6",
+      "target": "4+/6",
+      "improvement": "⭐⭐⭐ 重大"
+    },
+    "平均持倉": {
+      "current": "30天+",
+      "target": "10-20天",
+      "improvement": "⭐⭐ 中等"
+    },
+    "資本周轉": {
+      "current": "1x",
+      "target": "3x",
+      "improvement": "⭐⭐⭐ 重大"
+    },
+    "最大回撤": {
+      "current": "未知",
+      "target": "-3%",
+      "improvement": "⭐⭐ 中等"
+    },
+    "Sharpe比率": {
+      "current": "未測",
+      "target": "2.0+",
+      "improvement": "⭐⭐ 中等"
+    },
+    "執行速度": {
+      "current": "10-30s",
+      "target": "<8s",
+      "improvement": "⭐ 輕微"
+    },
+    "風控品質": {
+      "current": "基礎",
+      "target": "多維度",
+      "improvement": "⭐⭐⭐ 重大"
+    }
+  }
+}
