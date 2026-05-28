@@ -1511,3 +1511,103 @@ def get_extreme_cash_mode_boost() -> dict:
             'TREND_FOLLOW': 1.0,
             'MA_CROSS': 1.0,
         }
+
+
+# =================== v5.137: 低胜率信号源黑名单 ===================
+
+def apply_sentiment_trailing_stop_multiplier(base_trailing_stop: float, sentiment_score: int) -> float:
+    """应用情绪驱动的追踪止损乘数 (v5.137盤前優化①)
+    
+    基于市场情绪动态调整追踪止损幅度，避免极端行情的无谓止损
+    
+    Args:
+        base_trailing_stop: 基础追踪止损比例 (e.g., 0.04 = 4%)
+        sentiment_score: 市场情绪分数 (0-100)
+    
+    Returns: 调整后的追踪止损比例
+    """
+    from config import SENTIMENT_TRAILING_STOP_MULTIPLIERS
+    
+    try:
+        # 判断情绪等级
+        if sentiment_score > 92:
+            multiplier = SENTIMENT_TRAILING_STOP_MULTIPLIERS['extreme_greed']
+            level = '极度贪婪'
+        elif sentiment_score > 85:
+            multiplier = SENTIMENT_TRAILING_STOP_MULTIPLIERS['greed']
+            level = '贪婪'
+        elif sentiment_score < 25:
+            multiplier = SENTIMENT_TRAILING_STOP_MULTIPLIERS['extreme_fear']
+            level = '极度恐惧'
+        elif sentiment_score < 40:
+            multiplier = SENTIMENT_TRAILING_STOP_MULTIPLIERS['fear']
+            level = '恐惧'
+        else:
+            multiplier = SENTIMENT_TRAILING_STOP_MULTIPLIERS['normal']
+            level = '正常'
+        
+        adjusted = base_trailing_stop * multiplier
+        print(f"  📊 情绪追踪止损调整: {level}({sentiment_score}分) | {base_trailing_stop*100:.1f}% × {multiplier} → {adjusted*100:.2f}%")
+        
+        return round(adjusted, 4)
+    
+    except Exception as e:
+        print(f"⚠️  情绪止损乘数应用异常: {e}")
+        return base_trailing_stop
+
+
+def check_stop_loss_blacklist_reentry(symbol: str, quality_score: int, min_quality: int = 75) -> tuple[bool, str]:
+    """严格止损黑名单重入检查 (v5.137盤前優化②)
+    
+    被止损过的股票，需要满足以下条件才能重新入场：
+    1. 冷却期已满 (>30天后自动解除)
+    2. 新入场质量评分 >= min_quality (默认75分)
+    
+    Args:
+        symbol: 股票代码
+        quality_score: 本次入场的质量评分 (0-100分)
+        min_quality: 重入最低质量阈值 (默认75分)
+    
+    Returns:
+        (可以重入: bool, 原因: str)
+    """
+    try:
+        import sqlite3
+        from config import DB_PATH, SIGNAL_SOURCE_BLACKLIST_DAYS
+        
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        
+        # 查询此股票最近一次的止损卖出时间
+        c.execute("""
+            SELECT MAX(trade_date) FROM trades
+            WHERE symbol = ? AND direction = 'SELL' AND reason LIKE '%止损%'
+        """, (symbol,))
+        
+        last_stop_loss_date = c.fetchone()[0]
+        conn.close()
+        
+        if not last_stop_loss_date:
+            # 从未被止损过
+            return (True, f"无止损黑名单记录")
+        
+        last_stop_loss = datetime.strptime(last_stop_loss_date, '%Y-%m-%d').date()
+        days_since_stop = (date.today() - last_stop_loss).days
+        
+        # 规则1: 冷却期检查 (30天后自动解除)
+        if days_since_stop > SIGNAL_SOURCE_BLACKLIST_DAYS:
+            return (True, f"冷却期已满({days_since_stop}d > {SIGNAL_SOURCE_BLACKLIST_DAYS}d)")
+        
+        # 规则2: 质量分检查 (需>=75分才能重入)
+        if quality_score >= min_quality:
+            return (True, f"质量分充足({quality_score}分 >= {min_quality}分)")
+        
+        # 不满足条件
+        return (
+            False,
+            f"被止损股票仍在黑名单({days_since_stop}d < {SIGNAL_SOURCE_BLACKLIST_DAYS}d) 且质量分不足({quality_score}分 < {min_quality}分)"
+        )
+    
+    except Exception as e:
+        print(f"⚠️  检查止损黑名单异常: {e}")
+        return (True, f"异常时降级允许重入")
