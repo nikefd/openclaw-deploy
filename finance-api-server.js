@@ -1453,6 +1453,11 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/intraday-combined-v122' && req.method === 'GET') return handleIntradayCombinedV122(req, res);
     if (pathname === '/api/finance/intraday-heatmap-v132' && req.method === 'GET') return handleIntradayHeatmapV132(req, res);
     if (pathname === '/api/finance/intraday-minute-stats-v132' && req.method === 'GET') return handleIntradayMinuteStatsV132(req, res);
+
+    // === v5.137 盤中優化②新API端點 ===
+    if (pathname === '/api/finance/performance-ranking-v137' && req.method === 'GET') return handlePerformanceRankingV137(req, res);
+    if (pathname === '/api/finance/market-heatmap-v137' && req.method === 'GET') return handleMarketHeatmapV137(req, res);
+    if (pathname === '/api/finance/intraday-risk-v137' && req.method === 'GET') return handleIntraDayRiskV137(req, res);
     
     // Static file service for UI optimization
     if (pathname === '/ui-optimize-v5.65.js' && req.method === 'GET') {
@@ -2657,6 +2662,72 @@ function handleIntradayMinuteStatsV132(req, res) {
   } catch (e) {
     log('intraday-minute-stats-v132: ' + e.message);
     sendJson(res, { timestamp: new Date().toISOString(), intraday_win_rate: 0, version: 'v5.132_error', error: e.message });
+  }
+}
+
+// === v5.137 盤中優化② - 性能排序面板 (11:30優化) ===
+function handlePerformanceRankingV137(req, res) {
+  try {
+    const params = parseUrl(req.url).params;
+    const sortBy = params.sort_by || 'roi';
+    const limit = parseInt(params.limit) || 10;
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_137_intraday_optimization import get_performance_ranking; data = get_performance_ranking('${sortBy}', ${limit}); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 5000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('performance-ranking-v137: ' + e.message);
+    sendJson(res, { status: 'ERROR', error: e.message, ranking: [], timestamp: new Date().toISOString(), version: 'v5.137' });
+  }
+}
+
+// === v5.137 盤中優化② - 市場熱力圖 (11:30優化) ===
+function handleMarketHeatmapV137(req, res) {
+  try {
+    const params = parseUrl(req.url).params;
+    const timeframe = params.timeframe || 'daily';
+    const includeSentiment = params.include_sentiment !== 'false' ? 'True' : 'False';
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_137_intraday_optimization import get_market_heatmap; data = get_market_heatmap('${timeframe}', ${includeSentiment}); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 5000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('market-heatmap-v137: ' + e.message);
+    sendJson(res, { status: 'ERROR', error: e.message, sectors: [], timestamp: new Date().toISOString(), version: 'v5.137' });
+  }
+}
+
+// === v5.137 盤中優化② - 實時風控指標 (11:30優化) ===
+function handleIntraDayRiskV137(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_137_intraday_optimization import get_intraday_risk_metrics; data = get_intraday_risk_metrics(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 5000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('intraday-risk-v137: ' + e.message);
+    sendJson(res, { status: 'ERROR', error: e.message, position_count: 0, timestamp: new Date().toISOString(), version: 'v5.137' });
   }
 }
 
