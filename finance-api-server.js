@@ -963,6 +963,98 @@ function handleRun(req, res) {
   sendJson(res, { status: 'running', message: '分析已触发' });
 }
 
+// === v5.139 改进① 绩效统计增强 ===
+function handleEnhancedPerformanceStats(req, res) {
+  // 获取交易数据
+  const trades = querySqlite('SELECT * FROM trades ORDER BY trade_date DESC, id DESC');
+  const snapshots = querySqlite('SELECT * FROM daily_snapshots ORDER BY date ASC');
+  const accounts = querySqlite('SELECT * FROM account ORDER BY id DESC LIMIT 1');
+  const account = accounts[0] || { cash: 0, total_value: INITIAL_CAPITAL };
+
+  // 1. 胜率计算
+  const sellTrades = trades.filter(t => t.direction === 'SELL');
+  const wins = sellTrades.filter(t => t.pnl && t.pnl > 0).length;
+  const total = sellTrades.length;
+  const winRate = total > 0 ? (wins / total * 100).toFixed(2) : '0.00';
+
+  // 2. 盈亏比
+  const profits = sellTrades.filter(t => t.pnl > 0).reduce((s, t) => s + (t.pnl || 0), 0);
+  const losses = Math.abs(sellTrades.filter(t => t.pnl < 0).reduce((s, t) => s + (t.pnl || 0), 0));
+  const profitFactor = losses > 0 ? (profits / losses).toFixed(2) : (profits > 0 ? '999.00' : '0.00');
+
+  // 3. 连胜/连败
+  let maxWin = 0, maxLoss = 0, currentWin = 0, currentLoss = 0;
+  trades.forEach(t => {
+    if (t.direction === 'SELL') {
+      if (t.pnl > 0) {
+        currentWin++;
+        currentLoss = 0;
+        maxWin = Math.max(maxWin, currentWin);
+      } else if (t.pnl < 0) {
+        currentLoss++;
+        currentWin = 0;
+        maxLoss = Math.max(maxLoss, currentLoss);
+      }
+    }
+  });
+
+  // 4. 夏普率
+  let dailyReturns = [];
+  if (snapshots.length >= 2) {
+    for (let i = snapshots.length - 1; i > 0; i--) {
+      const ret = (snapshots[i-1].total_value - snapshots[i].total_value) / snapshots[i].total_value;
+      dailyReturns.push(ret);
+    }
+  }
+  const mean = dailyReturns.length > 0 ? dailyReturns.reduce((s, r) => s + r, 0) / dailyReturns.length : 0;
+  const variance = dailyReturns.length > 0 ? dailyReturns.reduce((s, r) => s + Math.pow(r - mean, 2), 0) / dailyReturns.length : 0;
+  const stdDev = Math.sqrt(variance);
+  const sharpe = stdDev === 0 ? 0 : ((mean * 252 - 0.02) / (stdDev * Math.sqrt(252))).toFixed(2);
+
+  // 5. 回撤
+  let maxDD = 0, recoveryDays = 0, peakValue = 0, peakIndex = 0;
+  for (let i = 0; i < snapshots.length; i++) {
+    if (snapshots[i].total_value > peakValue) {
+      peakValue = snapshots[i].total_value;
+      peakIndex = i;
+    }
+    const dd = (snapshots[i].total_value - peakValue) / peakValue * 100;
+    if (dd < maxDD) maxDD = dd;
+  }
+  // 计算恢复天数
+  for (let i = peakIndex; i < snapshots.length; i++) {
+    if (snapshots[i].total_value >= peakValue) {
+      recoveryDays = i - peakIndex;
+      break;
+    }
+  }
+
+  // 6. 收益分布
+  const pnlPcts = sellTrades.filter(t => t.pnl_pct !== undefined).map(t => t.pnl_pct || 0);
+  const minPnl = pnlPcts.length > 0 ? Math.floor(Math.min(...pnlPcts) / 5) * 5 : -20;
+  const maxPnl = pnlPcts.length > 0 ? Math.ceil(Math.max(...pnlPcts) / 5) * 5 : 20;
+  const bins = [];
+  const freq = [];
+  for (let i = minPnl; i <= maxPnl; i += 5) {
+    bins.push(`${i}%~${i+5}%`);
+    const count = pnlPcts.filter(p => p >= i && p < i + 5).length;
+    freq.push(count);
+  }
+
+  sendJson(res, {
+    win_rate: parseFloat(winRate),
+    profit_factor: parseFloat(profitFactor),
+    max_consecutive_win: maxWin,
+    max_consecutive_loss: maxLoss,
+    sharpe_ratio: parseFloat(sharpe),
+    max_drawdown: Math.round(maxDD * 100) / 100,
+    recovery_days: recoveryDays,
+    total_trades: total,
+    return_distribution: { bins, freq },
+    latest_snapshot: snapshots[snapshots.length - 1] || {}
+  });
+}
+
 function handleDailyPnl(req, res) {
   const snapshots = querySqlite('SELECT date, total_value FROM daily_snapshots ORDER BY date ASC');
   if (snapshots.length < 2) return sendJson(res, { days: [] });
@@ -1219,6 +1311,7 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/finance/kelly-positions' && req.method === 'GET') return handleKellyPositions(req, res);
     if (pathname === '/api/finance/analysis' && req.method === 'GET') return handleAnalysis(req, res);
     if (pathname === '/api/finance/trades' && req.method === 'GET') return handleTrades(req, res, params);
+    if (pathname === '/api/finance/performance-enhanced-v139' && req.method === 'GET') return handleEnhancedPerformanceStats(req, res);
     if (pathname === '/api/finance/reports' && req.method === 'GET') return handleReportsList(req, res);
     if (pathname === '/api/finance/news' && req.method === 'GET') return handleNews(req, res);
     if (pathname === '/api/finance/chart' && req.method === 'GET') return handleChart(req, res);
