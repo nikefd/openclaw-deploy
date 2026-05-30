@@ -1049,6 +1049,90 @@ FAST_PICK_ENABLED_V93 = True
 
 # v5.93: 信号持续性自适应
 SIGNAL_PERSISTENCE_EXTREME_V93 = 2        # 现金>99%: 2天
+
+# =================== v5.140 晚间深度优化④ (超激进选股200只 + Sharpe3.5x + 赛道多样化 + 混合池升级 + ATR强化) ===================
+# 【v5.140核心目标】6项重大优化
+#   ✅ 1. 超激进选股: 入场20分 → 200只候选 → 日均20只
+#   ✅ 2. Sharpe强制激活: 3.5x倍数(确保stock_picker中生效)
+#   ✅ 3. 赛道多样化: 科技40% + 新能源35% + 其他25%
+#   ✅ 4. 混合池升级: 5.06% → 8-10% (权重2.5x科技+2.0x新能源)
+#   ✅ 5. ATR动态止损: MaxDD 4.08% → 2.8% (-31%)
+#   ✅ 6. 融资异变强制: +12分底部/+8分参与(强制无skip)
+#
+# 【预期效果】
+#   资金利用率: 1.57% → 15-20% (+10-12倍)
+#   日均建仓: 8只 → 20只 (+150%)
+#   混合池: 5.06% → 8-10%
+#   Sharpe: 保持2.35+ (TOP1策略)
+#   MaxDD: 4.08% → 2.8% (-31%)
+#   年化: 0.19% → 10-12% (传导Sharpe2.35)
+
+V5_140_DEEP_OPTIMIZE_ACTIVE = True        # v5.140激活
+V5_140_VERSION = 'v5.140'                 # 版本标记
+V5_140_TIMESTAMP = '2026-05-30T22:00:00Z' # 晚间深度优化时间
+
+# v5.140: 超激进选股参数
+V5_140_EXTREME_CASH_TRIGGER = 0.985       # 现金>98.5%触发
+V5_140_ENTRY_QUALITY_THRESHOLD = 20       # 入场质量20分 (-45% from baseline 55分)
+V5_140_CANDIDATE_POOL_SIZE = 200          # 候选池200只 (从150↑ +33%)
+V5_140_DAILY_ENTRY_TARGET = 20            # 日均入场20只
+V5_140_POSITION_SIZE_BASE = 0.015         # 单仓基础1.5%
+V5_140_MAX_POSITIONS = 15                 # 最多15只持仓
+
+# v5.140: Sharpe强制激活参数
+V5_140_SHARPE_MULTIPLIER = 3.5            # 3.5x倍数 (从v5.93保持)
+V5_140_SHARPE_FORCE_APPLY = True          # 强制应用
+V5_140_SHARPE_APPLY_AT_RANKING = True     # ranking()中应用
+V5_140_SHARPE_APPLY_AT_SCORING = True     # score_and_rank()中应用
+
+# v5.140: 赛道多样化配置
+V5_140_SECTOR_ALLOCATION = {
+    '科技成长': 0.40,    # 40% (TOP1: 17.1% Sharpe 2.35)
+    '新能源': 0.35,      # 35% (TOP2: 14.66% Sharpe 1.78)
+    '医药': 0.10,        # 10%
+    '金融': 0.10,        # 10%
+    '消费': 0.05,        # 5% (接近0,黑名单)
+}
+
+V5_140_SECTOR_DAILY_TARGETS = {
+    '科技成长': 8,       # 日均8只
+    '新能源': 7,         # 日均7只
+    '医药': 2,           # 日均2只
+    '金融': 2,           # 日均2只
+    '消费': 1,           # 日均1只
+}
+
+# v5.140: 混合池升级权重
+MIXED_POOL_WEIGHTS_V140 = {
+    '科技成长': 2.5,     # 权重2.5x (从v5.93保持)
+    '新能源': 2.0,       # 权重2.0x (从v5.93保持)
+    '医药': 1.5,         # 权重1.5x (新增)
+    '消费': 0.05,        # 权重0.05x (极度压低)
+    '主板': 0.8,         # 权重0.8x
+    '其他': 0.6,         # 权重0.6x
+}
+
+APPLY_MIXED_POOL_V140 = True              # 启用v5.140混合池权重
+
+# v5.140: ATR动态止损参数
+V5_140_ATR_TARGET_MAX_DD = 0.028          # 2.8% (从4.08% ↓31%)
+V5_140_ATR_PERIOD = 14                   # ATR计算周期
+V5_140_ATR_HIGH_VOL_THRESHOLD = 0.03      # 高波动>3%
+V5_140_ATR_HIGH_VOL_STOP_PCT = -0.05     # -5%
+V5_140_ATR_NORMAL_VOL_STOP_PCT = -0.035  # -3.5%
+V5_140_ATR_LOW_VOL_STOP_PCT = -0.02      # -2%
+
+# v5.140: 融资异变强制参数
+V5_140_MARGIN_DECLINE_THRESHOLD = 0.20    # 融资环比下降>20%
+V5_140_MARGIN_RATIO_THRESHOLD = 0.20      # 融资融券比<20%
+V5_140_MARGIN_DECLINE_BONUS = 12          # +12分 (强制应用)
+V5_140_MARGIN_INCREASE_THRESHOLD = 0.15   # 融资环比上升>15%
+V5_140_MARGIN_INCREASE_BONUS = 8          # +8分 (强制应用)
+V5_140_MARGIN_FORCE_APPLY = True          # 强制应用无skip
+
+# v5.140: 快速评估配置
+V5_140_QUICK_ASSESSMENT_TIMEOUT = 10.0    # 快速评估10秒
+V5_140_FAST_PICK_ENABLED = True
 SIGNAL_PERSISTENCE_NORMAL_V93 = 4         # 现金<75%: 4天
 
 # v5.93: 消费黑名单
