@@ -1,0 +1,65 @@
+{
+  "timestamp": "2026-05-31T14:02:54.413554",
+  "version": "v5.142",
+  "top_strategy": "科技成长_MACD+RSI",
+  "top_strategy_metrics": {
+    "total_return": 0.171,
+    "max_drawdown": 0.0408,
+    "win_rate": 0.6,
+    "sharpe_ratio": 2.35,
+    "profit_factor": 2.1,
+    "best_stocks": [
+      "002230",
+      "002371",
+      "688012",
+      "603186",
+      "001367"
+    ]
+  },
+  "confidence_score": 69.55,
+  "optimal_macd_params": {
+    "tech_growth": {
+      "fast": 12,
+      "slow": 26,
+      "signal": 9,
+      "rsi": 14
+    },
+    "new_energy": {
+      "fast": 9,
+      "slow": 21,
+      "signal": 7,
+      "rsi": 12
+    },
+    "small_cap": {
+      "fast": 7,
+      "slow": 17,
+      "signal": 5,
+      "rsi": 10
+    },
+    "large_cap": {
+      "fast": 14,
+      "slow": 28,
+      "signal": 9,
+      "rsi": 16
+    }
+  },
+  "recommendations": {
+    "primary_strategy": "科技成长_MACD+RSI",
+    "strategy_weight": 1.2,
+    "entry_quality_threshold": 20,
+    "kelly_coefficient": 1.75,
+    "focus_sectors": [
+      "科技成长",
+      "新能源"
+    ],
+    "avoid_sectors": [
+      "消费白马"
+    ]
+  },
+  "risk_management": {
+    "max_portfolio_drawdown": 0.03,
+    "position_max_loss": 0.08,
+    "daily_loss_limit": 0.02,
+    "trailing_stop_pct": 0.04
+  }
+}
