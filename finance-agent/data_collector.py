@@ -79,18 +79,38 @@ def get_stock_news(symbol: str = None) -> pd.DataFrame:
 
 
 def get_sentiment_cache() -> dict:
-    """从数据库读取上一交易日市场情绪缓存"""
+    """从数据库读取最近有效的市场情绪缓存 (v5.143盤前優化①改进)
+    
+    改进: 
+    - 优先读取当日缓存 (如果存在)
+    - 其次读取上一交易日缓存 (最多保留2小时有效期)
+    - 缓存数据结构中加入timestamp用于有效期检查
+    """
     try:
         import sqlite3
         conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
         c = conn.cursor()
-        c.execute("SELECT sentiment_data FROM daily_snapshots WHERE date < ? ORDER BY date DESC LIMIT 1", 
-                  (datetime.now().strftime('%Y-%m-%d'),))
+        today = datetime.now().strftime('%Y-%m-%d')
+        
+        # 优先读当日缓存
+        c.execute("SELECT sentiment_data FROM daily_snapshots WHERE date = ? ORDER BY date DESC LIMIT 1", (today,))
         row = c.fetchone()
+        
+        # 如果当日无缓存，读上一交易日缓存
+        if not row:
+            c.execute("SELECT sentiment_data FROM daily_snapshots WHERE date < ? ORDER BY date DESC LIMIT 1", (today,))
+            row = c.fetchone()
+        
         conn.close()
         if row and row[0]:
             try:
-                return json.loads(row[0])
+                cache_data = json.loads(row[0])
+                # v5.143: 检查缓存有效期 (盤前优化：缓存最多2小时有效)
+                if '_timestamp' in cache_data:
+                    cache_age_sec = (datetime.now() - datetime.fromisoformat(cache_data['_timestamp'])).total_seconds()
+                    if cache_age_sec > 7200:  # 2小时
+                        return {'sentiment_score': 50, 'sentiment_label': '中性', 'limit_up_count': 0, '_from_cache': True, '_reason': '缓存过期'}
+                return cache_data
             except:
                 pass
     except:

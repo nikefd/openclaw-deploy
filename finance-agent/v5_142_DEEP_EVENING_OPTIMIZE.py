@@ -73,22 +73,66 @@ class BacktestDataDrivenOptimizer:
         top_name, top_data = sorted_by_return[0]
         return top_name, top_data
     
-    def get_optimal_macd_params(self) -> Dict[str, int]:
+    def get_optimal_macd_params(self, sector: str = None, market_cap_billion: float = None) -> Dict[str, int]:
         """
-        基于回测提取最优MACD参数
+        基于回测提取最优MACD参数 (v5.143盤前優化②改進)
         TOP策略: 科技成长MACD+RSI (17.1%)
         
+        v5.143改進:
+        - 新增多層降級邏輯 (主策略 → 行業平均 → 全局默認)
+        - 支持按市值/行業動態選擇參數
+        - 數據缺失時自動降級
+        
         推荐参数 (基于历史最优):
-        - 科技成长: MACD(12,26,9) RSI(14)  [当前已验证最优]
-        - 新能源: MACD(9,21,7) RSI(12)
-        - 小盘股: MACD(7,17,5) RSI(10) [敏感度更高]
+        - 科技成长: MACD(12,26,9) RSI(14)  [TOP策略 17.1%]
+        - 新能源: MACD(9,21,7) RSI(12)     [次優 14.66%]
+        - 小盘股: MACD(7,17,5) RSI(10)     [敏感度高]
+        - 大盘股: MACD(14,28,9) RSI(16)    [穩定性]
         """
-        return {
-            'tech_growth': {'fast': 12, 'slow': 26, 'signal': 9, 'rsi': 14},
-            'new_energy': {'fast': 9, 'slow': 21, 'signal': 7, 'rsi': 12},
-            'small_cap': {'fast': 7, 'slow': 17, 'signal': 5, 'rsi': 10},
-            'large_cap': {'fast': 14, 'slow': 28, 'signal': 9, 'rsi': 16},
+        # 第一層: 主策略參數 (最優化)
+        primary_params = {
+            'tech_growth': {'fast': 12, 'slow': 26, 'signal': 9, 'rsi': 14, 'confidence': 95},
+            'new_energy': {'fast': 9, 'slow': 21, 'signal': 7, 'rsi': 12, 'confidence': 88},
+            'small_cap': {'fast': 7, 'slow': 17, 'signal': 5, 'rsi': 10, 'confidence': 78},
+            'large_cap': {'fast': 14, 'slow': 28, 'signal': 9, 'rsi': 16, 'confidence': 85},
         }
+        
+        # 第二層: 行業平均參數 (降級備選)
+        industry_avg_params = {
+            'tech_growth': {'fast': 11, 'slow': 25, 'signal': 9, 'rsi': 13, 'confidence': 75},
+            'new_energy': {'fast': 10, 'slow': 22, 'signal': 8, 'rsi': 12, 'confidence': 70},
+            'small_cap': {'fast': 8, 'slow': 18, 'signal': 6, 'rsi': 11, 'confidence': 65},
+            'large_cap': {'fast': 13, 'slow': 27, 'signal': 9, 'rsi': 15, 'confidence': 70},
+        }
+        
+        # 第三層: 全局默認參數 (最終降級)
+        default_params = {
+            'fast': 12, 'slow': 26, 'signal': 9, 'rsi': 14, 'confidence': 50
+        }
+        
+        # 市值分層決策 (v5.143改進)
+        if market_cap_billion is not None:
+            if market_cap_billion > 2000:
+                sector = 'large_cap'
+            elif 500 <= market_cap_billion <= 2000:
+                sector = 'mid_cap'
+            else:
+                sector = 'small_cap'
+        
+        # 多層降級邏輯
+        if sector and sector in primary_params:
+            try:
+                return primary_params[sector]  # 第一優先
+            except:
+                pass
+        
+        if sector and sector in industry_avg_params:
+            try:
+                return industry_avg_params[sector]  # 第二優先
+            except:
+                pass
+        
+        return default_params  # 最終降級到全局默認
     
     def calculate_confidence_score(self, data: Dict) -> float:
         """

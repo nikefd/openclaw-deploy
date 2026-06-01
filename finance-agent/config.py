@@ -136,6 +136,19 @@ KELLY_COEFFICIENT = 1.75  # v5.134: +6.1% Kelly激進  # v5.130: +3.1% 激进模
 KELLY_SAFE_COEFFICIENT = 1.35  # v5.122: 低胜率(<60%)时自动降级至安全Kelly
 KELLY_MIN_WINRATE_FOR_AGGRESSIVE = 0.60  # v5.122: 激进Kelly需要最少60%胜率
 
+# v5.143 盤前優化③改進: Kelly系數極端情緒限制 (防止過度槓桿)
+KELLY_SENTIMENT_MULTIPLIERS = {
+    'extreme_fear': 0.60,          # 極度恐懼(<25分): Kelly×0.60 = 1.05倍 (保守)
+    'fear': 0.75,                  # 恐懼(25-40): Kelly×0.75 = 1.31倍
+    'normal': 1.0,                 # 正常(40-85): Kelly×1.0 = 1.75倍 (基準)
+    'greed': 0.95,                 # 貪婪(85-92): Kelly×0.95 = 1.66倍 (略緊)
+    'extreme_greed': 0.80          # 極度貪婪(>92): Kelly×0.80 = 1.40倍 (快速止盈)
+}
+
+# v5.143 新增: Kelly系數上限動態調整 (結合波動率)
+KELLY_COEFFICIENT_MAX = 2.0        # Kelly係數絕對上限 (防止極端情況)
+KELLY_COEFFICIENT_MIN = 0.50       # Kelly係數絕對下限 (最保守時)
+
 # 高Sharpe持仓保留
 HIGH_SHARPE_THRESHOLD = 1.5    # Sharpe>1.5的持仓加强保留
 HIGH_SHARPE_STOP_LOSS_RELAX = 0.02  # 止损容错放宽+2%
