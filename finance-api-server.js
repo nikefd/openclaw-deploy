@@ -1299,6 +1299,11 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/finance/emotion-trigger-v135' && req.method === 'GET') return handleEmotionTriggerDecisionsV135(req, res);
     if (pathname === '/api/finance/intraday-performance-v135' && req.method === 'GET') return handleIntradayPerformanceStatsV135(req, res);
     if (pathname === '/api/finance/combined-metrics-v135' && req.method === 'GET') return handleCombinedIntradayMetricsV135(req, res);
+    // === v5.141 UI优化② (11:30) - 绩效统计增强 ===
+    if (pathname === '/api/finance/performance-metrics-v141' && req.method === 'GET') return handlePerformanceMetricsV141(req, res);
+    if (pathname === '/api/finance/capital-allocation-v141' && req.method === 'GET') return handleCapitalAllocationV141(req, res);
+    if (pathname === '/api/finance/risk-metrics-v141' && req.method === 'GET') return handleRiskMetricsV141(req, res);
+    if (pathname === '/api/finance/daily-summary-v141' && req.method === 'GET') return handleDailySummaryV141(req, res);
     // === UI优化v5.97旧端点 ===
     if (pathname === '/kelly-positions' && req.method === 'GET') return handleKellyPositionsV97(req, res);
     if (pathname === '/selection-status' && req.method === 'GET') return handleSelectionStatus(req, res);
@@ -2902,5 +2907,82 @@ function handleCombinedIntradayMetricsV135(req, res) {
       error: e.message,
       version: 'v5.135_fallback'
     });
+  }
+}
+
+// === v5.141 UI优化② (11:30) - 绩效统计增强 ===
+function handlePerformanceMetricsV141(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_141_intraday_ui_optimize import get_performance_metrics; data = get_performance_metrics(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 5000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('[') || lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, { metrics: data, version: 'v5.141', timestamp: new Date().toISOString() });
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('performance-metrics-v141: ' + e.message);
+    sendJson(res, { metrics: [], error: e.message, version: 'v5.141_fallback' });
+  }
+}
+
+function handleCapitalAllocationV141(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_141_intraday_ui_optimize import get_capital_allocation_heatmap; data = get_capital_allocation_heatmap(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 5000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('capital-allocation-v141: ' + e.message);
+    sendJson(res, { sectors: [], total_portfolio_value: 0, error: e.message, version: 'v5.141_fallback' });
+  }
+}
+
+function handleRiskMetricsV141(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_141_intraday_ui_optimize import get_risk_metrics; data = get_risk_metrics(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 5000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('risk-metrics-v141: ' + e.message);
+    sendJson(res, { total_risk_score: 50, risk_level: 'unknown', error: e.message, version: 'v5.141_fallback' });
+  }
+}
+
+function handleDailySummaryV141(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_141_intraday_ui_optimize import get_daily_performance_summary; data = get_daily_performance_summary(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 5000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('daily-summary-v141: ' + e.message);
+    sendJson(res, { total_trades: 0, daily_pnl: 0, daily_pnl_pct: 0, error: e.message, version: 'v5.141_fallback' });
   }
 }
