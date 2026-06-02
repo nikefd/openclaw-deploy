@@ -1,0 +1,36 @@
+{
+  "version": "v5.146",
+  "timestamp": "2026-06-02T00:01:06.170389",
+  "improvements": [
+    "多層情緒緩存 (L1內存/L2SQLite/L3默認)",
+    "動態MACD+RSI參數適應",
+    "資金面快速判斷"
+  ],
+  "test_result": {
+    "sentiment_cache": {
+      "sentiment_score": 85.1063829787234,
+      "sentiment_label": "贪婪",
+      "limit_up_count": 120,
+      "limit_down_count": 21,
+      "_source": "L1_memory",
+      "_cached_at": "2026-06-02T00:01:03.682810"
+    },
+    "adaptive_params": {
+      "macd": {
+        "fast": 14,
+        "slow": 24,
+        "signal": 11
+      },
+      "rsi": {
+        "period": 16,
+        "oversold": 25,
+        "overbought": 75
+      },
+      "mode": "very_cautious",
+      "kelly_boost": 0.7,
+      "description": "極度貪婪-高度謹慎模式"
+    },
+    "fund_filter_ready": true
+  },
+  "status": "READY_FOR_DEPLOYMENT"
+}
