@@ -1119,6 +1119,78 @@ function handleRunStatus(req, res) {
   sendJson(res, { status: runState.status, log: logContent });
 }
 
+// === v5.147 盤中UI優化②聚合API ===
+function handleIntradayUIV147(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_147_INTRADAY_UI_OPTIMIZE import get_intraday_ui_v147; print(json.dumps(get_intraday_ui_v147(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 30000 }).toString().trim();
+    sendJson(res, JSON.parse(out || '{}'));
+  } catch (e) {
+    log('intraday-ui-v147 error: ' + e.message);
+    sendJson(res, { error: e.message, timestamp: new Date().toISOString() });
+  }
+}
+
+// === v5.147 性能指标面板 ===
+function handlePerformanceIndicatorsV147(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_147_INTRADAY_UI_OPTIMIZE import get_performance_indicators; print(json.dumps(get_performance_indicators(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    sendJson(res, JSON.parse(out || '{}'));
+  } catch (e) {
+    log('performance-indicators-v147 error: ' + e.message);
+    sendJson(res, { error: e.message });
+  }
+}
+
+// === v5.147 信号质量评分 ===
+function handleSignalQualityV147(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_147_INTRADAY_UI_OPTIMIZE import get_signal_quality_score; print(json.dumps(get_signal_quality_score(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    sendJson(res, JSON.parse(out || '{}'));
+  } catch (e) {
+    log('signal-quality-v147 error: ' + e.message);
+    sendJson(res, { error: e.message });
+  }
+}
+
+// === v5.147 情感触发决策 ===
+function handleEmotionTriggerV147(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_147_INTRADAY_UI_OPTIMIZE import get_emotion_trigger_decision; print(json.dumps(get_emotion_trigger_decision(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    sendJson(res, JSON.parse(out || '{}'));
+  } catch (e) {
+    log('emotion-trigger-v147 error: ' + e.message);
+    sendJson(res, { error: e.message });
+  }
+}
+
+// === v5.147 止损黑名单 ===
+function handleStoplossBlacklistV147(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_147_INTRADAY_UI_OPTIMIZE import get_stoploss_blacklist_7d; print(json.dumps(get_stoploss_blacklist_7d(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    sendJson(res, JSON.parse(out || '{}'));
+  } catch (e) {
+    log('stoploss-blacklist-v147 error: ' + e.message);
+    sendJson(res, { error: e.message });
+  }
+}
+
+// === v5.147 绩效卡片 ===
+function handlePerformanceCardsV147(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_147_INTRADAY_UI_OPTIMIZE import get_performance_cards; print(json.dumps(get_performance_cards(), ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 10000 }).toString().trim();
+    sendJson(res, JSON.parse(out || '{}'));
+  } catch (e) {
+    log('performance-cards-v147 error: ' + e.message);
+    sendJson(res, { error: e.message });
+  }
+}
+
 // === 改进① 现金占比+策略激进度 ===
 function handleCashAllocationProfile(req, res) {
   const accounts = querySqlite('SELECT * FROM account ORDER BY id DESC LIMIT 1');
@@ -1304,6 +1376,13 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/finance/capital-allocation-v141' && req.method === 'GET') return handleCapitalAllocationV141(req, res);
     if (pathname === '/api/finance/risk-metrics-v141' && req.method === 'GET') return handleRiskMetricsV141(req, res);
     if (pathname === '/api/finance/daily-summary-v141' && req.method === 'GET') return handleDailySummaryV141(req, res);
+    // === v5.147 盤中UI優化② (11:30) - 性能指標+信號質量+情感決策 ===
+    if (pathname === '/api/finance/intraday-ui-v147' && req.method === 'GET') return handleIntradayUIV147(req, res);
+    if (pathname === '/api/finance/performance-indicators-v147' && req.method === 'GET') return handlePerformanceIndicatorsV147(req, res);
+    if (pathname === '/api/finance/signal-quality-v147' && req.method === 'GET') return handleSignalQualityV147(req, res);
+    if (pathname === '/api/finance/emotion-trigger-v147' && req.method === 'GET') return handleEmotionTriggerV147(req, res);
+    if (pathname === '/api/finance/stoploss-blacklist-v147' && req.method === 'GET') return handleStoplossBlacklistV147(req, res);
+    if (pathname === '/api/finance/performance-cards-v147' && req.method === 'GET') return handlePerformanceCardsV147(req, res);
     // === UI优化v5.97旧端点 ===
     if (pathname === '/kelly-positions' && req.method === 'GET') return handleKellyPositionsV97(req, res);
     if (pathname === '/selection-status' && req.method === 'GET') return handleSelectionStatus(req, res);
