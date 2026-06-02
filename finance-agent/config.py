@@ -2588,3 +2588,101 @@ CONFIG_APPLICATION_PRIORITY = {
     'SENTIMENT_DRIVEN_MACD_RSI': 3  # 中等: 情绪自适应
 }
 
+
+# =================== v5.148 晚间深度优化V⁴级别 ===================
+# 核心改进:
+# 1. Kelly系数即时动态调整 (基于胜率/回撤/波动/情绪/现金/连亏)
+# 2. 多因子融合3.5 (技术35% + 资金25% + 情感20% + 基本15% + 情绪智能5%)
+# 3. 强制减仓机制 (高位止盈 + 相关性过高 + 单仓过大)
+# 4. 资金配置动态优化 (现金>95%→超激进 / 现金<30%→防御)
+
+# ① Kelly系数即时动态调整
+KELLY_DYNAMIC_OPTIMIZATION_ENABLED = True
+KELLY_DYNAMIC_BASE = 1.75              # 基础Kelly系数
+KELLY_DYNAMIC_MIN = 0.50               # 极端风险时最小Kelly
+KELLY_DYNAMIC_MAX = 2.0                # 极度确定性时最大Kelly
+
+# 胜率调整映射
+KELLY_WINRATE_ADJUSTMENTS = {
+    'high': (0.65, 1.1),           # 胜率>65% → Kelly×1.1
+    'baseline': (0.60, 1.0),        # 胜率60-65% → Kelly×1.0
+    'caution': (0.55, 0.9),         # 胜率55-60% → Kelly×0.9
+    'safe': (0.0, 0.7),             # 胜率<55% → Kelly×0.7 (切换安全模式)
+}
+
+# ② 多因子融合3.5权重
+MULTI_FACTOR_FUSION_35_WEIGHTS = {
+    'technical': 0.35,          # MACD+RSI+MA
+    'fund_flow': 0.25,          # 机构资金+主力资金
+    'sentiment': 0.20,          # 市场情绪+情绪驱动
+    'sector': 0.15,             # 行业轮动+热点
+    'cross_validation': 0.05    # 交叉验证+信号置信
+}
+
+# 虚假信号风险阈值
+FALSE_SIGNAL_RISK_THRESHOLD = 0.35    # 风险>35%认为虚假信号
+ENTRY_QUALITY_FROM_FUSION = True      # 使用融合质量评分作为入场门槛
+
+# ③ 强制减仓机制
+FORCED_POSITION_REDUCTION_ENABLED = True
+
+# 高位止盈配置
+TAKE_PROFIT_REDUCTION = {
+    'extreme_greed': 0.12,      # 极度贪婪(>92分) - 目标收益12%后平50%
+    'greed': 0.15,              # 贪婪(85-92分) - 目标收益15%后平50%
+    'normal': 0.18              # 正常(40-85分) - 目标收益18%后平50%
+}
+
+REDUCE_RATIO_AT_PROFIT_TARGET = 0.50  # 达到目标收益时平仓50%
+
+# 相关性过高减仓
+CORRELATION_THRESHOLD = 0.70          # 相关系数>0.70触发减仓
+CORRELATION_REDUCE_RATIO = 0.25       # 减仓25%
+
+# 单仓过大减仓
+MAX_SINGLE_POSITION_RATIO_V148 = 0.04      # 单只头寸>4%即减仓
+REDUCE_TO_TARGET_RATIO = 0.03         # 减仓至3%以下
+
+# ④ 资金配置动态优化
+CASH_DYNAMIC_OPTIMIZATION_ENABLED = True
+
+CASH_ALLOCATION_MODES = {
+    'ULTRA_AGGRESSIVE': {
+        'cash_range': (0.95, 1.0),
+        'entry_quality_adjust': -50,
+        'kelly_adjust': 1.2,
+        'max_positions_adjust': 1.5,
+        'target_allocated': 0.70
+    },
+    'AGGRESSIVE': {
+        'cash_range': (0.70, 0.95),
+        'entry_quality_adjust': -25,
+        'kelly_adjust': 1.1,
+        'max_positions_adjust': 1.2,
+        'target_allocated': 0.50
+    },
+    'NORMAL': {
+        'cash_range': (0.50, 0.70),
+        'entry_quality_adjust': 0,
+        'kelly_adjust': 1.0,
+        'max_positions_adjust': 1.0,
+        'target_allocated': 0.35
+    },
+    'CONSERVATIVE': {
+        'cash_range': (0.30, 0.50),
+        'entry_quality_adjust': 25,
+        'kelly_adjust': 0.9,
+        'max_positions_adjust': 0.8,
+        'target_allocated': 0.20
+    },
+    'DEFENSIVE': {
+        'cash_range': (0.0, 0.30),
+        'entry_quality_adjust': 50,
+        'kelly_adjust': 0.8,
+        'max_positions_adjust': 0.6,
+        'target_allocated': 0.10
+    }
+}
+
+# v5.148应用优先级 (最高优先级)
+V5_148_OPTIMIZATION_PRIORITY = 0  # 最高优先级
