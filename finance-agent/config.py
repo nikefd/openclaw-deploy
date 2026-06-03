@@ -41,7 +41,8 @@ PORTFOLIO_ALLOCATION = {
 
 # v5.85新增: 最少现金比例 (从25%→10%) | v5.94盘前优化: 10%→15% | v5.114: 15%→10%激进模式
 # v5.144: 情绪85+时自动提升至25% (盘整期防御)
-MIN_CASH_RATIO = 0.05  # 基础: 5% | 盘整期(情绪85+)动态调整到 25%
+# v5.150: 现金充足模式下提升至30% (保留弹性,避免过度配置)
+MIN_CASH_RATIO = 0.30  # v5.150优化: 0.05→0.30 (现金充足保护) | 盘整期(情绪85+)可达25%
 
 # =================== v5.144 盘整期防御优化 ===================
 # 当情绪>85且创业板跌幅>-1.5%时自动激活
@@ -541,10 +542,10 @@ MARGIN_SIGNAL_V2 = {
 
 # v5.61: 入场质量动态分级 V2 (优化现金占比对应的门槛)
 ENTRY_QUALITY_DYNAMIC_V2 = {
-    'extreme_cash': {'threshold': 30, 'cash_range': (0.98, 1.0)},   # 现金>98%: 30分 (激进)
-    'very_high_cash': {'threshold': 40, 'cash_range': (0.90, 0.98)}, # 现金90-98%: 40分
-    'high_cash': {'threshold': 50, 'cash_range': (0.75, 0.90)},     # 现金75-90%: 50分
-    'normal': {'threshold': 65, 'cash_range': (0, 0.75)},           # 现金<75%: 65分 (保守)
+    'extreme_cash': {'threshold': 15, 'cash_range': (0.98, 1.0)},   # v5.150: 30→15分 | 现金>98%: 超激进建仓
+    'very_high_cash': {'threshold': 25, 'cash_range': (0.90, 0.98)}, # v5.150: 40→25分 | 现金90-98%: 激进建仓
+    'high_cash': {'threshold': 40, 'cash_range': (0.75, 0.90)},     # v5.150: 50→40分 | 现金75-90%: 中等建仓
+    'normal': {'threshold': 65, 'cash_range': (0, 0.75)},           # 保持: 现金<75%: 65分 (保守)
 }
 
 # v5.61: 赛道差异化权重强化
@@ -2686,3 +2687,28 @@ CASH_ALLOCATION_MODES = {
 
 # v5.148应用优先级 (最高优先级)
 V5_148_OPTIMIZATION_PRIORITY = 0  # 最高优先级
+
+# =================== v5.150 情绪自适应策略权重 ===================
+# 根据市场情绪自动调整选股策略的权重，避免高位贪婪区追高
+
+STRATEGY_WEIGHTS_SENTIMENT_ADAPTIVE = {
+    'sentiment_low': {  # <70 (正常/乐观)
+        'momentum': 0.40,      # 动量选股: 40% (热点快速反应)
+        'fund_flow': 0.35,     # 资金流入: 35% (主力追踪)
+        'strong_stocks': 0.15, # 强势股: 15% (技术确认)
+        'org_recommend': 0.10  # 机构推荐: 10% (中期持仓)
+    },
+    'sentiment_medium': {  # 70-85 (贪婪)
+        'momentum': 0.35,      # v5.150: 降低动量权重(避免追高)
+        'fund_flow': 0.40,     # v5.150: 提升资金面权重(主力确认优先)
+        'strong_stocks': 0.15,
+        'org_recommend': 0.10
+    },
+    'sentiment_high': {  # >85 (极度贪婪)
+        'momentum': 0.25,      # v5.150: 大幅降低(极端防御)
+        'fund_flow': 0.45,     # v5.150: 极端提升资金面权重
+        'strong_stocks': 0.20, # 提升技术确认权重
+        'org_recommend': 0.10
+    }
+}
+
