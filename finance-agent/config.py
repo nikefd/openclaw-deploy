@@ -2712,3 +2712,64 @@ STRATEGY_WEIGHTS_SENTIMENT_ADAPTIVE = {
     }
 }
 
+
+# =================== v5.141 晚间深度优化V ===================
+# 日期: 2026-06-03 | 优化等级: 大改动
+# 核心: P1策略融合+P2动态Kelly+P3 8维评分+P4现金精细化
+
+V5_141_DEEP_OPTIMIZE_ACTIVE = True
+V5_141_VERSION = 'v5.141-Deep-Evening-Optimize-V'
+
+# P1: 回测策略融合 - 把TOP回测结果加权到实盘选股
+V5_141_BACKTEST_SECTOR_WEIGHTS = {
+    '科技成长': 0.45,      # TOP1: 17.1% 收益
+    '新能源': 0.40,        # TOP2: 14.66% 收益
+    '医药': 0.08,          # 中等表现
+    '金融': 0.05,          # 基础配置
+    '消费': 0.02,          # 最小化 (避免 -5.51% 负收益)
+}
+
+# P2: Kelly系数 - 按赛道胜率动态调整 (1.75→2.0+)
+V5_141_KELLY_ADJUSTMENT_BY_SECTOR = {
+    '科技成长': 1.95,      # 胜率60% → Kelly增加11%
+    '新能源': 2.05,        # 胜率70% → Kelly增加17% (最激进)
+    '医药': 1.65,          # 中等胜率
+    '金融': 1.55,          # 一般胜率
+    '消费': 0.85,          # 低胜率保守处理
+}
+
+# P3: Sharpe倍数升级 - 按赛道和现金占比
+V5_141_SHARPE_MULTIPLIER_BY_SECTOR = {
+    '科技成长': 5.0,       # 现金高: 3.5 → 5.0 (+43%)
+    '新能源': 4.8,         # 现金高: 3.5 → 4.8 (+37%)
+    '医药': 3.5,           # 标准
+    '金融': 3.0,           # 略低
+    '消费': 1.5,           # 最小化
+}
+
+# P4: 现金激活层级精细化
+V5_141_CASH_ACTIVATION_TIERS = {
+    'ultra_aggressive': {'cash_threshold': 0.95, 'entry_quality': 15, 'max_positions': 20, 'multiplier': 1.0},
+    'aggressive': {'cash_threshold': 0.80, 'entry_quality': 20, 'max_positions': 15, 'multiplier': 0.85},
+    'normal': {'cash_threshold': 0.50, 'entry_quality': 25, 'max_positions': 12, 'multiplier': 0.70},
+    'conservative': {'cash_threshold': 0.00, 'entry_quality': 35, 'max_positions': 8, 'multiplier': 0.50},
+}
+
+# 8维评分权重 (新增维度7和8)
+V5_141_DIMENSION_WEIGHTS = {
+    'technical_signal': 0.25,
+    'capital_flow': 0.20,
+    'market_sentiment': 0.15,
+    'sector_strength': 0.15,
+    'news_sentiment': 0.10,
+    'entry_quality': 0.05,
+    'historical_winrate': 0.05,     # D7: NEW
+    'margin_anomaly_score': 0.05,   # D8: NEW
+}
+
+# 预期收益目标 (v5.141优化后)
+V5_141_TARGET_METRICS = {
+    'mixed_pool_return': 0.09,      # 混合池收益 5.06% → 9% (+78%)
+    'mixed_pool_sharpe': 1.35,      # 混合池Sharpe 0.86 → 1.35 (+57%)
+    'avg_winrate': 0.50,            # 平均胜率 39.1% → 50% (+28%)
+}
