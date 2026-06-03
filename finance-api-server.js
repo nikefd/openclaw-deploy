@@ -1636,6 +1636,11 @@ print(json.dumps(pos,ensure_ascii=False,default=str))`;
     if (pathname === '/api/finance/market-heatmap-v137' && req.method === 'GET') return handleMarketHeatmapV137(req, res);
     if (pathname === '/api/finance/intraday-risk-v137' && req.method === 'GET') return handleIntraDayRiskV137(req, res);
     
+    // === v5.149 盤中優化② (11:30) 新增績效詳情API ===
+    if (pathname === '/api/finance/performance-detailed-v149' && req.method === 'GET') return handlePerformanceDetailedV149(req, res);
+    if (pathname === '/api/finance/kline-analysis-v149' && req.method === 'GET') return handleKlineAnalysisV149(req, res);
+    if (pathname === '/api/finance/daily-summary-enhanced-v149' && req.method === 'GET') return handleDailySummaryEnhancedV149(req, res);
+    
     // Static file service for UI optimization
     if (pathname === '/ui-optimize-v5.65.js' && req.method === 'GET') {
       try {
@@ -2905,6 +2910,144 @@ function handleIntraDayRiskV137(req, res) {
   } catch (e) {
     log('intraday-risk-v137: ' + e.message);
     sendJson(res, { status: 'ERROR', error: e.message, position_count: 0, timestamp: new Date().toISOString(), version: 'v5.137' });
+  }
+}
+
+// === v5.149 盤中優化② (11:30) 新增API ===
+function handlePerformanceDetailedV149(req, res) {
+  try {
+    const positions = querySqlite('SELECT * FROM positions WHERE shares > 0');
+    const trades = querySqlite('SELECT * FROM trades ORDER BY trade_date DESC LIMIT 100');
+    const account = querySqlite('SELECT * FROM account ORDER BY id DESC LIMIT 1')[0] || { cash: 0, total_value: 0 };
+    const snapshots = querySqlite('SELECT * FROM daily_snapshots ORDER BY date DESC LIMIT 60');
+    
+    // 計算詳細績效指標
+    const sellTrades = trades.filter(t => t.direction === 'SELL');
+    const buyTrades = trades.filter(t => t.direction === 'BUY');
+    
+    let winTrades = 0, totalWinPnl = 0;
+    let lossTrades = 0, totalLossPnl = 0;
+    
+    sellTrades.forEach(sell => {
+      const buys = buyTrades.filter(b => b.symbol === sell.symbol && new Date(b.trade_date) < new Date(sell.trade_date));
+      if (buys.length > 0) {
+        const avgBuyPrice = buys.reduce((s, b) => s + b.price * b.shares, 0) / buys.reduce((s, b) => s + b.shares, 0);
+        const pnl = (sell.price - avgBuyPrice) * sell.shares;
+        if (pnl > 0) { winTrades++; totalWinPnl += pnl; }
+        else { lossTrades++; totalLossPnl += pnl; }
+      }
+    });
+    
+    const totalTrades = trades.length;
+    const winRate = sellTrades.length > 0 ? (winTrades / sellTrades.length * 100) : 0;
+    const profitFactor = Math.abs(totalLossPnl) > 0 ? (totalWinPnl / Math.abs(totalLossPnl)) : 0;
+    
+    // 計算最大回撤和Sharpe
+    let maxDD = 0, peak = snapshots.length > 0 ? snapshots[snapshots.length - 1].total_value : INITIAL_CAPITAL;
+    const returns = [];
+    snapshots.reverse().forEach((s, i) => {
+      if (s.total_value > peak) peak = s.total_value;
+      const dd = ((peak - s.total_value) / peak) * 100;
+      if (dd > maxDD) maxDD = dd;
+      if (i > 0) returns.push(((snapshots[i - 1].total_value - s.total_value) / s.total_value) * 100);
+    });
+    
+    const avgRet = returns.length > 0 ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
+    const stdDev = returns.length > 1 ? Math.sqrt(returns.reduce((s, r) => s + Math.pow(r - avgRet, 2), 0) / (returns.length - 1)) : 1;
+    const sharpe = stdDev > 0 ? (avgRet / stdDev * Math.sqrt(252)) : 0;
+    
+    sendJson(res, {
+      win_rate: Math.round(winRate * 10) / 10,
+      win_trades: winTrades,
+      loss_trades: lossTrades,
+      profit_factor: Math.round(profitFactor * 100) / 100,
+      total_pnl: Math.round((totalWinPnl + totalLossPnl) * 100) / 100,
+      max_drawdown: Math.round(maxDD * 100) / 100,
+      sharpe_ratio: Math.round(sharpe * 100) / 100,
+      positions_count: positions.length,
+      total_trades: totalTrades,
+      cash: Math.round(account.cash * 100) / 100,
+      total_value: Math.round(account.total_value * 100) / 100,
+      return_pct: account.total_value > 0 ? Math.round(((account.total_value - INITIAL_CAPITAL) / INITIAL_CAPITAL * 100) * 100) / 100 : 0,
+      version: 'v5.149'
+    });
+  } catch (e) {
+    log('performance-detailed-v149: ' + e.message);
+    sendJson(res, { error: e.message, version: 'v5.149_fallback' });
+  }
+}
+
+function handleKlineAnalysisV149(req, res) {
+  try {
+    const positions = querySqlite('SELECT * FROM positions WHERE shares > 0');
+    
+    // 計算持倉的K線分析數據
+    const analysis = positions.map(p => {
+      const pnl_pct = p.avg_cost ? ((p.current_price - p.avg_cost) / p.avg_cost * 100) : 0;
+      const peak_drawdown = p.peak_price ? ((p.current_price - p.peak_price) / p.peak_price * 100) : 0;
+      const days_held = p.buy_date ? Math.floor((Date.now() - new Date(p.buy_date)) / 86400000) : 0;
+      
+      return {
+        symbol: p.symbol,
+        name: p.name,
+        current_price: p.current_price,
+        avg_cost: p.avg_cost,
+        pnl_pct: Math.round(pnl_pct * 100) / 100,
+        shares: p.shares,
+        peak_price: p.peak_price,
+        peak_drawdown: Math.round(peak_drawdown * 100) / 100,
+        days_held: days_held,
+        sector: p.sector || 'unknown'
+      };
+    });
+    
+    sendJson(res, {
+      positions: analysis,
+      count: analysis.length,
+      avg_pnl_pct: analysis.length > 0 ? Math.round(analysis.reduce((s, a) => s + a.pnl_pct, 0) / analysis.length * 100) / 100 : 0,
+      version: 'v5.149'
+    });
+  } catch (e) {
+    log('kline-analysis-v149: ' + e.message);
+    sendJson(res, { error: e.message, version: 'v5.149_fallback' });
+  }
+}
+
+function handleDailySummaryEnhancedV149(req, res) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const trades = querySqlite(`SELECT * FROM trades WHERE DATE(trade_date) = '${today}'`);
+    
+    const buys = trades.filter(t => t.direction === 'BUY').length;
+    const sells = trades.filter(t => t.direction === 'SELL').length;
+    
+    let dailyPnl = 0;
+    trades.filter(t => t.direction === 'SELL').forEach(sell => {
+      const matchingBuys = trades.filter(b => b.symbol === sell.symbol && b.direction === 'BUY' && new Date(b.trade_date) < new Date(sell.trade_date));
+      if (matchingBuys.length > 0) {
+        const avgCost = matchingBuys.reduce((s, b) => s + b.price * b.shares, 0) / matchingBuys.reduce((s, b) => s + b.shares, 0);
+        dailyPnl += (sell.price - avgCost) * sell.shares;
+      }
+    });
+    
+    const account = querySqlite('SELECT total_value FROM account ORDER BY id DESC LIMIT 2');
+    const todayValue = account[0]?.total_value || 0;
+    const yesterdayValue = account[1]?.total_value || todayValue;
+    const dailyReturn = yesterdayValue > 0 ? ((todayValue - yesterdayValue) / yesterdayValue * 100) : 0;
+    
+    sendJson(res, {
+      date: today,
+      buy_orders: buys,
+      sell_orders: sells,
+      total_trades: trades.length,
+      daily_pnl: Math.round(dailyPnl * 100) / 100,
+      daily_return_pct: Math.round(dailyReturn * 100) / 100,
+      positions_active: querySqlite('SELECT COUNT(*) as cnt FROM positions WHERE shares > 0')[0]?.cnt || 0,
+      version: 'v5.149'
+    });
+  } catch (e) {
+    log('daily-summary-enhanced-v149: ' + e.message);
+    sendJson(res, { error: e.message, version: 'v5.149_fallback' });
   }
 }
 
