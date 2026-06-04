@@ -436,30 +436,52 @@ def monitor_low_quality_entry_performance() -> dict:
 
 def generate_candidates_v2(cash_ratio: float = 0.75) -> list:
     """v5.61: 動態入場質量調節的候選生成
-    
-    根據現金佔比應用不同的入場質量閾值，實現快速消耗現金的目標
+    v5.151: 激進修複 — 解決99%現金無建倉問題
     """
     try:
-        from config import ENTRY_QUALITY_DYNAMIC_V2, EXTREME_CASH_V3
+        from v5_151_PREMARKET_OPTIMIZE import get_dynamic_entry_quality_threshold_v151, check_forced_buy_trigger
+        from data_collector import get_market_sentiment_safe
+        from datetime import date
+        import sqlite3
         
-        # 确定入场质量阈值
-        entry_quality_threshold = 65  # 默认
+        sentiment_data = get_market_sentiment_safe()
+        sentiment_score = sentiment_data.get('sentiment_score', 50) if sentiment_data else 50
         
-        if cash_ratio > EXTREME_CASH_V3['trigger_ratio']:  # >98%
-            entry_quality_threshold = ENTRY_QUALITY_DYNAMIC_V2['extreme_cash']['threshold']
-        elif cash_ratio > 0.90:
-            entry_quality_threshold = ENTRY_QUALITY_DYNAMIC_V2['very_high_cash']['threshold']
-        elif cash_ratio > 0.75:
-            entry_quality_threshold = ENTRY_QUALITY_DYNAMIC_V2['high_cash']['threshold']
-        else:
-            entry_quality_threshold = ENTRY_QUALITY_DYNAMIC_V2['normal']['threshold']
+        idle_days = 0
+        try:
+            conn = sqlite3.connect('/home/nikefd/finance-agent/data/trading.db')
+            c = conn.cursor()
+            c.execute("SELECT MAX(trade_date) FROM trades WHERE direction='BUY'")
+            last_buy = c.fetchone()[0]
+            if last_buy:
+                idle_days = (date.today() - date.fromisoformat(last_buy)).days
+            conn.close()
+        except:
+            pass
         
-        print(f"  📊 v5.61 入场质量动态调节: 现金占比{cash_ratio:.1%} → 阈值{entry_quality_threshold}分")
+        entry_quality_threshold = get_dynamic_entry_quality_threshold_v151(sentiment_score, cash_ratio, idle_days)
+        force_result = check_forced_buy_trigger(cash_ratio, idle_days, None, sentiment_score)
+        
+        if force_result['triggered']:
+            print(f"  🔴 v5.151 強制建倉: {force_result['reason'][:50]}... urgency={force_result['urgency']}")
+            entry_quality_threshold = min(entry_quality_threshold, force_result['force_entry_quality_threshold'])
         
         return [entry_quality_threshold]
-    except Exception as e:
-        print(f"  ⚠️ 动态入场质量调节失败: {e}")
-        return [65]
+    except ImportError:
+        try:
+            from config import ENTRY_QUALITY_DYNAMIC_V2, EXTREME_CASH_V3
+            entry_quality_threshold = 65
+            if cash_ratio > EXTREME_CASH_V3['trigger_ratio']:
+                entry_quality_threshold = ENTRY_QUALITY_DYNAMIC_V2['extreme_cash']['threshold']
+            elif cash_ratio > 0.90:
+                entry_quality_threshold = ENTRY_QUALITY_DYNAMIC_V2['very_high_cash']['threshold']
+            elif cash_ratio > 0.75:
+                entry_quality_threshold = ENTRY_QUALITY_DYNAMIC_V2['high_cash']['threshold']
+            print(f"  📊 v5.61 入场质量: cash={cash_ratio:.1%} → 閾值{entry_quality_threshold}分")
+            return [entry_quality_threshold]
+        except Exception as e:
+            print(f"  ⚠️ 优化失败: {e}")
+            return [20]
 
 
 # =================== 原有函数继续 ===================
