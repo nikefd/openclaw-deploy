@@ -1376,6 +1376,10 @@ const server = http.createServer((req, res) => {
     if (pathname === '/api/finance/capital-allocation-v141' && req.method === 'GET') return handleCapitalAllocationV141(req, res);
     if (pathname === '/api/finance/risk-metrics-v141' && req.method === 'GET') return handleRiskMetricsV141(req, res);
     if (pathname === '/api/finance/daily-summary-v141' && req.method === 'GET') return handleDailySummaryV141(req, res);
+    // v5.151 新增API端点
+    if (pathname === '/api/finance/realtime-summary-v151' && req.method === 'GET') return handleRealtimeSummaryV151(req, res);
+    if (pathname === '/api/finance/batch-positions-v151' && req.method === 'GET') return handleBatchPositionsV151(req, res);
+    if (pathname === '/api/finance/ui-enhanced-v151' && req.method === 'GET') return handleUIEnhancedDashboardV151(req, res);
     // === v5.147 盤中UI優化② (11:30) - 性能指標+信號質量+情感決策 ===
     if (pathname === '/api/finance/intraday-ui-v147' && req.method === 'GET') return handleIntradayUIV147(req, res);
     if (pathname === '/api/finance/performance-indicators-v147' && req.method === 'GET') return handlePerformanceIndicatorsV147(req, res);
@@ -3208,3 +3212,67 @@ function handleDailySummaryV141(req, res) {
     sendJson(res, { total_trades: 0, daily_pnl: 0, daily_pnl_pct: 0, error: e.message, version: 'v5.141_fallback' });
   }
 }
+
+// === v5.151 盘中优化② (03:30) - 实时推送 + UI交互增强 ===
+
+function handleRealtimeSummaryV151(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_151_intraday_realtime_push import get_intraday_realtime_summary_v151; data = get_intraday_realtime_summary_v151(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 5000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('realtime-summary-v151: ' + e.message);
+    sendJson(res, { error: e.message, version: 'v5.151_fallback' });
+  }
+}
+
+function handleBatchPositionsV151(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_151_intraday_realtime_push import get_batch_positions_v151; data = get_batch_positions_v151(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 5000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('batch-positions-v151: ' + e.message);
+    sendJson(res, { error: e.message, version: 'v5.151_fallback' });
+  }
+}
+
+function handleUIEnhancedDashboardV151(req, res) {
+  try {
+    const py = `import sys,json; sys.path.insert(0,'/home/nikefd/finance-agent'); from v5_151_ui_interaction_enhance import get_ui_dashboard_enhanced_v151; data = get_ui_dashboard_enhanced_v151(); print(json.dumps(data, ensure_ascii=False, default=str))`;
+    const out = execSync(`python3 -c "${py.replace(/"/g, '\\"')}"`, { timeout: 5000 }).toString().trim();
+    const lines = out.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().startsWith('{')) {
+        const jsonStr = lines.slice(i).join('\n');
+        const data = JSON.parse(jsonStr);
+        return sendJson(res, data);
+      }
+    }
+    throw new Error('No JSON in output');
+  } catch (e) {
+    log('ui-dashboard-v151: ' + e.message);
+    sendJson(res, { error: e.message, version: 'v5.151_fallback' });
+  }
+}
+
+// 需要在路由分发处添加以下行:
+// if (pathname === '/api/finance/realtime-summary-v151' && req.method === 'GET') return handleRealtimeSummaryV151(req, res);
+// if (pathname === '/api/finance/batch-positions-v151' && req.method === 'GET') return handleBatchPositionsV151(req, res);
+// if (pathname === '/api/finance/ui-enhanced-v151' && req.method === 'GET') return handleUIEnhancedDashboardV151(req, res);
