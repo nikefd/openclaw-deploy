@@ -1416,6 +1416,55 @@ V5_99_EXPECTED_IMPROVEMENTS = {
 # 目標: 資金利用率 3.5% → 25-30%, 日均建倉 2只 → 8-12只, Sharpe保持2.35+
 # 來源: 回測數據 MACD+RSI(科技成長) 17.1% return, 2.35 Sharpe, 60% win_rate
 
+
+# ============================================================
+# v5.153 晚间深度优化④: 回测驱动的参数优化 (2026-06-04 22:00)
+# ============================================================
+
+# 回测TOP1策略参数激进化
+BACKTEST_DRIVEN_OPTIMIZATION = True
+MACD_RSI_SIGNAL_BOOST = 2.2  # v5.152: 2.0 → v5.153: 2.2 (+10%)
+
+# 赛道特定MACD参数 (覆盖全局参数)
+SECTOR_SPECIFIC_MACD = {
+    'tech': {
+        'fast': 11, 'slow': 25, 'signal': 8,
+        'rsi_period': 13, 'rsi_oversold': 28, 'rsi_overbought': 72,
+        'sector_weight': 0.45, 'kelly_coefficient': 1.8,
+    },
+    'energy': {
+        'fast': 12, 'slow': 27, 'signal': 9,
+        'rsi_period': 14, 'rsi_oversold': 32, 'rsi_overbought': 68,
+        'sector_weight': 0.30, 'kelly_coefficient': 1.6,
+    },
+    'defensive': {
+        'momentum_weight': 0.25, 'quality_weight': 0.35,
+        'value_weight': 0.20, 'growth_weight': 0.20,
+        'sector_weight': 0.25, 'kelly_coefficient': 1.2,
+    },
+}
+
+# 情绪自适应止损 (替代固定TRAILING_STOP_PCT)
+SENTIMENT_BASED_STOP_LOSS = True
+ADAPTIVE_STOP_LOSS_LEVELS = {
+    'warning': -0.05,         # 预警位
+    'soft_stop': -0.10,       # 软止损
+    'hard_stop': -0.15,       # 硬止损
+}
+
+# Kelly持仓优化 (基于回测数据)
+KELLY_OPTIMIZATION_ENABLED = True
+KELLY_BACKTEST_WIN_RATE = 0.60      # TOP1策略胜率
+KELLY_BACKTEST_SHARPE = 2.35        # TOP1策略Sharpe
+
+# 快速选股加速 (性能+20-30%)
+FAST_PICK_TIMEOUT_SEC = 0.5         # v5.152: 0.8 → v5.153: 0.5
+FAST_PICK_CACHE_TTL = 300           # 5分钟缓存
+FAST_PICK_BATCH_SIZE = 200          # 批量处理大小
+
+# 进场质量阈值更激进
+ENTRY_QUALITY_THRESHOLD_DYNAMIC_V3 = 12  # v5.152: 15 → v5.153: 12
+
 # ============================================================================
 # v5.108: 激进建仓模式 (盘后优化③)
 # ============================================================================
