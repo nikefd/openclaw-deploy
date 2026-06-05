@@ -2823,3 +2823,89 @@ V5_141_TARGET_METRICS = {
     'mixed_pool_sharpe': 1.35,      # 混合池Sharpe 0.86 → 1.35 (+57%)
     'avg_winrate': 0.50,            # 平均胜率 39.1% → 50% (+28%)
 }
+
+
+# =============================================================================
+# v5.154 盤前優化① - 極度貪婪防御 + Sharpe動態Kelly + 分層緩存
+# =============================================================================
+# v5_154_INTEGRATED: True
+# 改進: 
+#   ① 極度貪婪(>92分)時自動啟動防御機制
+#   ② Sharpe動態調整Kelly倍數
+#   ③ 分層緩存 (熱選股2min, 冷備選8min, 指標10min)
+
+# 極度貪婪防御等級配置
+# 當市場情緒指數達到某個閾值時自動調整參數
+EXTREME_GREED_DEFENSE_LEVELS = {
+    'level_1': {  # 中等貪婪 (85-92)
+        'sentiment_threshold': (85, 92),
+        'entry_quality_threshold': 18,     # +20%
+        'max_positions': 12,               # -20%
+        'max_single_position': 0.035,      # -12.5%
+        'kelly_multiplier': 0.85,          # -15%
+        'aggressive_ratio': 0.45,          # -10%
+        'cash_reserve': 0.15,              # +50%
+    },
+    'level_2': {  # 強貪婪 (92-94)
+        'sentiment_threshold': (92, 94),
+        'entry_quality_threshold': 22,     # +47%
+        'max_positions': 10,               # -33%
+        'max_single_position': 0.03,       # -25%
+        'kelly_multiplier': 0.70,          # -30%
+        'aggressive_ratio': 0.40,          # -20%
+        'cash_reserve': 0.20,              # +100%
+    },
+    'level_3': {  # 超強貪婪 (94-96)
+        'sentiment_threshold': (94, 96),
+        'entry_quality_threshold': 28,     # +87%
+        'max_positions': 8,                # -47%
+        'max_single_position': 0.025,      # -37.5%
+        'kelly_multiplier': 0.55,          # -45%
+        'aggressive_ratio': 0.35,          # -30%
+        'cash_reserve': 0.25,              # +150%
+    },
+    'level_4': {  # 極限貪婪 (96+)
+        'sentiment_threshold': (96, 100),
+        'entry_quality_threshold': 35,     # +133%
+        'max_positions': 5,                # -67%
+        'max_single_position': 0.02,       # -50%
+        'kelly_multiplier': 0.40,          # -60%
+        'aggressive_ratio': 0.25,          # -50%
+        'cash_reserve': 0.30,              # +200%
+    },
+}
+
+# Sharpe動態Kelly系數
+# 當市場Sharpe比率變化時自動調整Kelly倍數
+# 公式: dynamic_kelly = base_kelly × (current_sharpe / base_sharpe)
+SHARPE_ADAPTIVE_KELLY = {
+    'enabled': True,
+    'base_sharpe': 2.35,  # v5.153的基準Sharpe
+    'sector_base_kelly': {
+        'tech': 1.8,
+        'energy': 1.6,
+        'white_horse': 1.2,
+        'default': 1.5,
+    },
+    'kelly_bounds': {
+        'min': 0.3,  # 下限保護 (極端市場)
+        'max': 2.0,  # 上限保護 (過度激進)
+    },
+}
+
+# 分層緩存配置 (v5.154)
+LAYERED_CACHE_CONFIG = {
+    'enabled': True,
+    'ttl_seconds': {
+        'hot_picks': 120,       # 熱選股: 2分鐘
+        'cold_candidates': 480, # 冷備選: 8分鐘
+        'indicators': 600,      # 技術指標: 10分鐘
+        'market_data': 60,      # 市場數據: 1分鐘
+    },
+    'premarket_warmup': {
+        'enabled': True,
+        'start_hour': 7,         # UTC 7:00 (北京時間15:00)
+        'end_hour': 8,           # UTC 8:00 (北京時間16:00)
+        'warmup_items': ['hot_picks', 'indicators'],  # 預熱項目
+    },
+}
