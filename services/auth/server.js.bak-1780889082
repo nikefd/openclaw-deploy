@@ -86,7 +86,6 @@ function json(res, status, data) {
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const cookies = parseCookies(req.headers.cookie);
-  const secure = (req.headers['x-forwarded-proto'] === 'https') ? '; Secure' : '';
 
   // === Admin auth verify ===
   if (url.pathname === '/auth/verify') {
@@ -107,7 +106,7 @@ http.createServer(async (req, res) => {
         const cookie = makeCookie(TOTP_ACCOUNT);
         res.writeHead(200, {
           'Content-Type': 'application/json',
-          'Set-Cookie': 'oc_session=' + cookie + '; Path=/; HttpOnly; SameSite=Strict' + secure + '; Max-Age=604800'
+          'Set-Cookie': 'oc_session=' + cookie + '; Path=/; HttpOnly; SameSite=Strict; Secure; Max-Age=604800'
         });
         res.end(JSON.stringify({ ok: true }));
       } else {
@@ -123,7 +122,7 @@ http.createServer(async (req, res) => {
   if (url.pathname === '/auth/logout') {
     res.writeHead(200, {
       'Content-Type': 'application/json',
-      'Set-Cookie': 'oc_session=; Path=/; HttpOnly; SameSite=Strict' + secure + '; Max-Age=0'
+      'Set-Cookie': 'oc_session=; Path=/; HttpOnly; SameSite=Strict; Secure; Max-Age=0'
     });
     res.end(JSON.stringify({ ok: true }));
     return;
