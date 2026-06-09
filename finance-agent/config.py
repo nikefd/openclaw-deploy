@@ -1,3 +1,5 @@
+# v5.161 盤前優化①配置集成 (2026-06-09 00:00 UTC)
+V5_161_APPLIED = True
 # v5.154 配置集成 (2026-06-06 14:00 UTC)
 V5_154_APPLIED = True
 """金融Agent配置"""
@@ -45,7 +47,35 @@ PORTFOLIO_ALLOCATION = {
 # v5.144: 情绪85+时自动提升至25% (盘整期防御)
 # v5.150: 现金充足模式下提升至30% (保留弹性,避免过度配置)
 # v5.152: 当现金>98%且无交易>5天时,降低至15%激进消耗
+# v5.161: 根据7日勝率動態調整 (激進8%, 標準12%, 保守18%)
 MIN_CASH_RATIO = 0.12  # v5.152优化: 当现金>98%时激进消耗至15% | 常规25-30%保护
+
+# =================== v5.161 盤前優化① 配置 ===================
+# 情緒驅動的MACD動態參數調整
+MACD_DYNAMIC_ENABLED = True
+MACD_PARAMS_SENTIMENT = {
+    'extreme_greed': {'fast': 8, 'slow': 20, 'signal': 8},   # 極度貪婪: 快速跟蹤
+    'greed': {'fast': 9, 'slow': 22, 'signal': 8},           # 貪婪
+    'normal_bullish': {'fast': 10, 'slow': 24, 'signal': 8}, # 正常偏積極
+    'neutral': {'fast': 11, 'slow': 25, 'signal': 8},        # 基準
+    'cautious': {'fast': 12, 'slow': 27, 'signal': 8},       # 恐懼
+    'extreme_fear': {'fast': 13, 'slow': 30, 'signal': 9}    # 極度恐慌: 平滑信號
+}
+
+# 現金配置激進度自適應 (基於7日勝率)
+CASH_ALLOCATION_DYNAMIC_ENABLED = True
+CASH_RATIO_BY_WINRATE = {
+    'high': 0.08,       # 勝率>70%: 激進投入 (8%)
+    'medium_high': 0.10,# 勝率60-70%: 積極投入 (10%)
+    'medium': 0.12,     # 勝率50-60%: 均衡配置 (12%)
+    'medium_low': 0.15, # 勝率40-50%: 謹慎配置 (15%)
+    'low': 0.18         # 勝率<40%: 保守防守 (18%)
+}
+
+# 被止損個股黑名單TTL配置
+STOP_LOSS_BLACKLIST_TTL = 5  # 臨時黑名單有效期 (天)
+STOP_LOSS_BLACKLIST_MAX_ATTEMPTS = 2  # 2次止損後升級為永久黑名單
+STOP_LOSS_BLACKLIST_AUTO_CLEANUP = True  # 每日0:30自動清理過期記錄
 
 # =================== v5.144 盘整期防御优化 ===================
 # 当情绪>85且创业板跌幅>-1.5%时自动激活
