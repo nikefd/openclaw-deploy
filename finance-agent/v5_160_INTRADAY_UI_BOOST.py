@@ -234,7 +234,7 @@ class SentimentFeedbackSystem:
         
         # 獲取近30天每日情緒評分
         snapshots = conn.execute("""
-            SELECT date, sentiment_score, sentiment_label 
+            SELECT date, sentiment_score
             FROM daily_snapshots 
             WHERE date >= date('now', '-30 days', 'localtime')
             ORDER BY date DESC
@@ -251,23 +251,27 @@ class SentimentFeedbackSystem:
         
         for snap in snapshots:
             score = snap['sentiment_score'] or 50
-            label = snap['sentiment_label'] or '中性'
             sentiment_score_list.append(score)
             
-            # 色階映射: 紅(極度貪婪) -> 黃(樂觀) -> 綠(中性) -> 藍(恐懼) -> 紫(極度恐懼)
+            # 情緒標籤判斷
             if score >= 80:
+                label = '極度貪婪'
                 color = '#e63946'  # 紅
                 emoji = '😋'
             elif score >= 70:
+                label = '樂觀'
                 color = '#f4a261'  # 橙
                 emoji = '😊'
             elif score >= 45:
+                label = '中性'
                 color = '#ffd166'  # 黃
                 emoji = '😐'
             elif score >= 30:
+                label = '恐慌'
                 color = '#457b9d'  # 藍
                 emoji = '😟'
             else:
+                label = '極度恐懼'
                 color = '#6b4ae6'  # 紫
                 emoji = '😱'
             
