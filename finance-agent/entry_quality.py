@@ -206,6 +206,18 @@ def calculate_entry_quality_score(tech_indicators: dict, market_context: dict = 
     # v5.56 新增: 机构持仓能有效预防踩坑,提高连板准确率
     scores['institution'] = get_institution_holding_score(tech_indicators)
     
+    # ========== v5.162 融資融券異變強制獎勵 ==========
+    # 新增: 融資環比-20%+融資融券比<20% → +15分 (底部確認)
+    #      融資環比+15% → +8分 (參與度上升)
+    try:
+        from v5_162_OPTIMIZE_CACHE_MARGIN import apply_margin_anomaly_boost_v162
+        margin_bonus = apply_margin_anomaly_boost_v162(tech_indicators)
+        tech_indicators['margin_bonus_applied_v162'] = margin_bonus
+        scores['margin_anomaly'] = margin_bonus  # 額外加分 (不計入100分，另外獎勵)
+    except (ImportError, Exception) as e:
+        scores['margin_anomaly'] = 0
+        tech_indicators['margin_bonus_applied_v162'] = 0
+    
     # ========== 总分计算 ==========
     # 20+20+20+20+20 = 100分
     total_score = sum(scores.values())
