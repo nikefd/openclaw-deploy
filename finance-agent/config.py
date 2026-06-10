@@ -1,3 +1,5 @@
+# v5.163 盤後優化③配置集成 (2026-06-10 07:30 UTC) - 激活IDLE_MODE
+V5_163_APPLIED = True
 # v5.161 盤前優化①配置集成 (2026-06-09 00:00 UTC)
 V5_161_APPLIED = True
 # v5.154 配置集成 (2026-06-06 14:00 UTC)
@@ -48,7 +50,8 @@ PORTFOLIO_ALLOCATION = {
 # v5.150: 现金充足模式下提升至30% (保留弹性,避免过度配置)
 # v5.152: 当现金>98%且无交易>5天时,降低至15%激进消耗
 # v5.161: 根据7日勝率動態調整 (激進8%, 標準12%, 保守18%)
-MIN_CASH_RATIO = 0.12  # v5.152优化: 当现金>98%时激进消耗至15% | 常规25-30%保护
+# v5.163: IDLE_MODE激活时提升至10% (激进消耗现金缓解空仓压力)
+MIN_CASH_RATIO = 0.10  # v5.163优化: IDLE_MODE激活后激进消耗至10%
 
 # =================== v5.161 盤前優化① 配置 ===================
 # 情緒驅動的MACD動態參數調整
@@ -76,6 +79,35 @@ CASH_RATIO_BY_WINRATE = {
 STOP_LOSS_BLACKLIST_TTL = 5  # 臨時黑名單有效期 (天)
 STOP_LOSS_BLACKLIST_MAX_ATTEMPTS = 2  # 2次止損後升級為永久黑名單
 STOP_LOSS_BLACKLIST_AUTO_CLEANUP = True  # 每日0:30自動清理過期記錄
+
+# =================== v5.163 盤後優化③ - IDLE_MODE激活 ===================
+# 目標: 解決11天無交易困境，啟用融資異變強制激活
+IDLE_MODE_ENABLED = True
+IDLE_MODE_DAYS = 3                    # 連續3日無交易時激活
+IDLE_MODE_ENTRY_BONUS = 10            # IDLE_MODE獎勵 +10分 (必入)
+IDLE_MODE_THRESHOLD = 4               # IDLE_MODE下的入場門檻 (4分) 
+
+# 融資異變強制激活
+MARGIN_ANOMALY_FORCE_ENABLED = True
+MARGIN_ANOMALY_BONUS = 10             # 融資異變獎勵 +10分
+MARGIN_DECLINE_PCT = -0.20            # 融資下降-20% (底部確認)
+MARGIN_RATIO_THRESHOLD = 0.25         # 融資融券比<25% (參與度上升)
+MARGIN_UPRISE_PCT = 0.15              # 融資上升+15% (參與度激活)
+
+# 市場情緒極端保護
+EXTREME_SENTIMENT_ENABLED = True
+EXTREME_FEAR_THRESHOLD = 30           # 情緒<30 (極度恐懼)
+EXTREME_FEAR_BONUS = 8                # 極度恐懼獎勵 +8分
+EXTREME_GREED_THRESHOLD = 92          # 情緒>92 (極度貪婪)
+EXTREME_GREED_PENALTY = -3            # 極度貪婪懲罰 -3分
+
+# 動態資金配置 (IDLE_MODE)
+DYNAMIC_ALLOCATION_IDLE = {
+    'defensive': 0.30,                # 防禦: 30%
+    'offensive': 0.60,                # 進攻: 60%
+    'tactical': 0.00,                 # 戰術: 0%
+    'cash_reserve': 0.10              # 現金: 10%
+}
 
 # =================== v5.144 盘整期防御优化 ===================
 # 当情绪>85且创业板跌幅>-1.5%时自动激活
@@ -221,7 +253,10 @@ HIGH_SHARPE_STOP_LOSS_RELAX = 0.02  # 止损容错放宽+2%
 # =================== v5.53: 入场质量评分系统 ===================
 # 4维×30分模型: 趋势对齐 + 位置优势 + 量价确认 + 动量确认
 # v5.94盘前优化: 平衡激进与稳定 (20→35) | v5.115盘后优化: 35→25 (超激进日均20-25只)
-ENTRY_QUALITY_THRESHOLD = 8   # v5.152: 15→8 (-47%) 现金99%+情绪91.95+无交易5天 触发极限激进
+ENTRY_QUALITY_THRESHOLD = 6   # v5.163: 8→6 (-25%) 激活IDLE_MODE后降低建倉門檻，突破11天無交易
+ENTRY_QUALITY_THRESHOLD_NORMAL = 6   # v5.163: 常规模式 6分
+ENTRY_QUALITY_THRESHOLD_BEARISH = 8  # v5.163: 熊市防守 8分  
+ENTRY_QUALITY_THRESHOLD_BULLISH = 4  # v5.163: 牛市激进 4分
 
 # v5.53: 过滤器动态松绑参数
 HIGH_CASH_RATIO_THRESHOLD = 0.95  # v5.115: 从0.90→0.95 (现金>95%时质量阈值→15分超激进)
