@@ -1,3 +1,5 @@
+# v5.164 晚间深度优化④配置集成 (2026-06-10 14:01 UTC) - 混合策略 + 融资缓存 + 动态门槛
+V5_164_APPLIED = True
 # v5.163 盤後優化③配置集成 (2026-06-10 07:30 UTC) - 激活IDLE_MODE
 V5_163_APPLIED = True
 # v5.161 盤前優化①配置集成 (2026-06-09 00:00 UTC)
@@ -79,6 +81,72 @@ CASH_RATIO_BY_WINRATE = {
 STOP_LOSS_BLACKLIST_TTL = 5  # 臨時黑名單有效期 (天)
 STOP_LOSS_BLACKLIST_MAX_ATTEMPTS = 2  # 2次止損後升級為永久黑名單
 STOP_LOSS_BLACKLIST_AUTO_CLEANUP = True  # 每日0:30自動清理過期記錄
+
+
+# =================== v5.164 混合策略融合 ===================
+HYBRID_STRATEGY_ENABLED = True
+
+# 基础策略权重 (常规模式)
+HYBRID_STRATEGY_WEIGHTS = {
+    'MACD_RSI': {
+        'weight': 0.50,
+        'minimum_score': 6,
+        'sectors': ['科技成长', '新能源', '电子产品', '半导体', '芯片', '软件服务'],
+    },
+    'MULTI_FACTOR': {
+        'weight': 0.30,
+        'minimum_score': 5,
+        'sectors': ['消费白马', '医药生物', '食品饮料', '家电', '金融'],
+    },
+    'MA_CROSS': {
+        'weight': 0.20,
+        'minimum_score': 4,
+        'sectors': ['能源', '化工', '钢铁', '有色金属'],
+    }
+}
+
+# 融资异变自适应权重
+HYBRID_STRATEGY_WEIGHTS_MARGIN_ANOMALY = {
+    'MACD_RSI': 0.30,
+    'MULTI_FACTOR': 0.50,
+    'MA_CROSS': 0.20
+}
+
+# =================== v5.164 融资数据缓存 ===================
+MARGIN_CACHE_ENABLED = True
+MARGIN_CACHE_TTL = 300
+MARGIN_CACHE_FALLBACK_DAYS = 30
+MARGIN_CACHE_ASYNC_UPDATE = True
+
+MARGIN_ANOMALY_FUSION_DECLINE = -0.20
+MARGIN_ANOMALY_RATIO_THRESHOLD = 0.25
+MARGIN_ANOMALY_FUSION_UPRISE = 0.15
+MARGIN_ANOMALY_SCORE_THRESHOLD = 0.70
+
+# =================== v5.164 动态入场门槛 ===================
+DYNAMIC_ENTRY_THRESHOLD_ENABLED = True
+
+DYNAMIC_THRESHOLD_BY_WINRATE = {
+    'high': (0.65, 4.0),
+    'medium_high': (0.55, 5.0),
+    'medium': (0.48, 5.5),
+    'low': (0.0, 6.0),
+}
+
+DYNAMIC_THRESHOLD_MARGIN_STRONG_ADJ = -2.0
+DYNAMIC_THRESHOLD_MARGIN_WEAK_ADJ = -1.0
+
+DYNAMIC_THRESHOLD_EXTREME_FEAR_ADJ = -3.0
+DYNAMIC_THRESHOLD_FEAR_ADJ = -1.5
+DYNAMIC_THRESHOLD_EXTREME_GREED_ADJ = +2.0
+DYNAMIC_THRESHOLD_GREED_ADJ = +1.0
+
+DYNAMIC_THRESHOLD_MIN = 3.0
+DYNAMIC_THRESHOLD_MAX = 8.0
+
+FALLBACK_TO_STATIC_THRESHOLD = True
+FALLBACK_STATIC_THRESHOLD = 6
+
 
 # =================== v5.163 盤後優化③ - IDLE_MODE激活 ===================
 # 目標: 解決11天無交易困境，啟用融資異變強制激活
