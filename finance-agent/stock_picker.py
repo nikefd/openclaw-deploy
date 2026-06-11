@@ -1,10 +1,24 @@
-"""多策略选股引擎 — 综合技术面+资金面+消息面+新闻舆情+AI研判"""
+"""多策略选股引擎 — 综合技术面+资金面+消息面+新闻舆情+AI研判 [v5.165盤前優化集成]"""
 
 import akshare as ak
 import pandas as pd
 import json
 import time
 from datetime import datetime, timedelta
+
+# v5.165: 盤前優化集成 (融資快速緩存+Kelly復位+黑名單加速)
+try:
+    from v5_165_PREMARKET_CACHE_WARMUP import (
+        initialize_premarket_optimizations,
+        get_kelly_with_recovery_compensation,
+        create_accelerated_blacklist_checker,
+        _cache_warmup_engine
+    )
+    V5_165_PREMARKET_AVAILABLE = True
+    print("✅ v5.165盤前優化模塊已加載")
+except ImportError as e:
+    print(f"⚠️  v5.165盤前優化模塊未找到: {e}")
+    V5_165_PREMARKET_AVAILABLE = False
 from data_collector import (
     get_stock_daily, get_realtime_quotes, get_market_sentiment,
     get_hot_stocks, get_stock_research_reports, get_stock_news,
@@ -13,6 +27,19 @@ from data_collector import (
 from performance_tracker import classify_sector, record_recommendation
 from position_manager import SECTOR_STRATEGY_WEIGHTS, get_sector_score_multiplier, kelly_position_size, get_stop_loss_blacklist, get_sector_stop_loss_penalty
 from entry_quality import enrich_candidates_with_entry_quality, adjust_score_by_entry_quality
+
+# 初始化全局黑名單加速器
+_global_blacklist_accelerator = None
+
+# 盤前優化初始化函數
+def init_premarket_optimizations():
+    """盤前優化初始化 - 在模塊加載時調用"""
+    global _global_blacklist_accelerator
+    
+    if V5_165_PREMARKET_AVAILABLE:
+        initialize_premarket_optimizations()
+        _global_blacklist_accelerator = create_accelerated_blacklist_checker()
+        print("🚀 v5.165盤前優化已初始化")
 
 # v5.65: 集成v5.64深度优化函数
 try:

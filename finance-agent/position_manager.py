@@ -1,7 +1,18 @@
-"""仓位管理器 — 动态仓位+风控+止盈止损+追踪止损+板块策略路由+时间止损+市场状态+回撤熔断+风险平价+止损黑名单"""
+"""仓位管理器 — 动态仓位+风控+止盈止损+追踪止损+板块策略路由+时间止损+市场状态+回撤熔断+风险平价+止损黑名单 [v5.165盤前優化集成]"""
 
 from datetime import datetime, date, timedelta
 from config import *
+
+# v5.165: 黑名单加速器
+try:
+    from v5_165_PREMARKET_CACHE_WARMUP import create_accelerated_blacklist_checker
+    V5_165_BLACKLIST_AVAILABLE = True
+    _accelerated_blacklist = create_accelerated_blacklist_checker()
+    print("✅ v5.165黑名单加速器已加载")
+except ImportError:
+    print("⚠️  v5.165黑名单加速器未找到")
+    V5_165_BLACKLIST_AVAILABLE = False
+    _accelerated_blacklist = None
 
 # v5.65: 集成v5.64深度优化函数
 try:
